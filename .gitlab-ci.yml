@@ -1,0 +1,8 @@
+stages:
+  - validate
+
+mobile-validate:
+  stage: validate
+  image: ghcr.io/cirruslabs/flutter:stable
+  script:
+    - ./scripts/validate.sh
