@@ -21,6 +21,9 @@ cd "${PROJECT_ROOT}"
 printf 'Resolving dependencies...\n'
 flutter pub get
 
+printf 'Checking dart format...\n'
+dart format --set-exit-if-changed lib test
+
 printf 'Running flutter analyze...\n'
 flutter analyze
 

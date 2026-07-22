@@ -13,9 +13,7 @@ class HomeScreen extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(config.appName),
-      ),
+      appBar: AppBar(title: Text(config.appName)),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

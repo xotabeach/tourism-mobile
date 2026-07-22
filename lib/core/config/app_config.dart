@@ -1,10 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum AppFlavor {
-  dev,
-  staging,
-  production,
-}
+enum AppFlavor { dev, staging, production }
 
 class AppConfig {
   const AppConfig({
