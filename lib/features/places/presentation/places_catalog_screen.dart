@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
-import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class PlacesCatalogScreen extends ConsumerWidget {
   const PlacesCatalogScreen({super.key});
@@ -33,8 +33,9 @@ class PlacesCatalogScreen extends ConsumerWidget {
                       place.categories.map((c) => c.name).join(', '),
                 ),
                 trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.push(
-                  PlaceDetailsScreen.routePath.replaceFirst(':id', place.id),
+                onTap: () => context.pushNamed(
+                  AppRouteNames.placeDetails,
+                  pathParameters: {'id': place.id},
                 ),
               );
             },

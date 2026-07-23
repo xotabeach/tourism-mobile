@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class TourismApp extends ConsumerWidget {
@@ -14,10 +15,7 @@ class TourismApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: config.appName,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1B6B93)),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       routerConfig: router,
     );
   }

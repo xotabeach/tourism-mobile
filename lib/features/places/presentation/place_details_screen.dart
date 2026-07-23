@@ -8,6 +8,9 @@ class PlaceDetailsScreen extends ConsumerWidget {
 
   static const routePath = '/places/:id';
 
+  /// Relative segment under the places branch (`/places/:id`).
+  static const routeSegment = ':id';
+
   final String placeId;
 
   @override

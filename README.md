@@ -6,7 +6,7 @@ Android и iOS.
 ## Назначение
 
 - Пользовательские сценарии поиска мест и работы с маршрутами.
-- Feature-first architecture с Riverpod, GoRouter и Dio.
+- Feature-first architecture с **Riverpod**, GoRouter и Dio.
 - Конфигурация dev / staging / production без встроенных secrets.
 
 ## Требования
@@ -27,31 +27,36 @@ flutter run
 ./scripts/validate.sh
 ```
 
-Стиль и DX: см. `tourism-platform/docs/development-environment.md`,
-`flutter-code-style.md`, `flutter-testing-guide.md`. Freezed — Phase 5.
+Архитектура Phase 5:
+`tourism-platform/docs/flutter-app-architecture.md`.
+Стиль: `flutter-code-style.md`, DX: `development-environment.md`.
 
 ## Структура
 
 ```text
 lib/
 ├── core/
-│   ├── config/       # AppFlavor и environment configuration
-│   └── network/      # Dio client providers
+│   ├── config/       # AppFlavor / AppConfig
+│   ├── theme/        # AppColors + AppTheme
+│   ├── network/      # Dio client
+│   ├── errors/       # AppFailure
+│   └── storage/      # SecureStorage port (Phase 6 tokens)
 ├── features/
-│   └── home/         # Первый feature module
-├── routing/          # GoRouter configuration
+│   ├── home/
+│   ├── places/
+│   └── shared/       # placeholder tabs helpers
+├── routing/
+│   ├── app_router.dart
+│   └── shell/        # bottom NavigationBar + StatefulShellRoute
 ├── app.dart
 └── main.dart
 ```
 
 ## Конфигурация окружений
 
-`AppConfig.fromFlavor` задаёт базовый URL API. Для staging и production
-используйте `--dart-define` или flavor-specific entrypoints по мере роста
-проекта.
+`AppConfig.fromFlavor` задаёт базовый URL API. Staging/production — HTTPS only.
 
-По умолчанию dev указывает на `http://localhost:8000` — local backend из
-`sibling` repository `tourism-backend`.
+По умолчанию dev указывает на `http://localhost:8000`.
 
 ## Связанные репозитории
 
