@@ -27,6 +27,9 @@ flutter run
 ./scripts/validate.sh
 ```
 
+Стиль и DX: см. `tourism-platform/docs/development-environment.md`,
+`flutter-code-style.md`, `flutter-testing-guide.md`. Freezed — Phase 5.
+
 ## Структура
 
 ```text

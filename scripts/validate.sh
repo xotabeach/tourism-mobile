@@ -25,7 +25,7 @@ printf 'Checking dart format...\n'
 dart format --set-exit-if-changed lib test
 
 printf 'Running flutter analyze...\n'
-flutter analyze
+flutter analyze --fatal-infos
 
 printf 'Running flutter test...\n'
 flutter test
