@@ -6,3 +6,9 @@ mobile-validate:
   image: ghcr.io/cirruslabs/flutter:stable
   script:
     - ./scripts/validate.sh
+  # Security notes:
+  # - flutter analyze + flutter test (includes test/security/)
+  # - Enable GitLab Secret Detection template when tier confirmed:
+  # include:
+  #   - template: Security/Secret-Detection.gitlab-ci.yml
+  allow_failure: false
