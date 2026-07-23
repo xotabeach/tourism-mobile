@@ -12,10 +12,7 @@ class ApiRoutesRepository implements RoutesRepository {
   Future<RouteListPage> listRoutes({String? regionSlug}) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/routes',
-      queryParameters: {
-        'region_slug': ?regionSlug,
-        'limit': 50,
-      },
+      queryParameters: {'region_slug': ?regionSlug, 'limit': 50},
     );
     return RouteListPage.fromJson(response.data!);
   }
