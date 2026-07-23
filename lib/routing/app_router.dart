@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
+import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
+import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/shared/presentation/placeholder_tab_screen.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
@@ -15,6 +17,7 @@ abstract final class AppRouteNames {
   static const places = 'places';
   static const placeDetails = 'place-details';
   static const routes = 'routes';
+  static const routeDetails = 'route-details';
   static const favorites = 'favorites';
   static const profile = 'profile';
 }
@@ -62,13 +65,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 name: AppRouteNames.routes,
-                path: '/routes',
-                builder: (context, state) => const PlaceholderTabScreen(
-                  title: 'Маршруты',
-                  message:
-                      'Редакционные маршруты появятся в Phase 4. '
-                      'Вкладка уже в shell.',
-                ),
+                path: RoutesCatalogScreen.routePath,
+                builder: (context, state) => const RoutesCatalogScreen(),
+                routes: [
+                  GoRoute(
+                    name: AppRouteNames.routeDetails,
+                    path: ':id',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    builder: (context, state) {
+                      final id = state.pathParameters['id']!;
+                      return RouteDetailsScreen(routeId: id);
+                    },
+                  ),
+                ],
               ),
             ],
           ),

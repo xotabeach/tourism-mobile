@@ -19,4 +19,23 @@ void main() {
     expect(find.text('Места Крыма'), findsOneWidget);
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
   });
+
+  testWidgets('routes tab shows editorial catalog from mock data', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: TourismApp()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Маршруты'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Маршруты Крыма'), findsOneWidget);
+    expect(find.text('Классика Южного берега'), findsOneWidget);
+
+    await tester.tap(find.text('Классика Южного берега'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Карточка маршрута'), findsOneWidget);
+    expect(find.text('Воронцовский дворец'), findsOneWidget);
+  });
 }
