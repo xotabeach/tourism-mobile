@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -29,9 +31,14 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Mobile foundation is ready. API: ${config.apiBaseUrl}',
+                'API: ${config.apiBaseUrl}',
                 style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              FilledButton(
+                onPressed: () => context.push(PlacesCatalogScreen.routePath),
+                child: const Text('Каталог мест'),
               ),
             ],
           ),
