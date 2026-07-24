@@ -16,6 +16,7 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteDetailsScreen extends ConsumerStatefulWidget {
   const RouteDetailsScreen({required this.routeId, super.key});
@@ -193,7 +194,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
                   _AudioGuideCard(
                     title: route.name,
                     author: route.authorLabel ?? 'КрымТрип редакция',
-                    image: _coverProvider(config, route),
+                    image: _routeCover(config, route),
                     onPlay: () => _showSoon('Аудиогид'),
                   ),
                   const SizedBox(height: 16),
@@ -225,6 +226,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
                       onNumberTap: () => _revealMap(index),
                       onOpen: () => _openPlace(route.stops[index]),
                     ),
+                  _SimilarRoutesSection(currentRouteId: route.id),
                   const SizedBox(height: 22),
                   const _RatingRow(rating: '4,9', topLabel: '# ТОП 153'),
                   const SizedBox(height: 14),
@@ -247,23 +249,197 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
       ..showSnackBar(SnackBar(content: Text('$feature появится позже')));
   }
 
-  ImageProvider _coverProvider(AppConfig config, RouteDetail route) {
-    if (AppImages.isAssetPath(route.coverImageUrl)) {
-      return AssetImage(route.coverImageUrl!);
-    }
-    final url = AppImages.resolveMediaUrl(config, route.coverImageUrl);
-    if (url != null) {
-      return NetworkImage(url);
-    }
-    return AssetImage(AppImages.routeFallbackAsset(route.slug));
-  }
-
   List<ImageProvider> _galleryImages(AppConfig config, RouteDetail route) {
-    final cover = _coverProvider(config, route);
+    final cover = _routeCover(config, route);
     final rest = AppImages.routeFallbacks
         .where((asset) => asset != route.coverImageUrl)
         .map<ImageProvider>(AssetImage.new);
     return [cover, ...rest];
+  }
+}
+
+ImageProvider _routeCover(AppConfig config, RouteSummary route) {
+  if (AppImages.isAssetPath(route.coverImageUrl)) {
+    return AssetImage(route.coverImageUrl!);
+  }
+  final url = AppImages.resolveMediaUrl(config, route.coverImageUrl);
+  if (url != null) {
+    return NetworkImage(url);
+  }
+  return AssetImage(AppImages.routeFallbackAsset(route.slug));
+}
+
+/// Other routes of the region, shown right before the reviews.
+class _SimilarRoutesSection extends ConsumerWidget {
+  const _SimilarRoutesSection({required this.currentRouteId});
+
+  static const double cardHeight = 172;
+  static const double cardWidth = 214;
+  static const int maxItems = 6;
+
+  final String currentRouteId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final page = ref.watch(routesListProvider);
+    final config = ref.watch(appConfigProvider);
+    final routes = page.valueOrNull?.items
+        .where((item) => item.id != currentRouteId)
+        .take(maxItems)
+        .toList(growable: false);
+
+    if (routes != null && routes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _SectionDivider(),
+        const _SectionTitle('Похожие маршруты:'),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: cardHeight,
+          child: routes == null
+              ? const _SimilarRoutesSkeleton()
+              : ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: EdgeInsets.zero,
+                  itemCount: routes.length,
+                  separatorBuilder: (context, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) {
+                    final route = routes[index];
+                    return _SimilarRouteCard(
+                      route: route,
+                      image: _routeCover(config, route),
+                      onTap: () => unawaited(
+                        context.pushNamed(
+                          AppRouteNames.routeDetails,
+                          pathParameters: {'id': route.id},
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SimilarRoutesSkeleton extends StatelessWidget {
+  const _SimilarRoutesSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      scrollDirection: Axis.horizontal,
+      padding: EdgeInsets.zero,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: 2,
+      separatorBuilder: (context, _) => const SizedBox(width: 10),
+      itemBuilder: (context, _) => Container(
+        width: _SimilarRoutesSection.cardWidth,
+        decoration: BoxDecoration(
+          color: AppColors.controlSurface,
+          borderRadius: BorderRadius.circular(18),
+        ),
+      ),
+    );
+  }
+}
+
+class _SimilarRouteCard extends StatelessWidget {
+  const _SimilarRouteCard({
+    required this.route,
+    required this.image,
+    required this.onTap,
+  });
+
+  final RouteSummary route;
+  final ImageProvider image;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = [
+      formatDistanceKm(route.distanceMeters),
+      transportLabel(route.transportMode),
+      '${route.stopsCount} точек',
+    ].join(' · ');
+
+    return Semantics(
+      button: true,
+      label: 'Похожий маршрут: ${route.name}',
+      child: SizedBox(
+        width: _SimilarRoutesSection.cardWidth,
+        child: Material(
+          color: AppColors.controlSurface,
+          borderRadius: BorderRadius.circular(18),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image(
+                  image: image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, _) =>
+                      const ColoredBox(color: AppColors.controlSurface),
+                ),
+                const DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x00000000), Color(0xCC000000)],
+                      stops: [0.38, 1],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        route.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        meta,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 1.2,
+                          color: Colors.white.withValues(alpha: 0.82),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

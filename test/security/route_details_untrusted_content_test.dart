@@ -23,7 +23,23 @@ final _oversizedDescription = 'ЖЖЖ ' * 4000;
 class _HostileRoutesRepository implements RoutesRepository {
   @override
   Future<RouteListPage> listRoutes({String? regionSlug}) async {
-    return const RouteListPage(items: [], total: 0, limit: 20, offset: 0);
+    return RouteListPage(
+      items: [
+        RouteSummary(
+          id: 'similar-1',
+          name: 'Похожий $_xss',
+          slug: 'hostile-similar',
+          shortDescription: _oversizedDescription,
+          stopsCount: 3,
+          distanceMeters: 5100,
+          transportMode: 'walk',
+          coverImageUrl: 'javascript:alert(1)',
+        ),
+      ],
+      total: 1,
+      limit: 20,
+      offset: 0,
+    );
   }
 
   @override
@@ -142,5 +158,20 @@ void main() {
     await _pumpDetails(tester);
 
     expect(find.textContaining('../../etc/passwd'), findsNothing);
+  });
+
+  testWidgets('similar routes render untrusted titles as bounded text', (
+    tester,
+  ) async {
+    await _pumpDetails(tester);
+
+    final card = find.text('Похожий $_xss');
+    await tester.ensureVisible(card);
+    await tester.pumpAndSettle();
+
+    final title = tester.widget<Text>(card);
+    expect(title.maxLines, 2);
+    expect(title.overflow, TextOverflow.ellipsis);
+    expect(tester.takeException(), isNull);
   });
 }

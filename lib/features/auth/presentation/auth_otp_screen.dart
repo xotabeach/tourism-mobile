@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -83,22 +81,25 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
                 'ПОДТВЕРДИТЕ\nНОМЕР',
                 style: AppTextStyles.displayTitle(fontSize: 41, height: 1.2),
               ),
-              const SizedBox(height: 27),
-              Row(
-                children: [
-                  for (var index = 0; index < 4; index++) ...[
-                    if (index > 0) const SizedBox(width: 8),
-                    Expanded(
-                      child: _OtpField(
-                        controller: _controllers[index],
-                        focusNode: _focusNodes[index],
-                        onChanged: (value) => _onDigitChanged(index, value),
+              const SizedBox(height: 19),
+              SizedBox(
+                height: _OtpField.rowHeight,
+                child: Row(
+                  children: [
+                    for (var index = 0; index < 4; index++) ...[
+                      if (index > 0) const SizedBox(width: 8),
+                      Expanded(
+                        child: _OtpField(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          onChanged: (value) => _onDigitChanged(index, value),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
-              const SizedBox(height: 31),
+              const SizedBox(height: 23),
               _ConsentTile(
                 value: _privacyAccepted,
                 onChanged: (v) => setState(() => _privacyAccepted = v),
@@ -126,13 +127,21 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
   }
 }
 
-/// One code box that pops open when its digit lands.
+/// One code box that grows taller once its digit lands and stays that way
+/// until the digit is erased.
 class _OtpField extends StatefulWidget {
   const _OtpField({
     required this.controller,
     required this.focusNode,
     required this.onChanged,
   });
+
+  static const double emptyHeight = 58;
+  static const double filledHeight = 70;
+
+  /// Fixed row height so growing boxes never push the rest of the form; the
+  /// extra space also absorbs the spring overshoot.
+  static const double rowHeight = 74;
 
   final TextEditingController controller;
   final FocusNode focusNode;
@@ -142,38 +151,17 @@ class _OtpField extends StatefulWidget {
   State<_OtpField> createState() => _OtpFieldState();
 }
 
-class _OtpFieldState extends State<_OtpField>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
+class _OtpFieldState extends State<_OtpField> {
   var _filled = false;
 
   @override
   void initState() {
     super.initState();
     _filled = widget.controller.text.isNotEmpty;
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 320),
-    );
-    _scale = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween(begin: 1, end: 1.08), weight: 42),
-      TweenSequenceItem(tween: Tween(begin: 1.08, end: 1), weight: 58),
-    ]).animate(CurvedAnimation(parent: _controller, curve: AppMotion.standard));
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 
   void _handleChanged(String value) {
-    final filled = value.isNotEmpty;
-    if (filled && !_filled && !MediaQuery.disableAnimationsOf(context)) {
-      unawaited(_controller.forward(from: 0));
-    }
-    setState(() => _filled = filled);
+    setState(() => _filled = value.isNotEmpty);
     widget.onChanged(value);
   }
 
@@ -181,12 +169,11 @@ class _OtpFieldState extends State<_OtpField>
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    return ScaleTransition(
-      scale: _scale,
+    return Center(
       child: AnimatedContainer(
-        duration: reduceMotion ? AppMotion.reduced : AppMotion.normal,
-        curve: AppMotion.standard,
-        height: 58,
+        duration: reduceMotion ? AppMotion.reduced : AppMotion.emphasized,
+        curve: reduceMotion ? Curves.linear : AppMotion.spring,
+        height: _filled ? _OtpField.filledHeight : _OtpField.emptyHeight,
         decoration: BoxDecoration(
           color: _filled ? Colors.white : AppColors.controlSurface,
           borderRadius: BorderRadius.circular(14),
