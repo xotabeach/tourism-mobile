@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 
 const _testConfig = AppConfig(
   flavor: AppFlavor.dev,
@@ -60,8 +61,8 @@ void main() {
     for (var i = 0; i < 4; i++) {
       await tester.enterText(otpFields.at(i), '${i + 1}');
     }
-    await tester.tap(find.byType(CheckboxListTile).at(0));
-    await tester.tap(find.byType(CheckboxListTile).at(1));
+    await tester.tap(find.textContaining('политикой конфиденциальности'));
+    await tester.tap(find.textContaining('персональных данных'));
     await tester.pump();
     await tester.tap(find.text('Начать путешествие'));
     await tester.pumpAndSettle();
@@ -77,27 +78,41 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
-    await tester.tap(find.byIcon(Icons.map_outlined));
+    await tester.tap(find.bySemanticsLabel('Карта'));
     await tester.pumpAndSettle();
 
     expect(find.text('Места Крыма'), findsOneWidget);
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
   });
 
-  testWidgets('routes tab shows editorial catalog from mock data', (
+  testWidgets('routes tab shows swipe deck from mock data', (
     WidgetTester tester,
   ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 852);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.workspaces_outline));
+    await tester.tap(find.bySemanticsLabel('Маршруты'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Классика Южного берега'), findsOneWidget);
-
-    await tester.tap(find.text('Классика Южного берега'));
+    expect(find.text('Хорошо'), findsOneWidget);
+    await tester.tap(find.text('Хорошо'));
     await tester.pumpAndSettle();
 
-    expect(find.text('КрымТрип редакция'), findsOneWidget);
+    expect(find.byType(RouteSwipeDeck), findsOneWidget);
+    expect(find.text('Классика Южного берега'), findsWidgets);
+
+    await tester.tap(find.text('Классика Южного берега').first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('КрымТрип редакция'), findsWidgets);
   });
 }

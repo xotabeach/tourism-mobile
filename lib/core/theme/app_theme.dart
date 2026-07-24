@@ -1,161 +1,145 @@
 import 'package:flutter/material.dart';
 
-import 'package:tourism_mobile/core/theme/app_colors.dart';
-import 'package:tourism_mobile/core/theme/app_fonts.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 
 abstract final class AppTheme {
   static ThemeData get light {
     final colorScheme = ColorScheme.fromSeed(
       seedColor: AppColors.ink,
       primary: AppColors.ink,
-      surface: Colors.white,
+      surface: AppColors.elevatedSurface,
+      error: AppColors.error,
       brightness: Brightness.light,
+    );
+
+    const fieldBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.all(Radius.circular(AppRadii.field)),
+      borderSide: BorderSide(color: Color(0xFFD5D5D8)),
     );
 
     return ThemeData(
       useMaterial3: true,
       fontFamily: AppFonts.rubik,
       colorScheme: colorScheme,
-      scaffoldBackgroundColor: Colors.white,
+      scaffoldBackgroundColor: AppColors.mist,
       appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.mist,
         foregroundColor: AppColors.ink,
         elevation: 0,
         centerTitle: false,
         scrolledUnderElevation: 0,
       ),
-      inputDecorationTheme: InputDecorationTheme(
+      inputDecorationTheme: const InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.mist,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 18,
-          vertical: 16,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
+        fillColor: Color(0x35FFFFFF),
+        contentPadding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        border: fieldBorder,
+        enabledBorder: fieldBorder,
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: AppColors.ink, width: 1.2),
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.field)),
+          borderSide: BorderSide(color: AppColors.primaryInk, width: 1.2),
         ),
-        hintStyle: const TextStyle(
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.field)),
+          borderSide: BorderSide(color: AppColors.error, width: 1),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(AppRadii.field)),
+          borderSide: BorderSide(color: AppColors.error, width: 1.2),
+        ),
+        hintStyle: TextStyle(
           color: AppColors.inkSoft,
-          fontSize: 16,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0,
           fontFamily: AppFonts.rubik,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(48, 56),
+          minimumSize: const Size(48, 54),
           backgroundColor: AppColors.ink,
           foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            fontFamily: AppFonts.rubik,
-          ),
+          disabledBackgroundColor: AppColors.mistDark,
+          disabledForegroundColor: AppColors.inkSoft,
+          shape: const StadiumBorder(),
+          textStyle: AppTypography.button,
         ),
       ),
       chipTheme: ChipThemeData(
-        backgroundColor: AppColors.mist,
+        backgroundColor: Colors.white,
         selectedColor: AppColors.ink,
-        labelStyle: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontFamily: AppFonts.rubik,
+        labelStyle: AppTypography.chip,
+        secondaryLabelStyle: AppTypography.chip.copyWith(color: Colors.white),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadii.chip),
+          side: const BorderSide(color: Color(0xFFE4E4E8)),
         ),
-        secondaryLabelStyle: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          fontFamily: AppFonts.rubik,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        side: BorderSide.none,
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: AppColors.glass,
-        indicatorColor: AppColors.mistDark,
-        elevation: 0,
-        height: 68,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return TextStyle(
-            fontFamily: AppFonts.rubik,
-            fontSize: 11,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? AppColors.ink : AppColors.inkSoft,
-          );
-        }),
+        side: const BorderSide(color: Color(0xFFE4E4E8)),
       ),
       textTheme: const TextTheme(
         displaySmall: TextStyle(
           fontFamily: AppFonts.rubik,
           fontSize: 34,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           height: 1.1,
+          letterSpacing: 0,
           color: AppColors.ink,
-          letterSpacing: -0.5,
-          fontVariations: [FontVariation('wght', 800)],
         ),
         headlineMedium: TextStyle(
           fontFamily: AppFonts.rubik,
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
-          height: 1.15,
+          fontSize: 34,
+          fontWeight: FontWeight.w600,
+          height: 1.08,
+          letterSpacing: 0,
           color: AppColors.ink,
-          letterSpacing: -0.4,
-          fontVariations: [FontVariation('wght', 800)],
         ),
         headlineSmall: TextStyle(
           fontFamily: AppFonts.rubik,
           fontSize: 22,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
           color: AppColors.ink,
-          fontVariations: [FontVariation('wght', 700)],
         ),
         titleLarge: TextStyle(
           fontFamily: AppFonts.rubik,
           fontSize: 18,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
           color: AppColors.ink,
-          fontVariations: [FontVariation('wght', 700)],
         ),
         titleMedium: TextStyle(
           fontFamily: AppFonts.rubik,
-          fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          letterSpacing: 0,
           color: AppColors.ink,
-          fontVariations: [FontVariation('wght', 600)],
         ),
         bodyLarge: TextStyle(
           fontFamily: AppFonts.rubik,
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w400,
+          letterSpacing: 0,
           color: AppColors.inkSoft,
           height: 1.35,
-          fontVariations: [FontVariation('wght', 400)],
         ),
         bodyMedium: TextStyle(
           fontFamily: AppFonts.rubik,
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w400,
+          letterSpacing: 0,
           color: AppColors.inkSoft,
-          fontVariations: [FontVariation('wght', 400)],
         ),
         labelLarge: TextStyle(
           fontFamily: AppFonts.rubik,
-          fontSize: 14,
+          fontSize: 13,
           fontWeight: FontWeight.w600,
+          letterSpacing: 0,
           color: AppColors.ink,
-          fontVariations: [FontVariation('wght', 600)],
         ),
       ),
     );

@@ -2,7 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tourism_mobile/core/theme/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -36,13 +42,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         'море' =>
           haystack.contains('берег') ||
               haystack.contains('ялт') ||
-              haystack.contains('мор'),
+              haystack.contains('мор') ||
+              haystack.contains('фиолент') ||
+              haystack.contains('свет'),
         'горы' =>
           haystack.contains('гор') ||
               haystack.contains('бахчисар') ||
-              haystack.contains('кале'),
+              haystack.contains('кале') ||
+              haystack.contains('петри'),
         'еда' => haystack.contains('еда') || haystack.contains('кухн'),
-        'лес' => haystack.contains('лес') || haystack.contains('троп'),
+        'лес' =>
+          haystack.contains('лес') ||
+              haystack.contains('троп') ||
+              haystack.contains('сосны'),
         _ => true,
       };
     }).toList();
@@ -55,194 +67,153 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final name = (session.displayName?.trim().isNotEmpty ?? false)
         ? session.displayName!.trim()
         : 'путник';
+    final topInset = MediaQuery.paddingOf(context).top;
 
-    return Scaffold(
-      backgroundColor: AppColors.mist,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 26, 24, 0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const CircleAvatar(
-                          radius: 28,
-                          backgroundColor: AppColors.mistDark,
-                          backgroundImage: AssetImage(
-                            AppImages.travelerPortrait,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Привет, $name!',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Может пройдемся?',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Material(
-                          color: AppColors.mistDark,
-                          shape: const CircleBorder(),
-                          child: IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.notifications_none_rounded),
-                            iconSize: 30,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 34),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            readOnly: true,
-                            onTap: () => context.goNamed(AppRouteNames.routes),
-                            decoration: const InputDecoration(
-                              hintText: 'Искать маршруты и места',
-                              prefixIcon: Icon(Icons.search, size: 34),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 18,
-                                vertical: 17,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Material(
-                          color: AppColors.mistDark,
-                          shape: const CircleBorder(),
-                          child: IconButton(
-                            onPressed: () =>
-                                context.goNamed(AppRouteNames.places),
-                            icon: const Icon(Icons.tune_rounded),
-                            iconSize: 30,
-                            padding: const EdgeInsets.all(15),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 34),
-                    const BuildRouteBanner(),
-                    const SizedBox(height: 30),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Топ путешественников',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleLarge?.copyWith(fontSize: 22),
-                          ),
-                        ),
-                        Text(
-                          'Весь топ',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: AppColors.inkSoft),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    const _TopTravelersRow(),
-                    const SizedBox(height: 28),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Маршруты',
-                            style: Theme.of(
-                              context,
-                            ).textTheme.titleLarge?.copyWith(fontSize: 24),
-                          ),
-                        ),
-                        Text(
-                          'Листать все',
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(color: AppColors.inkSoft),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _chips.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final chip = _chips[index];
-                          final selected = chip == _selectedChip;
-                          return FilterChip(
-                            selected: selected,
-                            showCheckmark: false,
-                            label: Text(
-                              chip,
-                              style: TextStyle(
-                                color: selected ? Colors.white : AppColors.ink,
-                              ),
-                            ),
-                            onSelected: (_) =>
-                                setState(() => _selectedChip = chip),
-                          );
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
+    return ColoredBox(
+      color: AppColors.mist,
+      child: routesAsync.when(
+        data: (page) {
+          final items = _filtered(page.items);
+          return ListView.builder(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              topInset + AppSpacing.md,
+              AppSpacing.page,
+              120,
+            ),
+            itemCount: 1 + (items.isEmpty ? 1 : items.length),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _HomeHeader(
+                  name: name,
+                  selectedChip: _selectedChip,
+                  chips: _chips,
+                  onChipSelected: (chip) =>
+                      setState(() => _selectedChip = chip),
+                );
+              }
+              if (items.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: Center(child: Text('Маршруты не найдены')),
+                );
+              }
+              final route = items[index - 1];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: RouteHeroCard(
+                  route: route,
+                  height: 304,
+                  tags: index == 1
+                      ? const ['Горы', 'С детьми', 'Пешком']
+                      : const [],
                 ),
+              );
+            },
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => Center(child: Text('Ошибка: $error')),
+      ),
+    );
+  }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.name,
+    required this.selectedChip,
+    required this.chips,
+    required this.onChipSelected,
+  });
+
+  final String name;
+  final String selectedChip;
+  final List<String> chips;
+  final ValueChanged<String> onChipSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const CircleAvatar(
+              radius: 24,
+              backgroundColor: AppColors.mistDark,
+              backgroundImage: AssetImage(AppImages.travelerPortrait),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Привет, $name!', style: AppTypography.greeting),
+                  const SizedBox(height: 2),
+                  const Text(
+                    'Может пройдемся?',
+                    style: AppTypography.greetingSubtitle,
+                  ),
+                ],
               ),
             ),
-            routesAsync.when(
-              data: (page) {
-                final items = _filtered(page.items);
-                if (items.isEmpty) {
-                  return const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: Text('Маршруты не найдены')),
-                  );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 104),
-                  sliver: SliverList.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      return RouteHeroCard(
-                        route: items[index],
-                        height: 360,
-                        tags: index == 0
-                            ? const ['Горы', 'С детьми', 'Пешком']
-                            : const [],
-                      );
-                    },
-                  ),
-                );
-              },
-              loading: () => const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
+            AppGlassIconButton(
+              iconAsset: AppIconography.bell,
+              semanticLabel: 'Уведомления',
+              onPressed: () {},
+              dimension: 52,
+              fillColor: AppColors.glassFillStrong,
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        AppSearchFilterRow(
+          onSearchTap: () => context.goNamed(AppRouteNames.routes),
+          onFilterTap: () => context.goNamed(AppRouteNames.places),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        const BuildRouteBanner(),
+        const SizedBox(height: AppSpacing.xl),
+        const Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Топ путешественников',
+                style: AppTypography.sectionTitle,
               ),
-              error: (error, _) => SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: Text('Ошибка: $error')),
+            ),
+            Text('Весь топ', style: AppTypography.sectionAction),
+          ],
+        ),
+        const SizedBox(height: 12),
+        const _TopTravelersRow(),
+        const SizedBox(height: AppSpacing.xl),
+        Row(
+          children: [
+            const Expanded(
+              child: Text('Маршруты', style: AppTypography.sectionTitle),
+            ),
+            GestureDetector(
+              onTap: () => context.goNamed(AppRouteNames.routes),
+              child: const Text(
+                'Листать все',
+                style: AppTypography.sectionAction,
               ),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 10),
+        AppFilterChipBar(
+          labels: chips,
+          selected: selectedChip,
+          onSelected: onChipSelected,
+        ),
+        const SizedBox(height: 14),
+      ],
     );
   }
 }
@@ -264,42 +235,41 @@ class _TopTravelersRow extends StatelessWidget {
           if (i > 0) const SizedBox(width: 10),
           Expanded(
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+              height: 116,
+              padding: const EdgeInsets.fromLTRB(6, 10, 6, 9),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 14,
-                    offset: const Offset(0, 7),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: AppShadows.card,
               ),
               child: Column(
                 children: [
                   Container(
-                    width: 58,
-                    height: 58,
-                    padding: const EdgeInsets.all(3),
+                    width: 54,
+                    height: 54,
+                    padding: const EdgeInsets.all(2),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: _travelers[i].$3, width: 2.5),
+                      border: Border.all(color: _travelers[i].$3, width: 2),
                     ),
                     child: const CircleAvatar(
                       backgroundImage: AssetImage(AppImages.travelerPortrait),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 5),
                   Text(
                     _travelers[i].$1,
-                    style: Theme.of(context).textTheme.labelLarge,
+                    style: AppTypography.chip.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   Text(
                     _travelers[i].$2,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    style: AppTypography.routeMetadata.copyWith(
+                      color: AppColors.secondaryInk,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),

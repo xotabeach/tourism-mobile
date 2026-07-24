@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
@@ -62,17 +63,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         name: AppRouteNames.welcome,
         path: WelcomeScreen.routePath,
-        builder: (context, state) => const WelcomeScreen(),
+        pageBuilder: (context, state) =>
+            _appTransitionPage(state, const WelcomeScreen()),
       ),
       GoRoute(
         name: AppRouteNames.authIdentity,
         path: AuthIdentityScreen.routePath,
-        builder: (context, state) => const AuthIdentityScreen(),
+        pageBuilder: (context, state) =>
+            _appTransitionPage(state, const AuthIdentityScreen()),
       ),
       GoRoute(
         name: AppRouteNames.authOtp,
         path: AuthOtpScreen.routePath,
-        builder: (context, state) => const AuthOtpScreen(),
+        pageBuilder: (context, state) =>
+            _appTransitionPage(state, const AuthOtpScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -99,9 +103,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     name: AppRouteNames.routeDetails,
                     path: ':id',
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return RouteDetailsScreen(routeId: id);
+                      return _appTransitionPage(
+                        state,
+                        RouteDetailsScreen(routeId: id),
+                      );
                     },
                   ),
                 ],
@@ -132,9 +139,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     name: AppRouteNames.placeDetails,
                     path: ':id',
                     parentNavigatorKey: _rootNavigatorKey,
-                    builder: (context, state) {
+                    pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return PlaceDetailsScreen(placeId: id);
+                      return _appTransitionPage(
+                        state,
+                        PlaceDetailsScreen(placeId: id),
+                      );
                     },
                   ),
                 ],
@@ -158,6 +168,37 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+CustomTransitionPage<void> _appTransitionPage(
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: AppMotion.normal,
+    reverseTransitionDuration: AppMotion.fast,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final reduceMotion = MediaQuery.disableAnimationsOf(context);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: AppMotion.standard,
+        reverseCurve: Curves.easeInCubic,
+      );
+      final faded = FadeTransition(opacity: curved, child: child);
+      if (reduceMotion) {
+        return faded;
+      }
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.014),
+          end: Offset.zero,
+        ).animate(curved),
+        child: faded,
+      );
+    },
+  );
+}
 
 class _SessionListenable extends ChangeNotifier {
   _SessionListenable(Ref ref) {

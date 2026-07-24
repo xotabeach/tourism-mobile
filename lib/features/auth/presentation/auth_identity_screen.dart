@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
 import 'package:tourism_mobile/features/auth/presentation/ru_phone_input_formatter.dart';
@@ -57,7 +58,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
       backgroundColor: AppColors.mist,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 128, 24, 24),
+          padding: const EdgeInsets.fromLTRB(24, 96, 24, 24),
           child: Form(
             key: _formKey,
             child: Column(
@@ -66,20 +67,16 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                 Text(
                   'КРЫМТРИП',
                   style: AppTextStyles.logo(
-                    color: AppColors.ink.withValues(alpha: 0.42),
-                  ).copyWith(fontSize: 20),
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'ЗДРАВСТВУЙ,\nПУТНИК',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontFamily: AppFonts.rubik,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 42,
-                    height: 1.12,
+                    color: AppColors.ink.withValues(alpha: 0.45),
+                    fontSize: 16,
                   ),
                 ),
-                const SizedBox(height: 34),
+                const SizedBox(height: 22),
+                Text(
+                  'ЗДРАВСТВУЙ,\nПУТНИК',
+                  style: AppTextStyles.displayTitle(fontSize: 40),
+                ),
+                const SizedBox(height: 36),
                 TextFormField(
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
@@ -98,14 +95,22 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.done,
                   inputFormatters: [RuPhoneInputFormatter()],
                   decoration: const InputDecoration(
-                    hintText: '+7 999 123-45-67',
+                    hintText: 'Введите ваш номер телефона',
+                    prefixIcon: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: AppAssetIcon(
+                        AppIconography.phone,
+                        size: 24,
+                        color: AppColors.ink,
+                      ),
+                    ),
                   ),
                   validator: (value) {
                     if (!RuPhoneInputFormatter.isComplete(value ?? '')) {
@@ -115,14 +120,10 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                   },
                   onFieldSubmitted: (_) => _continue(),
                 ),
-                const SizedBox(height: 34),
+                const SizedBox(height: 28),
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton(
-                    style: FilledButton.styleFrom(
-                      shape: const StadiumBorder(),
-                      padding: const EdgeInsets.symmetric(vertical: 19),
-                    ),
                     onPressed: _continue,
                     child: const Text('Продолжить'),
                   ),

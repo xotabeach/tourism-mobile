@@ -15,6 +15,7 @@ class TourismApp extends ConsumerWidget {
 
     return MaterialApp.router(
       title: config.appName,
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,
     );

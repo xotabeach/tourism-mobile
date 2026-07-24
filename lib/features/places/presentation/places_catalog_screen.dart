@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -44,9 +45,14 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   Widget build(BuildContext context) {
     final placesAsync = ref.watch(placesListProvider);
 
-    return Scaffold(
-      body: SafeArea(
+    return ColoredBox(
+      color: AppColors.mist,
+      child: SafeArea(
+        bottom: false,
         child: CustomScrollView(
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
           slivers: [
             SliverToBoxAdapter(
               child: Padding(
@@ -63,8 +69,22 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                       readOnly: true,
                       decoration: InputDecoration(
                         hintText: 'Искать места и категории',
-                        prefixIcon: Icon(Icons.search),
-                        suffixIcon: Icon(Icons.tune_rounded),
+                        prefixIcon: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: AppAssetIcon(
+                            AppIconography.search,
+                            size: 24,
+                            color: AppColors.ink,
+                          ),
+                        ),
+                        suffixIcon: Padding(
+                          padding: EdgeInsets.all(12),
+                          child: AppAssetIcon(
+                            AppIconography.filter,
+                            size: 24,
+                            color: AppColors.ink,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -161,7 +181,7 @@ class _PlaceCatalogCard extends StatelessWidget {
                   left: Radius.circular(24),
                 ),
                 child: Image.asset(
-                  AppImages.routeFallbackAsset(place.slug),
+                  AppImages.placeCoverAsset(place.slug),
                   width: 116,
                   height: 142,
                   fit: BoxFit.cover,

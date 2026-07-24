@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -23,7 +24,7 @@ class PlaceDetailsScreen extends ConsumerWidget {
     return Scaffold(
       body: placeAsync.when(
         data: (place) {
-          final heroAsset = AppImages.routeFallbackAsset(place.slug);
+          final heroAsset = AppImages.placeCoverAsset(place.slug);
           return CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -34,7 +35,10 @@ class PlaceDetailsScreen extends ConsumerWidget {
                 actions: [
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.favorite_border_rounded),
+                    icon: const AppAssetIcon(
+                      AppIconography.heart,
+                      color: Colors.white,
+                    ),
                   ),
                   IconButton(
                     onPressed: () {},

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tourism_mobile/core/theme/app_colors.dart';
-import 'package:tourism_mobile/core/theme/app_fonts.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -21,77 +24,84 @@ class WelcomeScreen extends StatelessWidget {
           const _WelcomeBackdrop(),
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(22, 16, 22, 26),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.md,
+                AppSpacing.lg,
+                AppSpacing.sm,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Spacer(),
                   Text(
                     'КРЫМТРИП',
-                    style: AppTextStyles.logo(
-                      color: Colors.white.withValues(alpha: 0.62),
-                    ).copyWith(fontSize: 20),
+                    style: AppTypography.welcomeBrand.copyWith(
+                      color: Colors.white.withValues(alpha: 0.58),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'ПОСТРОЙ СВОЙ\nИДЕАЛЬНЫЙ\nВЫХОДНОЙ',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    style: AppTypography.welcomeTitle.copyWith(
                       color: Colors.white,
-                      fontSize: 40,
-                      height: 1.08,
-                      fontFamily: AppFonts.rubik,
-                      fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
                   Text(
                     'ПУТЕШЕСТВУЙ, ДЕЛИСЬ,\nНАХОДИ, ВДОХНОВЛЯЙСЯ.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.58),
-                      fontSize: 20,
-                      height: 1.22,
-                      letterSpacing: 0.8,
-                      fontWeight: FontWeight.w800,
-                      fontFamily: AppFonts.rubik,
+                    style: AppTypography.welcomeSubtitle.copyWith(
+                      color: Colors.white.withValues(alpha: 0.62),
                     ),
                   ),
-                  const SizedBox(height: 36),
+                  const SizedBox(height: 28),
                   Row(
                     children: [
-                      Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () =>
-                              context.goNamed(AppRouteNames.authIdentity),
-                          child: const SizedBox.square(
-                            dimension: 62,
-                            child: Icon(
-                              Icons.person,
-                              color: AppColors.ink,
-                              size: 32,
+                      AppGlassCircle(
+                        dimension: 54,
+                        blur: 16,
+                        fillColor: Colors.white.withValues(alpha: 0.82),
+                        child: Semantics(
+                          button: true,
+                          label: 'Открыть профиль',
+                          child: IconButton(
+                            onPressed: () =>
+                                context.goNamed(AppRouteNames.authIdentity),
+                            icon: const AppAssetIcon(
+                              AppIconography.profileSelected,
+                              color: AppColors.primaryInk,
+                              size: 28,
                             ),
+                            padding: EdgeInsets.zero,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: FilledButton(
-                          style: FilledButton.styleFrom(
-                            backgroundColor: Colors.white.withValues(
-                              alpha: 0.22,
+                        child: SizedBox(
+                          height: 54,
+                          child: AppGlassSurface(
+                            borderRadius: 999,
+                            blur: 18,
+                            fillColor: Colors.white.withValues(alpha: 0.22),
+                            borderColor: Colors.white.withValues(alpha: 0.52),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(999),
+                                onTap: () =>
+                                    context.goNamed(AppRouteNames.authIdentity),
+                                child: Center(
+                                  child: Text(
+                                    'Начать путешествие',
+                                    style: AppTypography.button.copyWith(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
                             ),
-                            foregroundColor: Colors.white,
-                            side: BorderSide(
-                              color: Colors.white.withValues(alpha: 0.42),
-                            ),
-                            shape: const StadiumBorder(),
-                            padding: const EdgeInsets.symmetric(vertical: 19),
                           ),
-                          onPressed: () =>
-                              context.goNamed(AppRouteNames.authIdentity),
-                          child: const Text('Начать путешествие'),
                         ),
                       ),
                     ],
@@ -117,6 +127,7 @@ class _WelcomeBackdrop extends StatelessWidget {
         Image.asset(
           AppImages.welcomeSunset,
           fit: BoxFit.cover,
+          alignment: const Alignment(-0.12, 0),
           errorBuilder: (_, _, _) =>
               const ColoredBox(color: AppColors.sunsetMid),
         ),
@@ -126,11 +137,11 @@ class _WelcomeBackdrop extends StatelessWidget {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withValues(alpha: 0.02),
-                Colors.black.withValues(alpha: 0.08),
-                Colors.black.withValues(alpha: 0.82),
+                Colors.black.withValues(alpha: 0),
+                Colors.black.withValues(alpha: 0.1),
+                Colors.black.withValues(alpha: 0.79),
               ],
-              stops: const [0.0, 0.48, 1.0],
+              stops: const [0, 0.44, 1],
             ),
           ),
         ),

@@ -64,88 +64,89 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
       backgroundColor: AppColors.mist,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 128, 24, 24),
+          padding: const EdgeInsets.fromLTRB(24, 96, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'КРЫМТРИП',
                 style: AppTextStyles.logo(
-                  color: AppColors.ink.withValues(alpha: 0.42),
-                ).copyWith(fontSize: 20),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'ПОДТВЕРДИТЕ\nНОМЕР',
-                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontFamily: AppFonts.rubik,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 42,
-                  height: 1.12,
+                  color: AppColors.ink.withValues(alpha: 0.45),
+                  fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 34),
+              const SizedBox(height: 22),
+              Text(
+                'ПОДТВЕРДИТЕ\nНОМЕР',
+                style: AppTextStyles.displayTitle(fontSize: 40),
+              ),
+              const SizedBox(height: 32),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(4, (index) {
-                  return SizedBox(
-                    width: 74,
-                    height: 58,
-                    child: TextField(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      style: Theme.of(context).textTheme.headlineSmall,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(1),
-                      ],
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: AppColors.mist,
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppColors.ink),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppColors.ink),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(
-                            color: AppColors.ink,
-                            width: 1.4,
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: index < 3 ? 10 : 0),
+                      child: SizedBox(
+                        height: 56,
+                        child: TextField(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          style: Theme.of(context).textTheme.headlineSmall
+                              ?.copyWith(letterSpacing: 0.4),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(1),
+                          ],
+                          decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: EdgeInsets.zero,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: AppColors.ink,
+                                width: 1,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: AppColors.ink,
+                                width: 1,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: const BorderSide(
+                                color: AppColors.ink,
+                                width: 1.4,
+                              ),
+                            ),
                           ),
+                          onChanged: (value) => _onDigitChanged(index, value),
                         ),
                       ),
-                      onChanged: (value) => _onDigitChanged(index, value),
                     ),
                   );
                 }),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 28),
               _ConsentTile(
                 value: _privacyAccepted,
-                onChanged: (v) => setState(() => _privacyAccepted = v ?? false),
-                label: 'Согласен с политикой конфиденциальности',
+                onChanged: (v) => setState(() => _privacyAccepted = v),
+                label: 'Я соглашаюсь с политикой конфиденциальности',
               ),
               _ConsentTile(
                 value: _personalDataAccepted,
-                onChanged: (v) =>
-                    setState(() => _personalDataAccepted = v ?? false),
-                label: 'Согласен на обработку персональных данных',
+                onChanged: (v) => setState(() => _personalDataAccepted = v),
+                label: 'Я соглашаюсь на обработку персональных данных',
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 28),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    shape: const StadiumBorder(),
-                    padding: const EdgeInsets.symmetric(vertical: 19),
-                  ),
                   onPressed: _canSubmit ? _startJourney : null,
                   child: const Text('Начать путешествие'),
                 ),
@@ -167,18 +168,51 @@ class _ConsentTile extends StatelessWidget {
   });
 
   final bool value;
-  final ValueChanged<bool?> onChanged;
+  final ValueChanged<bool> onChanged;
   final String label;
 
   @override
   Widget build(BuildContext context) {
-    return CheckboxListTile(
-      value: value,
-      onChanged: onChanged,
-      contentPadding: EdgeInsets.zero,
-      dense: true,
-      controlAffinity: ListTileControlAffinity.leading,
-      title: Text(label, style: Theme.of(context).textTheme.bodyMedium),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 150),
+              width: 24,
+              height: 24,
+              margin: const EdgeInsets.only(top: 2),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: value ? AppColors.ink : Colors.transparent,
+                border: Border.all(
+                  color: value ? AppColors.ink : AppColors.inkSoft,
+                  width: 1.4,
+                ),
+              ),
+              child: value
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.ink,
+                  height: 1.35,
+                  decoration: TextDecoration.underline,
+                  decorationColor: AppColors.ink.withValues(alpha: 0.35),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

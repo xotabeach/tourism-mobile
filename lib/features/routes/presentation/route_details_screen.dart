@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -23,11 +24,6 @@ class RouteDetailsScreen extends ConsumerWidget {
       body: routeAsync.when(
         data: (route) {
           final config = ref.watch(appConfigProvider);
-          final networkUrl = AppImages.resolveMediaUrl(
-            config,
-            route.coverImageUrl,
-          );
-          final fallbackAsset = AppImages.routeFallbackAsset(route.slug);
 
           return CustomScrollView(
             slivers: [
@@ -39,7 +35,10 @@ class RouteDetailsScreen extends ConsumerWidget {
                 actions: [
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.favorite_border_rounded),
+                    icon: const AppAssetIcon(
+                      AppIconography.heart,
+                      color: Colors.white,
+                    ),
                   ),
                   IconButton(
                     onPressed: () {},
@@ -47,22 +46,21 @@ class RouteDetailsScreen extends ConsumerWidget {
                   ),
                   IconButton(
                     onPressed: () {},
-                    icon: const Icon(Icons.download_for_offline_outlined),
+                    icon: const AppAssetIcon(
+                      AppIconography.download,
+                      color: Colors.white,
+                    ),
                   ),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      if (networkUrl != null)
-                        Image.network(
-                          networkUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              Image.asset(fallbackAsset, fit: BoxFit.cover),
-                        )
-                      else
-                        Image.asset(fallbackAsset, fit: BoxFit.cover),
+                      AppImages.coverImage(
+                        config: config,
+                        coverImageUrl: route.coverImageUrl,
+                        fallbackSeed: route.slug,
+                      ),
                       DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
@@ -116,7 +114,11 @@ class RouteDetailsScreen extends ConsumerWidget {
                     const SizedBox(height: 20),
                     FilledButton.icon(
                       onPressed: () {},
-                      icon: const Icon(Icons.navigation_rounded),
+                      icon: const AppAssetIcon(
+                        AppIconography.play,
+                        size: 20,
+                        color: Colors.white,
+                      ),
                       label: const Text('Пройти маршрут'),
                     ),
                     if (route.description != null) ...[
