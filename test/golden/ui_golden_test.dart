@@ -145,19 +145,15 @@ void main() {
     );
   }, skip: _skipPixelGoldens);
 
-  testWidgets('swipe onboarding is a standalone first deck card', (
-    tester,
-  ) async {
+  testWidgets('swipe onboarding overlays the first deck card', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame(showCoach: true));
     expect(find.byType(RouteSwipeCoachCard), findsOneWidget);
-    expect(
-      find.ancestor(
-        of: find.byType(RouteSwipeCoachCard),
-        matching: find.byType(RouteHeroCard),
-      ),
-      findsNothing,
-    );
-    expect(find.byType(RouteHeroCard), findsNWidgets(2));
+    // The deck keeps its three cards; the coach only dims the front one.
+    expect(find.byType(RouteHeroCard), findsNWidgets(3));
+
+    final coach = tester.getRect(find.byType(RouteSwipeCoachCard));
+    final frontCard = tester.getRect(find.byType(RouteHeroCard).last);
+    expect(coach, frontCard);
   });
 
   testWidgets('golden swipe onboarding', (tester) async {

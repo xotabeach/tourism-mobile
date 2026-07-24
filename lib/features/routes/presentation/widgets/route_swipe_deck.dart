@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
@@ -233,7 +234,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth - AppSpacing.page * 2;
-        final desiredHeight = cardWidth * 1.43;
+        final desiredHeight = cardWidth * 1.5;
         final maxUsableHeight = math.max(320.0, constraints.maxHeight - 104);
         final cardHeight = math.min(desiredHeight, maxUsableHeight);
 
@@ -254,8 +255,8 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
               ),
               0,
             );
-            final backIndex = widget.showCoach ? 0 : 1;
-            final farBackIndex = widget.showCoach ? 1 : 2;
+            const backIndex = 1;
+            const farBackIndex = 2;
 
             return Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -268,78 +269,87 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                 alignment: Alignment.topCenter,
                 child: SizedBox(
                   width: cardWidth,
-                  height: cardHeight + 18,
+                  height: cardHeight + 24,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       if (_deck.length > farBackIndex)
                         Positioned(
-                          top: -14,
-                          left: 0,
-                          right: 0,
+                          top: -8,
+                          left: -10,
+                          right: 10,
                           height: cardHeight,
                           child: _BackCard(
                             route: _deck[farBackIndex],
-                            scale: 0.93 + promotion * 0.02,
-                            opacity: 0.42 + promotion * 0.18,
+                            scale: 0.94 + promotion * 0.02,
+                            opacity: 0.5 + promotion * 0.2,
+                            angle: -0.042 + promotion * 0.012,
                           ),
                         ),
                       if (_deck.length > backIndex)
                         Positioned(
-                          top: -4 + promotion * 18,
-                          left: 0,
-                          right: 0,
+                          top: -6 + promotion * 16,
+                          left: 6,
+                          right: -6,
                           height: cardHeight,
                           child: _BackCard(
                             route: _deck[backIndex],
                             scale: 0.965 + promotion * 0.035,
-                            opacity: 0.74 + promotion * 0.26,
+                            opacity: 0.78 + promotion * 0.22,
+                            angle: 0.03 - promotion * 0.03,
                           ),
                         ),
                       Positioned(
-                        top: 14,
+                        top: 17,
                         left: 0,
                         right: 0,
                         height: cardHeight,
-                        child: widget.showCoach
-                            ? RouteSwipeCoachCard(
-                                onDismiss: widget.onCoachDismiss ?? _noop,
-                              )
-                            : GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onHorizontalDragStart: _onPanStart,
-                                onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                                onHorizontalDragEnd: _onPanEnd,
-                                onTap: () => _openDetails(_deck.first),
-                                child: Transform.translate(
-                                  key: const ValueKey(
-                                    'route-swipe-card-translation',
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragStart: _onPanStart,
+                          onHorizontalDragUpdate: _onHorizontalDragUpdate,
+                          onHorizontalDragEnd: _onPanEnd,
+                          onTap: () => _openDetails(_deck.first),
+                          child: Transform.translate(
+                            key: const ValueKey('route-swipe-card-translation'),
+                            offset: topOffset,
+                            child: Transform.rotate(
+                              angle: angle,
+                              alignment: Alignment.bottomCenter,
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadii.card,
                                   ),
-                                  offset: topOffset,
-                                  child: Transform.rotate(
-                                    angle: angle,
-                                    alignment: Alignment.bottomCenter,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        RouteHeroCard(
-                                          route: _deck.first,
-                                          height: cardHeight,
-                                          interactive: false,
-                                          variant: RouteCardVariant.deck,
-                                          visualProgress: promotion,
-                                          tags: const [
-                                            'Горы',
-                                            'С детьми',
-                                            'Пешком',
-                                          ],
-                                        ),
-                                        _SwipeOverlay(progress: progress),
+                                  boxShadow: AppShadows.deck,
+                                ),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    RouteHeroCard(
+                                      route: _deck.first,
+                                      height: cardHeight,
+                                      interactive: false,
+                                      variant: RouteCardVariant.deck,
+                                      visualProgress: promotion,
+                                      tags: const [
+                                        'Горы',
+                                        'С детьми',
+                                        'Пешком',
                                       ],
                                     ),
-                                  ),
+                                    _SwipeOverlay(progress: progress),
+                                    if (widget.showCoach)
+                                      RouteSwipeCoachCard(
+                                        onDismiss:
+                                            widget.onCoachDismiss ?? _noop,
+                                      ),
+                                  ],
                                 ),
                               ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -373,25 +383,37 @@ class _BackCard extends StatelessWidget {
     required this.route,
     required this.scale,
     required this.opacity,
+    required this.angle,
   });
 
   final RouteSummary route;
   final double scale;
   final double opacity;
+  final double angle;
 
   @override
   Widget build(BuildContext context) {
-    return Transform.scale(
-      scale: scale,
-      child: Opacity(
-        opacity: opacity,
-        child: IgnorePointer(
-          child: RepaintBoundary(
-            child: RouteHeroCard(
-              route: route,
-              height: double.infinity,
-              interactive: false,
-              variant: RouteCardVariant.deck,
+    return Transform.rotate(
+      angle: angle,
+      alignment: Alignment.bottomCenter,
+      child: Transform.scale(
+        scale: scale,
+        child: Opacity(
+          opacity: opacity,
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  boxShadow: AppShadows.deck,
+                ),
+                child: RouteHeroCard(
+                  route: route,
+                  height: double.infinity,
+                  interactive: false,
+                  variant: RouteCardVariant.deck,
+                ),
+              ),
             ),
           ),
         ),
@@ -488,7 +510,7 @@ class _SwipeOverlay extends StatelessWidget {
   }
 }
 
-/// Animated first card in the deck that teaches the route gestures.
+/// Animated scrim over the first deck card that teaches the route gestures.
 class RouteSwipeCoachCard extends StatefulWidget {
   const RouteSwipeCoachCard({required this.onDismiss, super.key});
 
@@ -551,17 +573,11 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
               final translateY = reduceMotion ? 0.0 : 12 * (1 - eased);
 
               return BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: 10 * eased,
-                  sigmaY: 10 * eased,
-                ),
+                filter: ImageFilter.blur(sigmaX: 7 * eased, sigmaY: 7 * eased),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppColors.primaryInk.withValues(alpha: 0.82 * eased),
+                    color: AppColors.primaryInk.withValues(alpha: 0.7 * eased),
                     borderRadius: BorderRadius.circular(AppRadii.card),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.28 * eased),
-                    ),
                   ),
                   child: Material(
                     color: Colors.transparent,
@@ -618,8 +634,8 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                         ),
                                         const SizedBox(height: 22),
                                         SizedBox(
-                                          width: 184,
-                                          height: 54,
+                                          width: 196,
+                                          height: 50,
                                           child: AppGlassSurface(
                                             borderRadius: AppRadii.capsule,
                                             blur: 0,
@@ -681,21 +697,24 @@ class _CoachGesture extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: 56,
-          height: 46,
+          width: 50,
+          height: 40,
           child: kind == _CoachGestureKind.tap
               ? const Icon(
                   Icons.touch_app_outlined,
                   color: Colors.white,
-                  size: 46,
+                  size: 40,
                 )
               : CustomPaint(painter: _SwipeGesturePainter(kind)),
         ),
         const SizedBox(height: 8),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: AppTypography.coach.copyWith(color: Colors.white),
+        SizedBox(
+          width: 216,
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: AppTypography.coach.copyWith(color: Colors.white),
+          ),
         ),
       ],
     );
@@ -729,23 +748,23 @@ class _SwipeGesturePainter extends CustomPainter {
     final card = RRect.fromRectAndRadius(
       Rect.fromCenter(
         center: Offset(size.width / 2, size.height / 2),
-        width: 22,
-        height: 40,
+        width: 20,
+        height: 34,
       ),
       const Radius.circular(5),
     );
     canvas
-      ..drawLine(const Offset(8, 7), const Offset(8, 39), white)
-      ..drawLine(Offset(size.width - 8, 7), Offset(size.width - 8, 39), white)
+      ..drawLine(const Offset(7, 4), const Offset(7, 36), white)
+      ..drawLine(Offset(size.width - 7, 4), Offset(size.width - 7, 36), white)
       ..drawRRect(card, fill);
 
     final pointsRight = kind == _CoachGestureKind.right;
     final centerX = size.width / 2;
     final direction = pointsRight ? 1.0 : -1.0;
     final chevron = Path()
-      ..moveTo(centerX - direction * 4, 13)
-      ..lineTo(centerX + direction * 4, 23)
-      ..lineTo(centerX - direction * 4, 33);
+      ..moveTo(centerX - direction * 4, 11)
+      ..lineTo(centerX + direction * 4, 20)
+      ..lineTo(centerX - direction * 4, 29);
     canvas.drawPath(chevron, ink);
   }
 
@@ -763,7 +782,7 @@ class _DashedArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 176,
+      width: 204,
       height: 24,
       child: CustomPaint(painter: _DashedArrowPainter(direction)),
     );

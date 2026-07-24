@@ -4,10 +4,14 @@ import 'package:flutter/material.dart';
 abstract final class AppColors {
   static const Color seed = Color(0xFF171719);
 
-  static const Color pageSurface = Color(0xFFF3F3F5);
+  static const Color pageSurface = Color(0xFFF7F7F7);
   static const Color elevatedSurface = Color(0xFFFFFFFF);
   static const Color primaryInk = Color(0xFF171719);
   static const Color secondaryInk = Color(0xFF77797E);
+
+  /// Flat fill of search, filter and icon controls on the page surface.
+  static const Color controlSurface = Color(0xFFE7E7E7);
+  static const Color hairline = Color(0xFFE3E3E5);
 
   static const Color glassFill = Color(0x99F4F4F6);
   static const Color glassFillStrong = Color(0xC7F4F4F6);

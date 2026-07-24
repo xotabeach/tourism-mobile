@@ -4,11 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -80,7 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             padding: EdgeInsets.fromLTRB(
               AppSpacing.page,
-              topInset + AppSpacing.md,
+              topInset + AppSpacing.lg,
               AppSpacing.page,
               120,
             ),
@@ -161,23 +161,21 @@ class _HomeHeader extends StatelessWidget {
                 ],
               ),
             ),
-            AppGlassIconButton(
+            AppFlatIconButton(
               iconAsset: AppIconography.bell,
               semanticLabel: 'Уведомления',
               onPressed: () {},
-              dimension: 52,
-              fillColor: AppColors.glassFillStrong,
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.xl),
         AppSearchFilterRow(
           onSearchTap: () => context.goNamed(AppRouteNames.routes),
           onFilterTap: () => context.goNamed(AppRouteNames.places),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        const BuildRouteBanner(),
         const SizedBox(height: AppSpacing.xl),
+        const BuildRouteBanner(),
+        const SizedBox(height: 25),
         const Row(
           children: [
             Expanded(
@@ -189,9 +187,9 @@ class _HomeHeader extends StatelessWidget {
             Text('Весь топ', style: AppTypography.sectionAction),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.lg),
         const _TopTravelersRow(),
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: 30),
         Row(
           children: [
             const Expanded(
@@ -206,7 +204,7 @@ class _HomeHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 17),
         AppFilterChipBar(
           labels: chips,
           selected: selectedChip,
@@ -236,11 +234,11 @@ class _TopTravelersRow extends StatelessWidget {
           Expanded(
             child: Container(
               height: 116,
-              padding: const EdgeInsets.fromLTRB(6, 10, 6, 9),
+              padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: AppShadows.card,
+                borderRadius: BorderRadius.circular(AppRadii.tile),
+                boxShadow: AppShadows.tile,
               ),
               child: Column(
                 children: [

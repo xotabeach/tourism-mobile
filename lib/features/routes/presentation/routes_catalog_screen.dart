@@ -52,7 +52,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.lg),
           Expanded(
             child: routesAsync.when(
               data: (page) {

@@ -6,7 +6,6 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
@@ -21,65 +20,101 @@ class AppSearchFilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 58,
+      height: 48,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: AppGlassSurface(
-              borderRadius: AppRadii.field,
-              blur: 10,
-              fillColor: Colors.white.withValues(alpha: 0.18),
-              borderColor: const Color(0xFFD3D3D6),
-              borderWidth: 1.4,
-              boxShadow: const [],
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppRadii.field),
-                  onTap: onSearchTap,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18),
-                    child: Row(
-                      children: [
-                        AppAssetIcon(
-                          AppIconography.search,
-                          size: 30,
-                          color: AppColors.secondaryInk,
-                        ),
-                        SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Искать маршруты и места',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppFonts.rubik,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              height: 1.2,
-                              letterSpacing: 0,
-                              color: AppColors.secondaryInk,
-                            ),
+            child: Material(
+              color: AppColors.controlSurface,
+              borderRadius: BorderRadius.circular(AppRadii.field),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppRadii.field),
+                onTap: onSearchTap,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Row(
+                    children: [
+                      AppAssetIcon(
+                        AppIconography.search,
+                        size: 24,
+                        color: AppColors.secondaryInk,
+                      ),
+                      SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(
+                          'Искать маршруты и места',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: AppFonts.rubik,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w400,
+                            height: 1.2,
+                            letterSpacing: 0,
+                            color: AppColors.secondaryInk,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          AppGlassIconButton(
+          const SizedBox(width: AppSpacing.xs),
+          AppFlatIconButton(
             iconAsset: AppIconography.filter,
             semanticLabel: 'Фильтры',
             onPressed: onFilterTap,
-            dimension: 58,
-            iconSize: 28,
-            fillColor: AppColors.glassFillStrong,
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Flat circular control used for the bell and filter buttons on light pages.
+class AppFlatIconButton extends StatelessWidget {
+  const AppFlatIconButton({
+    required this.iconAsset,
+    required this.semanticLabel,
+    required this.onPressed,
+    this.dimension = 48,
+    this.iconSize = 24,
+    this.color = AppColors.primaryInk,
+    super.key,
+  });
+
+  final String iconAsset;
+  final String semanticLabel;
+  final VoidCallback? onPressed;
+  final double dimension;
+  final double iconSize;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      enabled: onPressed != null,
+      child: Tooltip(
+        message: semanticLabel,
+        child: SizedBox.square(
+          dimension: dimension,
+          child: Material(
+            color: AppColors.controlSurface,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: Center(
+                child: AppAssetIcon(iconAsset, size: iconSize, color: color),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -102,11 +137,11 @@ class AppFilterChipBar extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return SizedBox(
-      height: 40,
+      height: 37,
       child: Row(
         children: [
           for (var index = 0; index < labels.length; index++) ...[
-            if (index > 0) const SizedBox(width: AppSpacing.xs),
+            if (index > 0) const SizedBox(width: AppSpacing.xxs + 2),
             Expanded(
               child: Semantics(
                 selected: labels[index] == selected,
