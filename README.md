@@ -12,13 +12,24 @@ Android и iOS.
 ## Требования
 
 - Flutter stable (см. `environment.sdk` в `pubspec.yaml`)
-- Запущенный `tourism-backend` для интеграционной разработки
+- Backend **не обязателен** для обычной UI-разработки (mock по умолчанию)
 
-## Быстрый старт
+## Быстрый старт (frontend-only, без Docker)
 
 ```bash
 flutter pub get
 flutter run
+```
+
+Dev по умолчанию использует `useMockData: true` — места и маршруты из
+локальных mock-репозиториев и `assets/images/`.
+
+## Работа с реальным API
+
+Нужны поднятый Compose/backend и:
+
+```bash
+flutter run --dart-define=USE_MOCK_DATA=false
 ```
 
 Проверки:
@@ -57,9 +68,11 @@ lib/
 
 ## Конфигурация окружений
 
-`AppConfig.fromFlavor` задаёт базовый URL API. Staging/production — HTTPS only.
+`AppConfig.fromFlavor` задаёт базовый URL API и флаг `useMockData`.
+Staging/production — HTTPS only.
 
-По умолчанию dev указывает на `http://localhost:8000`.
+- Dev: mock on (`useMockData: true`), API base `http://localhost:8000`.
+- Override: `--dart-define=USE_MOCK_DATA=false` (или `true`).
 
 ## Связанные репозитории
 

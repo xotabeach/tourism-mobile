@@ -14,5 +14,11 @@ void main() {
     final dev = AppConfig.fromFlavor(AppFlavor.dev);
     expect(dev.flavor, AppFlavor.dev);
     expect(dev.apiBaseUrl.contains('localhost'), isTrue);
+    expect(dev.useMockData, isTrue);
+  });
+
+  test('staging and production keep mock data off by default', () {
+    expect(AppConfig.fromFlavor(AppFlavor.staging).useMockData, isFalse);
+    expect(AppConfig.fromFlavor(AppFlavor.production).useMockData, isFalse);
   });
 }
