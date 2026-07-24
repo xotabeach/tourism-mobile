@@ -141,6 +141,15 @@ void main() {
 
   testWidgets('golden swipe onboarding', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame(showCoach: true));
+    expect(find.byType(RouteSwipeCoachCard), findsOneWidget);
+    expect(
+      find.ancestor(
+        of: find.byType(RouteSwipeCoachCard),
+        matching: find.byType(RouteHeroCard),
+      ),
+      findsNothing,
+    );
+    expect(find.byType(RouteHeroCard), findsNWidgets(2));
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_onboarding.png'),

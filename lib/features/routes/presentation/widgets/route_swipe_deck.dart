@@ -254,6 +254,8 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
               ),
               0,
             );
+            final backIndex = widget.showCoach ? 0 : 1;
+            final farBackIndex = widget.showCoach ? 1 : 2;
 
             return Padding(
               padding: const EdgeInsets.fromLTRB(
@@ -270,26 +272,26 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      if (_deck.length > 2)
+                      if (_deck.length > farBackIndex)
                         Positioned(
                           top: -14,
                           left: 0,
                           right: 0,
                           height: cardHeight,
                           child: _BackCard(
-                            route: _deck[2],
+                            route: _deck[farBackIndex],
                             scale: 0.93 + promotion * 0.02,
                             opacity: 0.42 + promotion * 0.18,
                           ),
                         ),
-                      if (_deck.length > 1)
+                      if (_deck.length > backIndex)
                         Positioned(
                           top: -4 + promotion * 18,
                           left: 0,
                           right: 0,
                           height: cardHeight,
                           child: _BackCard(
-                            route: _deck[1],
+                            route: _deck[backIndex],
                             scale: 0.965 + promotion * 0.035,
                             opacity: 0.74 + promotion * 0.26,
                           ),
@@ -299,39 +301,45 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                         left: 0,
                         right: 0,
                         height: cardHeight,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onHorizontalDragStart: _onPanStart,
-                          onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                          onHorizontalDragEnd: _onPanEnd,
-                          onTap: () => _openDetails(_deck.first),
-                          child: Transform.translate(
-                            key: const ValueKey('route-swipe-card-translation'),
-                            offset: topOffset,
-                            child: Transform.rotate(
-                              angle: angle,
-                              alignment: Alignment.bottomCenter,
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  RouteHeroCard(
-                                    route: _deck.first,
-                                    height: cardHeight,
-                                    interactive: false,
-                                    variant: RouteCardVariant.deck,
-                                    visualProgress: promotion,
-                                    tags: const ['Горы', 'С детьми', 'Пешком'],
+                        child: widget.showCoach
+                            ? RouteSwipeCoachCard(
+                                onDismiss: widget.onCoachDismiss ?? _noop,
+                              )
+                            : GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onHorizontalDragStart: _onPanStart,
+                                onHorizontalDragUpdate: _onHorizontalDragUpdate,
+                                onHorizontalDragEnd: _onPanEnd,
+                                onTap: () => _openDetails(_deck.first),
+                                child: Transform.translate(
+                                  key: const ValueKey(
+                                    'route-swipe-card-translation',
                                   ),
-                                  _SwipeOverlay(progress: progress),
-                                  if (widget.showCoach)
-                                    RouteSwipeCoachOverlay(
-                                      onDismiss: widget.onCoachDismiss ?? _noop,
+                                  offset: topOffset,
+                                  child: Transform.rotate(
+                                    angle: angle,
+                                    alignment: Alignment.bottomCenter,
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        RouteHeroCard(
+                                          route: _deck.first,
+                                          height: cardHeight,
+                                          interactive: false,
+                                          variant: RouteCardVariant.deck,
+                                          visualProgress: promotion,
+                                          tags: const [
+                                            'Горы',
+                                            'С детьми',
+                                            'Пешком',
+                                          ],
+                                        ),
+                                        _SwipeOverlay(progress: progress),
+                                      ],
                                     ),
-                                ],
+                                  ),
+                                ),
                               ),
-                            ),
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -480,17 +488,17 @@ class _SwipeOverlay extends StatelessWidget {
   }
 }
 
-/// Animated first-visit coaching overlay matching the vertical Figma layout.
-class RouteSwipeCoachOverlay extends StatefulWidget {
-  const RouteSwipeCoachOverlay({required this.onDismiss, super.key});
+/// Animated first card in the deck that teaches the route gestures.
+class RouteSwipeCoachCard extends StatefulWidget {
+  const RouteSwipeCoachCard({required this.onDismiss, super.key});
 
   final VoidCallback onDismiss;
 
   @override
-  State<RouteSwipeCoachOverlay> createState() => _RouteSwipeCoachOverlayState();
+  State<RouteSwipeCoachCard> createState() => _RouteSwipeCoachCardState();
 }
 
-class _RouteSwipeCoachOverlayState extends State<RouteSwipeCoachOverlay>
+class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
 
@@ -527,6 +535,7 @@ class _RouteSwipeCoachOverlayState extends State<RouteSwipeCoachOverlay>
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
+      key: const ValueKey('route-swipe-coach-card'),
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
@@ -562,69 +571,90 @@ class _RouteSwipeCoachOverlayState extends State<RouteSwipeCoachOverlay>
                         offset: Offset(0, translateY),
                         child: Transform.scale(
                           scale: contentScale,
-                          child: SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const _CoachGesture(
-                                  kind: _CoachGestureKind.right,
-                                  text:
-                                      'Свайп вправо добавляет маршрут в «Избранное»',
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              return SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  22,
+                                  24,
+                                  22,
+                                  20,
                                 ),
-                                const SizedBox(height: 8),
-                                const _DashedArrow(
-                                  direction: AxisDirection.right,
-                                ),
-                                const SizedBox(height: 10),
-                                const _CoachGesture(
-                                  kind: _CoachGestureKind.left,
-                                  text:
-                                      'Свайп влево отправляет маршрут в конец списка',
-                                ),
-                                const SizedBox(height: 8),
-                                const _DashedArrow(
-                                  direction: AxisDirection.left,
-                                ),
-                                const SizedBox(height: 10),
-                                const _CoachGesture(
-                                  kind: _CoachGestureKind.tap,
-                                  text:
-                                      'Кликните на карточку, чтобы узнать подробнее',
-                                ),
-                                const SizedBox(height: 22),
-                                SizedBox(
-                                  width: 184,
-                                  height: 54,
-                                  child: AppGlassSurface(
-                                    borderRadius: AppRadii.capsule,
-                                    blur: 0,
-                                    fillColor: Colors.white.withValues(
-                                      alpha: 0.24,
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: math.max(
+                                      0,
+                                      constraints.maxHeight - 44,
                                     ),
-                                    borderColor: Colors.white.withValues(
-                                      alpha: 0.46,
-                                    ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        borderRadius: BorderRadius.circular(
-                                          AppRadii.capsule,
+                                  ),
+                                  child: Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const _CoachGesture(
+                                          kind: _CoachGestureKind.right,
+                                          text:
+                                              'Свайп вправо добавляет маршрут в «Избранное»',
                                         ),
-                                        onTap: _dismiss,
-                                        child: Center(
-                                          child: Text(
-                                            'Хорошо',
-                                            style: AppTypography.button
-                                                .copyWith(color: Colors.white),
+                                        const SizedBox(height: 8),
+                                        const _DashedArrow(
+                                          direction: AxisDirection.right,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        const _CoachGesture(
+                                          kind: _CoachGestureKind.left,
+                                          text:
+                                              'Свайп влево отправляет маршрут в конец списка',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        const _DashedArrow(
+                                          direction: AxisDirection.left,
+                                        ),
+                                        const SizedBox(height: 10),
+                                        const _CoachGesture(
+                                          kind: _CoachGestureKind.tap,
+                                          text:
+                                              'Кликните на карточку, чтобы узнать подробнее',
+                                        ),
+                                        const SizedBox(height: 22),
+                                        SizedBox(
+                                          width: 184,
+                                          height: 54,
+                                          child: AppGlassSurface(
+                                            borderRadius: AppRadii.capsule,
+                                            blur: 0,
+                                            fillColor: Colors.white.withValues(
+                                              alpha: 0.24,
+                                            ),
+                                            borderColor: Colors.white
+                                                .withValues(alpha: 0.46),
+                                            child: Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      AppRadii.capsule,
+                                                    ),
+                                                onTap: _dismiss,
+                                                child: Center(
+                                                  child: Text(
+                                                    'Хорошо',
+                                                    style: AppTypography.button
+                                                        .copyWith(
+                                                          color: Colors.white,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              );
+                            },
                           ),
                         ),
                       ),
