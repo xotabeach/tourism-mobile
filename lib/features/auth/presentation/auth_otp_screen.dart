@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,35 +22,63 @@ class AuthOtpScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
-  final _controllers = List.generate(4, (_) => TextEditingController());
-  final _focusNodes = List.generate(4, (_) => FocusNode());
+  static const _length = 4;
+
+  final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   var _privacyAccepted = false;
   var _personalDataAccepted = false;
 
   @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onCodeChanged);
+    _focusNode.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    // Open the keyboard on the first cell as soon as the screen settles.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
   void dispose() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final n in _focusNodes) {
-      n.dispose();
-    }
+    _controller
+      ..removeListener(_onCodeChanged)
+      ..dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  String get _code => _controllers.map((c) => c.text).join();
+  String get _code => _controller.text;
 
   bool get _canSubmit =>
-      _code.length == 4 && _privacyAccepted && _personalDataAccepted;
+      _code.length == _length && _privacyAccepted && _personalDataAccepted;
 
-  void _onDigitChanged(int index, String value) {
-    if (value.length == 1 && index < 3) {
-      _focusNodes[index + 1].requestFocus();
-    }
-    if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
+  void _onCodeChanged() {
+    final cleaned = _controller.text.replaceAll(RegExp(r'\D'), '');
+    final clipped = cleaned.length > _length
+        ? cleaned.substring(0, _length)
+        : cleaned;
+    if (clipped != _controller.text) {
+      _controller.value = TextEditingValue(
+        text: clipped,
+        selection: TextSelection.collapsed(offset: clipped.length),
+      );
+      return;
     }
     setState(() {});
+  }
+
+  void _focusAt(int index) {
+    _focusNode.requestFocus();
+    final offset = index.clamp(0, _code.length);
+    _controller.selection = TextSelection.collapsed(offset: offset);
   }
 
   void _startJourney() {
@@ -61,6 +91,8 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final code = _code;
+
     return Scaffold(
       backgroundColor: AppColors.mist,
       body: SafeArea(
@@ -83,19 +115,48 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
               ),
               const SizedBox(height: 19),
               SizedBox(
-                height: _OtpField.rowHeight,
-                child: Row(
+                height: _OtpBox.rowHeight,
+                child: Stack(
                   children: [
-                    for (var index = 0; index < 4; index++) ...[
-                      if (index > 0) const SizedBox(width: 8),
-                      Expanded(
-                        child: _OtpField(
-                          controller: _controllers[index],
-                          focusNode: _focusNodes[index],
-                          onChanged: (value) => _onDigitChanged(index, value),
+                    // Real editable surface: one field so backspace always works.
+                    Opacity(
+                      opacity: 0,
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        keyboardType: TextInputType.number,
+                        autofocus: true,
+                        showCursor: false,
+                        enableInteractiveSelection: false,
+                        style: const TextStyle(color: Colors.transparent),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(_length),
+                        ],
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          counterText: '',
                         ),
                       ),
-                    ],
+                    ),
+                    Row(
+                      children: [
+                        for (var index = 0; index < _length; index++) ...[
+                          if (index > 0) const SizedBox(width: 8),
+                          Expanded(
+                            child: _OtpBox(
+                              digit: index < code.length ? code[index] : null,
+                              active:
+                                  _focusNode.hasFocus &&
+                                  (index == code.length ||
+                                      (code.length == _length &&
+                                          index == _length - 1)),
+                              onTap: () => _focusAt(index),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -127,82 +188,140 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
   }
 }
 
-/// One code box that grows taller once its digit lands and stays that way
-/// until the digit is erased.
-class _OtpField extends StatefulWidget {
-  const _OtpField({
-    required this.controller,
-    required this.focusNode,
-    required this.onChanged,
+/// Visual OTP cell. Digits stay centered while height and type grow together.
+class _OtpBox extends StatelessWidget {
+  const _OtpBox({
+    required this.digit,
+    required this.active,
+    required this.onTap,
   });
 
   static const double emptyHeight = 58;
   static const double filledHeight = 70;
-
-  /// Fixed row height so growing boxes never push the rest of the form; the
-  /// extra space also absorbs the spring overshoot.
+  static const double emptyFontSize = 22;
+  static const double filledFontSize = 28;
   static const double rowHeight = 74;
 
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final ValueChanged<String> onChanged;
-
-  @override
-  State<_OtpField> createState() => _OtpFieldState();
-}
-
-class _OtpFieldState extends State<_OtpField> {
-  var _filled = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _filled = widget.controller.text.isNotEmpty;
-  }
-
-  void _handleChanged(String value) {
-    setState(() => _filled = value.isNotEmpty);
-    widget.onChanged(value);
-  }
+  final String? digit;
+  final bool active;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final duration = reduceMotion ? AppMotion.reduced : AppMotion.emphasized;
+    final curve = reduceMotion ? Curves.linear : AppMotion.spring;
+    final filled = digit != null;
 
-    return Center(
-      child: AnimatedContainer(
-        duration: reduceMotion ? AppMotion.reduced : AppMotion.emphasized,
-        curve: reduceMotion ? Curves.linear : AppMotion.spring,
-        height: _filled ? _OtpField.filledHeight : _OtpField.emptyHeight,
-        decoration: BoxDecoration(
-          color: _filled ? Colors.white : AppColors.controlSurface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: _filled ? AppColors.ink : const Color(0xFF4E4E52),
-            width: _filled ? 1.8 : 1.4,
+    return Semantics(
+      button: true,
+      label: filled ? 'Цифра $digit' : 'Пустое поле кода',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: duration,
+          curve: curve,
+          width: double.infinity,
+          height: filled ? filledHeight : emptyHeight,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: filled ? Colors.white : AppColors.controlSurface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: filled || active ? AppColors.ink : const Color(0xFF4E4E52),
+              width: filled || active ? 1.8 : 1.4,
+            ),
+          ),
+          child: AnimatedDefaultTextStyle(
+            duration: duration,
+            curve: curve,
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: filled ? filledFontSize : emptyFontSize,
+              fontWeight: FontWeight.w600,
+              height: 1,
+              letterSpacing: 0,
+              color: AppColors.ink,
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+            child: filled
+                ? Text(digit!)
+                : active
+                ? const _OtpCaret()
+                : const SizedBox.shrink(),
           ),
         ),
-        child: TextField(
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          textAlign: TextAlign.center,
-          keyboardType: TextInputType.number,
-          style: Theme.of(
-            context,
-          ).textTheme.headlineSmall?.copyWith(letterSpacing: 0.4),
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(1),
-          ],
-          decoration: const InputDecoration(
-            filled: false,
-            contentPadding: EdgeInsets.zero,
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            counterText: '',
-          ),
-          onChanged: _handleChanged,
+      ),
+    );
+  }
+}
+
+/// Blinking caret shown in the currently selected empty cell.
+class _OtpCaret extends StatefulWidget {
+  const _OtpCaret();
+
+  @override
+  State<_OtpCaret> createState() => _OtpCaretState();
+}
+
+class _OtpCaretState extends State<_OtpCaret>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.stop();
+    } else if (!_controller.isAnimating) {
+      unawaited(_controller.repeat());
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return const _CaretBar(opacity: 1);
+    }
+    return FadeTransition(
+      opacity: _controller.drive(
+        TweenSequence<double>([
+          TweenSequenceItem(tween: ConstantTween(1), weight: 45),
+          TweenSequenceItem(tween: Tween(begin: 1, end: 0), weight: 5),
+          TweenSequenceItem(tween: ConstantTween(0), weight: 45),
+          TweenSequenceItem(tween: Tween(begin: 0, end: 1), weight: 5),
+        ]),
+      ),
+      child: const _CaretBar(opacity: 1),
+    );
+  }
+}
+
+class _CaretBar extends StatelessWidget {
+  const _CaretBar({required this.opacity});
+
+  final double opacity;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: opacity,
+      child: Container(
+        width: 2,
+        height: 26,
+        decoration: BoxDecoration(
+          color: AppColors.ink,
+          borderRadius: BorderRadius.circular(1),
         ),
       ),
     );

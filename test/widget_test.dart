@@ -54,13 +54,14 @@ void main() {
       '+7 999 123-45-67',
     );
     await tester.tap(find.text('Продолжить'));
-    await tester.pumpAndSettle();
+    // The OTP screen shows a perpetually blinking caret, so settle the route
+    // transition with bounded pumps instead of pumpAndSettle.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.textContaining('ПОДТВЕРДИТЕ'), findsOneWidget);
-    final otpFields = find.byType(TextField);
-    for (var i = 0; i < 4; i++) {
-      await tester.enterText(otpFields.at(i), '${i + 1}');
-    }
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.pump();
     await tester.tap(find.textContaining('политикой конфиденциальности'));
     await tester.tap(find.textContaining('персональных данных'));
     await tester.pump();
