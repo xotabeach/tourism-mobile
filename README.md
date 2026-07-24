@@ -38,6 +38,11 @@ flutter run --dart-define=USE_MOCK_DATA=false
 ./scripts/validate.sh
 ```
 
+Пиксельные golden-тесты сняты на macOS и на других хостах пропускаются, поэтому
+CI их не проверяет — прогоняй `flutter test` на маке перед пушем UI-правок.
+Что именно увидит CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
+`tourism-platform/docs/flutter-testing-guide.md`.
+
 Архитектура Phase 5:
 `tourism-platform/docs/flutter-app-architecture.md`.
 Стиль: `flutter-code-style.md`, DX: `development-environment.md`.
@@ -48,7 +53,8 @@ flutter run --dart-define=USE_MOCK_DATA=false
 lib/
 ├── core/
 │   ├── config/       # AppFlavor / AppConfig
-│   ├── theme/        # AppColors + AppTheme
+│   ├── design/       # Design tokens + glass components
+│   ├── theme/        # AppTheme (+ re-exports of design tokens)
 │   ├── network/      # Dio client
 │   ├── errors/       # AppFailure
 │   └── storage/      # SecureStorage port (Phase 6 tokens)

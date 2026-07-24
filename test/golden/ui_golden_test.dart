@@ -70,6 +70,12 @@ const _routes = [
   ),
 ];
 
+/// Baselines are recorded on macOS. Linux CI renders text and blur a few
+/// percent differently, so it runs only the structural expectations below.
+/// Set `SKIP_PIXEL_GOLDENS=1` to skip them on macOS too.
+final _skipPixelGoldens =
+    !Platform.isMacOS || Platform.environment['SKIP_PIXEL_GOLDENS'] == '1';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadGoldenFonts);
@@ -80,7 +86,7 @@ void main() {
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/welcome.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
   testWidgets('golden home top', (tester) async {
     await _pumpGolden(
@@ -102,7 +108,7 @@ void main() {
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/home_top.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
   testWidgets('golden route list card', (tester) async {
     await _pumpGolden(
@@ -129,7 +135,7 @@ void main() {
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/route_list_card.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
   testWidgets('golden route slider resting', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame());
@@ -137,9 +143,11 @@ void main() {
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/slider_resting.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
-  testWidgets('golden swipe onboarding', (tester) async {
+  testWidgets('swipe onboarding is a standalone first deck card', (
+    tester,
+  ) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame(showCoach: true));
     expect(find.byType(RouteSwipeCoachCard), findsOneWidget);
     expect(
@@ -150,11 +158,15 @@ void main() {
       findsNothing,
     );
     expect(find.byType(RouteHeroCard), findsNWidgets(2));
+  });
+
+  testWidgets('golden swipe onboarding', (tester) async {
+    await _pumpGolden(tester, const _RoutesGoldenFrame(showCoach: true));
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_onboarding.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
   testWidgets('golden swipe right progress', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame(debugProgress: 0.72));
@@ -162,7 +174,7 @@ void main() {
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_right.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
   testWidgets('golden swipe left progress', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame(debugProgress: -0.72));
@@ -170,7 +182,7 @@ void main() {
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_left.png'),
     );
-  });
+  }, skip: _skipPixelGoldens);
 
   for (final index in [0, 1, 2]) {
     testWidgets('golden nav selected $index', (tester) async {
@@ -193,7 +205,7 @@ void main() {
         find.byKey(_goldenKey),
         matchesGoldenFile('goldens/nav_$index.png'),
       );
-    });
+    }, skip: _skipPixelGoldens);
   }
 
   testWidgets('responsive Android frame has no overflow', (tester) async {
