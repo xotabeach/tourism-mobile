@@ -20,19 +20,19 @@ class AppConfig {
       AppFlavor.dev => const AppConfig(
         flavor: AppFlavor.dev,
         apiBaseUrl: 'http://localhost:8000',
-        appName: 'Crimea Travel (Dev)',
-        useMockData: true,
+        appName: 'КрымТрип (Dev)',
+        useMockData: false,
       ),
       AppFlavor.staging => const AppConfig(
         flavor: AppFlavor.staging,
         apiBaseUrl: 'https://staging-api.example.com',
-        appName: 'Crimea Travel (Staging)',
+        appName: 'КрымТрип (Staging)',
         useMockData: false,
       ),
       AppFlavor.production => const AppConfig(
         flavor: AppFlavor.production,
         apiBaseUrl: 'https://api.example.com',
-        appName: 'Crimea Travel',
+        appName: 'КрымТрип',
         useMockData: false,
       ),
     };

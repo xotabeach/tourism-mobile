@@ -42,12 +42,15 @@ lib/
 │   ├── errors/       # AppFailure
 │   └── storage/      # SecureStorage port (Phase 6 tokens)
 ├── features/
-│   ├── home/
+│   ├── onboarding/   # Welcome + session gate
+│   ├── auth/         # Mock name/phone/OTP UI (Phase 6 wires API)
+│   ├── home/         # Design home feed
 │   ├── places/
+│   ├── routes/       # Catalog slider + detail
 │   └── shared/       # placeholder tabs helpers
 ├── routing/
 │   ├── app_router.dart
-│   └── shell/        # bottom NavigationBar + StatefulShellRoute
+│   └── shell/        # glass bottom NavigationBar + StatefulShellRoute
 ├── app.dart
 └── main.dart
 ```

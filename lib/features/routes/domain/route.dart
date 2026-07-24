@@ -52,6 +52,7 @@ class RouteSummary {
     this.transportMode,
     this.isRoundTrip = false,
     this.authorLabel,
+    this.coverImageUrl,
   });
 
   final String id;
@@ -65,6 +66,7 @@ class RouteSummary {
   final String? transportMode;
   final bool isRoundTrip;
   final String? authorLabel;
+  final String? coverImageUrl;
 
   factory RouteSummary.fromJson(Map<String, dynamic> json) {
     return RouteSummary(
@@ -79,6 +81,7 @@ class RouteSummary {
       transportMode: json['transport_mode'] as String?,
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       authorLabel: json['author_label'] as String?,
+      coverImageUrl: json['cover_image_url'] as String?,
     );
   }
 }
@@ -96,6 +99,7 @@ class RouteDetail extends RouteSummary {
     super.transportMode,
     super.isRoundTrip,
     super.authorLabel,
+    super.coverImageUrl,
     required this.description,
     required this.stops,
   });
@@ -117,6 +121,7 @@ class RouteDetail extends RouteSummary {
       transportMode: json['transport_mode'] as String?,
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       authorLabel: json['author_label'] as String?,
+      coverImageUrl: json['cover_image_url'] as String?,
       description: json['description'] as String?,
       stops: stopsJson
           .map((item) => RouteStop.fromJson(item as Map<String, dynamic>))
