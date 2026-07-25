@@ -740,12 +740,12 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
 
               return BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: 10 * eased,
-                  sigmaY: 10 * eased,
+                  sigmaX: 5.5 * eased,
+                  sigmaY: 5.5 * eased,
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppColors.primaryInk.withValues(alpha: 0.88 * eased),
+                    color: AppColors.primaryInk.withValues(alpha: 0.72 * eased),
                     borderRadius: BorderRadius.circular(AppRadii.card),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.22 * eased),
@@ -811,32 +811,32 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                       ),
                                       const SizedBox(height: 22),
                                       SizedBox(
-                                        width: 196,
-                                        height: 50,
+                                        width: 244,
+                                        height: 62,
                                         child: AppGlassSurface(
                                           key: const ValueKey(
                                             'route-swipe-coach-cta-glass',
                                           ),
                                           borderRadius: AppRadii.capsule,
                                           blur: useCupertinoGlass
-                                              ? 28 * eased
+                                              ? 18 * eased
                                               : 0,
                                           fillColor: Colors.white.withValues(
                                             alpha:
                                                 (useCupertinoGlass
-                                                    ? 0.14
+                                                    ? 0.11
                                                     : 0.24) *
                                                 eased,
                                           ),
                                           borderColor: Colors.white.withValues(
                                             alpha:
                                                 (useCupertinoGlass
-                                                    ? 0.62
+                                                    ? 0.48
                                                     : 0.46) *
                                                 eased,
                                           ),
                                           borderWidth: useCupertinoGlass
-                                              ? 1.2
+                                              ? 1
                                               : 1,
                                           boxShadow: useCupertinoGlass
                                               ? [
@@ -847,8 +847,8 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                                         ).withValues(
                                                           alpha: 0.19 * eased,
                                                         ),
-                                                    blurRadius: 24,
-                                                    offset: const Offset(0, 10),
+                                                    blurRadius: 16,
+                                                    offset: const Offset(0, 7),
                                                   ),
                                                   BoxShadow(
                                                     color:
@@ -878,6 +878,9 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                                     style: AppTypography.button
                                                         .copyWith(
                                                           color: Colors.white,
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w400,
                                                         ),
                                                   ),
                                                 ),
@@ -926,10 +929,8 @@ class _CoachGesture extends StatelessWidget {
                 child: CustomPaint(painter: _SwipeGesturePainter(kind)),
               ),
               if (kind == _CoachGestureKind.tap)
-                const Icon(
-                  Icons.touch_app_outlined,
-                  color: AppColors.primaryInk,
-                  size: 30,
+                const Positioned.fill(
+                  child: CustomPaint(painter: _TapGesturePainter()),
                 ),
             ],
           ),
@@ -959,7 +960,7 @@ class _SwipeGesturePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final white = Paint()
       ..color = Colors.white
-      ..strokeWidth = 3
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final fill = Paint()
@@ -967,7 +968,7 @@ class _SwipeGesturePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     final ink = Paint()
       ..color = AppColors.primaryInk
-      ..strokeWidth = 3
+      ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
@@ -981,10 +982,10 @@ class _SwipeGesturePainter extends CustomPainter {
       const Radius.circular(7),
     );
     canvas
-      ..drawLine(const Offset(8, 5), Offset(8, size.height - 5), white)
+      ..drawLine(const Offset(8, 10), Offset(8, size.height - 10), white)
       ..drawLine(
-        Offset(size.width - 8, 5),
-        Offset(size.width - 8, size.height - 5),
+        Offset(size.width - 8, 10),
+        Offset(size.width - 8, size.height - 10),
         white,
       )
       ..drawRRect(card, fill);
@@ -1008,6 +1009,49 @@ class _SwipeGesturePainter extends CustomPainter {
   bool shouldRepaint(covariant _SwipeGesturePainter oldDelegate) {
     return oldDelegate.kind != kind;
   }
+}
+
+class _TapGesturePainter extends CustomPainter {
+  const _TapGesturePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primaryInk
+      ..strokeWidth = 2.1
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final centerX = size.width / 2;
+
+    canvas
+      ..drawLine(Offset(centerX, 11), Offset(centerX, 8), paint)
+      ..drawLine(Offset(centerX - 5, 13), Offset(centerX - 7, 10), paint)
+      ..drawLine(Offset(centerX + 5, 13), Offset(centerX + 7, 10), paint);
+
+    final hand = Path()
+      ..moveTo(centerX, 30)
+      ..lineTo(centerX, 18)
+      ..quadraticBezierTo(centerX, 15, centerX + 2.5, 15)
+      ..quadraticBezierTo(centerX + 5, 15, centerX + 5, 18)
+      ..lineTo(centerX + 5, 26)
+      ..lineTo(centerX + 7, 24)
+      ..quadraticBezierTo(centerX + 9.5, 23, centerX + 11, 26)
+      ..lineTo(centerX + 12.5, 26)
+      ..quadraticBezierTo(centerX + 15, 26, centerX + 15, 29)
+      ..lineTo(centerX + 14, 36)
+      ..quadraticBezierTo(centerX + 13, 40, centerX + 9, 42)
+      ..lineTo(centerX - 1, 42)
+      ..quadraticBezierTo(centerX - 4, 40, centerX - 7, 37)
+      ..lineTo(centerX - 11, 33)
+      ..quadraticBezierTo(centerX - 13, 31, centerX - 11, 29)
+      ..quadraticBezierTo(centerX - 9, 27, centerX - 7, 29)
+      ..lineTo(centerX, 35);
+    canvas.drawPath(hand, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TapGesturePainter oldDelegate) => false;
 }
 
 class _DashedArrow extends StatelessWidget {
@@ -1036,7 +1080,7 @@ class _DashedArrowPainter extends CustomPainter {
     const dashGap = 5.0;
     final paint = Paint()
       ..color = Colors.white.withValues(alpha: 0.9)
-      ..strokeWidth = 2
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final y = size.height / 2;

@@ -187,8 +187,8 @@ void main() {
     final cta = tester.widget<AppGlassSurface>(
       find.byKey(const ValueKey('route-swipe-coach-cta-glass')),
     );
-    expect(cta.blur, 28);
-    expect(cta.fillColor.a, closeTo(0.14, 0.01));
+    expect(cta.blur, 18);
+    expect(cta.fillColor.a, closeTo(0.11, 0.01));
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_onboarding_ios.png'),
