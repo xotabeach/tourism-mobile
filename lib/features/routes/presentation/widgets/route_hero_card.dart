@@ -234,14 +234,14 @@ class _RouteCardContent extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      Opacity(
+                      AppFilteredOpacity(
                         opacity: actionOpacity,
                         child: const _FavoriteButton(),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Opacity(
+                  AppFilteredOpacity(
                     opacity: actionOpacity,
                     child: Wrap(
                       spacing: 6,
@@ -284,7 +284,7 @@ class _RouteCardContent extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      Opacity(
+                      AppFilteredOpacity(
                         opacity: actionOpacity,
                         child: AppGlassCircle(
                           dimension: compact ? 50 : 56,

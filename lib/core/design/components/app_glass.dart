@@ -7,6 +7,50 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 
+/// Compositor-safe alpha for subtrees that contain backdrop filters.
+class AppFilteredOpacity extends StatelessWidget {
+  const AppFilteredOpacity({
+    required this.opacity,
+    required this.child,
+    super.key,
+  }) : assert(opacity >= 0 && opacity <= 1);
+
+  final double opacity;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (opacity == 1) {
+      return child;
+    }
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix([
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0,
+        opacity,
+        0,
+      ]),
+      child: child,
+    );
+  }
+}
+
 class AppGlassSurface extends StatelessWidget {
   const AppGlassSurface({
     required this.child,

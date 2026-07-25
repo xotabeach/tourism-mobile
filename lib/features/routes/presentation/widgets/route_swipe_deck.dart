@@ -564,7 +564,7 @@ class _BackCard extends StatelessWidget {
       alignment: Alignment.bottomCenter,
       child: Transform.scale(
         scale: scale,
-        child: Opacity(
+        child: AppFilteredOpacity(
           opacity: opacity,
           child: IgnorePointer(
             child: RepaintBoundary(

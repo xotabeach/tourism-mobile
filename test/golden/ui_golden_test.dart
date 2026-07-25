@@ -143,6 +143,7 @@ void main() {
   testWidgets('golden route slider resting', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame());
     expect(find.text('Сложность:'), findsWidgets);
+    expect(find.byType(AppFilteredOpacity), findsWidgets);
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/slider_resting.png'),
