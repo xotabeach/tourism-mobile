@@ -42,7 +42,16 @@ abstract final class AppImages {
       return null;
     }
     if (parsed.hasScheme) {
-      return parsed.isScheme('http') || parsed.isScheme('https')
+      if (!parsed.isScheme('http') && !parsed.isScheme('https')) {
+        return null;
+      }
+      if (config.flavor == AppFlavor.dev) {
+        return pathOrUrl;
+      }
+      final apiOrigin = Uri.parse(config.apiBaseUrl);
+      return parsed.isScheme('https') &&
+              parsed.host == apiOrigin.host &&
+              parsed.port == apiOrigin.port
           ? pathOrUrl
           : null;
     }

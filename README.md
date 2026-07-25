@@ -32,6 +32,18 @@ Dev по умолчанию использует `useMockData: true` — мес�
 flutter run --dart-define=USE_MOCK_DATA=false
 ```
 
+Staging и production требуют явный HTTPS endpoint:
+
+```bash
+flutter run \
+  --dart-define=APP_FLAVOR=staging \
+  --dart-define=API_BASE_URL=https://staging-api.example.org
+```
+
+Release без `APP_FLAVOR` автоматически выбирает `production` и откажется
+запускаться без неплейсхолдерного `API_BASE_URL`. Android release signing
+настраивается только в защищённом release pipeline; debug key не используется.
+
 Проверки:
 
 ```bash
@@ -74,8 +86,9 @@ lib/
 
 ## Конфигурация окружений
 
-`AppConfig.fromFlavor` задаёт базовый URL API и флаг `useMockData`.
-Staging/production — HTTPS only.
+`AppConfig.fromEnvironment` выбирает окружение через `APP_FLAVOR`; release без
+define выбирает production. Staging/production — HTTPS only и требуют
+`API_BASE_URL`.
 
 - Dev: mock on (`useMockData: true`), API base `http://localhost:8000`.
 - Override: `--dart-define=USE_MOCK_DATA=false` (или `true`).

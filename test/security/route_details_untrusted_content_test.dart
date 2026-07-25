@@ -138,6 +138,37 @@ void main() {
     );
   });
 
+  test('non-dev media accepts only HTTPS from the API origin', () {
+    const production = AppConfig(
+      flavor: AppFlavor.production,
+      apiBaseUrl: 'https://api.crimeatrip.test',
+      appName: 'КрымТрип',
+      useMockData: false,
+    );
+
+    expect(
+      AppImages.resolveMediaUrl(
+        production,
+        'https://api.crimeatrip.test/media/cover.jpg',
+      ),
+      'https://api.crimeatrip.test/media/cover.jpg',
+    );
+    expect(
+      AppImages.resolveMediaUrl(
+        production,
+        'http://api.crimeatrip.test/media/cover.jpg',
+      ),
+      isNull,
+    );
+    expect(
+      AppImages.resolveMediaUrl(
+        production,
+        'https://tracking.example/media/cover.jpg',
+      ),
+      isNull,
+    );
+  });
+
   testWidgets('oversized untrusted text stays bounded and does not overflow', (
     tester,
   ) async {

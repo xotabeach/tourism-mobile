@@ -3,8 +3,14 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 
 void main() {
   test('non-dev flavors use HTTPS API base URLs', () {
-    final staging = AppConfig.fromFlavor(AppFlavor.staging);
-    final production = AppConfig.fromFlavor(AppFlavor.production);
+    final staging = AppConfig.fromFlavor(
+      AppFlavor.staging,
+      apiBaseUrl: 'https://staging-api.crimeatrip.test',
+    );
+    final production = AppConfig.fromFlavor(
+      AppFlavor.production,
+      apiBaseUrl: 'https://api.crimeatrip.test',
+    );
 
     expect(staging.apiBaseUrl.startsWith('https://'), isTrue);
     expect(production.apiBaseUrl.startsWith('https://'), isTrue);
@@ -18,7 +24,48 @@ void main() {
   });
 
   test('staging and production keep mock data off by default', () {
-    expect(AppConfig.fromFlavor(AppFlavor.staging).useMockData, isFalse);
-    expect(AppConfig.fromFlavor(AppFlavor.production).useMockData, isFalse);
+    expect(
+      AppConfig.fromFlavor(
+        AppFlavor.staging,
+        apiBaseUrl: 'https://staging-api.crimeatrip.test',
+      ).useMockData,
+      isFalse,
+    );
+    expect(
+      AppConfig.fromFlavor(
+        AppFlavor.production,
+        apiBaseUrl: 'https://api.crimeatrip.test',
+      ).useMockData,
+      isFalse,
+    );
+  });
+
+  test('release defaults to production while non-release defaults to dev', () {
+    expect(
+      AppConfig.resolveFlavor(configuredFlavor: '', isRelease: true),
+      AppFlavor.production,
+    );
+    expect(
+      AppConfig.resolveFlavor(configuredFlavor: '', isRelease: false),
+      AppFlavor.dev,
+    );
+  });
+
+  test('non-dev flavor requires a non-placeholder HTTPS API URL', () {
+    expect(() => AppConfig.fromFlavor(AppFlavor.production), throwsStateError);
+    expect(
+      () => AppConfig.fromFlavor(
+        AppFlavor.production,
+        apiBaseUrl: 'http://api.crimeatrip.test',
+      ),
+      throwsStateError,
+    );
+    expect(
+      () => AppConfig.fromFlavor(
+        AppFlavor.production,
+        apiBaseUrl: 'https://api.example.com',
+      ),
+      throwsStateError,
+    );
   });
 }

@@ -56,4 +56,14 @@ void main() {
     expect(launchDrawable, contains('@drawable/launch_wordmark'));
     expect(android12Style, contains('windowSplashScreenAnimatedIcon'));
   });
+
+  test('Android release manifest and signing policy are production-safe', () {
+    final manifest = File(
+      'android/app/src/main/AndroidManifest.xml',
+    ).readAsStringSync();
+    final gradle = File('android/app/build.gradle.kts').readAsStringSync();
+
+    expect(manifest, contains('android.permission.INTERNET'));
+    expect(gradle, isNot(contains('signingConfigs.getByName("debug")')));
+  });
 }
