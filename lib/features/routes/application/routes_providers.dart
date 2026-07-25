@@ -19,9 +19,7 @@ final routesListProvider = FutureProvider<RouteListPage>((ref) {
   return ref.watch(routesRepositoryProvider).listRoutes(regionSlug: 'crimea');
 });
 
-final routeDetailProvider = FutureProvider.family<RouteDetail, String>((
-  ref,
-  id,
-) {
-  return ref.watch(routesRepositoryProvider).getRoute(id);
-});
+final routeDetailProvider = FutureProvider.autoDispose
+    .family<RouteDetail, String>((ref, id) {
+      return ref.watch(routesRepositoryProvider).getRoute(id);
+    });

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -58,7 +59,7 @@ class _DeckGeometry {
 class RouteSwipeDeck extends StatefulWidget {
   const RouteSwipeDeck({
     required this.routes,
-    this.onSwipe,
+    required this.onSwipe,
     this.showCoach = false,
     this.onCoachDismiss,
     this.debugProgress,
@@ -66,7 +67,7 @@ class RouteSwipeDeck extends StatefulWidget {
   });
 
   final List<RouteSummary> routes;
-  final void Function(RouteSummary route, RouteSwipeAction action)? onSwipe;
+  final void Function(RouteSummary route, RouteSwipeAction action) onSwipe;
   final bool showCoach;
   final VoidCallback? onCoachDismiss;
 
@@ -166,7 +167,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   @override
   void didUpdateWidget(covariant RouteSwipeDeck oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.routes != widget.routes) {
+    if (!listEquals(oldWidget.routes, widget.routes)) {
       _deck = List<RouteSummary>.from(widget.routes);
       _resetMotion();
       _precacheDeckImages();
@@ -296,7 +297,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     }
     final route = _deck.removeAt(0);
     final action = _pendingAction!;
-    widget.onSwipe?.call(route, action);
+    widget.onSwipe(route, action);
     if (action == RouteSwipeAction.skip) {
       _deck.add(route);
     }

@@ -537,6 +537,7 @@ class _RoutesGoldenFrame extends StatelessWidget {
               Expanded(
                 child: RouteSwipeDeck(
                   routes: _routes,
+                  onSwipe: _noopSwipe,
                   debugProgress: debugProgress,
                   showCoach: showCoach,
                   onCoachDismiss: _noop,
@@ -606,6 +607,8 @@ class _RouteDetailsGoldenFrame extends StatelessWidget {
 void _noop() {}
 
 void _noopString(String _) {}
+
+void _noopSwipe(RouteSummary _, RouteSwipeAction _) {}
 
 void _noopIndex(int _) {}
 
