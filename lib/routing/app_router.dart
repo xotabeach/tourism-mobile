@@ -10,6 +10,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/shared/presentation/placeholder_tab_screen.dart';
@@ -102,12 +103,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     name: AppRouteNames.routeDetails,
                     path: ':id',
-                    parentNavigatorKey: _rootNavigatorKey,
                     pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return _appTransitionPage(
+                      final initialRoute = state.extra is RouteSummary
+                          ? state.extra! as RouteSummary
+                          : null;
+                      return _routeDetailsTransitionPage(
                         state,
-                        RouteDetailsScreen(routeId: id),
+                        RouteDetailsScreen(
+                          routeId: id,
+                          initialRoute: initialRoute,
+                        ),
                       );
                     },
                   ),
@@ -138,7 +144,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     name: AppRouteNames.placeDetails,
                     path: ':id',
-                    parentNavigatorKey: _rootNavigatorKey,
                     pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
                       return _appTransitionPage(
@@ -168,6 +173,41 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+
+CustomTransitionPage<void> _routeDetailsTransitionPage(
+  GoRouterState state,
+  Widget child,
+) {
+  return CustomTransitionPage<void>(
+    key: state.pageKey,
+    child: child,
+    transitionDuration: const Duration(milliseconds: 340),
+    reverseTransitionDuration: AppMotion.normal,
+    transitionsBuilder: (context, animation, secondaryAnimation, child) {
+      final reduceMotion = MediaQuery.disableAnimationsOf(context);
+      final curved = CurvedAnimation(
+        parent: animation,
+        curve: reduceMotion ? AppMotion.standard : AppMotion.emphasizedCurve,
+        reverseCurve: Curves.easeInCubic,
+      );
+      final faded = FadeTransition(opacity: curved, child: child);
+      if (reduceMotion) {
+        return faded;
+      }
+      return SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.024),
+          end: Offset.zero,
+        ).animate(curved),
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.965, end: 1).animate(curved),
+          alignment: Alignment.bottomCenter,
+          child: faded,
+        ),
+      );
+    },
+  );
+}
 
 CustomTransitionPage<void> _appTransitionPage(
   GoRouterState state,

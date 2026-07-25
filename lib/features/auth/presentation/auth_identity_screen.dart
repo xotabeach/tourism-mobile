@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
 import 'package:tourism_mobile/features/auth/presentation/ru_phone_input_formatter.dart';
@@ -121,12 +122,9 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                   onFieldSubmitted: (_) => _continue(),
                 ),
                 const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: _continue,
-                    child: const Text('Продолжить'),
-                  ),
+                AppAdaptivePrimaryButton(
+                  label: 'Продолжить',
+                  onPressed: _continue,
                 ),
                 const Spacer(),
               ],

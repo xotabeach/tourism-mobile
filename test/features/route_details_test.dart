@@ -8,6 +8,8 @@ import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
+import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 const _testConfig = AppConfig(
   flavor: AppFlavor.dev,
@@ -16,7 +18,7 @@ const _testConfig = AppConfig(
   useMockData: true,
 );
 
-Future<void> _openRouteDetails(WidgetTester tester) async {
+Future<Element> _openRouteDetails(WidgetTester tester) async {
   tester.view
     ..devicePixelRatio = 1
     ..physicalSize = const Size(393, 852);
@@ -46,10 +48,17 @@ Future<void> _openRouteDetails(WidgetTester tester) async {
 
   await tester.tap(find.bySemanticsLabel('Маршруты'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Хорошо'));
+  final coachButton = tester.widget<InkWell>(
+    find
+        .ancestor(of: find.text('Хорошо'), matching: find.byType(InkWell))
+        .first,
+  );
+  coachButton.onTap!();
   await tester.pumpAndSettle();
+  final shellNavElement = tester.element(find.byType(AppFloatingNavBar));
   await tester.tap(find.text('Классика Южного берега').first);
   await tester.pumpAndSettle();
+  return shellNavElement;
 }
 
 bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
@@ -61,7 +70,7 @@ bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
 }
 
 void main() {
-  testWidgets('gallery expands past half of the screen on swipe up and tap', (
+  testWidgets('gallery follows vertical media drag and settles both ways', (
     tester,
   ) async {
     final handle = tester.ensureSemantics();
@@ -70,18 +79,87 @@ void main() {
     final header = find.byType(RouteMediaHeader);
     expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
 
-    await tester.fling(header, const Offset(0, -160), 900);
+    final expandGesture = await tester.startGesture(tester.getCenter(header));
+    await expandGesture.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await expandGesture.moveBy(const Offset(0, -160));
+    await tester.pump();
+    final draggedHeight = tester.getSize(header).height;
+    expect(draggedHeight, greaterThan(RouteMediaHeader.collapsedHeight));
+    expect(draggedHeight - RouteMediaHeader.collapsedHeight, lessThan(160));
+    await expandGesture.up();
     await tester.pumpAndSettle();
     expect(tester.getSize(header).height, greaterThan(852 / 2));
 
-    await tester.tap(header, warnIfMissed: false);
+    final collapseGesture = await tester.startGesture(tester.getCenter(header));
+    await collapseGesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await collapseGesture.moveBy(const Offset(0, 240));
+    await tester.pump();
+    expect(tester.getSize(header).height, lessThan(852 / 2));
+    await collapseGesture.up();
     await tester.pumpAndSettle();
     expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
 
     handle.dispose();
   });
 
-  testWidgets('map pin selects the matching stop and back again', (
+  testWidgets('scrolling route content does not expand the gallery', (
+    tester,
+  ) async {
+    await _openRouteDetails(tester);
+
+    final header = find.byType(RouteMediaHeader);
+    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+
+    await tester.drag(
+      find.text('Классика Южного берега').last,
+      const Offset(0, -180),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey('route-details-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      greaterThan(0),
+    );
+  });
+
+  testWidgets('top-edge page scroll expands and collapses the gallery', (
+    tester,
+  ) async {
+    await _openRouteDetails(tester);
+
+    final header = find.byType(RouteMediaHeader);
+    final title = find.byKey(const ValueKey('route-details-title'));
+    final expandGesture = await tester.startGesture(tester.getCenter(title));
+    await expandGesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await expandGesture.moveBy(const Offset(0, 300));
+    await tester.pump();
+    expect(tester.getSize(header).height, greaterThan(300));
+    await expandGesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getSize(header).height, greaterThan(852 / 2));
+
+    final collapseGesture = await tester.startGesture(tester.getCenter(title));
+    await collapseGesture.moveBy(const Offset(0, -20));
+    await tester.pump();
+    await collapseGesture.moveBy(const Offset(0, -220));
+    await tester.pump();
+    expect(tester.getSize(header).height, lessThan(852 * 0.66));
+    await collapseGesture.up();
+    await tester.pumpAndSettle();
+    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+  });
+
+  testWidgets('map and stop selection does not reposition the page', (
     tester,
   ) async {
     final handle = tester.ensureSemantics();
@@ -94,20 +172,103 @@ void main() {
     await tester.pumpAndSettle();
     expect(_isSelected(tester, pinLabel), isFalse);
 
+    final scrollable = find
+        .descendant(
+          of: find.byKey(const ValueKey('route-details-list')),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    var position = tester.state<ScrollableState>(scrollable).position.pixels;
     await tester.tap(find.bySemanticsLabel(pinLabel));
     await tester.pumpAndSettle();
     expect(_isSelected(tester, pinLabel), isTrue);
     expect(_isSelected(tester, stopLabel), isTrue);
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      closeTo(position, 0.01),
+    );
 
+    await tester.ensureVisible(find.bySemanticsLabel(stopLabel));
+    await tester.pumpAndSettle();
+    position = tester.state<ScrollableState>(scrollable).position.pixels;
     await tester.tap(find.bySemanticsLabel(stopLabel));
     await tester.pumpAndSettle();
     expect(_isSelected(tester, pinLabel), isTrue);
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      closeTo(position, 0.01),
+    );
+
+    handle.dispose();
+  });
+
+  testWidgets('similar routes use the full viewport width', (tester) async {
+    await _openRouteDetails(tester);
+
+    final section = find.byKey(const ValueKey('similar-routes-full-bleed'));
+    await tester.ensureVisible(section);
+    await tester.pumpAndSettle();
+
+    expect(tester.getSize(section).width, 393);
+    final list = find.byKey(const ValueKey('similar-routes-list'));
+    expect(list, findsOneWidget);
+    expect(
+      find.descendant(of: list, matching: find.byType(Hero)),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('details navigation expands from the active home item', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    final shellNavBefore = await _openRouteDetails(tester);
+    final shellNavAfter = tester.element(find.byType(AppFloatingNavBar));
+    expect(identical(shellNavBefore, shellNavAfter), isTrue);
+    expect(
+      tester
+          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
+          .detailMode,
+      isTrue,
+    );
+
+    expect(
+      find.bySemanticsLabel('Развернуть навигацию, выбран раздел Главная'),
+      findsOneWidget,
+    );
+    final compactButton = tester.getRect(find.byType(RouteStartButton));
+    final compactBar = tester.getRect(
+      find.byKey(const ValueKey('app-shell-bottom-bar')),
+    );
+    expect(compactButton.left, greaterThan(compactBar.left + 58));
+    expect(compactButton.top, closeTo(compactBar.bottom - 58, 0.01));
+
+    await tester.tap(
+      find.byKey(const ValueKey('expand-route-details-navigation')),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 180));
+    final movingButton = tester.getRect(find.byType(RouteStartButton));
+    expect(movingButton.top, lessThan(compactButton.top));
+    expect(movingButton.top, greaterThanOrEqualTo(compactBar.top));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Маршруты'), findsOneWidget);
+    expect(find.byType(RouteMediaHeader), findsOneWidget);
+    final expandedButton = tester.getRect(find.byType(RouteStartButton));
+    expect(expandedButton.bottom, lessThanOrEqualTo(compactBar.bottom - 68));
+
+    await tester.tap(find.bySemanticsLabel('Маршруты'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteSwipeDeck), findsOneWidget);
+    expect(find.text('Хорошо'), findsNothing);
 
     handle.dispose();
   });
 
   testWidgets('stop arrow opens the place details screen', (tester) async {
     await _openRouteDetails(tester);
+    final shellNavBefore = tester.element(find.byType(AppFloatingNavBar));
 
     final arrow = find.ancestor(
       of: find.byTooltip('Открыть место'),
@@ -120,5 +281,36 @@ void main() {
 
     expect(find.text('Ливадийский дворец'), findsWidgets);
     expect(find.textContaining('Ялтинской конференции'), findsOneWidget);
+    expect(find.byType(AppFloatingNavBar), findsOneWidget);
+    expect(
+      tester
+          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
+          .currentIndex,
+      3,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.properties.label == 'Карта' &&
+            widget.properties.selected == true,
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Назад'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Места Крыма'), findsOneWidget);
+    expect(
+      identical(shellNavBefore, tester.element(find.byType(AppFloatingNavBar))),
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
+          .currentIndex,
+      3,
+    );
   });
 }

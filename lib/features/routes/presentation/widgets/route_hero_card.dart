@@ -116,6 +116,7 @@ class RouteHeroCard extends ConsumerWidget {
       onTap: () => context.pushNamed(
         AppRouteNames.routeDetails,
         pathParameters: {'id': route.id},
+        extra: route,
       ),
       child: card,
     );

@@ -184,3 +184,71 @@ class AppGlassIconButton extends StatelessWidget {
     );
   }
 }
+
+class AppAdaptivePrimaryButton extends StatelessWidget {
+  const AppAdaptivePrimaryButton({
+    required this.label,
+    required this.onPressed,
+    this.height = 54,
+    super.key,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    if (Theme.of(context).platform != TargetPlatform.iOS) {
+      return SizedBox(
+        height: height,
+        width: double.infinity,
+        child: FilledButton(onPressed: onPressed, child: Text(label)),
+      );
+    }
+
+    final enabled = onPressed != null;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: label,
+      child: SizedBox(
+        height: height,
+        width: double.infinity,
+        child: AppGlassSurface(
+          borderRadius: AppRadii.capsule,
+          blur: 28,
+          fillColor: AppColors.primaryInk.withValues(
+            alpha: enabled ? 0.14 : 0.06,
+          ),
+          borderColor: Colors.white.withValues(alpha: enabled ? 0.86 : 0.48),
+          borderWidth: 1.2,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: enabled ? 0.14 : 0.05),
+              blurRadius: 22,
+              offset: const Offset(0, 9),
+            ),
+          ],
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              borderRadius: BorderRadius.circular(AppRadii.capsule),
+              child: Center(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: AppColors.primaryInk.withValues(
+                      alpha: enabled ? 1 : 0.44,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

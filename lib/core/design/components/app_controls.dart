@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
@@ -95,6 +96,7 @@ class AppFlatIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final useCupertinoGlass = Theme.of(context).platform == TargetPlatform.iOS;
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -103,17 +105,39 @@ class AppFlatIconButton extends StatelessWidget {
         message: semanticLabel,
         child: SizedBox.square(
           dimension: dimension,
-          child: Material(
-            color: AppColors.controlSurface,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onPressed,
-              child: Center(
-                child: AppAssetIcon(iconAsset, size: iconSize, color: color),
-              ),
-            ),
-          ),
+          child: useCupertinoGlass
+              ? AppGlassCircle(
+                  dimension: dimension,
+                  blur: 24,
+                  fillColor: Colors.white.withValues(alpha: 0.48),
+                  borderColor: Colors.white.withValues(alpha: 0.82),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onPressed,
+                    child: Center(
+                      child: AppAssetIcon(
+                        iconAsset,
+                        size: iconSize,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                )
+              : Material(
+                  color: AppColors.controlSurface,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onPressed,
+                    child: Center(
+                      child: AppAssetIcon(
+                        iconAsset,
+                        size: iconSize,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ),
         ),
       ),
     );

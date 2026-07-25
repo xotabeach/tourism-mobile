@@ -105,7 +105,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Хорошо'), findsOneWidget);
-    await tester.tap(find.text('Хорошо'));
+    tester
+        .widget<InkWell>(
+          find
+              .ancestor(of: find.text('Хорошо'), matching: find.byType(InkWell))
+              .first,
+        )
+        .onTap!();
     await tester.pumpAndSettle();
 
     expect(find.byType(RouteSwipeDeck), findsOneWidget);

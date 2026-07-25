@@ -19,82 +19,142 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteDetailsScreen extends ConsumerStatefulWidget {
-  const RouteDetailsScreen({required this.routeId, super.key});
+  const RouteDetailsScreen({
+    required this.routeId,
+    this.initialRoute,
+    super.key,
+  });
 
   static const routePath = '/routes/:id';
 
   final String routeId;
+  final RouteSummary? initialRoute;
 
   @override
   ConsumerState<RouteDetailsScreen> createState() => _RouteDetailsScreenState();
 }
 
-class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
-  final _scrollController = ScrollController();
-  final _mapKey = GlobalKey();
-  final _stopKeys = <int, GlobalKey>{};
+class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
+    with SingleTickerProviderStateMixin {
+  static const double _galleryDragExtent = 340;
 
-  bool _galleryExpanded = false;
+  final _scrollController = ScrollController();
+  late final AnimationController _galleryController;
+
   int? _selectedStop;
+  bool _pinningDetailsScroll = false;
+  double _lastDetailsGalleryDelta = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _galleryController = AnimationController(
+      vsync: this,
+      duration: AppMotion.emphasized,
+    );
+  }
 
   @override
   void dispose() {
+    _galleryController.dispose();
     _scrollController.dispose();
     super.dispose();
   }
 
-  GlobalKey _stopKey(int index) => _stopKeys.putIfAbsent(index, GlobalKey.new);
+  void _toggleGallery() {
+    _settleGallery(_galleryController.value < 0.5 ? 1 : 0);
+  }
 
-  Duration get _scrollDuration => MediaQuery.disableAnimationsOf(context)
-      ? Duration.zero
-      : AppMotion.emphasized;
-
-  void _setGalleryExpanded(bool expanded) {
-    setState(() => _galleryExpanded = expanded);
-    if (expanded && _scrollController.hasClients) {
-      unawaited(
-        _scrollController.animateTo(
-          0,
-          duration: _scrollDuration == Duration.zero
-              ? const Duration(milliseconds: 1)
-              : _scrollDuration,
-          curve: AppMotion.standard,
-        ),
+  void _updateGalleryDrag(double deltaY) {
+    _galleryController
+      ..stop()
+      ..value = (_galleryController.value - deltaY / _galleryDragExtent).clamp(
+        0,
+        1,
       );
-    }
   }
 
-  Future<void> _revealStop(int index) async {
-    setState(() => _selectedStop = index);
-    final target = _stopKey(index).currentContext;
-    if (target == null) {
+  void _endGalleryDrag(double velocityY) {
+    final target = switch (velocityY) {
+      < -320 => 1.0,
+      > 320 => 0.0,
+      _ => _galleryController.value >= 0.42 ? 1.0 : 0.0,
+    };
+    _settleGallery(target);
+  }
+
+  void _settleGallery(double target) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _galleryController.value = target;
       return;
     }
-    await Scrollable.ensureVisible(
-      target,
-      alignment: 0.4,
-      duration: _scrollDuration,
-      curve: AppMotion.standard,
+    final remaining = (target - _galleryController.value).abs();
+    _galleryController.duration = Duration(
+      milliseconds: (220 + 120 * remaining).round(),
+    );
+    unawaited(
+      _galleryController.animateTo(target, curve: AppMotion.emphasizedCurve),
     );
   }
 
-  Future<void> _revealMap(int index) async {
-    setState(() => _selectedStop = index);
-    final target = _mapKey.currentContext;
-    if (target == null) {
-      return;
+  void _selectStop(int index) => setState(() => _selectedStop = index);
+
+  bool _handleDetailsScroll(ScrollNotification notification) {
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null) {
+      final delta = notification.scrollDelta ?? 0;
+      if (delta < 0 && notification.metrics.pixels <= 0) {
+        _updateGalleryFromDetailsScroll(delta);
+      } else if (delta > 0 && _galleryController.value > 0) {
+        _updateGalleryFromDetailsScroll(delta);
+      }
+    } else if (notification is OverscrollNotification &&
+        notification.dragDetails != null &&
+        notification.overscroll < 0 &&
+        notification.metrics.extentBefore == 0) {
+      _updateGalleryFromDetailsScroll(notification.overscroll);
+    } else if (notification is ScrollEndNotification &&
+        _galleryController.value > 0 &&
+        _galleryController.value < 1 &&
+        _lastDetailsGalleryDelta != 0) {
+      final target = _lastDetailsGalleryDelta < 0
+          ? (_galleryController.value >= 0.08 ? 1.0 : 0.0)
+          : (_galleryController.value <= 0.92 ? 0.0 : 1.0);
+      final collapsing = _lastDetailsGalleryDelta > 0;
+      _lastDetailsGalleryDelta = 0;
+      _settleGallery(target);
+      if (collapsing) {
+        _pinDetailsScrollToTop();
+      }
     }
-    await Scrollable.ensureVisible(
-      target,
-      alignment: 0.08,
-      duration: _scrollDuration,
-      curve: AppMotion.standard,
-    );
+    return false;
   }
 
-  void _openPlace(RouteStop stop) {
-    unawaited(context.push('/places/${stop.placeId}'));
+  void _updateGalleryFromDetailsScroll(double delta) {
+    final before = _galleryController.value;
+    _updateGalleryDrag(delta);
+    final after = _galleryController.value;
+    if (after > before) {
+      _lastDetailsGalleryDelta = -1;
+    } else if (after < before) {
+      _lastDetailsGalleryDelta = 1;
+    }
   }
+
+  void _pinDetailsScrollToTop() {
+    if (_pinningDetailsScroll) {
+      return;
+    }
+    _pinningDetailsScroll = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pinningDetailsScroll = false;
+      if (mounted && _scrollController.hasClients) {
+        _scrollController.jumpTo(0);
+      }
+    });
+  }
+
+  void _openPlace(RouteStop stop) => context.go('/places/${stop.placeId}');
 
   @override
   Widget build(BuildContext context) {
@@ -104,7 +164,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
       backgroundColor: AppColors.elevatedSurface,
       body: routeAsync.when(
         data: _buildContent,
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => widget.initialRoute == null
+            ? const Center(child: CircularProgressIndicator())
+            : _buildInitialContent(widget.initialRoute!),
         error: (error, _) => Center(child: Text('Ошибка: $error')),
       ),
     );
@@ -114,132 +176,194 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
     final config = ref.watch(appConfigProvider);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return ListView(
-      controller: _scrollController,
-      padding: EdgeInsets.zero,
-      children: [
-        RouteMediaHeader(
-          images: _galleryImages(config, route),
-          expanded: _galleryExpanded,
-          onExpandedChanged: _setGalleryExpanded,
-          onStartRoute: () => _showSoon('Прохождение маршрута'),
-          actions: [
-            _HeaderAction(
-              icon: Icons.arrow_back_rounded,
-              semanticLabel: 'Назад',
-              onPressed: () => context.pop(),
-            ),
-            const Spacer(),
-            _HeaderAction(
-              iconAsset: AppIconography.heart,
-              semanticLabel: 'В избранное',
-              onPressed: () => _showSoon('Избранное'),
-            ),
-            const SizedBox(width: 8),
-            _HeaderAction(
-              icon: Icons.ios_share_rounded,
-              semanticLabel: 'Поделиться',
-              onPressed: () => _showSoon('Поделиться маршрутом'),
-            ),
-            const SizedBox(width: 8),
-            _HeaderAction(
-              iconAsset: AppIconography.download,
-              semanticLabel: 'Скачать офлайн',
-              onPressed: () => _showSoon('Офлайн-режим'),
-            ),
-          ],
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleDetailsScroll,
+      child: ListView(
+        key: const ValueKey('route-details-list'),
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
         ),
-        Transform.translate(
-          offset: const Offset(0, -24),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: AppColors.elevatedSurface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        padding: EdgeInsets.zero,
+        children: [
+          AnimatedBuilder(
+            animation: _galleryController,
+            builder: (context, _) => RouteMediaHeader(
+              images: _galleryImages(config, route),
+              expansionProgress: _galleryController.value,
+              onToggle: _toggleGallery,
+              onVerticalDragUpdate: _updateGalleryDrag,
+              onVerticalDragEnd: _endGalleryDrag,
+              heroTag: 'route-cover-${route.id}',
+              actions: [
+                _HeaderAction(
+                  icon: Icons.arrow_back_rounded,
+                  semanticLabel: 'Назад',
+                  onPressed: () => context.pop(),
+                ),
+                const Spacer(),
+                _HeaderAction(
+                  iconAsset: AppIconography.heart,
+                  semanticLabel: 'В избранное',
+                  onPressed: () => _showSoon('Избранное'),
+                ),
+                const SizedBox(width: 8),
+                _HeaderAction(
+                  icon: Icons.ios_share_rounded,
+                  semanticLabel: 'Поделиться',
+                  onPressed: () => _showSoon('Поделиться маршрутом'),
+                ),
+                const SizedBox(width: 8),
+                _HeaderAction(
+                  iconAsset: AppIconography.download,
+                  semanticLabel: 'Скачать офлайн',
+                  onPressed: () => _showSoon('Офлайн-режим'),
+                ),
+              ],
             ),
+          ),
+          Transform.translate(
+            offset: const Offset(0, -24),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.elevatedSurface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(18, 16, 18, 178 + bottomInset),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _AuthorRow(
+                      name: route.authorLabel ?? 'КрымТрип редакция',
+                      subtitle: 'Продвинутый пешеход',
+                      onMore: () => _showSoon('Меню маршрута'),
+                    ),
+                    const _SectionDivider(),
+                    Text(
+                      route.name,
+                      key: const ValueKey('route-details-title'),
+                      style: AppTypography.routeTitle.copyWith(
+                        fontSize: 24,
+                        height: 1.14,
+                        color: AppColors.primaryInk,
+                      ),
+                    ),
+                    if (route.description != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        route.description!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.42,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    _AudioGuideCard(
+                      title: route.name,
+                      author: route.authorLabel ?? 'КрымТрип редакция',
+                      image: _routeCover(config, route),
+                      onPlay: () => _showSoon('Аудиогид'),
+                    ),
+                    const SizedBox(height: 16),
+                    const _RouteTagsRow(
+                      tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                    ),
+                    const SizedBox(height: 16),
+                    _RouteFacts(route: route),
+                    const _SectionDivider(),
+                    const _SectionTitle('Карта маршрута:'),
+                    const SizedBox(height: 14),
+                    RouteMapPreview(
+                      stops: route.stops,
+                      selectedIndex: _selectedStop,
+                      onPinTap: _selectStop,
+                    ),
+                    const SizedBox(height: 24),
+                    const _SectionTitle('Остановки:'),
+                    const SizedBox(height: 6),
+                    for (var index = 0; index < route.stops.length; index++)
+                      _StopRow(
+                        stop: route.stops[index],
+                        selected: _selectedStop == index,
+                        showDivider: index != route.stops.length - 1,
+                        onNumberTap: () => _selectStop(index),
+                        onOpen: () => _openPlace(route.stops[index]),
+                      ),
+                    _SimilarRoutesSection(currentRouteId: route.id),
+                    const SizedBox(height: 22),
+                    const _RatingRow(rating: '4,9', topLabel: '# ТОП 153'),
+                    const SizedBox(height: 14),
+                    for (final review in _designReviews) ...[
+                      _ReviewCard(review: review),
+                      const SizedBox(height: 12),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInitialContent(RouteSummary route) {
+    final config = ref.watch(appConfigProvider);
+    return ColoredBox(
+      color: AppColors.elevatedSurface,
+      child: Column(
+        children: [
+          RouteMediaHeader(
+            images: [_routeCover(config, route)],
+            expansionProgress: 0,
+            onToggle: () {},
+            onVerticalDragUpdate: (_) {},
+            onVerticalDragEnd: (_) {},
+            heroTag: 'route-cover-${route.id}',
+            actions: [
+              _HeaderAction(
+                icon: Icons.arrow_back_rounded,
+                semanticLabel: 'Назад',
+                onPressed: () => context.pop(),
+              ),
+            ],
+          ),
+          Expanded(
             child: Padding(
-              padding: EdgeInsets.fromLTRB(18, 16, 18, 36 + bottomInset),
+              padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _AuthorRow(
-                    name: route.authorLabel ?? 'КрымТрип редакция',
-                    subtitle: 'Продвинутый пешеход',
-                    onMore: () => _showSoon('Меню маршрута'),
-                  ),
-                  const _SectionDivider(),
-                  Text(
-                    route.name,
-                    style: AppTypography.routeTitle.copyWith(
-                      fontSize: 24,
-                      height: 1.14,
-                      color: AppColors.primaryInk,
+                  Container(
+                    width: 180,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: AppColors.controlSurface,
+                      borderRadius: BorderRadius.circular(9),
                     ),
-                  ),
-                  if (route.description != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      route.description!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.42,
-                        color: AppColors.secondaryInk,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 18),
-                  _AudioGuideCard(
-                    title: route.name,
-                    author: route.authorLabel ?? 'КрымТрип редакция',
-                    image: _routeCover(config, route),
-                    onPlay: () => _showSoon('Аудиогид'),
                   ),
                   const SizedBox(height: 16),
-                  const _RouteTagsRow(
-                    tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
-                  ),
-                  const SizedBox(height: 16),
-                  _RouteFacts(route: route),
-                  const _SectionDivider(),
-                  const _SectionTitle('Карта маршрута:'),
-                  const SizedBox(height: 14),
-                  KeyedSubtree(
-                    key: _mapKey,
-                    child: RouteMapPreview(
-                      stops: route.stops,
-                      selectedIndex: _selectedStop,
-                      onPinTap: _revealStop,
+                  Container(
+                    width: double.infinity,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: AppColors.controlSurface,
+                      borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  const SizedBox(height: 24),
-                  const _SectionTitle('Остановки:'),
-                  const SizedBox(height: 6),
-                  for (var index = 0; index < route.stops.length; index++)
-                    _StopRow(
-                      key: _stopKey(index),
-                      stop: route.stops[index],
-                      selected: _selectedStop == index,
-                      showDivider: index != route.stops.length - 1,
-                      onNumberTap: () => _revealMap(index),
-                      onOpen: () => _openPlace(route.stops[index]),
-                    ),
-                  _SimilarRoutesSection(currentRouteId: route.id),
-                  const SizedBox(height: 22),
-                  const _RatingRow(rating: '4,9', topLabel: '# ТОП 153'),
-                  const SizedBox(height: 14),
-                  for (final review in _designReviews) ...[
-                    _ReviewCard(review: review),
-                    const SizedBox(height: 12),
-                  ],
                 ],
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -275,6 +399,7 @@ class _SimilarRoutesSection extends ConsumerWidget {
 
   static const double cardHeight = 172;
   static const double cardWidth = 214;
+  static const double sectionHeight = 240;
   static const int maxItems = 6;
 
   final String currentRouteId;
@@ -292,37 +417,62 @@ class _SimilarRoutesSection extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionDivider(),
-        const _SectionTitle('Похожие маршруты:'),
-        const SizedBox(height: 14),
-        SizedBox(
-          height: cardHeight,
-          child: routes == null
-              ? const _SimilarRoutesSkeleton()
-              : ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  padding: EdgeInsets.zero,
-                  itemCount: routes.length,
-                  separatorBuilder: (context, _) => const SizedBox(width: 10),
-                  itemBuilder: (context, index) {
-                    final route = routes[index];
-                    return _SimilarRouteCard(
-                      route: route,
-                      image: _routeCover(config, route),
-                      onTap: () => unawaited(
-                        context.pushNamed(
-                          AppRouteNames.routeDetails,
-                          pathParameters: {'id': route.id},
-                        ),
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    return SizedBox(
+      height: sectionHeight,
+      child: OverflowBox(
+        alignment: Alignment.center,
+        minWidth: viewportWidth,
+        maxWidth: viewportWidth,
+        minHeight: sectionHeight,
+        maxHeight: sectionHeight,
+        child: SizedBox(
+          key: const ValueKey('similar-routes-full-bleed'),
+          width: viewportWidth,
+          height: sectionHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: _SectionDivider(),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: _SectionTitle('Похожие маршруты:'),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: cardHeight,
+                child: routes == null
+                    ? const _SimilarRoutesSkeleton()
+                    : ListView.separated(
+                        key: const ValueKey('similar-routes-list'),
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        itemCount: routes.length,
+                        separatorBuilder: (context, _) =>
+                            const SizedBox(width: 10),
+                        itemBuilder: (context, index) {
+                          final route = routes[index];
+                          return _SimilarRouteCard(
+                            route: route,
+                            image: _routeCover(config, route),
+                            onTap: () => unawaited(
+                              context.pushNamed(
+                                AppRouteNames.routeDetails,
+                                pathParameters: {'id': route.id},
+                                extra: route,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
+              ),
+            ],
+          ),
         ),
-      ],
+      ),
     );
   }
 }
@@ -334,7 +484,7 @@ class _SimilarRoutesSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView.separated(
       scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.zero,
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       physics: const NeverScrollableScrollPhysics(),
       itemCount: 2,
       separatorBuilder: (context, _) => const SizedBox(width: 10),
@@ -382,11 +532,15 @@ class _SimilarRouteCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image(
-                  image: image,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, _, _) =>
-                      const ColoredBox(color: AppColors.controlSurface),
+                Hero(
+                  tag: 'route-cover-${route.id}',
+                  transitionOnUserGestures: true,
+                  child: Image(
+                    image: image,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, _, _) =>
+                        const ColoredBox(color: AppColors.controlSurface),
+                  ),
                 ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
@@ -846,7 +1000,6 @@ class _StopRow extends StatelessWidget {
     required this.showDivider,
     required this.onNumberTap,
     required this.onOpen,
-    super.key,
   });
 
   final RouteStop stop;
@@ -947,14 +1100,11 @@ class _StopRow extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
+              _AdaptiveInlineIconButton(
                 onPressed: onOpen,
                 tooltip: 'Открыть место',
-                icon: const Icon(Icons.chevron_right_rounded),
+                icon: Icons.chevron_right_rounded,
                 iconSize: 26,
-                color: AppColors.primaryInk,
-                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                padding: EdgeInsets.zero,
               ),
             ],
           ),
@@ -962,6 +1112,43 @@ class _StopRow extends StatelessWidget {
         if (showDivider)
           const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
       ],
+    );
+  }
+}
+
+class _AdaptiveInlineIconButton extends StatelessWidget {
+  const _AdaptiveInlineIconButton({
+    required this.onPressed,
+    required this.tooltip,
+    required this.icon,
+    this.iconSize = 24,
+  });
+
+  final VoidCallback onPressed;
+  final String tooltip;
+  final IconData icon;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final button = IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      icon: Icon(icon),
+      iconSize: iconSize,
+      color: AppColors.primaryInk,
+      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+      padding: EdgeInsets.zero,
+    );
+    if (Theme.of(context).platform != TargetPlatform.iOS) {
+      return button;
+    }
+    return AppGlassCircle(
+      dimension: 44,
+      blur: 22,
+      fillColor: Colors.white.withValues(alpha: 0.5),
+      borderColor: Colors.white.withValues(alpha: 0.8),
+      child: button,
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -173,12 +174,9 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
                 document: 'обработкой персональных данных',
               ),
               const SizedBox(height: 26),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _canSubmit ? _startJourney : null,
-                  child: const Text('Начать путешествие'),
-                ),
+              AppAdaptivePrimaryButton(
+                label: 'Начать путешествие',
+                onPressed: _canSubmit ? _startJourney : null,
               ),
             ],
           ),

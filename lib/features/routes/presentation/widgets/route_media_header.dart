@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -8,15 +10,16 @@ import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 /// Media gallery on top of the route details screen.
 ///
-/// Collapsed it shows a single cover; a swipe up (or a tap) grows it past half
-/// of the screen so the whole photo is visible and the media can be paged
-/// horizontally.
+/// A vertical gesture that starts on the media controls the expansion directly.
+/// The surrounding details list keeps its normal scroll behavior.
 class RouteMediaHeader extends StatefulWidget {
   const RouteMediaHeader({
     required this.images,
-    required this.expanded,
-    required this.onExpandedChanged,
-    required this.onStartRoute,
+    required this.expansionProgress,
+    required this.onToggle,
+    required this.onVerticalDragUpdate,
+    required this.onVerticalDragEnd,
+    this.heroTag,
     this.actions = const [],
     super.key,
   });
@@ -25,9 +28,11 @@ class RouteMediaHeader extends StatefulWidget {
   static const double expandedHeightFactor = 0.66;
 
   final List<ImageProvider> images;
-  final bool expanded;
-  final ValueChanged<bool> onExpandedChanged;
-  final VoidCallback onStartRoute;
+  final double expansionProgress;
+  final VoidCallback onToggle;
+  final ValueChanged<double> onVerticalDragUpdate;
+  final ValueChanged<double> onVerticalDragEnd;
+  final Object? heroTag;
   final List<Widget> actions;
 
   @override
@@ -44,41 +49,31 @@ class _RouteMediaHeaderState extends State<RouteMediaHeader> {
     super.dispose();
   }
 
-  void _toggle() => widget.onExpandedChanged(!widget.expanded);
-
-  void _handleDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (velocity < -90) {
-      widget.onExpandedChanged(true);
-    } else if (velocity > 90) {
-      widget.onExpandedChanged(false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final reduceMotion = media.disableAnimations;
     final expandedHeight =
         media.size.height * RouteMediaHeader.expandedHeightFactor;
-    final height = widget.expanded
-        ? expandedHeight
-        : RouteMediaHeader.collapsedHeight;
+    final progress = widget.expansionProgress.clamp(0.0, 1.0);
+    final height =
+        RouteMediaHeader.collapsedHeight +
+        (expandedHeight - RouteMediaHeader.collapsedHeight) * progress;
+    final expanded = progress > 0.5;
 
     return Semantics(
-      label: widget.expanded
+      label: expanded
           ? 'Галерея маршрута раскрыта'
           : 'Обложка маршрута, свайп вверх раскрывает галерею',
       button: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: _toggle,
-        onVerticalDragEnd: _handleDragEnd,
-        child: AnimatedContainer(
-          duration: reduceMotion ? AppMotion.reduced : AppMotion.emphasized,
-          curve: AppMotion.emphasizedCurve,
+        onTap: widget.onToggle,
+        onVerticalDragUpdate: (details) =>
+            widget.onVerticalDragUpdate(details.delta.dy),
+        onVerticalDragEnd: (details) =>
+            widget.onVerticalDragEnd(details.primaryVelocity ?? 0),
+        child: SizedBox(
           height: height,
-          color: AppColors.imageScrim,
           child: Stack(
             fit: StackFit.expand,
             children: [
@@ -87,8 +82,20 @@ class _RouteMediaHeaderState extends State<RouteMediaHeader> {
                 physics: const BouncingScrollPhysics(),
                 onPageChanged: (value) => setState(() => _page = value),
                 itemCount: widget.images.length,
-                itemBuilder: (context, index) =>
-                    Image(image: widget.images[index], fit: BoxFit.cover),
+                itemBuilder: (context, index) {
+                  final image = Image(
+                    image: widget.images[index],
+                    fit: BoxFit.cover,
+                  );
+                  if (index == 0 && widget.heroTag != null) {
+                    return Hero(
+                      tag: widget.heroTag!,
+                      transitionOnUserGestures: true,
+                      child: image,
+                    );
+                  }
+                  return image;
+                },
               ),
               const IgnorePointer(child: _HeaderScrim()),
               Positioned(
@@ -98,17 +105,10 @@ class _RouteMediaHeaderState extends State<RouteMediaHeader> {
                 child: Row(children: widget.actions),
               ),
               Positioned(
-                left: 16,
-                right: 16,
-                bottom: 34,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _PageDots(count: widget.images.length, active: _page),
-                    const SizedBox(height: 14),
-                    _StartRouteButton(onPressed: widget.onStartRoute),
-                  ],
-                ),
+                left: 0,
+                right: 0,
+                bottom: 28,
+                child: _PageDots(count: widget.images.length, active: _page),
               ),
             ],
           ),
@@ -170,32 +170,57 @@ class _PageDots extends StatelessWidget {
   }
 }
 
-class _StartRouteButton extends StatelessWidget {
-  const _StartRouteButton({required this.onPressed});
+class RouteStartButton extends StatelessWidget {
+  const RouteStartButton({
+    required this.onPressed,
+    this.visibility = 1,
+    this.morphProgress = 0,
+    super.key,
+  });
 
   final VoidCallback onPressed;
+  final double visibility;
+  final double morphProgress;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 56,
-      width: double.infinity,
-      child: AppGlassSurface(
-        borderRadius: AppRadii.capsule,
-        blur: 12,
-        fillColor: Colors.white.withValues(alpha: 0.22),
-        borderColor: Colors.white.withValues(alpha: 0.34),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(AppRadii.capsule),
-            onTap: onPressed,
-            child: Center(
-              child: Text(
-                'Пройти маршрут',
-                style: AppTypography.button.copyWith(
-                  fontSize: 17,
-                  color: Colors.white,
+    final progress = visibility.clamp(0.0, 1.0);
+    final morph = morphProgress.clamp(0.0, 1.0);
+    final liquidStretch = math.sin(math.pi * morph);
+    return Transform.scale(
+      alignment: morph > 0.5 ? Alignment.centerLeft : Alignment.bottomCenter,
+      scaleX: 1 + 0.025 * liquidStretch,
+      scaleY: 1 - 0.045 * liquidStretch,
+      child: SizedBox(
+        height: 56,
+        width: double.infinity,
+        child: AppGlassSurface(
+          borderRadius: AppRadii.capsule,
+          blur: 20 * progress,
+          fillColor: AppColors.primaryInk.withValues(alpha: 0.9 * progress),
+          borderColor: Colors.white.withValues(alpha: 0.42 * progress),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16 * progress),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+          child: IgnorePointer(
+            ignoring: progress < 0.99,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(AppRadii.capsule),
+                onTap: onPressed,
+                child: Center(
+                  child: Text(
+                    'Пройти маршрут',
+                    style: AppTypography.button.copyWith(
+                      fontSize: 17,
+                      color: Colors.white.withValues(alpha: progress),
+                    ),
+                  ),
                 ),
               ),
             ),
