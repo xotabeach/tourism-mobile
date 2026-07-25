@@ -133,6 +133,7 @@ void main() {
         ),
       ),
     );
+    expect(find.text('Сложность:'), findsNothing);
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/route_list_card.png'),
@@ -141,6 +142,7 @@ void main() {
 
   testWidgets('golden route slider resting', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame());
+    expect(find.text('Сложность:'), findsWidgets);
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/slider_resting.png'),

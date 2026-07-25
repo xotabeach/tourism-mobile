@@ -273,11 +273,13 @@ class _RouteCardContent extends StatelessWidget {
                             ),
                             const SizedBox(height: 6),
                             _RouteMetadata(route: route),
-                            const SizedBox(height: AppSpacing.xs),
-                            _DifficultyRow(
-                              bolts: bolts,
-                              label: difficultyLabel(route.difficulty),
-                            ),
+                            if (!compact) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              _DifficultyRow(
+                                bolts: bolts,
+                                label: difficultyLabel(route.difficulty),
+                              ),
+                            ],
                           ],
                         ),
                       ),
