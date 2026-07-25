@@ -190,9 +190,8 @@ CustomTransitionPage<void> _routeDetailsTransitionPage(
         curve: reduceMotion ? AppMotion.standard : AppMotion.emphasizedCurve,
         reverseCurve: Curves.easeInCubic,
       );
-      final faded = FadeTransition(opacity: curved, child: child);
       if (reduceMotion) {
-        return faded;
+        return child;
       }
       return SlideTransition(
         position: Tween<Offset>(
@@ -202,7 +201,7 @@ CustomTransitionPage<void> _routeDetailsTransitionPage(
         child: ScaleTransition(
           scale: Tween<double>(begin: 0.965, end: 1).animate(curved),
           alignment: Alignment.bottomCenter,
-          child: faded,
+          child: child,
         ),
       );
     },
@@ -225,16 +224,15 @@ CustomTransitionPage<void> _appTransitionPage(
         curve: AppMotion.standard,
         reverseCurve: Curves.easeInCubic,
       );
-      final faded = FadeTransition(opacity: curved, child: child);
       if (reduceMotion) {
-        return faded;
+        return child;
       }
       return SlideTransition(
         position: Tween<Offset>(
           begin: const Offset(0, 0.014),
           end: Offset.zero,
         ).animate(curved),
-        child: faded,
+        child: child,
       );
     },
   );

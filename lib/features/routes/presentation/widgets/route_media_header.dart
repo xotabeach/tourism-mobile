@@ -10,15 +10,12 @@ import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 /// Media gallery on top of the route details screen.
 ///
-/// A vertical gesture that starts on the media controls the expansion directly.
-/// The surrounding details list keeps its normal scroll behavior.
+/// A tap toggles expansion; page scrolling remains independent.
 class RouteMediaHeader extends StatefulWidget {
   const RouteMediaHeader({
     required this.images,
     required this.expansionProgress,
     required this.onToggle,
-    required this.onVerticalDragUpdate,
-    required this.onVerticalDragEnd,
     this.heroTag,
     this.actions = const [],
     super.key,
@@ -30,8 +27,6 @@ class RouteMediaHeader extends StatefulWidget {
   final List<ImageProvider> images;
   final double expansionProgress;
   final VoidCallback onToggle;
-  final ValueChanged<double> onVerticalDragUpdate;
-  final ValueChanged<double> onVerticalDragEnd;
   final Object? heroTag;
   final List<Widget> actions;
 
@@ -63,15 +58,11 @@ class _RouteMediaHeaderState extends State<RouteMediaHeader> {
     return Semantics(
       label: expanded
           ? 'Галерея маршрута раскрыта'
-          : 'Обложка маршрута, свайп вверх раскрывает галерею',
+          : 'Обложка маршрута, нажмите, чтобы раскрыть галерею',
       button: true,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: widget.onToggle,
-        onVerticalDragUpdate: (details) =>
-            widget.onVerticalDragUpdate(details.delta.dy),
-        onVerticalDragEnd: (details) =>
-            widget.onVerticalDragEnd(details.primaryVelocity ?? 0),
         child: SizedBox(
           height: height,
           child: Stack(

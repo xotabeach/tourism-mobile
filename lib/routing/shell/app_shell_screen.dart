@@ -322,7 +322,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
             return Stack(
               clipBehavior: Clip.none,
               children: [
-                if (showDetailLayout && widget.onStartRoute != null)
+                if (widget.detailMode && widget.onStartRoute != null)
                   Positioned(
                     key: const ValueKey('route-start-button-position'),
                     left: ctaLeft,

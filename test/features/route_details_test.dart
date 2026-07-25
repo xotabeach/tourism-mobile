@@ -70,7 +70,7 @@ bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
 }
 
 void main() {
-  testWidgets('gallery follows vertical media drag and settles both ways', (
+  testWidgets('gallery expands and collapses only when its media is tapped', (
     tester,
   ) async {
     final handle = tester.ensureSemantics();
@@ -79,25 +79,11 @@ void main() {
     final header = find.byType(RouteMediaHeader);
     expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
 
-    final expandGesture = await tester.startGesture(tester.getCenter(header));
-    await expandGesture.moveBy(const Offset(0, -20));
-    await tester.pump();
-    await expandGesture.moveBy(const Offset(0, -160));
-    await tester.pump();
-    final draggedHeight = tester.getSize(header).height;
-    expect(draggedHeight, greaterThan(RouteMediaHeader.collapsedHeight));
-    expect(draggedHeight - RouteMediaHeader.collapsedHeight, lessThan(160));
-    await expandGesture.up();
+    await tester.tap(header);
     await tester.pumpAndSettle();
     expect(tester.getSize(header).height, greaterThan(852 / 2));
 
-    final collapseGesture = await tester.startGesture(tester.getCenter(header));
-    await collapseGesture.moveBy(const Offset(0, 20));
-    await tester.pump();
-    await collapseGesture.moveBy(const Offset(0, 240));
-    await tester.pump();
-    expect(tester.getSize(header).height, lessThan(852 / 2));
-    await collapseGesture.up();
+    await tester.tap(header);
     await tester.pumpAndSettle();
     expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
 
@@ -129,34 +115,6 @@ void main() {
       tester.state<ScrollableState>(scrollable).position.pixels,
       greaterThan(0),
     );
-  });
-
-  testWidgets('top-edge page scroll expands and collapses the gallery', (
-    tester,
-  ) async {
-    await _openRouteDetails(tester);
-
-    final header = find.byType(RouteMediaHeader);
-    final title = find.byKey(const ValueKey('route-details-title'));
-    final expandGesture = await tester.startGesture(tester.getCenter(title));
-    await expandGesture.moveBy(const Offset(0, 20));
-    await tester.pump();
-    await expandGesture.moveBy(const Offset(0, 300));
-    await tester.pump();
-    expect(tester.getSize(header).height, greaterThan(300));
-    await expandGesture.up();
-    await tester.pumpAndSettle();
-    expect(tester.getSize(header).height, greaterThan(852 / 2));
-
-    final collapseGesture = await tester.startGesture(tester.getCenter(title));
-    await collapseGesture.moveBy(const Offset(0, -20));
-    await tester.pump();
-    await collapseGesture.moveBy(const Offset(0, -220));
-    await tester.pump();
-    expect(tester.getSize(header).height, lessThan(852 * 0.66));
-    await collapseGesture.up();
-    await tester.pumpAndSettle();
-    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
   });
 
   testWidgets('map and stop selection does not reposition the page', (
@@ -259,6 +217,8 @@ void main() {
     expect(expandedButton.bottom, lessThanOrEqualTo(compactBar.bottom - 68));
 
     await tester.tap(find.bySemanticsLabel('Маршруты'));
+    await tester.pump();
+    expect(find.byType(RouteStartButton), findsNothing);
     await tester.pumpAndSettle();
     expect(find.byType(RouteSwipeDeck), findsOneWidget);
     expect(find.text('Хорошо'), findsNothing);
