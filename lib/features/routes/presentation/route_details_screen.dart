@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -90,7 +91,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
         loading: () => widget.initialRoute == null
             ? const Center(child: CircularProgressIndicator())
             : _buildInitialContent(widget.initialRoute!),
-        error: (error, _) => Center(child: Text('Ошибка: $error')),
+        error: (_, _) => AppAsyncErrorView(
+          onRetry: () => ref.invalidate(routeDetailProvider(widget.routeId)),
+        ),
       ),
     );
   }

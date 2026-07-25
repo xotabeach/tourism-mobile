@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -140,9 +141,11 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                 hasScrollBody: false,
                 child: Center(child: CircularProgressIndicator()),
               ),
-              error: (error, _) => SliverFillRemaining(
+              error: (_, _) => SliverFillRemaining(
                 hasScrollBody: false,
-                child: Center(child: Text('Ошибка: $error')),
+                child: AppAsyncErrorView(
+                  onRetry: () => ref.invalidate(placesListProvider),
+                ),
               ),
             ),
           ],

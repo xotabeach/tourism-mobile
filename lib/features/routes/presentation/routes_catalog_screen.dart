@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/features/routes/application/favorite_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
@@ -134,7 +135,9 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Ошибка: $error')),
+              error: (_, _) => AppAsyncErrorView(
+                onRetry: () => ref.invalidate(routesListProvider),
+              ),
             ),
           ),
         ],
