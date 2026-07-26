@@ -290,6 +290,20 @@ void main() {
     );
   }, skip: _skipPixelGoldens);
 
+  testWidgets('golden nav long jump keeps liquid bridge compact', (
+    tester,
+  ) async {
+    await _pumpGolden(tester, const _NavHarness());
+    await tester.tap(find.bySemanticsLabel('Профиль'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/nav_0_to_4_mid.png'),
+    );
+  }, skip: _skipPixelGoldens);
+
   testWidgets('responsive Android frame has no overflow', (tester) async {
     await _pumpGolden(
       tester,

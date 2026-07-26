@@ -622,19 +622,30 @@ class _DropletPainter extends CustomPainter {
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
     if (!reduceMotion && phase < 0.3 && fromCenterX != centerX) {
-      final neck = 1 - phase / 0.3;
-      final left = math.min(fromCenterX, centerX);
-      final right = math.max(fromCenterX, centerX);
+      final neckStrength = 1 - phase / 0.3;
+      final travel = centerX - fromCenterX;
+      final distance = travel.abs();
+      final direction = travel.sign;
+      final tailLength = math.min(distance, diameter * 0.62);
+      final tailX = centerX - direction * tailLength;
+      final left = math.min(tailX, centerX);
+      final right = math.max(tailX, centerX);
+      final oldVisibility = (1 - distance / (diameter * 0.9)).clamp(0.0, 1.0);
+      final tailHalfHeight = 10 * neckStrength * (0.82 + 0.18 * oldVisibility);
       final neckRect = RRect.fromRectAndRadius(
-        Rect.fromLTRB(left, centerY - 10 * neck, right, centerY + 10 * neck),
-        Radius.circular(10 * neck),
+        Rect.fromLTRB(
+          left,
+          centerY - tailHalfHeight,
+          right,
+          centerY + tailHalfHeight,
+        ),
+        Radius.circular(tailHalfHeight),
       );
       canvas.drawRRect(neckRect, fill);
-      canvas.drawCircle(
-        Offset(fromCenterX, centerY),
-        diameter / 2 * (0.96 - phase * 0.12),
-        fill,
-      );
+      final oldRadius = diameter / 2 * (0.96 - phase * 0.12) * oldVisibility;
+      if (oldRadius > 0.5) {
+        canvas.drawCircle(Offset(fromCenterX, centerY), oldRadius, fill);
+      }
     }
 
     final stretch = reduceMotion ? 0.0 : math.sin(math.pi * phase).abs();
