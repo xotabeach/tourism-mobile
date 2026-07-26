@@ -10,13 +10,32 @@ import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
-    required this.onSearchTap,
     required this.onFilterTap,
+    this.onSearchTap,
+    this.controller,
+    this.onSearchChanged,
+    this.onSearchSubmitted,
+    this.onSearchClear,
+    this.hintText = 'Искать маршруты и места',
     super.key,
-  });
+  }) : assert(onSearchTap != null || onSearchChanged != null);
 
-  final VoidCallback onSearchTap;
   final VoidCallback onFilterTap;
+  final VoidCallback? onSearchTap;
+  final TextEditingController? controller;
+  final ValueChanged<String>? onSearchChanged;
+  final ValueChanged<String>? onSearchSubmitted;
+  final VoidCallback? onSearchClear;
+  final String hintText;
+
+  void _clearSearch() {
+    controller?.clear();
+    if (onSearchClear != null) {
+      onSearchClear!();
+    } else {
+      onSearchChanged?.call('');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,25 +48,34 @@ class AppSearchFilterRow extends StatelessWidget {
             child: Material(
               color: AppColors.controlSurface,
               borderRadius: BorderRadius.circular(AppRadii.field),
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppRadii.field),
-                onTap: onSearchTap,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 14),
-                  child: Row(
-                    children: [
-                      AppAssetIcon(
-                        AppIconography.search,
-                        size: 24,
-                        color: AppColors.secondaryInk,
+              child: controller == null
+                  ? InkWell(
+                      borderRadius: BorderRadius.circular(AppRadii.field),
+                      onTap: onSearchTap,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: _SearchPlaceholder(hintText: hintText),
                       ),
-                      SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          'Искать маршруты и места',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
+                    )
+                  : ValueListenableBuilder<TextEditingValue>(
+                      valueListenable: controller!,
+                      builder: (context, value, _) => TextField(
+                        controller: controller,
+                        onChanged: onSearchChanged,
+                        onSubmitted: onSearchSubmitted,
+                        textInputAction: TextInputAction.search,
+                        textAlignVertical: TextAlignVertical.center,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          height: 1.2,
+                          letterSpacing: 0,
+                          color: AppColors.primaryInk,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: hintText,
+                          hintStyle: const TextStyle(
                             fontFamily: AppFonts.rubik,
                             fontSize: 15,
                             fontWeight: FontWeight.w400,
@@ -55,12 +83,43 @@ class AppSearchFilterRow extends StatelessWidget {
                             letterSpacing: 0,
                             color: AppColors.secondaryInk,
                           ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: false,
+                          isCollapsed: true,
+                          contentPadding: EdgeInsets.zero,
+                          prefixIconConstraints: const BoxConstraints.tightFor(
+                            width: 46,
+                            height: 48,
+                          ),
+                          prefixIcon: const Padding(
+                            padding: EdgeInsets.only(left: 14, right: 8),
+                            child: Center(
+                              child: AppAssetIcon(
+                                AppIconography.search,
+                                size: 24,
+                                color: AppColors.secondaryInk,
+                              ),
+                            ),
+                          ),
+                          suffixIconConstraints: const BoxConstraints.tightFor(
+                            width: 42,
+                            height: 48,
+                          ),
+                          suffixIcon: value.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Очистить поиск',
+                                  onPressed: _clearSearch,
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 20,
+                                  ),
+                                ),
                         ),
                       ),
-                    ],
-                  ),
-                ),
-              ),
+                    ),
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
@@ -71,6 +130,41 @@ class AppSearchFilterRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SearchPlaceholder extends StatelessWidget {
+  const _SearchPlaceholder({required this.hintText});
+
+  final String hintText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const AppAssetIcon(
+          AppIconography.search,
+          size: 24,
+          color: AppColors.secondaryInk,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            hintText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              height: 1.2,
+              letterSpacing: 0,
+              color: AppColors.secondaryInk,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -28,18 +28,19 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
+  final _searchController = TextEditingController();
   var _selectedChip = 'Все';
+  var _searchQuery = '';
 
   List<RouteSummary> _filtered(List<RouteSummary> items) {
-    if (_selectedChip == 'Все') {
-      return items;
-    }
-    final needle = _selectedChip.toLowerCase();
     return items.where((route) {
       final haystack =
-          '${route.name} ${route.shortDescription ?? ''} ${route.difficulty ?? ''} ${route.transportMode ?? ''}'
+          '${route.name} ${route.shortDescription ?? ''} '
+                  '${route.authorLabel ?? ''} ${route.difficulty ?? ''} '
+                  '${route.transportMode ?? ''}'
               .toLowerCase();
-      return switch (needle) {
+      final matchesChip = switch (_selectedChip.toLowerCase()) {
+        'все' => true,
         'море' =>
           haystack.contains('берег') ||
               haystack.contains('ялт') ||
@@ -58,7 +59,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               haystack.contains('сосны'),
         _ => true,
       };
+      return matchesChip &&
+          (_searchQuery.isEmpty || haystack.contains(_searchQuery));
     }).toList();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim().toLowerCase());
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -92,6 +105,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   name: name,
                   selectedChip: _selectedChip,
                   chips: _chips,
+                  searchController: _searchController,
+                  onSearchChanged: _onSearchChanged,
                   onChipSelected: (chip) =>
                       setState(() => _selectedChip = chip),
                 );
@@ -130,12 +145,16 @@ class _HomeHeader extends StatelessWidget {
     required this.name,
     required this.selectedChip,
     required this.chips,
+    required this.searchController,
+    required this.onSearchChanged,
     required this.onChipSelected,
   });
 
   final String name;
   final String selectedChip;
   final List<String> chips;
+  final TextEditingController searchController;
+  final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onChipSelected;
 
   @override
@@ -173,7 +192,8 @@ class _HomeHeader extends StatelessWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
         AppSearchFilterRow(
-          onSearchTap: () => context.goNamed(AppRouteNames.routes),
+          controller: searchController,
+          onSearchChanged: onSearchChanged,
           onFilterTap: () => context.goNamed(AppRouteNames.places),
         ),
         const SizedBox(height: AppSpacing.xl),

@@ -86,6 +86,62 @@ void main() {
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
   });
 
+  testWidgets('home search filters visible routes and clears', (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1600);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Классика Южного берега'), findsOneWidget);
+    expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Бахчисар');
+    await tester.pump();
+
+    expect(find.text('Классика Южного берега'), findsNothing);
+    expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Очистить поиск'));
+    await tester.pump();
+
+    expect(find.text('Классика Южного берега'), findsOneWidget);
+    expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+  });
+
+  testWidgets('places search queries matching places and clears', (
+    WidgetTester tester,
+  ) async {
+    final placeTitle = find.byWidgetPredicate(
+      (widget) => widget is Text && widget.data == 'Ай-Петри',
+    );
+
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Карта'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ласточкино гнездо'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Ай-Петри');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+
+    expect(placeTitle, findsOneWidget);
+    expect(find.text('Ласточкино гнездо'), findsNothing);
+
+    await tester.tap(find.byTooltip('Очистить поиск'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ласточкино гнездо'), findsOneWidget);
+  });
+
   testWidgets('routes tab shows swipe deck from mock data', (
     WidgetTester tester,
   ) async {

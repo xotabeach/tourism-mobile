@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
+import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -23,7 +25,12 @@ class PlacesCatalogScreen extends ConsumerStatefulWidget {
 
 class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   static const _chips = ['Все', 'Природа', 'Смотровые', 'История', 'Платно'];
+  static const _searchDelay = Duration(milliseconds: 300);
+
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
   var _selectedChip = 'Все';
+  var _searchQuery = '';
 
   List<PlaceSummary> _filtered(List<PlaceSummary> items) {
     if (_selectedChip == 'Все') {
@@ -42,9 +49,45 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
         .toList();
   }
 
+  void _scheduleSearch(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_searchDelay, () => _applySearch(value));
+  }
+
+  void _applySearch(String value) {
+    _searchDebounce?.cancel();
+    final query = value.trim();
+    if (!mounted || query == _searchQuery) {
+      return;
+    }
+    setState(() => _searchQuery = query);
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _applySearch('');
+  }
+
+  void _retry() {
+    if (_searchQuery.isEmpty) {
+      ref.invalidate(placesListProvider);
+    } else {
+      ref.invalidate(placesSearchProvider(_searchQuery));
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final placesAsync = ref.watch(placesListProvider);
+    final placesAsync = _searchQuery.isEmpty
+        ? ref.watch(placesListProvider)
+        : ref.watch(placesSearchProvider(_searchQuery));
 
     return ColoredBox(
       color: AppColors.mist,
@@ -66,27 +109,13 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                       style: Theme.of(context).textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 12),
-                    const TextField(
-                      readOnly: true,
-                      decoration: InputDecoration(
-                        hintText: 'Искать места и категории',
-                        prefixIcon: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: AppAssetIcon(
-                            AppIconography.search,
-                            size: 24,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                        suffixIcon: Padding(
-                          padding: EdgeInsets.all(12),
-                          child: AppAssetIcon(
-                            AppIconography.filter,
-                            size: 24,
-                            color: AppColors.ink,
-                          ),
-                        ),
-                      ),
+                    AppSearchFilterRow(
+                      controller: _searchController,
+                      hintText: 'Искать места',
+                      onSearchChanged: _scheduleSearch,
+                      onSearchSubmitted: _applySearch,
+                      onSearchClear: _clearSearch,
+                      onFilterTap: () {},
                     ),
                     const SizedBox(height: 14),
                     SizedBox(
@@ -143,9 +172,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
               ),
               error: (_, _) => SliverFillRemaining(
                 hasScrollBody: false,
-                child: AppAsyncErrorView(
-                  onRetry: () => ref.invalidate(placesListProvider),
-                ),
+                child: AppAsyncErrorView(onRetry: _retry),
               ),
             ),
           ],
