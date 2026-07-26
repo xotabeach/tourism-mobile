@@ -42,6 +42,7 @@ const _appNavDestinations = [
     selectedIcon: AppIconography.profileSelected,
   ),
 ];
+const _appNavDestinationCount = 5;
 
 final _appFloatingNavKey = GlobalKey<_AppFloatingNavBarState>(
   debugLabel: 'app-floating-navigation',
@@ -52,12 +53,19 @@ class AppShellScreen extends StatelessWidget {
 
   final StatefulNavigationShell navigationShell;
 
-  bool _showRouteDetailsChrome(BuildContext context) {
+  int? _detailNavigationIndex(BuildContext context) {
     final location = GoRouter.of(
       context,
     ).routeInformationProvider.value.uri.path;
     final segments = Uri.parse(location).pathSegments;
-    return segments.length == 2 && segments.first == 'routes';
+    if (segments.length != 2) {
+      return null;
+    }
+    return switch (segments.first) {
+      'routes' => 0,
+      'places' => 3,
+      _ => null,
+    };
   }
 
   void _onDestinationSelected(int index) {
@@ -78,7 +86,9 @@ class AppShellScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final showRouteDetailsChrome = _showRouteDetailsChrome(context);
+    final detailNavigationIndex = _detailNavigationIndex(context);
+    final showDetailsChrome = detailNavigationIndex != null;
+    final showRouteAction = detailNavigationIndex == 0;
 
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
@@ -86,7 +96,7 @@ class AppShellScreen extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           navigationShell,
-          if (showRouteDetailsChrome)
+          if (showDetailsChrome)
             Positioned(
               left: 0,
               right: 0,
@@ -117,8 +127,10 @@ class AppShellScreen extends StatelessWidget {
               key: _appFloatingNavKey,
               currentIndex: navigationShell.currentIndex,
               onTap: _onDestinationSelected,
-              detailMode: showRouteDetailsChrome,
-              onStartRoute: () => _startRoute(context),
+              detailMode: showDetailsChrome,
+              compactDestinationIndex:
+                  detailNavigationIndex ?? navigationShell.currentIndex,
+              onStartRoute: showRouteAction ? () => _startRoute(context) : null,
             ),
           ),
         ],
@@ -132,13 +144,18 @@ class AppFloatingNavBar extends StatefulWidget {
     required this.currentIndex,
     required this.onTap,
     this.detailMode = false,
+    this.compactDestinationIndex = 0,
     this.onStartRoute,
     super.key,
-  });
+  }) : assert(
+         compactDestinationIndex >= 0 &&
+             compactDestinationIndex < _appNavDestinationCount,
+       );
 
   final int currentIndex;
   final ValueChanged<int> onTap;
   final bool detailMode;
+  final int compactDestinationIndex;
   final VoidCallback? onStartRoute;
 
   @override
@@ -183,9 +200,9 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
       duration: AppMotion.detailMorph,
     )..addListener(_rebuild);
     if (widget.detailMode) {
-      _position = 0;
-      _fromPosition = 0;
-      _targetIndex = 0;
+      _position = widget.compactDestinationIndex.toDouble();
+      _fromPosition = _position;
+      _targetIndex = widget.compactDestinationIndex;
     }
   }
 
@@ -195,12 +212,16 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     if (widget.detailMode != oldWidget.detailMode) {
       if (widget.detailMode) {
         _detailExpansionController.value = 0;
-        _animateTo(0);
+        _animateTo(widget.compactDestinationIndex);
         _animateDetailPresence(1);
       } else {
         _animateTo(widget.currentIndex);
         _animateDetailPresence(0);
       }
+    } else if (widget.detailMode &&
+        widget.compactDestinationIndex != oldWidget.compactDestinationIndex) {
+      _detailExpansionController.value = 0;
+      _animateTo(widget.compactDestinationIndex);
     } else if (!widget.detailMode && widget.currentIndex != _targetIndex) {
       _animateTo(widget.currentIndex);
     }
@@ -281,7 +302,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   void _handleTap(int index) {
     if (widget.detailMode &&
         _detailExpansionController.value < 1 &&
-        index == 0) {
+        index == widget.compactDestinationIndex) {
       _expandDetailNavigation();
       return;
     }
@@ -305,7 +326,10 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         widget.detailMode ||
         _detailPresenceController.isAnimating ||
         presence > 0.001;
-    final totalHeight = showDetailLayout ? _detailHeight : _height;
+    final hasDetailAction = widget.onStartRoute != null;
+    final totalHeight = showDetailLayout && hasDetailAction
+        ? _detailHeight
+        : _height;
 
     return Material(
       color: Colors.transparent,
@@ -466,9 +490,13 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                           0,
                           1,
                         ),
-                        visibility: index == 0
+                        visibility: index == widget.compactDestinationIndex
                             ? 1
-                            : ((revealProgress - (index - 1) * 0.055) / 0.78)
+                            : ((revealProgress -
+                                          (index - widget.compactDestinationIndex)
+                                                  .abs() *
+                                              0.04) /
+                                      0.78)
                                   .clamp(0, 1),
                         translationX:
                             (compactCenterX - (index + 0.5) * slotWidth) *
@@ -487,13 +515,15 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
               width: _activeDiameter,
               height: _height,
               child: Semantics(
-                label: 'Развернуть навигацию, выбран раздел Главная',
+                label:
+                    'Развернуть навигацию, выбран раздел '
+                    '${_appNavDestinations[widget.compactDestinationIndex].label}',
                 button: true,
                 selected: true,
                 child: Tooltip(
                   message: 'Развернуть навигацию',
                   child: GestureDetector(
-                    key: const ValueKey('expand-route-details-navigation'),
+                    key: const ValueKey('expand-detail-navigation'),
                     behavior: HitTestBehavior.opaque,
                     onTap: _expandDetailNavigation,
                     child: const SizedBox.expand(),

@@ -201,9 +201,7 @@ void main() {
     expect(compactButton.left, greaterThan(compactBar.left + 58));
     expect(compactButton.top, closeTo(compactBar.bottom - 58, 0.01));
 
-    await tester.tap(
-      find.byKey(const ValueKey('expand-route-details-navigation')),
-    );
+    await tester.tap(find.byKey(const ValueKey('expand-detail-navigation')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 180));
     final movingButton = tester.getRect(find.byType(RouteStartButton));
@@ -249,16 +247,34 @@ void main() {
       3,
     );
     expect(
-      find.byWidgetPredicate(
-        (widget) =>
-            widget is Semantics &&
-            widget.properties.label == 'Карта' &&
-            widget.properties.selected == true,
-      ),
+      tester
+          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
+          .detailMode,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
+          .compactDestinationIndex,
+      3,
+    );
+    expect(
+      find.bySemanticsLabel('Развернуть навигацию, выбран раздел Карта'),
       findsOneWidget,
     );
 
-    await tester.tap(find.byTooltip('Назад'));
+    await tester.tap(find.byKey(const ValueKey('expand-detail-navigation')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ливадийский дворец'), findsWidgets);
+    expect(find.bySemanticsLabel('Главная'), findsOneWidget);
+    final mapDestination = find.descendant(
+      of: find.byType(AppFloatingNavBar),
+      matching: find.bySemanticsLabel('Карта'),
+    );
+    expect(mapDestination, findsOneWidget);
+
+    await tester.tap(mapDestination);
     await tester.pumpAndSettle();
 
     expect(find.text('Места Крыма'), findsOneWidget);
