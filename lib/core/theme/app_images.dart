@@ -45,7 +45,7 @@ abstract final class AppImages {
       if (!parsed.isScheme('http') && !parsed.isScheme('https')) {
         return null;
       }
-      if (config.flavor == AppFlavor.dev) {
+      if (config.environment == AppEnvironment.local) {
         return pathOrUrl;
       }
       final apiOrigin = Uri.parse(config.apiBaseUrl);

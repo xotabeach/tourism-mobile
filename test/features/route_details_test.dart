@@ -12,10 +12,10 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 const _testConfig = AppConfig(
-  flavor: AppFlavor.dev,
+  environment: AppEnvironment.local,
   apiBaseUrl: 'http://localhost:8000',
   appName: 'КрымТрип (Test)',
-  useMockData: true,
+  dataSource: AppDataSource.mock,
 );
 
 Future<Element> _openRouteDetails(WidgetTester tester) async {

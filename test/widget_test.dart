@@ -8,10 +8,10 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 
 const _testConfig = AppConfig(
-  flavor: AppFlavor.dev,
+  environment: AppEnvironment.local,
   apiBaseUrl: 'http://localhost:8000',
   appName: 'КрымТрип (Test)',
-  useMockData: true,
+  dataSource: AppDataSource.mock,
 );
 
 List<Override> _testOverrides({bool onboardingCompleted = false}) {

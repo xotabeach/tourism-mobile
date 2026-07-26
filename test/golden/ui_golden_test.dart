@@ -27,10 +27,10 @@ import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 const _goldenKey = ValueKey('golden-surface');
 const _phoneSize = Size(393, 852);
 const _testConfig = AppConfig(
-  flavor: AppFlavor.dev,
+  environment: AppEnvironment.local,
   apiBaseUrl: 'http://localhost:8000',
   appName: 'КрымТрип Golden',
-  useMockData: true,
+  dataSource: AppDataSource.mock,
 );
 
 const _routes = [

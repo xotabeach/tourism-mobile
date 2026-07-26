@@ -7,7 +7,7 @@ Android и iOS.
 
 - Пользовательские сценарии поиска мест и работы с маршрутами.
 - Feature-first architecture с **Riverpod**, GoRouter и Dio.
-- Конфигурация dev / staging / production без встроенных secrets.
+- Конфигурация local / test / staging / production без встроенных secrets.
 
 ## Требования
 
@@ -21,7 +21,7 @@ flutter pub get
 flutter run
 ```
 
-Dev по умолчанию использует `useMockData: true` — места и маршруты из
+Local по умолчанию использует `DATA_SOURCE=mock` — места и маршруты из
 локальных mock-репозиториев и `assets/images/`.
 
 ## Работа с реальным API
@@ -29,18 +29,19 @@ Dev по умолчанию использует `useMockData: true` — мес�
 Нужны поднятый Compose/backend и:
 
 ```bash
-flutter run --dart-define=USE_MOCK_DATA=false
+flutter run --dart-define=DATA_SOURCE=api
 ```
 
 Staging и production требуют явный HTTPS endpoint:
 
 ```bash
 flutter run \
-  --dart-define=APP_FLAVOR=staging \
+  --dart-define=APP_ENV=staging \
+  --dart-define=DATA_SOURCE=api \
   --dart-define=API_BASE_URL=https://staging-api.example.org
 ```
 
-Release без `APP_FLAVOR` автоматически выбирает `production` и откажется
+Release без `APP_ENV` автоматически выбирает `production` и откажется
 запускаться без неплейсхолдерного `API_BASE_URL`. Android release signing
 настраивается только в защищённом release pipeline; debug key не используется.
 
@@ -64,7 +65,7 @@ CI их не проверяет — прогоняй `flutter test` на мак�
 ```text
 lib/
 ├── core/
-│   ├── config/       # AppFlavor / AppConfig
+│   ├── config/       # AppEnvironment / AppConfig
 │   ├── design/       # Design tokens + glass components
 │   ├── theme/        # AppTheme (+ re-exports of design tokens)
 │   ├── network/      # Dio client
@@ -86,12 +87,14 @@ lib/
 
 ## Конфигурация окружений
 
-`AppConfig.fromEnvironment` выбирает окружение через `APP_FLAVOR`; release без
-define выбирает production. Staging/production — HTTPS only и требуют
+`AppConfig.fromEnvironment` выбирает окружение через `APP_ENV`; release без
+define выбирает production. Test/staging/production — HTTPS only и требуют
 `API_BASE_URL`.
 
-- Dev: mock on (`useMockData: true`), API base `http://localhost:8000`.
-- Override: `--dart-define=USE_MOCK_DATA=false` (или `true`).
+- Local: `DATA_SOURCE=mock`, API base `http://localhost:8000`.
+- Local API: `--dart-define=DATA_SOURCE=api`.
+- Test/staging/production: только `DATA_SOURCE=api`; mock запрещён startup
+  validation.
 
 ## Связанные репозитории
 

@@ -11,10 +11,10 @@ import 'package:tourism_mobile/features/routes/domain/routes_repository.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 
 const _config = AppConfig(
-  flavor: AppFlavor.dev,
+  environment: AppEnvironment.local,
   apiBaseUrl: 'http://localhost:8000',
   appName: 'КрымТрип (Security)',
-  useMockData: true,
+  dataSource: AppDataSource.mock,
 );
 
 const _xss = '<script>alert("xss")</script>';
@@ -138,12 +138,12 @@ void main() {
     );
   });
 
-  test('non-dev media accepts only HTTPS from the API origin', () {
+  test('non-local media accepts only HTTPS from the API origin', () {
     const production = AppConfig(
-      flavor: AppFlavor.production,
+      environment: AppEnvironment.production,
       apiBaseUrl: 'https://api.crimeatrip.test',
       appName: 'КрымТрип',
-      useMockData: false,
+      dataSource: AppDataSource.api,
     );
 
     expect(

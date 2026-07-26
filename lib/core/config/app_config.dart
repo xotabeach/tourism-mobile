@@ -1,87 +1,116 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum AppFlavor { dev, staging, production }
+enum AppEnvironment { local, test, staging, production }
+
+enum AppDataSource { mock, api }
 
 class AppConfig {
   const AppConfig({
-    required this.flavor,
+    required this.environment,
     required this.apiBaseUrl,
     required this.appName,
-    required this.useMockData,
+    required this.dataSource,
   });
 
-  final AppFlavor flavor;
+  final AppEnvironment environment;
   final String apiBaseUrl;
   final String appName;
-  final bool useMockData;
+  final AppDataSource dataSource;
 
-  static AppFlavor resolveFlavor({
-    required String configuredFlavor,
+  bool get useMockData => dataSource == AppDataSource.mock;
+
+  static AppEnvironment resolveEnvironment({
+    required String configuredEnvironment,
     required bool isRelease,
   }) {
-    if (configuredFlavor.isEmpty) {
-      return isRelease ? AppFlavor.production : AppFlavor.dev;
+    if (configuredEnvironment.isEmpty) {
+      return isRelease ? AppEnvironment.production : AppEnvironment.local;
     }
-    return switch (configuredFlavor.toLowerCase()) {
-      'dev' => AppFlavor.dev,
-      'staging' => AppFlavor.staging,
-      'production' => AppFlavor.production,
-      _ => throw StateError('Unsupported APP_FLAVOR: $configuredFlavor'),
+    return switch (configuredEnvironment.toLowerCase()) {
+      'local' => AppEnvironment.local,
+      'test' => AppEnvironment.test,
+      'staging' => AppEnvironment.staging,
+      'production' => AppEnvironment.production,
+      _ => throw StateError('Unsupported APP_ENV: $configuredEnvironment'),
     };
   }
 
-  static bool _useMockDataFromEnvironment() {
-    const raw = String.fromEnvironment('USE_MOCK_DATA');
-    if (raw.isEmpty) {
-      return true;
-    }
-    return switch (raw.toLowerCase()) {
-      'true' => true,
-      'false' => false,
-      _ => throw StateError('USE_MOCK_DATA must be true or false'),
+  static AppDataSource _resolveDataSource({
+    required String configuredDataSource,
+    required AppEnvironment environment,
+  }) {
+    final source = switch (configuredDataSource.toLowerCase()) {
+      '' when environment == AppEnvironment.local => AppDataSource.mock,
+      '' => AppDataSource.api,
+      'mock' => AppDataSource.mock,
+      'api' => AppDataSource.api,
+      _ => throw StateError('DATA_SOURCE must be mock or api'),
     };
+    if (source == AppDataSource.mock && environment != AppEnvironment.local) {
+      throw StateError('Mock data is allowed only in local builds');
+    }
+    return source;
   }
 
   static AppConfig fromEnvironment() {
-    const configuredFlavor = String.fromEnvironment('APP_FLAVOR');
+    const configuredEnvironment = String.fromEnvironment('APP_ENV');
     const configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
-    final flavor = resolveFlavor(
-      configuredFlavor: configuredFlavor,
+    const configuredDataSource = String.fromEnvironment('DATA_SOURCE');
+    final environment = resolveEnvironment(
+      configuredEnvironment: configuredEnvironment,
       isRelease: kReleaseMode,
     );
-    return fromFlavor(
-      flavor,
+    return fromValues(
+      environment,
       apiBaseUrl: configuredApiBaseUrl.isEmpty ? null : configuredApiBaseUrl,
+      dataSource: _resolveDataSource(
+        configuredDataSource: configuredDataSource,
+        environment: environment,
+      ),
     );
   }
 
-  static AppConfig fromFlavor(AppFlavor flavor, {String? apiBaseUrl}) {
+  static AppConfig fromValues(
+    AppEnvironment environment, {
+    String? apiBaseUrl,
+    AppDataSource? dataSource,
+  }) {
+    final resolvedDataSource =
+        dataSource ??
+        (environment == AppEnvironment.local
+            ? AppDataSource.mock
+            : AppDataSource.api);
+    if (resolvedDataSource == AppDataSource.mock &&
+        environment != AppEnvironment.local) {
+      throw StateError('Mock data is allowed only in local builds');
+    }
     final resolvedApiBaseUrl =
         apiBaseUrl ??
-        switch (flavor) {
-          AppFlavor.dev => 'http://localhost:8000',
-          AppFlavor.staging || AppFlavor.production => throw StateError(
-            'API_BASE_URL is required for non-dev builds',
+        switch (environment) {
+          AppEnvironment.local => 'http://localhost:8000',
+          AppEnvironment.test ||
+          AppEnvironment.staging ||
+          AppEnvironment.production => throw StateError(
+            'API_BASE_URL is required for non-local builds',
           ),
         };
-    _validateApiBaseUrl(flavor, resolvedApiBaseUrl);
+    _validateApiBaseUrl(environment, resolvedApiBaseUrl);
 
     return AppConfig(
-      flavor: flavor,
+      environment: environment,
       apiBaseUrl: resolvedApiBaseUrl.replaceFirst(RegExp(r'/$'), ''),
-      appName: switch (flavor) {
-        AppFlavor.dev => 'КрымТрип (Dev)',
-        AppFlavor.staging => 'КрымТрип (Staging)',
-        AppFlavor.production => 'КрымТрип',
+      appName: switch (environment) {
+        AppEnvironment.local => 'КрымТрип (Local)',
+        AppEnvironment.test => 'КрымТрип (Test)',
+        AppEnvironment.staging => 'КрымТрип (Staging)',
+        AppEnvironment.production => 'КрымТрип',
       },
-      useMockData: flavor == AppFlavor.dev
-          ? _useMockDataFromEnvironment()
-          : false,
+      dataSource: resolvedDataSource,
     );
   }
 
-  static void _validateApiBaseUrl(AppFlavor flavor, String value) {
+  static void _validateApiBaseUrl(AppEnvironment environment, String value) {
     final uri = Uri.tryParse(value);
     if (uri == null ||
         !uri.hasScheme ||
@@ -92,17 +121,19 @@ class AppConfig {
         'API_BASE_URL must be an absolute URL without credentials',
       );
     }
-    if (flavor != AppFlavor.dev && uri.scheme != 'https') {
-      throw StateError('Non-dev API_BASE_URL must use HTTPS');
+    if (environment != AppEnvironment.local && uri.scheme != 'https') {
+      throw StateError('Non-local API_BASE_URL must use HTTPS');
     }
-    if (flavor != AppFlavor.dev &&
+    if (environment != AppEnvironment.local &&
         (uri.host == 'example.com' || uri.host.endsWith('.example.com'))) {
-      throw StateError('Non-dev API_BASE_URL must not use a placeholder host');
+      throw StateError(
+        'Non-local API_BASE_URL must not use a placeholder host',
+      );
     }
-    if (flavor == AppFlavor.dev &&
+    if (environment == AppEnvironment.local &&
         uri.scheme != 'http' &&
         uri.scheme != 'https') {
-      throw StateError('Dev API_BASE_URL must use HTTP or HTTPS');
+      throw StateError('Local API_BASE_URL must use HTTP or HTTPS');
     }
   }
 }
