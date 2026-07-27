@@ -60,10 +60,10 @@ String formatDistanceKm(int? meters) {
 }
 
 String routeLocality(RouteSummary route) {
-  if (route.slug.contains('bakhchisaray')) {
+  if (route.slug.contains('bakhchisaray') || route.slug.contains('chok-sary')) {
     return 'Бахчисарай';
   }
-  if (route.slug.contains('south-coast')) {
+  if (route.slug.contains('south-coast') || route.slug.contains('ai-petri')) {
     return 'Ялта';
   }
   if (route.slug.contains('coast') || route.slug.contains('fiolent')) {

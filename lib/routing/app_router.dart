@@ -10,6 +10,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
@@ -160,11 +161,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 name: AppRouteNames.profile,
-                path: '/profile',
-                builder: (context, state) => const PlaceholderTabScreen(
-                  title: 'Профиль',
-                  message: 'Профиль и вход — Phase 6.',
-                ),
+                path: ProfileScreen.routePath,
+                builder: (context, state) => const ProfileScreen(),
               ),
             ],
           ),
