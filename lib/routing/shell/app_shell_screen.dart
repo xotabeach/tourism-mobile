@@ -54,18 +54,16 @@ class AppShellScreen extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
   int? _detailNavigationIndex(BuildContext context) {
-    final location = GoRouter.of(
-      context,
-    ).routeInformationProvider.value.uri.path;
+    final location = GoRouterState.of(context).uri.path;
     final segments = Uri.parse(location).pathSegments;
-    if (segments.length != 2) {
-      return null;
+    if (segments.length >= 2 && segments.first == 'routes') {
+      // `/routes/:id` and nested `/routes/:id/place/:placeId` keep Routes chrome.
+      return 0;
     }
-    return switch (segments.first) {
-      'routes' => 0,
-      'places' => 3,
-      _ => null,
-    };
+    if (segments.length == 2 && segments.first == 'places') {
+      return 3;
+    }
+    return null;
   }
 
   void _onDestinationSelected(int index) {

@@ -12,9 +12,11 @@ class AppSearchFilterRow extends StatelessWidget {
     required this.onFilterTap,
     this.onSearchTap,
     this.controller,
+    this.focusNode,
     this.onSearchChanged,
     this.onSearchSubmitted,
     this.onSearchClear,
+    this.onSearchDismiss,
     this.hintText = 'Искать маршруты и места',
     super.key,
   }) : assert(onSearchTap != null || onSearchChanged != null);
@@ -22,24 +24,15 @@ class AppSearchFilterRow extends StatelessWidget {
   final VoidCallback onFilterTap;
   final VoidCallback? onSearchTap;
   final TextEditingController? controller;
+  final FocusNode? focusNode;
   final ValueChanged<String>? onSearchChanged;
   final ValueChanged<String>? onSearchSubmitted;
   final VoidCallback? onSearchClear;
+  final VoidCallback? onSearchDismiss;
   final String hintText;
-
-  void _clearSearch() {
-    controller?.clear();
-    if (onSearchClear != null) {
-      onSearchClear!();
-    } else {
-      onSearchChanged?.call('');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    // Light page chrome matches Figma: soft gray control surface (not native
-    // platform-view glass, which composites as a dark hole).
     final searchField = controller == null
         ? InkWell(
             borderRadius: BorderRadius.circular(AppRadii.field),
@@ -49,65 +42,14 @@ class AppSearchFilterRow extends StatelessWidget {
               child: _SearchPlaceholder(hintText: hintText),
             ),
           )
-        : ValueListenableBuilder<TextEditingValue>(
-            valueListenable: controller!,
-            builder: (context, value, _) => TextField(
-              controller: controller,
-              onChanged: onSearchChanged,
-              onSubmitted: onSearchSubmitted,
-              textInputAction: TextInputAction.search,
-              textAlignVertical: TextAlignVertical.center,
-              style: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-                height: 1.2,
-                letterSpacing: 0,
-                color: AppColors.primaryInk,
-              ),
-              decoration: InputDecoration(
-                hintText: hintText,
-                hintStyle: const TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w400,
-                  height: 1.2,
-                  letterSpacing: 0,
-                  color: AppColors.secondaryInk,
-                ),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                isCollapsed: true,
-                contentPadding: EdgeInsets.zero,
-                prefixIconConstraints: const BoxConstraints.tightFor(
-                  width: 46,
-                  height: 48,
-                ),
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(left: 14, right: 8),
-                  child: Center(
-                    child: AppAssetIcon(
-                      AppIconography.search,
-                      size: 24,
-                      color: AppColors.secondaryInk,
-                    ),
-                  ),
-                ),
-                suffixIconConstraints: const BoxConstraints.tightFor(
-                  width: 42,
-                  height: 48,
-                ),
-                suffixIcon: value.text.isEmpty
-                    ? null
-                    : IconButton(
-                        tooltip: 'Очистить поиск',
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.close_rounded, size: 20),
-                      ),
-              ),
-            ),
+        : _ActiveSearchField(
+            controller: controller!,
+            focusNode: focusNode,
+            hintText: hintText,
+            onSearchChanged: onSearchChanged,
+            onSearchSubmitted: onSearchSubmitted,
+            onSearchClear: onSearchClear,
+            onSearchDismiss: onSearchDismiss,
           );
 
     return SizedBox(
@@ -129,6 +71,170 @@ class AppSearchFilterRow extends StatelessWidget {
             onPressed: onFilterTap,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActiveSearchField extends StatefulWidget {
+  const _ActiveSearchField({
+    required this.controller,
+    required this.hintText,
+    this.focusNode,
+    this.onSearchChanged,
+    this.onSearchSubmitted,
+    this.onSearchClear,
+    this.onSearchDismiss,
+  });
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final String hintText;
+  final ValueChanged<String>? onSearchChanged;
+  final ValueChanged<String>? onSearchSubmitted;
+  final VoidCallback? onSearchClear;
+  final VoidCallback? onSearchDismiss;
+
+  @override
+  State<_ActiveSearchField> createState() => _ActiveSearchFieldState();
+}
+
+class _ActiveSearchFieldState extends State<_ActiveSearchField> {
+  late final FocusNode _focusNode;
+  var _ownsFocusNode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsFocusNode = widget.focusNode == null;
+    _focusNode = widget.focusNode ?? FocusNode(debugLabel: 'app-search-field');
+    _focusNode.addListener(_onFocusChanged);
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+    }
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode?.removeListener(_onFocusChanged);
+      if (_ownsFocusNode) {
+        _focusNode.dispose();
+      }
+      _ownsFocusNode = widget.focusNode == null;
+      _focusNode =
+          widget.focusNode ?? FocusNode(debugLabel: 'app-search-field');
+      _focusNode.addListener(_onFocusChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
+    if (_ownsFocusNode) {
+      _focusNode.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _dismissFocus() {
+    _focusNode.unfocus();
+    widget.onSearchDismiss?.call();
+  }
+
+  void _dismissOrClear() {
+    final hadText = widget.controller.text.isNotEmpty;
+    if (hadText) {
+      widget.controller.clear();
+      if (widget.onSearchClear != null) {
+        widget.onSearchClear!();
+      } else {
+        widget.onSearchChanged?.call('');
+      }
+    }
+    _dismissFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasText = widget.controller.text.isNotEmpty;
+    final showClose = hasText || _focusNode.hasFocus;
+
+    return TapRegion(
+      onTapOutside: (_) => _dismissFocus(),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: _focusNode,
+        onChanged: widget.onSearchChanged,
+        onSubmitted: widget.onSearchSubmitted,
+        textInputAction: TextInputAction.search,
+        textAlignVertical: TextAlignVertical.center,
+        style: const TextStyle(
+          fontFamily: AppFonts.rubik,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          height: 1.2,
+          letterSpacing: 0,
+          color: AppColors.primaryInk,
+        ),
+        decoration: InputDecoration(
+          hintText: widget.hintText,
+          hintStyle: const TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            height: 1.2,
+            letterSpacing: 0,
+            color: AppColors.secondaryInk,
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          filled: false,
+          isCollapsed: true,
+          contentPadding: EdgeInsets.zero,
+          prefixIconConstraints: const BoxConstraints.tightFor(
+            width: 46,
+            height: 48,
+          ),
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 14, right: 8),
+            child: Center(
+              child: AppAssetIcon(
+                AppIconography.search,
+                size: 24,
+                color: AppColors.secondaryInk,
+              ),
+            ),
+          ),
+          suffixIconConstraints: const BoxConstraints.tightFor(
+            width: 42,
+            height: 48,
+          ),
+          suffixIcon: showClose
+              ? IconButton(
+                  tooltip: hasText ? 'Очистить поиск' : 'Закрыть поиск',
+                  onPressed: _dismissOrClear,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                )
+              : null,
+        ),
       ),
     );
   }

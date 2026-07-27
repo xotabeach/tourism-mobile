@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -78,7 +79,15 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
 
   void _selectStop(int index) => setState(() => _selectedStop = index);
 
-  void _openPlace(RouteStop stop) => context.go('/places/${stop.placeId}');
+  void _openPlace(RouteStop stop) {
+    unawaited(
+      PlaceDetailsScreen.openFromRoute(
+        context,
+        routeId: widget.routeId,
+        placeId: stop.placeId,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

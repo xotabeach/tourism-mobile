@@ -28,6 +28,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   static const _searchDelay = Duration(milliseconds: 300);
 
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'places-search');
   Timer? _searchDebounce;
   var _selectedChip = 'Все';
   var _searchQuery = '';
@@ -68,6 +69,10 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
     _applySearch('');
   }
 
+  void _dismissSearch() {
+    _searchFocus.unfocus();
+  }
+
   void _retry() {
     if (_searchQuery.isEmpty) {
       ref.invalidate(placesListProvider);
@@ -80,6 +85,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -111,10 +117,12 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                     const SizedBox(height: 12),
                     AppSearchFilterRow(
                       controller: _searchController,
+                      focusNode: _searchFocus,
                       hintText: 'Искать места',
                       onSearchChanged: _scheduleSearch,
                       onSearchSubmitted: _applySearch,
                       onSearchClear: _clearSearch,
+                      onSearchDismiss: _dismissSearch,
                       onFilterTap: () {},
                     ),
                     const SizedBox(height: 14),

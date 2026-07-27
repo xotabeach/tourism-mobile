@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +27,7 @@ abstract final class AppRouteNames {
   static const home = 'home';
   static const places = 'places';
   static const placeDetails = 'place-details';
+  static const routePlaceDetails = 'route-place-details';
   static const routes = 'routes';
   static const routeDetails = 'route-details';
   static const favorites = 'favorites';
@@ -109,14 +111,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       final initialRoute = state.extra is RouteSummary
                           ? state.extra! as RouteSummary
                           : null;
-                      return _routeDetailsTransitionPage(
-                        state,
-                        RouteDetailsScreen(
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: RouteDetailsScreen(
                           routeId: id,
                           initialRoute: initialRoute,
                         ),
                       );
                     },
+                    routes: [
+                      GoRoute(
+                        name: AppRouteNames.routePlaceDetails,
+                        path: 'place/:placeId',
+                        pageBuilder: (context, state) {
+                          final placeId = state.pathParameters['placeId']!;
+                          return CupertinoPage<void>(
+                            key: state.pageKey,
+                            child: PlaceDetailsScreen(placeId: placeId),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -147,9 +162,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: ':id',
                     pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return _appTransitionPage(
-                        state,
-                        PlaceDetailsScreen(placeId: id),
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: PlaceDetailsScreen(placeId: id),
                       );
                     },
                   ),
@@ -171,40 +186,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-
-CustomTransitionPage<void> _routeDetailsTransitionPage(
-  GoRouterState state,
-  Widget child,
-) {
-  return CustomTransitionPage<void>(
-    key: state.pageKey,
-    child: child,
-    transitionDuration: const Duration(milliseconds: 340),
-    reverseTransitionDuration: AppMotion.normal,
-    transitionsBuilder: (context, animation, secondaryAnimation, child) {
-      final reduceMotion = MediaQuery.disableAnimationsOf(context);
-      final curved = CurvedAnimation(
-        parent: animation,
-        curve: reduceMotion ? AppMotion.standard : AppMotion.emphasizedCurve,
-        reverseCurve: Curves.easeInCubic,
-      );
-      if (reduceMotion) {
-        return child;
-      }
-      return SlideTransition(
-        position: Tween<Offset>(
-          begin: const Offset(0, 0.024),
-          end: Offset.zero,
-        ).animate(curved),
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.965, end: 1).animate(curved),
-          alignment: Alignment.bottomCenter,
-          child: child,
-        ),
-      );
-    },
-  );
-}
 
 CustomTransitionPage<void> _appTransitionPage(
   GoRouterState state,

@@ -20,6 +20,16 @@ class PlaceDetailsScreen extends ConsumerWidget {
 
   final String placeId;
 
+  /// Opens place details above the current route so back/edge-swipe return to
+  /// route details instead of switching to the places catalog branch.
+  static Future<T?> openFromRoute<T extends Object?>(
+    BuildContext context, {
+    required String routeId,
+    required String placeId,
+  }) {
+    return context.push<T>('/routes/$routeId/place/$placeId');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final placeAsync = ref.watch(placeDetailProvider(placeId));
@@ -37,9 +47,10 @@ class PlaceDetailsScreen extends ConsumerWidget {
                 backgroundColor: AppColors.ink,
                 automaticallyImplyLeading: false,
                 leading: _AdaptivePlaceHeaderButton(
+                  key: const ValueKey('place-details-back'),
                   semanticLabel: 'Назад',
                   icon: Icons.arrow_back_rounded,
-                  onPressed: context.pop,
+                  onPressed: () => context.pop(),
                 ),
                 actions: [
                   _AdaptivePlaceHeaderButton(
@@ -212,6 +223,7 @@ class _AdaptivePlaceHeaderButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.iconAsset,
+    super.key,
   }) : assert((icon == null) != (iconAsset == null));
 
   final String semanticLabel;

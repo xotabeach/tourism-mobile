@@ -29,6 +29,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
   final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'home-search');
   var _selectedChip = 'Все';
   var _searchQuery = '';
 
@@ -68,9 +69,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _searchQuery = value.trim().toLowerCase());
   }
 
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  void _dismissSearch() {
+    _searchFocus.unfocus();
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
@@ -106,9 +117,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   selectedChip: _selectedChip,
                   chips: _chips,
                   searchController: _searchController,
+                  searchFocus: _searchFocus,
                   onSearchChanged: _onSearchChanged,
-                  onChipSelected: (chip) =>
-                      setState(() => _selectedChip = chip),
+                  onSearchClear: _clearSearch,
+                  onSearchDismiss: _dismissSearch,
+                  onChipSelected: (chip) {
+                    _dismissSearch();
+                    setState(() => _selectedChip = chip);
+                  },
                 );
               }
               if (items.isEmpty) {
@@ -146,7 +162,10 @@ class _HomeHeader extends StatelessWidget {
     required this.selectedChip,
     required this.chips,
     required this.searchController,
+    required this.searchFocus,
     required this.onSearchChanged,
+    required this.onSearchClear,
+    required this.onSearchDismiss,
     required this.onChipSelected,
   });
 
@@ -154,7 +173,10 @@ class _HomeHeader extends StatelessWidget {
   final String selectedChip;
   final List<String> chips;
   final TextEditingController searchController;
+  final FocusNode searchFocus;
   final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchClear;
+  final VoidCallback onSearchDismiss;
   final ValueChanged<String> onChipSelected;
 
   @override
@@ -193,7 +215,10 @@ class _HomeHeader extends StatelessWidget {
         const SizedBox(height: AppSpacing.xl),
         AppSearchFilterRow(
           controller: searchController,
+          focusNode: searchFocus,
           onSearchChanged: onSearchChanged,
+          onSearchClear: onSearchClear,
+          onSearchDismiss: onSearchDismiss,
           onFilterTap: () => context.goNamed(AppRouteNames.places),
         ),
         const SizedBox(height: AppSpacing.xl),

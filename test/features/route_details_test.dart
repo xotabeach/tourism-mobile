@@ -3,10 +3,13 @@ import 'dart:ui' show Tristate;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
+import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
@@ -226,7 +229,6 @@ void main() {
 
   testWidgets('stop arrow opens the place details screen', (tester) async {
     await _openRouteDetails(tester);
-    final shellNavBefore = tester.element(find.byType(AppFloatingNavBar));
 
     final arrow = find.ancestor(
       of: find.byTooltip('Открыть место'),
@@ -237,56 +239,43 @@ void main() {
     await tester.tap(arrow.at(1));
     await tester.pumpAndSettle();
 
+    expect(find.byType(PlaceDetailsScreen), findsOneWidget);
     expect(find.text('Ливадийский дворец'), findsWidgets);
     expect(find.textContaining('Ялтинской конференции'), findsOneWidget);
-    expect(find.byType(AppFloatingNavBar), findsOneWidget);
+    expect(
+      GoRouter.of(
+        tester.element(find.byType(PlaceDetailsScreen)),
+      ).state.uri.path,
+      contains('/place/'),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('place-details-back')));
+    await tester.pumpAndSettle();
+
+    final path = GoRouter.of(
+      tester.element(find.byType(AppFloatingNavBar)),
+    ).state.uri.path;
+    // Back must return to the route details we came from, not the places catalog.
+    expect(find.byType(PlaceDetailsScreen), findsNothing);
+    expect(find.text('Места Крыма'), findsNothing);
+    expect(path, startsWith('/routes/'));
+    expect(path.contains('/place/'), isFalse, reason: 'path=$path');
+    expect(
+      find.byKey(const ValueKey('route-details-title')),
+      findsOneWidget,
+      reason: 'path=$path',
+    );
     expect(
       tester
           .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
           .currentIndex,
-      3,
+      1,
     );
     expect(
       tester
           .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
           .detailMode,
       isTrue,
-    );
-    expect(
-      tester
-          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
-          .compactDestinationIndex,
-      3,
-    );
-    expect(
-      find.bySemanticsLabel('Развернуть навигацию, выбран раздел Карта'),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('expand-detail-navigation')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Ливадийский дворец'), findsWidgets);
-    expect(find.bySemanticsLabel('Главная'), findsOneWidget);
-    final mapDestination = find.descendant(
-      of: find.byType(AppFloatingNavBar),
-      matching: find.bySemanticsLabel('Карта'),
-    );
-    expect(mapDestination, findsOneWidget);
-
-    await tester.tap(mapDestination);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Места Крыма'), findsOneWidget);
-    expect(
-      identical(shellNavBefore, tester.element(find.byType(AppFloatingNavBar))),
-      isTrue,
-    );
-    expect(
-      tester
-          .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
-          .currentIndex,
-      3,
     );
   });
 }

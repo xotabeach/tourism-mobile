@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
@@ -13,7 +12,6 @@ import 'package:tourism_mobile/features/routes/application/route_catalog_filter.
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
-import 'package:tourism_mobile/routing/app_router.dart';
 
 class RoutesCatalogScreen extends ConsumerStatefulWidget {
   const RoutesCatalogScreen({super.key});
@@ -26,27 +24,44 @@ class RoutesCatalogScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'routes-search');
   var _selectedChip = 'Все';
   var _showCoach = true;
+  var _searchQuery = '';
 
-  Future<void> _openSearch(List<RouteSummary> routes) async {
-    if (routes.isEmpty) {
-      return;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim().toLowerCase());
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  void _dismissSearch() {
+    _searchFocus.unfocus();
+  }
+
+  List<RouteSummary> _visibleRoutes(List<RouteSummary> items) {
+    final filtered = filterRouteCatalog(items, _selectedChip);
+    if (_searchQuery.isEmpty) {
+      return filtered;
     }
-    final selected = await showSearch<RouteSummary?>(
-      context: context,
-      delegate: _RouteSearchDelegate(routes),
-    );
-    if (!mounted || selected == null) {
-      return;
-    }
-    unawaited(
-      context.pushNamed(
-        AppRouteNames.routeDetails,
-        pathParameters: {'id': selected.id},
-        extra: selected,
-      ),
-    );
+    return filtered
+        .where((route) {
+          final searchable = '${route.name} ${route.shortDescription ?? ''}'
+              .toLowerCase();
+          return searchable.contains(_searchQuery);
+        })
+        .toList(growable: false);
   }
 
   Future<void> _openFilters() async {
@@ -85,7 +100,6 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     final routesAsync = ref.watch(routesListProvider);
-    final routes = routesAsync.asData?.value.items ?? const <RouteSummary>[];
     final topInset = MediaQuery.paddingOf(context).top;
 
     return ColoredBox(
@@ -104,14 +118,21 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppSearchFilterRow(
-                  onSearchTap: () => unawaited(_openSearch(routes)),
+                  controller: _searchController,
+                  focusNode: _searchFocus,
+                  onSearchChanged: _onSearchChanged,
+                  onSearchClear: _clearSearch,
+                  onSearchDismiss: _dismissSearch,
                   onFilterTap: () => unawaited(_openFilters()),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 AppFilterChipBar(
                   labels: routeCatalogFilters,
                   selected: _selectedChip,
-                  onSelected: (chip) => setState(() => _selectedChip = chip),
+                  onSelected: (chip) {
+                    _dismissSearch();
+                    setState(() => _selectedChip = chip);
+                  },
                 ),
               ],
             ),
@@ -120,10 +141,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
           Expanded(
             child: routesAsync.when(
               data: (page) {
-                final visibleRoutes = filterRouteCatalog(
-                  page.items,
-                  _selectedChip,
-                );
+                final visibleRoutes = _visibleRoutes(page.items);
                 if (visibleRoutes.isEmpty) {
                   return const Center(child: Text('Маршруты не найдены'));
                 }
@@ -142,76 +160,6 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _RouteSearchDelegate extends SearchDelegate<RouteSummary?> {
-  _RouteSearchDelegate(this.routes);
-
-  final List<RouteSummary> routes;
-
-  @override
-  String get searchFieldLabel => 'Маршруты и места';
-
-  @override
-  List<Widget>? buildActions(BuildContext context) {
-    return [
-      if (query.isNotEmpty)
-        IconButton(
-          onPressed: () => query = '',
-          tooltip: 'Очистить',
-          icon: const Icon(Icons.clear_rounded),
-        ),
-    ];
-  }
-
-  @override
-  Widget? buildLeading(BuildContext context) {
-    return IconButton(
-      onPressed: () => close(context, null),
-      tooltip: 'Назад',
-      icon: const Icon(Icons.arrow_back_rounded),
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) => _results(context);
-
-  @override
-  Widget buildSuggestions(BuildContext context) => _results(context);
-
-  Widget _results(BuildContext context) {
-    final normalizedQuery = query.trim().toLowerCase();
-    final matches = normalizedQuery.isEmpty
-        ? routes
-        : routes
-              .where((route) {
-                final searchable =
-                    '${route.name} ${route.shortDescription ?? ''}'
-                        .toLowerCase();
-                return searchable.contains(normalizedQuery);
-              })
-              .toList(growable: false);
-    if (matches.isEmpty) {
-      return const Center(child: Text('Маршруты не найдены'));
-    }
-    return ListView.builder(
-      itemCount: matches.length,
-      itemBuilder: (context, index) {
-        final route = matches[index];
-        return ListTile(
-          title: Text(route.name),
-          subtitle: route.shortDescription == null
-              ? null
-              : Text(
-                  route.shortDescription!,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-          onTap: () => close(context, route),
-        );
-      },
     );
   }
 }
