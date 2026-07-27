@@ -10,7 +10,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -187,7 +187,7 @@ class _ProfileHeader extends StatelessWidget {
                 _HeaderActionButton(
                   tooltip: 'Редактировать профиль',
                   onTap: onEdit,
-                  fillColor: Colors.white.withValues(alpha: 0.82),
+                  fillColor: Colors.white.withValues(alpha: 0.55),
                   iconColor: AppColors.primaryInk,
                   icon: Icons.edit_outlined,
                 ),
@@ -195,8 +195,8 @@ class _ProfileHeader extends StatelessWidget {
                 _HeaderActionButton(
                   tooltip: 'Ещё',
                   onTap: onMore,
-                  fillColor: Colors.black.withValues(alpha: 0.42),
-                  iconColor: Colors.white,
+                  fillColor: Colors.white.withValues(alpha: 0.4),
+                  iconColor: AppColors.primaryInk,
                   icon: Icons.more_horiz_rounded,
                 ),
               ],
@@ -227,20 +227,25 @@ class _HeaderActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: () {
-            unawaited(HapticFeedback.selectionClick());
-            onTap();
-          },
-          customBorder: const CircleBorder(),
-          child: AppGlassCircle(
-            dimension: 44,
-            blur: 10,
-            fillColor: fillColor,
-            borderColor: Colors.white.withValues(alpha: 0.28),
-            child: Icon(icon, size: 22, color: iconColor),
+      child: SizedBox.square(
+        dimension: 44,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              unawaited(HapticFeedback.selectionClick());
+              onTap();
+            },
+            customBorder: const CircleBorder(),
+            child: AppAdaptiveGlassSurface(
+              borderRadius: AppRadii.circle,
+              shape: NativeLiquidGlassShape.circle,
+              interactive: true,
+              blur: 10,
+              fillColor: fillColor,
+              borderColor: Colors.white.withValues(alpha: 0.28),
+              child: Icon(icon, size: 22, color: iconColor),
+            ),
           ),
         ),
       ),

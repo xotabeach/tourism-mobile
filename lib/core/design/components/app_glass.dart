@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
+import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 
 /// Compositor-safe alpha for subtrees that contain backdrop filters.
 class AppFilteredOpacity extends StatelessWidget {
@@ -206,22 +207,30 @@ class AppGlassIconButton extends StatelessWidget {
       enabled: onPressed != null,
       child: Tooltip(
         message: semanticLabel,
-        child: AppGlassCircle(
+        child: SizedBox.square(
           dimension: dimension,
-          fillColor: fillColor,
-          child: IconButton(
-            onPressed: onPressed,
-            icon: iconAsset == null
-                ? Icon(icon)
-                : AppAssetIcon(
-                    iconAsset!,
-                    size: iconSize,
-                    color: foregroundColor,
-                  ),
-            iconSize: iconSize,
-            color: foregroundColor,
-            padding: EdgeInsets.zero,
-            constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          child: AppAdaptiveGlassSurface(
+            borderRadius: AppRadii.circle,
+            shape: NativeLiquidGlassShape.circle,
+            interactive: onPressed != null,
+            fillColor: fillColor,
+            child: IconButton(
+              onPressed: onPressed,
+              icon: iconAsset == null
+                  ? Icon(icon)
+                  : AppAssetIcon(
+                      iconAsset!,
+                      size: iconSize,
+                      color: foregroundColor,
+                    ),
+              iconSize: iconSize,
+              color: foregroundColor,
+              padding: EdgeInsets.zero,
+              constraints: BoxConstraints.tightFor(
+                width: dimension,
+                height: dimension,
+              ),
+            ),
           ),
         ),
       ),
@@ -259,19 +268,25 @@ class AppAdaptivePrimaryButton extends StatelessWidget {
       child: SizedBox(
         height: height,
         width: double.infinity,
-        child: AppGlassSurface(
+        child: AppAdaptiveGlassSurface(
           borderRadius: AppRadii.capsule,
           blur: 28,
-          fillColor: AppColors.primaryInk.withValues(
-            alpha: enabled ? 0.14 : 0.06,
-          ),
-          borderColor: Colors.white.withValues(alpha: enabled ? 0.86 : 0.48),
+          shape: NativeLiquidGlassShape.capsule,
+          interactive: enabled,
+          // Light frosted capsule — dark ink tint reads as a matte gray pill.
+          fillColor: Colors.white.withValues(alpha: enabled ? 0.42 : 0.2),
+          borderColor: Colors.white.withValues(alpha: enabled ? 0.92 : 0.48),
           borderWidth: 1.2,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: enabled ? 0.14 : 0.05),
+              color: Colors.black.withValues(alpha: enabled ? 0.16 : 0.05),
               blurRadius: 22,
               offset: const Offset(0, 9),
+            ),
+            BoxShadow(
+              color: Colors.white.withValues(alpha: enabled ? 0.35 : 0.12),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
             ),
           ],
           child: Material(

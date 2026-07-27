@@ -6,7 +6,6 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
@@ -39,6 +38,78 @@ class AppSearchFilterRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Light page chrome matches Figma: soft gray control surface (not native
+    // platform-view glass, which composites as a dark hole).
+    final searchField = controller == null
+        ? InkWell(
+            borderRadius: BorderRadius.circular(AppRadii.field),
+            onTap: onSearchTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: _SearchPlaceholder(hintText: hintText),
+            ),
+          )
+        : ValueListenableBuilder<TextEditingValue>(
+            valueListenable: controller!,
+            builder: (context, value, _) => TextField(
+              controller: controller,
+              onChanged: onSearchChanged,
+              onSubmitted: onSearchSubmitted,
+              textInputAction: TextInputAction.search,
+              textAlignVertical: TextAlignVertical.center,
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                height: 1.2,
+                letterSpacing: 0,
+                color: AppColors.primaryInk,
+              ),
+              decoration: InputDecoration(
+                hintText: hintText,
+                hintStyle: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                  letterSpacing: 0,
+                  color: AppColors.secondaryInk,
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                isCollapsed: true,
+                contentPadding: EdgeInsets.zero,
+                prefixIconConstraints: const BoxConstraints.tightFor(
+                  width: 46,
+                  height: 48,
+                ),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.only(left: 14, right: 8),
+                  child: Center(
+                    child: AppAssetIcon(
+                      AppIconography.search,
+                      size: 24,
+                      color: AppColors.secondaryInk,
+                    ),
+                  ),
+                ),
+                suffixIconConstraints: const BoxConstraints.tightFor(
+                  width: 42,
+                  height: 48,
+                ),
+                suffixIcon: value.text.isEmpty
+                    ? null
+                    : IconButton(
+                        tooltip: 'Очистить поиск',
+                        onPressed: _clearSearch,
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                      ),
+              ),
+            ),
+          );
+
     return SizedBox(
       height: 48,
       child: Row(
@@ -48,78 +119,7 @@ class AppSearchFilterRow extends StatelessWidget {
             child: Material(
               color: AppColors.controlSurface,
               borderRadius: BorderRadius.circular(AppRadii.field),
-              child: controller == null
-                  ? InkWell(
-                      borderRadius: BorderRadius.circular(AppRadii.field),
-                      onTap: onSearchTap,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        child: _SearchPlaceholder(hintText: hintText),
-                      ),
-                    )
-                  : ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: controller!,
-                      builder: (context, value, _) => TextField(
-                        controller: controller,
-                        onChanged: onSearchChanged,
-                        onSubmitted: onSearchSubmitted,
-                        textInputAction: TextInputAction.search,
-                        textAlignVertical: TextAlignVertical.center,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w400,
-                          height: 1.2,
-                          letterSpacing: 0,
-                          color: AppColors.primaryInk,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: hintText,
-                          hintStyle: const TextStyle(
-                            fontFamily: AppFonts.rubik,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w400,
-                            height: 1.2,
-                            letterSpacing: 0,
-                            color: AppColors.secondaryInk,
-                          ),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
-                          isCollapsed: true,
-                          contentPadding: EdgeInsets.zero,
-                          prefixIconConstraints: const BoxConstraints.tightFor(
-                            width: 46,
-                            height: 48,
-                          ),
-                          prefixIcon: const Padding(
-                            padding: EdgeInsets.only(left: 14, right: 8),
-                            child: Center(
-                              child: AppAssetIcon(
-                                AppIconography.search,
-                                size: 24,
-                                color: AppColors.secondaryInk,
-                              ),
-                            ),
-                          ),
-                          suffixIconConstraints: const BoxConstraints.tightFor(
-                            width: 42,
-                            height: 48,
-                          ),
-                          suffixIcon: value.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'Очистить поиск',
-                                  onPressed: _clearSearch,
-                                  icon: const Icon(
-                                    Icons.close_rounded,
-                                    size: 20,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
+              child: searchField,
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
@@ -190,7 +190,6 @@ class AppFlatIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final useCupertinoGlass = Theme.of(context).platform == TargetPlatform.iOS;
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -199,39 +198,17 @@ class AppFlatIconButton extends StatelessWidget {
         message: semanticLabel,
         child: SizedBox.square(
           dimension: dimension,
-          child: useCupertinoGlass
-              ? AppGlassCircle(
-                  dimension: dimension,
-                  blur: 24,
-                  fillColor: Colors.white.withValues(alpha: 0.48),
-                  borderColor: Colors.white.withValues(alpha: 0.82),
-                  child: InkWell(
-                    customBorder: const CircleBorder(),
-                    onTap: onPressed,
-                    child: Center(
-                      child: AppAssetIcon(
-                        iconAsset,
-                        size: iconSize,
-                        color: color,
-                      ),
-                    ),
-                  ),
-                )
-              : Material(
-                  color: AppColors.controlSurface,
-                  shape: const CircleBorder(),
-                  clipBehavior: Clip.antiAlias,
-                  child: InkWell(
-                    onTap: onPressed,
-                    child: Center(
-                      child: AppAssetIcon(
-                        iconAsset,
-                        size: iconSize,
-                        color: color,
-                      ),
-                    ),
-                  ),
-                ),
+          child: Material(
+            color: AppColors.controlSurface,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: Center(
+                child: AppAssetIcon(iconAsset, size: iconSize, color: color),
+              ),
+            ),
+          ),
         ),
       ),
     );

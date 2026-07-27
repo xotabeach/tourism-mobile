@@ -825,19 +825,19 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                           fillColor: Colors.white.withValues(
                                             alpha:
                                                 (useCupertinoGlass
-                                                    ? 0.11
+                                                    ? 0.38
                                                     : 0.24) *
                                                 eased,
                                           ),
                                           borderColor: Colors.white.withValues(
                                             alpha:
                                                 (useCupertinoGlass
-                                                    ? 0.48
+                                                    ? 0.88
                                                     : 0.46) *
                                                 eased,
                                           ),
                                           borderWidth: useCupertinoGlass
-                                              ? 1
+                                              ? 1.2
                                               : 1,
                                           boxShadow: useCupertinoGlass
                                               ? [
@@ -846,19 +846,19 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                                         const Color(
                                                           0x30000000,
                                                         ).withValues(
-                                                          alpha: 0.19 * eased,
+                                                          alpha: 0.22 * eased,
                                                         ),
-                                                    blurRadius: 16,
-                                                    offset: const Offset(0, 7),
+                                                    blurRadius: 18,
+                                                    offset: const Offset(0, 8),
                                                   ),
                                                   BoxShadow(
                                                     color:
                                                         const Color(
-                                                          0x26FFFFFF,
+                                                          0x66FFFFFF,
                                                         ).withValues(
-                                                          alpha: 0.15 * eased,
+                                                          alpha: 0.45 * eased,
                                                         ),
-                                                    blurRadius: 12,
+                                                    blurRadius: 14,
                                                     offset: const Offset(0, -3),
                                                   ),
                                                 ]

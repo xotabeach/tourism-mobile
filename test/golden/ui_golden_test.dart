@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
@@ -80,6 +81,7 @@ final _skipPixelGoldens =
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  forceFlutterLiquidGlassFallback = true;
   setUpAll(_loadGoldenFonts);
 
   testWidgets('golden welcome', (tester) async {
@@ -191,7 +193,7 @@ void main() {
       find.byKey(const ValueKey('route-swipe-coach-cta-glass')),
     );
     expect(cta.blur, 18);
-    expect(cta.fillColor.a, closeTo(0.11, 0.01));
+    expect(cta.fillColor.a, closeTo(0.38, 0.01));
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_onboarding_ios.png'),
