@@ -16,6 +16,10 @@ final class NotFoundFailure extends AppFailure {
   const NotFoundFailure([super.message = 'Resource not found']);
 }
 
+final class AuthFailure extends AppFailure {
+  const AuthFailure([super.message = 'Authentication failed']);
+}
+
 final class UnexpectedFailure extends AppFailure {
   const UnexpectedFailure([super.message = 'Unexpected error']);
 }

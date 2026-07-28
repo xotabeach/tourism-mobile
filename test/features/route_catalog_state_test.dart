@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,8 @@ import 'package:tourism_mobile/features/routes/application/favorite_routes_provi
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
+
+import '../support/test_overrides.dart';
 
 const _seaRoute = RouteSummary(
   id: 'sea',
@@ -25,14 +29,16 @@ const _mountainRoute = RouteSummary(
 );
 
 void main() {
-  test('favorite controller stores immutable route ids', () {
-    final container = ProviderContainer();
+  test('favorite controller stores immutable route ids', () async {
+    final container = ProviderContainer(
+      overrides: testSessionOverrides(onboardingCompleted: true),
+    );
     addTearDown(container.dispose);
 
-    container.read(favoriteRouteIdsProvider.notifier).add(_seaRoute.id);
+    await container.read(favoritesProvider.notifier).addRoute(_seaRoute.id);
 
     expect(container.read(favoriteRouteIdsProvider), {_seaRoute.id});
-    container.read(favoriteRouteIdsProvider.notifier).remove(_seaRoute.id);
+    await container.read(favoritesProvider.notifier).removeRoute(_seaRoute.id);
     expect(container.read(favoriteRouteIdsProvider), isEmpty);
   });
 
@@ -48,7 +54,9 @@ void main() {
   testWidgets('committed right swipe updates observed favorite state', (
     tester,
   ) async {
-    final container = ProviderContainer();
+    final container = ProviderContainer(
+      overrides: testSessionOverrides(onboardingCompleted: true),
+    );
     addTearDown(container.dispose);
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -60,9 +68,11 @@ void main() {
               routes: const [_seaRoute, _mountainRoute],
               onSwipe: (route, action) {
                 if (action == RouteSwipeAction.favorite) {
-                  container
-                      .read(favoriteRouteIdsProvider.notifier)
-                      .add(route.id);
+                  unawaited(
+                    container
+                        .read(favoritesProvider.notifier)
+                        .addRoute(route.id),
+                  );
                 }
               },
             ),
@@ -95,6 +105,7 @@ void main() {
     var showCoach = true;
     await tester.pumpWidget(
       ProviderScope(
+        overrides: testSessionOverrides(onboardingCompleted: true),
         child: MaterialApp(
           theme: AppTheme.light,
           home: StatefulBuilder(

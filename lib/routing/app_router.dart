@@ -43,6 +43,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
+      if (!session.isHydrated) {
+        return null;
+      }
       final completed = session.onboardingCompleted;
       final loc = state.matchedLocation;
       final onOnboarding =

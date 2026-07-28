@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
+import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -76,6 +77,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: AppSpacing.xl),
+                  const Text('Избранное', style: AppTypography.sectionTitle),
+                  const SizedBox(height: AppSpacing.sm),
+                  const _FavoritesSummary(),
+                  const SizedBox(height: AppSpacing.xl),
                   const Text(
                     'Опубликованные маршруты',
                     style: AppTypography.sectionTitle,
@@ -93,6 +98,31 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FavoritesSummary extends ConsumerWidget {
+  const _FavoritesSummary();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final favorites = ref.watch(favoritesProvider);
+    final routeCount = favorites.routeIds.length;
+    final placeCount = favorites.placeIds.length;
+    final label = routeCount == 0 && placeCount == 0
+        ? 'Пока пусто — свайпайте маршруты вправо'
+        : 'Маршруты: $routeCount · Места: $placeCount';
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.pageSurface,
+        borderRadius: BorderRadius.circular(AppRadii.tile),
+        boxShadow: AppShadows.card,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        child: Text(label, style: AppTypography.routeMetadata),
       ),
     );
   }
