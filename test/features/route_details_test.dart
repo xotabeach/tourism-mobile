@@ -9,7 +9,6 @@ import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
-import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
