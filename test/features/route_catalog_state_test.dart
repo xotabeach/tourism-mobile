@@ -80,4 +80,56 @@ void main() {
 
     expect(container.read(favoriteRouteIdsProvider), {_seaRoute.id});
   });
+
+  testWidgets('dismissing coach promotes first card without jump', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 852);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+    var showCoach = true;
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              return Scaffold(
+                body: RouteSwipeDeck(
+                  routes: const [_seaRoute, _mountainRoute],
+                  onSwipe: (_, _) {},
+                  showCoach: showCoach,
+                  onCoachDismiss: () => setState(() => showCoach = false),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RouteSwipeCoachCard), findsOneWidget);
+    tester
+        .widget<RouteSwipeCoachCard>(find.byType(RouteSwipeCoachCard))
+        .onDismiss();
+    await tester.pump();
+
+    final promotedRoute = find.byKey(const ValueKey('route-layer-sea'));
+    final settleStartTop = tester.widget<Positioned>(promotedRoute).top!;
+    expect(settleStartTop, closeTo(-6, 0.2));
+
+    await tester.pump(const Duration(milliseconds: 170));
+    final settleMidTop = tester.widget<Positioned>(promotedRoute).top!;
+    expect(settleMidTop, greaterThan(settleStartTop));
+    expect(settleMidTop, lessThan(17));
+
+    await tester.pumpAndSettle();
+    expect(tester.widget<Positioned>(promotedRoute).top, closeTo(17, 0.01));
+  });
 }

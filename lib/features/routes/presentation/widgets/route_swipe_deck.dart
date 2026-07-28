@@ -22,6 +22,8 @@ import 'package:tourism_mobile/routing/app_router.dart';
 
 enum RouteSwipeAction { favorite, skip }
 
+enum _DeckSettleKind { swipeCommit, coachDismiss }
+
 class _DeckGeometry {
   const _DeckGeometry({
     required this.top,
@@ -138,6 +140,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   late final AnimationController _settleController;
   late final Listenable _deckAnimation;
   Animation<Offset>? _offsetAnimation;
+  _DeckSettleKind? _settleKind;
   Offset _dragOffset = Offset.zero;
   RouteSwipeAction? _pendingAction;
   var _dragging = false;
@@ -167,11 +170,59 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   @override
   void didUpdateWidget(covariant RouteSwipeDeck oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.showCoach && !widget.showCoach) {
+      _animateCoachDismiss();
+    }
+    if (_sameRouteOrder(oldWidget.routes, widget.routes)) {
+      return;
+    }
+    if (_sameRouteSet(oldWidget.routes, widget.routes)) {
+      _deck = _reconcileDeck(widget.routes);
+      _precacheDeckImages();
+      return;
+    }
     if (!listEquals(oldWidget.routes, widget.routes)) {
-      _deck = List<RouteSummary>.from(widget.routes);
+      _deck = _reconcileDeck(widget.routes);
       _resetMotion();
       _precacheDeckImages();
     }
+  }
+
+  bool _sameRouteOrder(List<RouteSummary> a, List<RouteSummary> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _sameRouteSet(List<RouteSummary> a, List<RouteSummary> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    final aIds = a.map((route) => route.id).toSet();
+    final bIds = b.map((route) => route.id).toSet();
+    return aIds.length == bIds.length && aIds.containsAll(bIds);
+  }
+
+  List<RouteSummary> _reconcileDeck(List<RouteSummary> incomingRoutes) {
+    if (_deck.isEmpty) {
+      return List<RouteSummary>.from(incomingRoutes);
+    }
+    final routeById = {for (final route in incomingRoutes) route.id: route};
+    final next = <RouteSummary>[];
+    for (final route in _deck) {
+      final fresh = routeById.remove(route.id);
+      if (fresh != null) {
+        next.add(fresh);
+      }
+    }
+    next.addAll(routeById.values);
+    return next;
   }
 
   void _precacheDeckImages() {
@@ -206,10 +257,34 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   void _resetMotion() {
     _motionController.reset();
     _offsetAnimation = null;
+    _settleKind = null;
     _dragOffset = Offset.zero;
     _pendingAction = null;
     _dragging = false;
     _settleController.value = 1;
+  }
+
+  void _animateCoachDismiss() {
+    if (_motionController.isAnimating || _deck.isEmpty) {
+      return;
+    }
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _settleKind = _DeckSettleKind.coachDismiss;
+    _settleController.duration = reduceMotion
+        ? AppMotion.reduced
+        : const Duration(milliseconds: 340);
+    if (reduceMotion) {
+      setState(() => _settleController.value = 1);
+      return;
+    }
+    setState(() => _settleController.value = 0);
+    unawaited(
+      _settleController.forward().whenComplete(() {
+        if (mounted && _settleKind == _DeckSettleKind.coachDismiss) {
+          setState(() => _settleKind = null);
+        }
+      }),
+    );
   }
 
   void _onPanStart(DragStartDetails _) {
@@ -305,6 +380,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     setState(() {
       _motionController.reset();
       _offsetAnimation = null;
+      _settleKind = _DeckSettleKind.swipeCommit;
       _dragOffset = Offset.zero;
       _pendingAction = null;
       _dragging = false;
@@ -359,16 +435,21 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
             final settleProgress = settling
                 ? AppMotion.emphasizedCurve.transform(_settleController.value)
                 : 1.0;
+            final settleKind = _settleKind;
             final frontGeometry = settling
                 ? _DeckGeometry.lerp(
-                    _promotedBackGeometry,
+                    settleKind == _DeckSettleKind.coachDismiss
+                        ? _restingBackGeometry
+                        : _promotedBackGeometry,
                     _frontGeometry,
                     settleProgress,
                   )
                 : _frontGeometry;
             final backGeometry = settling
                 ? _DeckGeometry.lerp(
-                    _promotedFarGeometry,
+                    settleKind == _DeckSettleKind.coachDismiss
+                        ? _restingFarGeometry
+                        : _promotedFarGeometry,
                     _restingBackGeometry,
                     settleProgress,
                   )

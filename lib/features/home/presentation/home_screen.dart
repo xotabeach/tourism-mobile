@@ -186,23 +186,45 @@ class _HomeHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            const CircleAvatar(
-              radius: 24,
-              backgroundColor: AppColors.mistDark,
-              backgroundImage: AssetImage(AppImages.travelerPortrait),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Привет, $name!', style: AppTypography.greeting),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Может пройдемся?',
-                    style: AppTypography.greetingSubtitle,
+              child: Semantics(
+                button: true,
+                label: 'Открыть профиль',
+                child: InkWell(
+                  onTap: () => context.goNamed(AppRouteNames.profile),
+                  borderRadius: BorderRadius.circular(AppRadii.tile),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 24,
+                          backgroundColor: AppColors.mistDark,
+                          backgroundImage: AssetImage(
+                            AppImages.travelerPortrait,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Привет, $name!',
+                                style: AppTypography.greeting,
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Может пройдемся?',
+                                style: AppTypography.greetingSubtitle,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
             AppFlatIconButton(

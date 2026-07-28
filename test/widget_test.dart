@@ -86,6 +86,16 @@ void main() {
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
   });
 
+  testWidgets('home greeting opens profile tab', (WidgetTester tester) async {
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.textContaining('Привет, Никита'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Достижения:'), findsOneWidget);
+  });
+
   testWidgets('home search filters visible routes and clears', (tester) async {
     tester.view
       ..devicePixelRatio = 1

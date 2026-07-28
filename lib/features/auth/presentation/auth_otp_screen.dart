@@ -354,45 +354,53 @@ class _ConsentTile extends StatelessWidget {
       child: InkWell(
         onTap: () => onChanged(!value),
         borderRadius: BorderRadius.circular(12),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 26,
-              height: 26,
-              margin: const EdgeInsets.only(top: 2),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: value ? AppColors.ink : Colors.transparent,
-                border: Border.all(
-                  color: value ? AppColors.ink : const Color(0xFFCACACD),
-                  width: 1.4,
-                ),
-              ),
-              child: value
-                  ? const Icon(Icons.check, size: 15, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    const TextSpan(text: 'Я соглашаюсь\nс '),
-                    TextSpan(
-                      text: document,
-                      style: const TextStyle(
-                        decoration: TextDecoration.underline,
-                        decorationColor: AppColors.ink,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              SizedBox(
+                width: 30,
+                height: 30,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    width: 26,
+                    height: 26,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: value ? AppColors.ink : Colors.transparent,
+                      border: Border.all(
+                        color: value ? AppColors.ink : const Color(0xFFCACACD),
+                        width: 1.4,
                       ),
                     ),
-                  ],
+                    child: value
+                        ? const Icon(Icons.check, size: 15, color: Colors.white)
+                        : null,
+                  ),
                 ),
-                style: labelStyle,
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      const TextSpan(text: 'Я соглашаюсь\nс '),
+                      TextSpan(
+                        text: document,
+                        style: const TextStyle(
+                          decoration: TextDecoration.underline,
+                          decorationColor: AppColors.ink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  style: labelStyle,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
