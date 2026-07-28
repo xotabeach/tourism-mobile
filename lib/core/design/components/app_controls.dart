@@ -6,80 +6,316 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
-    required this.onSearchTap,
     required this.onFilterTap,
+    this.onSearchTap,
+    this.controller,
+    this.focusNode,
+    this.onSearchChanged,
+    this.onSearchSubmitted,
+    this.onSearchClear,
+    this.onSearchDismiss,
+    this.hintText = 'Искать маршруты и места',
     super.key,
-  });
+  }) : assert(onSearchTap != null || onSearchChanged != null);
 
-  final VoidCallback onSearchTap;
   final VoidCallback onFilterTap;
+  final VoidCallback? onSearchTap;
+  final TextEditingController? controller;
+  final FocusNode? focusNode;
+  final ValueChanged<String>? onSearchChanged;
+  final ValueChanged<String>? onSearchSubmitted;
+  final VoidCallback? onSearchClear;
+  final VoidCallback? onSearchDismiss;
+  final String hintText;
 
   @override
   Widget build(BuildContext context) {
+    final searchField = controller == null
+        ? InkWell(
+            borderRadius: BorderRadius.circular(AppRadii.field),
+            onTap: onSearchTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: _SearchPlaceholder(hintText: hintText),
+            ),
+          )
+        : _ActiveSearchField(
+            controller: controller!,
+            focusNode: focusNode,
+            hintText: hintText,
+            onSearchChanged: onSearchChanged,
+            onSearchSubmitted: onSearchSubmitted,
+            onSearchClear: onSearchClear,
+            onSearchDismiss: onSearchDismiss,
+          );
+
     return SizedBox(
-      height: 58,
+      height: 48,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
-            child: AppGlassSurface(
-              borderRadius: AppRadii.field,
-              blur: 10,
-              fillColor: Colors.white.withValues(alpha: 0.18),
-              borderColor: const Color(0xFFD3D3D6),
-              borderWidth: 1.4,
-              boxShadow: const [],
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppRadii.field),
-                  onTap: onSearchTap,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 18),
-                    child: Row(
-                      children: [
-                        AppAssetIcon(
-                          AppIconography.search,
-                          size: 30,
-                          color: AppColors.secondaryInk,
-                        ),
-                        SizedBox(width: AppSpacing.sm),
-                        Expanded(
-                          child: Text(
-                            'Искать маршруты и места',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: AppFonts.rubik,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              height: 1.2,
-                              letterSpacing: 0,
-                              color: AppColors.secondaryInk,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+            child: Material(
+              color: AppColors.controlSurface,
+              borderRadius: BorderRadius.circular(AppRadii.field),
+              child: searchField,
             ),
           ),
-          const SizedBox(width: AppSpacing.sm),
-          AppGlassIconButton(
+          const SizedBox(width: AppSpacing.xs),
+          AppFlatIconButton(
             iconAsset: AppIconography.filter,
             semanticLabel: 'Фильтры',
             onPressed: onFilterTap,
-            dimension: 58,
-            iconSize: 28,
-            fillColor: AppColors.glassFillStrong,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ActiveSearchField extends StatefulWidget {
+  const _ActiveSearchField({
+    required this.controller,
+    required this.hintText,
+    this.focusNode,
+    this.onSearchChanged,
+    this.onSearchSubmitted,
+    this.onSearchClear,
+    this.onSearchDismiss,
+  });
+
+  final TextEditingController controller;
+  final FocusNode? focusNode;
+  final String hintText;
+  final ValueChanged<String>? onSearchChanged;
+  final ValueChanged<String>? onSearchSubmitted;
+  final VoidCallback? onSearchClear;
+  final VoidCallback? onSearchDismiss;
+
+  @override
+  State<_ActiveSearchField> createState() => _ActiveSearchFieldState();
+}
+
+class _ActiveSearchFieldState extends State<_ActiveSearchField> {
+  late final FocusNode _focusNode;
+  var _ownsFocusNode = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ownsFocusNode = widget.focusNode == null;
+    _focusNode = widget.focusNode ?? FocusNode(debugLabel: 'app-search-field');
+    _focusNode.addListener(_onFocusChanged);
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+    }
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode?.removeListener(_onFocusChanged);
+      if (_ownsFocusNode) {
+        _focusNode.dispose();
+      }
+      _ownsFocusNode = widget.focusNode == null;
+      _focusNode =
+          widget.focusNode ?? FocusNode(debugLabel: 'app-search-field');
+      _focusNode.addListener(_onFocusChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    _focusNode.removeListener(_onFocusChanged);
+    if (_ownsFocusNode) {
+      _focusNode.dispose();
+    }
+    super.dispose();
+  }
+
+  void _onFocusChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _onTextChanged() {
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  void _dismissFocus() {
+    _focusNode.unfocus();
+    widget.onSearchDismiss?.call();
+  }
+
+  void _dismissOrClear() {
+    final hadText = widget.controller.text.isNotEmpty;
+    if (hadText) {
+      widget.controller.clear();
+      if (widget.onSearchClear != null) {
+        widget.onSearchClear!();
+      } else {
+        widget.onSearchChanged?.call('');
+      }
+    }
+    _dismissFocus();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasText = widget.controller.text.isNotEmpty;
+    final showClose = hasText || _focusNode.hasFocus;
+
+    return TapRegion(
+      onTapOutside: (_) => _dismissFocus(),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: _focusNode,
+        onChanged: widget.onSearchChanged,
+        onSubmitted: widget.onSearchSubmitted,
+        textInputAction: TextInputAction.search,
+        textAlignVertical: TextAlignVertical.center,
+        style: const TextStyle(
+          fontFamily: AppFonts.rubik,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+          height: 1.2,
+          letterSpacing: 0,
+          color: AppColors.primaryInk,
+        ),
+        decoration: InputDecoration(
+          hintText: widget.hintText,
+          hintStyle: const TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 15,
+            fontWeight: FontWeight.w400,
+            height: 1.2,
+            letterSpacing: 0,
+            color: AppColors.secondaryInk,
+          ),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          filled: false,
+          isCollapsed: true,
+          contentPadding: EdgeInsets.zero,
+          prefixIconConstraints: const BoxConstraints.tightFor(
+            width: 46,
+            height: 48,
+          ),
+          prefixIcon: const Padding(
+            padding: EdgeInsets.only(left: 14, right: 8),
+            child: Center(
+              child: AppAssetIcon(
+                AppIconography.search,
+                size: 24,
+                color: AppColors.secondaryInk,
+              ),
+            ),
+          ),
+          suffixIconConstraints: const BoxConstraints.tightFor(
+            width: 42,
+            height: 48,
+          ),
+          suffixIcon: showClose
+              ? IconButton(
+                  tooltip: hasText ? 'Очистить поиск' : 'Закрыть поиск',
+                  onPressed: _dismissOrClear,
+                  icon: const Icon(Icons.close_rounded, size: 20),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchPlaceholder extends StatelessWidget {
+  const _SearchPlaceholder({required this.hintText});
+
+  final String hintText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const AppAssetIcon(
+          AppIconography.search,
+          size: 24,
+          color: AppColors.secondaryInk,
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            hintText,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              height: 1.2,
+              letterSpacing: 0,
+              color: AppColors.secondaryInk,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Flat circular control used for the bell and filter buttons on light pages.
+class AppFlatIconButton extends StatelessWidget {
+  const AppFlatIconButton({
+    required this.iconAsset,
+    required this.semanticLabel,
+    required this.onPressed,
+    this.dimension = 48,
+    this.iconSize = 24,
+    this.color = AppColors.primaryInk,
+    super.key,
+  });
+
+  final String iconAsset;
+  final String semanticLabel;
+  final VoidCallback? onPressed;
+  final double dimension;
+  final double iconSize;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      enabled: onPressed != null,
+      child: Tooltip(
+        message: semanticLabel,
+        child: SizedBox.square(
+          dimension: dimension,
+          child: Material(
+            color: AppColors.controlSurface,
+            shape: const CircleBorder(),
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: Center(
+                child: AppAssetIcon(iconAsset, size: iconSize, color: color),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -102,11 +338,11 @@ class AppFilterChipBar extends StatelessWidget {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return SizedBox(
-      height: 40,
+      height: 37,
       child: Row(
         children: [
           for (var index = 0; index < labels.length; index++) ...[
-            if (index > 0) const SizedBox(width: AppSpacing.xs),
+            if (index > 0) const SizedBox(width: AppSpacing.xxs + 2),
             Expanded(
               child: Semantics(
                 selected: labels[index] == selected,

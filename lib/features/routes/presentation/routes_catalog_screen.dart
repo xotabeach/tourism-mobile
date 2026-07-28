@@ -1,10 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/features/routes/application/favorite_routes_provider.dart';
+import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 
 class RoutesCatalogScreen extends ConsumerStatefulWidget {
@@ -18,9 +24,78 @@ class RoutesCatalogScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
-  static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'routes-search');
   var _selectedChip = 'Все';
   var _showCoach = true;
+  var _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim().toLowerCase());
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  void _dismissSearch() {
+    _searchFocus.unfocus();
+  }
+
+  List<RouteSummary> _visibleRoutes(List<RouteSummary> items) {
+    final filtered = filterRouteCatalog(items, _selectedChip);
+    if (_searchQuery.isEmpty) {
+      return filtered;
+    }
+    return filtered
+        .where((route) {
+          final searchable = '${route.name} ${route.shortDescription ?? ''}'
+              .toLowerCase();
+          return searchable.contains(_searchQuery);
+        })
+        .toList(growable: false);
+  }
+
+  Future<void> _openFilters() async {
+    final selected = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final filter in routeCatalogFilters)
+                ListTile(
+                  title: Text(filter),
+                  trailing: filter == _selectedChip
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () => Navigator.of(context).pop(filter),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+    if (mounted && selected != null) {
+      setState(() => _selectedChip = selected);
+    }
+  }
+
+  void _handleSwipe(RouteSummary route, RouteSwipeAction action) {
+    if (action == RouteSwipeAction.favorite) {
+      ref.read(favoriteRouteIdsProvider.notifier).add(route.id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,31 +117,45 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppSearchFilterRow(onSearchTap: () {}, onFilterTap: () {}),
+                AppSearchFilterRow(
+                  controller: _searchController,
+                  focusNode: _searchFocus,
+                  onSearchChanged: _onSearchChanged,
+                  onSearchClear: _clearSearch,
+                  onSearchDismiss: _dismissSearch,
+                  onFilterTap: () => unawaited(_openFilters()),
+                ),
                 const SizedBox(height: AppSpacing.md),
                 AppFilterChipBar(
-                  labels: _chips,
+                  labels: routeCatalogFilters,
                   selected: _selectedChip,
-                  onSelected: (chip) => setState(() => _selectedChip = chip),
+                  onSelected: (chip) {
+                    _dismissSearch();
+                    setState(() => _selectedChip = chip);
+                  },
                 ),
               ],
             ),
           ),
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.lg),
           Expanded(
             child: routesAsync.when(
               data: (page) {
-                if (page.items.isEmpty) {
+                final visibleRoutes = _visibleRoutes(page.items);
+                if (visibleRoutes.isEmpty) {
                   return const Center(child: Text('Маршруты не найдены'));
                 }
                 return RouteSwipeDeck(
-                  routes: page.items,
+                  routes: visibleRoutes,
+                  onSwipe: _handleSwipe,
                   showCoach: _showCoach,
                   onCoachDismiss: () => setState(() => _showCoach = false),
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Ошибка: $error')),
+              error: (_, _) => AppAsyncErrorView(
+                onRetry: () => ref.invalidate(routesListProvider),
+              ),
             ),
           ),
         ],

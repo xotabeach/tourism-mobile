@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -16,6 +19,16 @@ class PlaceDetailsScreen extends ConsumerWidget {
   static const routeSegment = ':id';
 
   final String placeId;
+
+  /// Opens place details above the current route so back/edge-swipe return to
+  /// route details instead of switching to the places catalog branch.
+  static Future<T?> openFromRoute<T extends Object?>(
+    BuildContext context, {
+    required String routeId,
+    required String placeId,
+  }) {
+    return context.push<T>('/routes/$routeId/place/$placeId');
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,18 +45,25 @@ class PlaceDetailsScreen extends ConsumerWidget {
                 pinned: true,
                 foregroundColor: Colors.white,
                 backgroundColor: AppColors.ink,
+                automaticallyImplyLeading: false,
+                leading: _AdaptivePlaceHeaderButton(
+                  key: const ValueKey('place-details-back'),
+                  semanticLabel: 'Назад',
+                  icon: Icons.arrow_back_rounded,
+                  onPressed: () => context.pop(),
+                ),
                 actions: [
-                  IconButton(
+                  _AdaptivePlaceHeaderButton(
+                    semanticLabel: 'В избранное',
                     onPressed: () {},
-                    icon: const AppAssetIcon(
-                      AppIconography.heart,
-                      color: Colors.white,
-                    ),
+                    iconAsset: AppIconography.heart,
                   ),
-                  IconButton(
+                  _AdaptivePlaceHeaderButton(
+                    semanticLabel: 'Поделиться',
                     onPressed: () {},
-                    icon: const Icon(Icons.ios_share_rounded),
+                    icon: Icons.ios_share_rounded,
                   ),
+                  const SizedBox(width: 8),
                 ],
                 flexibleSpace: FlexibleSpaceBar(
                   background: Stack(
@@ -103,7 +123,12 @@ class PlaceDetailsScreen extends ConsumerWidget {
                 ),
               ),
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  112 + MediaQuery.paddingOf(context).bottom,
+                ),
                 sliver: SliverList.list(
                   children: [
                     Row(
@@ -184,7 +209,50 @@ class PlaceDetailsScreen extends ConsumerWidget {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Ошибка: $error')),
+        error: (_, _) => AppAsyncErrorView(
+          onRetry: () => ref.invalidate(placeDetailProvider(placeId)),
+        ),
+      ),
+    );
+  }
+}
+
+class _AdaptivePlaceHeaderButton extends StatelessWidget {
+  const _AdaptivePlaceHeaderButton({
+    required this.semanticLabel,
+    required this.onPressed,
+    this.icon,
+    this.iconAsset,
+    super.key,
+  }) : assert((icon == null) != (iconAsset == null));
+
+  final String semanticLabel;
+  final VoidCallback onPressed;
+  final IconData? icon;
+  final String? iconAsset;
+
+  @override
+  Widget build(BuildContext context) {
+    final iconWidget = iconAsset == null
+        ? Icon(icon, color: Colors.white, size: 22)
+        : AppAssetIcon(iconAsset!, color: Colors.white, size: 22);
+    final button = IconButton(
+      tooltip: semanticLabel,
+      onPressed: onPressed,
+      padding: EdgeInsets.zero,
+      icon: iconWidget,
+    );
+    if (Theme.of(context).platform != TargetPlatform.iOS) {
+      return button;
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: AppGlassCircle(
+        dimension: 44,
+        blur: 24,
+        fillColor: Colors.black.withValues(alpha: 0.28),
+        borderColor: Colors.white.withValues(alpha: 0.48),
+        child: button,
       ),
     );
   }

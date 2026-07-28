@@ -177,15 +177,14 @@ class MockPlacesRepository implements PlacesRepository {
           .toList();
     }
     if (query != null && query.isNotEmpty) {
-      final needle = query.toLowerCase();
-      items = items
-          .where(
-            (item) =>
-                item.name.toLowerCase().contains(needle) ||
-                (item.shortDescription?.toLowerCase().contains(needle) ??
-                    false),
-          )
-          .toList();
+      final needle = query.trim().toLowerCase();
+      items = items.where((item) {
+        final haystack =
+            '${item.name} ${item.shortDescription ?? ''} '
+                    '${item.categories.map((category) => category.name).join(' ')}'
+                .toLowerCase();
+        return haystack.contains(needle);
+      }).toList();
     }
     return PlaceListPage(
       items: items,

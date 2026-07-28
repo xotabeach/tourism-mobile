@@ -60,10 +60,10 @@ String formatDistanceKm(int? meters) {
 }
 
 String routeLocality(RouteSummary route) {
-  if (route.slug.contains('bakhchisaray')) {
+  if (route.slug.contains('bakhchisaray') || route.slug.contains('chok-sary')) {
     return 'Бахчисарай';
   }
-  if (route.slug.contains('south-coast')) {
+  if (route.slug.contains('south-coast') || route.slug.contains('ai-petri')) {
     return 'Ялта';
   }
   if (route.slug.contains('coast') || route.slug.contains('fiolent')) {
@@ -116,6 +116,7 @@ class RouteHeroCard extends ConsumerWidget {
       onTap: () => context.pushNamed(
         AppRouteNames.routeDetails,
         pathParameters: {'id': route.id},
+        extra: route,
       ),
       child: card,
     );
@@ -173,11 +174,11 @@ class _RouteCardContent extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0x3D000000),
-                    Color(0x0A000000),
-                    Color(0xD9000000),
+                    Color(0x45000000),
+                    Color(0x00000000),
+                    Color(0xBF000000),
                   ],
-                  stops: [0, 0.46, 1],
+                  stops: [0, 0.36, 1],
                 ),
               ),
             ),
@@ -196,13 +197,13 @@ class _RouteCardContent extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                         child: const CircleAvatar(
-                          radius: 19,
+                          radius: 18.5,
                           backgroundImage: AssetImage(
                             AppImages.travelerPortrait,
                           ),
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,33 +213,35 @@ class _RouteCardContent extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.chip.copyWith(
+                                fontSize: 15,
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 1),
                             Text(
                               route.authorLabel?.contains('редакция') ?? false
                                   ? transportLabel(route.transportMode)
-                                  : 'Продвинутый путешественник',
+                                  : 'Продвинутый пешеход',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.routeMetadata.copyWith(
-                                color: Colors.white.withValues(alpha: 0.78),
+                                fontSize: 12,
+                                color: Colors.white.withValues(alpha: 0.8),
                               ),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      Opacity(
+                      AppFilteredOpacity(
                         opacity: actionOpacity,
                         child: const _FavoriteButton(),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Opacity(
+                  AppFilteredOpacity(
                     opacity: actionOpacity,
                     child: Wrap(
                       spacing: 6,
@@ -265,31 +268,33 @@ class _RouteCardContent extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.routeTitle.copyWith(
                                 color: Colors.white,
-                                fontSize: compact ? 22 : 20,
+                                fontSize: compact ? 22 : 24,
                               ),
                             ),
-                            const SizedBox(height: 7),
+                            const SizedBox(height: 6),
                             _RouteMetadata(route: route),
-                            const SizedBox(height: AppSpacing.xs),
-                            _DifficultyRow(
-                              bolts: bolts,
-                              label: difficultyLabel(route.difficulty),
-                            ),
+                            if (!compact) ...[
+                              const SizedBox(height: AppSpacing.xs),
+                              _DifficultyRow(
+                                bolts: bolts,
+                                label: difficultyLabel(route.difficulty),
+                              ),
+                            ],
                           ],
                         ),
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      Opacity(
+                      AppFilteredOpacity(
                         opacity: actionOpacity,
                         child: AppGlassCircle(
-                          dimension: compact ? 50 : 54,
+                          dimension: compact ? 50 : 56,
                           blur: 12,
-                          fillColor: Colors.white.withValues(alpha: 0.22),
-                          borderColor: Colors.white.withValues(alpha: 0.52),
-                          child: const AppAssetIcon(
+                          fillColor: Colors.white.withValues(alpha: 0.3),
+                          borderColor: Colors.white.withValues(alpha: 0.34),
+                          child: AppAssetIcon(
                             AppIconography.arrow,
                             color: Colors.white,
-                            size: 28,
+                            size: compact ? 26 : 28,
                           ),
                         ),
                       ),
@@ -314,12 +319,13 @@ class _RouteTag extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppGlassPill(
       blur: 8,
-      fillColor: Colors.white.withValues(alpha: 0.18),
-      borderColor: Colors.white.withValues(alpha: 0.16),
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      fillColor: Colors.black.withValues(alpha: 0.38),
+      borderColor: Colors.white.withValues(alpha: 0.14),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
       child: Text(
         label,
         style: AppTypography.routeMetadata.copyWith(
+          fontSize: 14,
           color: Colors.white,
           fontWeight: FontWeight.w500,
         ),
@@ -345,11 +351,12 @@ class _RatingPill extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.star_rounded, color: AppColors.rating, size: 16),
+            const Icon(Icons.star_rounded, color: AppColors.rating, size: 17),
             const SizedBox(width: 4),
             Text(
               '4,${9 - (route.name.length % 3)}',
               style: AppTypography.routeMetadata.copyWith(
+                fontSize: 14,
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),
@@ -369,29 +376,25 @@ class _RouteMetadata extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = AppTypography.routeMetadata.copyWith(
-      color: Colors.white.withValues(alpha: 0.78),
+      fontSize: 14,
+      color: Colors.white.withValues(alpha: 0.82),
     );
 
     return Wrap(
       crossAxisAlignment: WrapCrossAlignment.center,
-      spacing: 6,
+      spacing: 8,
       runSpacing: 4,
       children: [
-        Icon(
-          Icons.location_on_outlined,
-          size: 17,
-          color: Colors.white.withValues(alpha: 0.76),
-        ),
         Text(routeLocality(route), style: style),
         Container(
           width: 1,
-          height: 16,
+          height: 15,
           color: Colors.white.withValues(alpha: 0.42),
         ),
         Icon(
           Icons.near_me_outlined,
-          size: 16,
-          color: Colors.white.withValues(alpha: 0.76),
+          size: 15,
+          color: Colors.white.withValues(alpha: 0.8),
         ),
         Text(formatDistanceKm(route.distanceMeters), style: style),
       ],
@@ -414,17 +417,18 @@ class _DifficultyRow extends StatelessWidget {
           Text(
             'Сложность:',
             style: AppTypography.routeMetadata.copyWith(
-              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.82),
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
           for (var index = 0; index < 5; index++)
             Icon(
-              Icons.bolt_rounded,
-              size: 16,
+              index < bolts ? Icons.bolt : Icons.bolt_outlined,
+              size: 17,
               color: index < bolts
                   ? Colors.white
-                  : Colors.white.withValues(alpha: 0.28),
+                  : Colors.white.withValues(alpha: 0.6),
             ),
         ],
       ),
@@ -477,10 +481,10 @@ class _FavoriteButtonState extends State<_FavoriteButton>
       toggled: _selected,
       label: _selected ? 'Удалить из избранного' : 'Добавить в избранное',
       child: AppGlassCircle(
-        dimension: 48,
+        dimension: 44,
         blur: 10,
-        fillColor: Colors.black.withValues(alpha: 0.26),
-        borderColor: Colors.white.withValues(alpha: 0.18),
+        fillColor: Colors.black.withValues(alpha: 0.42),
+        borderColor: Colors.white.withValues(alpha: 0.16),
         child: IconButton(
           onPressed: _toggle,
           padding: EdgeInsets.zero,
@@ -493,12 +497,12 @@ class _FavoriteButtonState extends State<_FavoriteButton>
                   const Icon(
                     Icons.favorite_rounded,
                     color: Colors.white,
-                    size: 22,
+                    size: 20,
                   ),
                 const AppAssetIcon(
                   AppIconography.heart,
                   color: Colors.white,
-                  size: 25,
+                  size: 22,
                 ),
               ],
             ),
@@ -520,7 +524,7 @@ class BuildRouteBanner extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.card),
         child: SizedBox(
-          height: 238,
+          height: 246,
           width: double.infinity,
           child: Stack(
             fit: StackFit.expand,
@@ -551,15 +555,18 @@ class BuildRouteBanner extends StatelessWidget {
                   children: [
                     AppGlassPill(
                       blur: 10,
-                      fillColor: Colors.black.withValues(alpha: 0.36),
+                      fillColor: Colors.black.withValues(alpha: 0.42),
                       borderColor: Colors.white.withValues(alpha: 0.82),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 7,
+                        vertical: 6,
                       ),
                       child: Text(
                         '> 250 маршрутов',
-                        style: AppTypography.chip.copyWith(color: Colors.white),
+                        style: AppTypography.chip.copyWith(
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const Spacer(),
@@ -575,16 +582,17 @@ class BuildRouteBanner extends StatelessWidget {
                                 'ПОСТРОЙ\nМАРШРУТ',
                                 style: AppTypography.welcomeTitle.copyWith(
                                   color: Colors.white,
-                                  fontSize: 30,
-                                  height: 1.04,
+                                  fontSize: 26,
+                                  height: 1.06,
                                 ),
                               ),
-                              const SizedBox(height: AppSpacing.xs),
+                              const SizedBox(height: 6),
                               Text(
                                 'Подбери маршрут для себя\nпо всем параметрам',
                                 style: AppTypography.routeMetadata.copyWith(
                                   color: Colors.white.withValues(alpha: 0.92),
-                                  fontSize: 14,
+                                  fontSize: 13,
+                                  height: 1.42,
                                 ),
                               ),
                             ],
@@ -592,14 +600,14 @@ class BuildRouteBanner extends StatelessWidget {
                         ),
                         const SizedBox(width: AppSpacing.sm),
                         AppGlassCircle(
-                          dimension: 58,
+                          dimension: 52,
                           blur: 12,
-                          fillColor: Colors.black.withValues(alpha: 0.34),
-                          borderColor: Colors.white.withValues(alpha: 0.28),
+                          fillColor: Colors.white.withValues(alpha: 0.34),
+                          borderColor: Colors.white.withValues(alpha: 0.24),
                           child: const AppAssetIcon(
                             AppIconography.arrow,
                             color: Colors.white,
-                            size: 32,
+                            size: 28,
                           ),
                         ),
                       ],

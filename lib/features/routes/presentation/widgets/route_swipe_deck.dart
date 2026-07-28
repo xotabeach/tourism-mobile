@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
@@ -20,11 +22,46 @@ import 'package:tourism_mobile/routing/app_router.dart';
 
 enum RouteSwipeAction { favorite, skip }
 
+enum _DeckSettleKind { swipeCommit, coachDismiss }
+
+class _DeckGeometry {
+  const _DeckGeometry({
+    required this.top,
+    required this.left,
+    required this.right,
+    required this.scale,
+    required this.opacity,
+    required this.angle,
+  });
+
+  final double top;
+  final double left;
+  final double right;
+  final double scale;
+  final double opacity;
+  final double angle;
+
+  static _DeckGeometry lerp(
+    _DeckGeometry begin,
+    _DeckGeometry end,
+    double progress,
+  ) {
+    return _DeckGeometry(
+      top: lerpDouble(begin.top, end.top, progress)!,
+      left: lerpDouble(begin.left, end.left, progress)!,
+      right: lerpDouble(begin.right, end.right, progress)!,
+      scale: lerpDouble(begin.scale, end.scale, progress)!,
+      opacity: lerpDouble(begin.opacity, end.opacity, progress)!,
+      angle: lerpDouble(begin.angle, end.angle, progress)!,
+    );
+  }
+}
+
 /// Responsive swipe stack with deterministic progress rendering for goldens.
 class RouteSwipeDeck extends StatefulWidget {
   const RouteSwipeDeck({
     required this.routes,
-    this.onSwipe,
+    required this.onSwipe,
     this.showCoach = false,
     this.onCoachDismiss,
     this.debugProgress,
@@ -32,7 +69,7 @@ class RouteSwipeDeck extends StatefulWidget {
   });
 
   final List<RouteSummary> routes;
-  final void Function(RouteSummary route, RouteSwipeAction action)? onSwipe;
+  final void Function(RouteSummary route, RouteSwipeAction action) onSwipe;
   final bool showCoach;
   final VoidCallback? onCoachDismiss;
 
@@ -44,15 +81,66 @@ class RouteSwipeDeck extends StatefulWidget {
 }
 
 class _RouteSwipeDeckState extends State<RouteSwipeDeck>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   static const double _swipeThreshold = 118;
   static const double _dragTravelFactor = 0.34;
   static const double _maxHeldDrag = _swipeThreshold * 1.1;
   static const double _maxAngle = math.pi / 20;
+  static const _frontGeometry = _DeckGeometry(
+    top: 17,
+    left: 0,
+    right: 0,
+    scale: 1,
+    opacity: 1,
+    angle: 0,
+  );
+  static const _restingBackGeometry = _DeckGeometry(
+    top: -6,
+    left: 6,
+    right: -6,
+    scale: 0.965,
+    opacity: 0.78,
+    angle: 0.03,
+  );
+  static const _promotedBackGeometry = _DeckGeometry(
+    top: 10,
+    left: 6,
+    right: -6,
+    scale: 1,
+    opacity: 1,
+    angle: 0,
+  );
+  static const _restingFarGeometry = _DeckGeometry(
+    top: -8,
+    left: -10,
+    right: 10,
+    scale: 0.94,
+    opacity: 0.5,
+    angle: -0.042,
+  );
+  static const _promotedFarGeometry = _DeckGeometry(
+    top: -7,
+    left: -4,
+    right: 4,
+    scale: 0.955,
+    opacity: 0.68,
+    angle: -0.012,
+  );
+  static const _enteringFarGeometry = _DeckGeometry(
+    top: -12,
+    left: -12,
+    right: 12,
+    scale: 0.91,
+    opacity: 0,
+    angle: -0.052,
+  );
 
   late List<RouteSummary> _deck;
   late final AnimationController _motionController;
+  late final AnimationController _settleController;
+  late final Listenable _deckAnimation;
   Animation<Offset>? _offsetAnimation;
+  _DeckSettleKind? _settleKind;
   Offset _dragOffset = Offset.zero;
   RouteSwipeAction? _pendingAction;
   var _dragging = false;
@@ -65,6 +153,12 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
       vsync: this,
       duration: AppMotion.emphasized,
     )..addStatusListener(_handleMotionStatus);
+    _settleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 340),
+      value: 1,
+    );
+    _deckAnimation = Listenable.merge([_motionController, _settleController]);
   }
 
   @override
@@ -76,11 +170,59 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   @override
   void didUpdateWidget(covariant RouteSwipeDeck oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.routes != widget.routes) {
-      _deck = List<RouteSummary>.from(widget.routes);
+    if (oldWidget.showCoach && !widget.showCoach) {
+      _animateCoachDismiss();
+    }
+    if (_sameRouteOrder(oldWidget.routes, widget.routes)) {
+      return;
+    }
+    if (_sameRouteSet(oldWidget.routes, widget.routes)) {
+      _deck = _reconcileDeck(widget.routes);
+      _precacheDeckImages();
+      return;
+    }
+    if (!listEquals(oldWidget.routes, widget.routes)) {
+      _deck = _reconcileDeck(widget.routes);
       _resetMotion();
       _precacheDeckImages();
     }
+  }
+
+  bool _sameRouteOrder(List<RouteSummary> a, List<RouteSummary> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _sameRouteSet(List<RouteSummary> a, List<RouteSummary> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    final aIds = a.map((route) => route.id).toSet();
+    final bIds = b.map((route) => route.id).toSet();
+    return aIds.length == bIds.length && aIds.containsAll(bIds);
+  }
+
+  List<RouteSummary> _reconcileDeck(List<RouteSummary> incomingRoutes) {
+    if (_deck.isEmpty) {
+      return List<RouteSummary>.from(incomingRoutes);
+    }
+    final routeById = {for (final route in incomingRoutes) route.id: route};
+    final next = <RouteSummary>[];
+    for (final route in _deck) {
+      final fresh = routeById.remove(route.id);
+      if (fresh != null) {
+        next.add(fresh);
+      }
+    }
+    next.addAll(routeById.values);
+    return next;
   }
 
   void _precacheDeckImages() {
@@ -97,6 +239,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     _motionController
       ..removeStatusListener(_handleMotionStatus)
       ..dispose();
+    _settleController.dispose();
     super.dispose();
   }
 
@@ -114,13 +257,39 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   void _resetMotion() {
     _motionController.reset();
     _offsetAnimation = null;
+    _settleKind = null;
     _dragOffset = Offset.zero;
     _pendingAction = null;
     _dragging = false;
+    _settleController.value = 1;
+  }
+
+  void _animateCoachDismiss() {
+    if (_motionController.isAnimating || _deck.isEmpty) {
+      return;
+    }
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _settleKind = _DeckSettleKind.coachDismiss;
+    _settleController.duration = reduceMotion
+        ? AppMotion.reduced
+        : const Duration(milliseconds: 340);
+    if (reduceMotion) {
+      setState(() => _settleController.value = 1);
+      return;
+    }
+    setState(() => _settleController.value = 0);
+    unawaited(
+      _settleController.forward().whenComplete(() {
+        if (mounted && _settleKind == _DeckSettleKind.coachDismiss) {
+          setState(() => _settleKind = null);
+        }
+      }),
+    );
   }
 
   void _onPanStart(DragStartDetails _) {
     if (_motionController.isAnimating ||
+        _settleController.isAnimating ||
         _deck.isEmpty ||
         widget.showCoach ||
         widget.debugProgress != null) {
@@ -203,15 +372,28 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     }
     final route = _deck.removeAt(0);
     final action = _pendingAction!;
-    widget.onSwipe?.call(route, action);
+    widget.onSwipe(route, action);
     if (action == RouteSwipeAction.skip) {
       _deck.add(route);
     }
-    setState(_resetMotion);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    setState(() {
+      _motionController.reset();
+      _offsetAnimation = null;
+      _settleKind = _DeckSettleKind.swipeCommit;
+      _dragOffset = Offset.zero;
+      _pendingAction = null;
+      _dragging = false;
+      _settleController.value = reduceMotion ? 1 : 0;
+    });
+    if (!reduceMotion) {
+      unawaited(_settleController.forward());
+    }
   }
 
   void _openDetails(RouteSummary route) {
     if (_motionController.isAnimating ||
+        _settleController.isAnimating ||
         widget.showCoach ||
         widget.debugProgress != null) {
       return;
@@ -220,6 +402,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
       context.pushNamed(
         AppRouteNames.routeDetails,
         pathParameters: {'id': route.id},
+        extra: route,
       ),
     );
   }
@@ -233,19 +416,59 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth - AppSpacing.page * 2;
-        final desiredHeight = cardWidth * 1.43;
+        final desiredHeight = cardWidth * 1.5;
         final maxUsableHeight = math.max(320.0, constraints.maxHeight - 104);
         final cardHeight = math.min(desiredHeight, maxUsableHeight);
 
         return AnimatedBuilder(
-          animation: _motionController,
+          animation: _deckAnimation,
           builder: (context, _) {
             final debugProgress = widget.debugProgress?.clamp(-1.0, 1.0);
             final rawOffset = debugProgress != null
                 ? Offset(debugProgress * _swipeThreshold, 0)
                 : (_offsetAnimation?.value ?? _dragOffset);
             final progress = debugProgress ?? _progressFor(rawOffset.dx);
-            final promotion = progress.abs();
+            final dragPromotion = widget.showCoach
+                ? 0.0
+                : _smoothPromotion(progress.abs());
+            final settling = _settleController.value < 1;
+            final settleProgress = settling
+                ? AppMotion.emphasizedCurve.transform(_settleController.value)
+                : 1.0;
+            final settleKind = _settleKind;
+            final frontGeometry = settling
+                ? _DeckGeometry.lerp(
+                    settleKind == _DeckSettleKind.coachDismiss
+                        ? _restingBackGeometry
+                        : _promotedBackGeometry,
+                    _frontGeometry,
+                    settleProgress,
+                  )
+                : _frontGeometry;
+            final backGeometry = settling
+                ? _DeckGeometry.lerp(
+                    settleKind == _DeckSettleKind.coachDismiss
+                        ? _restingFarGeometry
+                        : _promotedFarGeometry,
+                    _restingBackGeometry,
+                    settleProgress,
+                  )
+                : _DeckGeometry.lerp(
+                    _restingBackGeometry,
+                    _promotedBackGeometry,
+                    dragPromotion,
+                  );
+            final farGeometry = settling
+                ? _DeckGeometry.lerp(
+                    _enteringFarGeometry,
+                    _restingFarGeometry,
+                    settleProgress,
+                  )
+                : _DeckGeometry.lerp(
+                    _restingFarGeometry,
+                    _promotedFarGeometry,
+                    dragPromotion,
+                  );
             final angle = _maxAngle * progress;
             final topOffset = Offset(
               _visualTravelFor(
@@ -268,78 +491,107 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                 alignment: Alignment.topCenter,
                 child: SizedBox(
                   width: cardWidth,
-                  height: cardHeight + 18,
+                  height: cardHeight + 24,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
                       if (_deck.length > farBackIndex)
                         Positioned(
-                          top: -14,
-                          left: 0,
-                          right: 0,
+                          key: ValueKey(
+                            'route-layer-${_deck[farBackIndex].id}',
+                          ),
+                          top: farGeometry.top,
+                          left: farGeometry.left,
+                          right: farGeometry.right,
                           height: cardHeight,
                           child: _BackCard(
                             route: _deck[farBackIndex],
-                            scale: 0.93 + promotion * 0.02,
-                            opacity: 0.42 + promotion * 0.18,
+                            scale: farGeometry.scale,
+                            opacity: farGeometry.opacity,
+                            angle: farGeometry.angle,
                           ),
                         ),
                       if (_deck.length > backIndex)
                         Positioned(
-                          top: -4 + promotion * 18,
-                          left: 0,
-                          right: 0,
+                          key: ValueKey('route-layer-${_deck[backIndex].id}'),
+                          top: backGeometry.top,
+                          left: backGeometry.left,
+                          right: backGeometry.right,
                           height: cardHeight,
                           child: _BackCard(
                             route: _deck[backIndex],
-                            scale: 0.965 + promotion * 0.035,
-                            opacity: 0.74 + promotion * 0.26,
+                            scale: backGeometry.scale,
+                            opacity: backGeometry.opacity,
+                            angle: backGeometry.angle,
                           ),
                         ),
                       Positioned(
-                        top: 14,
-                        left: 0,
-                        right: 0,
+                        key: widget.showCoach
+                            ? const ValueKey('route-coach-layer')
+                            : ValueKey('route-layer-${_deck.first.id}'),
+                        top: frontGeometry.top,
+                        left: frontGeometry.left,
+                        right: frontGeometry.right,
                         height: cardHeight,
-                        child: widget.showCoach
-                            ? RouteSwipeCoachCard(
-                                onDismiss: widget.onCoachDismiss ?? _noop,
-                              )
-                            : GestureDetector(
-                                behavior: HitTestBehavior.opaque,
-                                onHorizontalDragStart: _onPanStart,
-                                onHorizontalDragUpdate: _onHorizontalDragUpdate,
-                                onHorizontalDragEnd: _onPanEnd,
-                                onTap: () => _openDetails(_deck.first),
-                                child: Transform.translate(
-                                  key: const ValueKey(
-                                    'route-swipe-card-translation',
+                        child: Transform.scale(
+                          scale: frontGeometry.scale,
+                          child: widget.showCoach
+                              ? DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.card,
+                                    ),
+                                    boxShadow: AppShadows.deck,
                                   ),
-                                  offset: topOffset,
-                                  child: Transform.rotate(
-                                    angle: angle,
-                                    alignment: Alignment.bottomCenter,
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        RouteHeroCard(
-                                          route: _deck.first,
-                                          height: cardHeight,
-                                          interactive: false,
-                                          variant: RouteCardVariant.deck,
-                                          visualProgress: promotion,
-                                          tags: const [
-                                            'Горы',
-                                            'С детьми',
-                                            'Пешком',
+                                  child: RouteSwipeCoachCard(
+                                    onDismiss: widget.onCoachDismiss ?? _noop,
+                                  ),
+                                )
+                              : GestureDetector(
+                                  behavior: HitTestBehavior.opaque,
+                                  onHorizontalDragStart: _onPanStart,
+                                  onHorizontalDragUpdate:
+                                      _onHorizontalDragUpdate,
+                                  onHorizontalDragEnd: _onPanEnd,
+                                  onTap: () => _openDetails(_deck.first),
+                                  child: Transform.translate(
+                                    key: const ValueKey(
+                                      'route-swipe-card-translation',
+                                    ),
+                                    offset: topOffset,
+                                    child: Transform.rotate(
+                                      angle: frontGeometry.angle + angle,
+                                      alignment: Alignment.bottomCenter,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadii.card,
+                                          ),
+                                          boxShadow: AppShadows.deck,
+                                        ),
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            RouteHeroCard(
+                                              route: _deck.first,
+                                              height: cardHeight,
+                                              interactive: false,
+                                              variant: RouteCardVariant.deck,
+                                              visualProgress: progress.abs(),
+                                              tags: const [
+                                                'Горы',
+                                                'С детьми',
+                                                'Пешком',
+                                              ],
+                                            ),
+                                            _SwipeOverlay(progress: progress),
                                           ],
                                         ),
-                                        _SwipeOverlay(progress: progress),
-                                      ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
+                        ),
                       ),
                     ],
                   ),
@@ -353,6 +605,11 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   }
 
   double _progressFor(double dx) => (dx / _swipeThreshold).clamp(-1.0, 1.0);
+
+  double _smoothPromotion(double progress) {
+    final t = progress.clamp(0.0, 1.0);
+    return t * t * (3 - 2 * t);
+  }
 
   double _visualTravelFor(double rawDx, {required bool committing}) {
     final sign = rawDx.sign;
@@ -373,25 +630,37 @@ class _BackCard extends StatelessWidget {
     required this.route,
     required this.scale,
     required this.opacity,
+    required this.angle,
   });
 
   final RouteSummary route;
   final double scale;
   final double opacity;
+  final double angle;
 
   @override
   Widget build(BuildContext context) {
-    return Transform.scale(
-      scale: scale,
-      child: Opacity(
-        opacity: opacity,
-        child: IgnorePointer(
-          child: RepaintBoundary(
-            child: RouteHeroCard(
-              route: route,
-              height: double.infinity,
-              interactive: false,
-              variant: RouteCardVariant.deck,
+    return Transform.rotate(
+      angle: angle,
+      alignment: Alignment.bottomCenter,
+      child: Transform.scale(
+        scale: scale,
+        child: AppFilteredOpacity(
+          opacity: opacity,
+          child: IgnorePointer(
+            child: RepaintBoundary(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  boxShadow: AppShadows.deck,
+                ),
+                child: RouteHeroCard(
+                  route: route,
+                  height: double.infinity,
+                  interactive: false,
+                  variant: RouteCardVariant.deck,
+                ),
+              ),
             ),
           ),
         ),
@@ -488,7 +757,7 @@ class _SwipeOverlay extends StatelessWidget {
   }
 }
 
-/// Animated first card in the deck that teaches the route gestures.
+/// Animated scrim over the first deck card that teaches the route gestures.
 class RouteSwipeCoachCard extends StatefulWidget {
   const RouteSwipeCoachCard({required this.onDismiss, super.key});
 
@@ -533,6 +802,7 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    final useCupertinoGlass = Theme.of(context).platform == TargetPlatform.iOS;
 
     return Semantics(
       key: const ValueKey('route-swipe-coach-card'),
@@ -552,96 +822,147 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
 
               return BackdropFilter(
                 filter: ImageFilter.blur(
-                  sigmaX: 10 * eased,
-                  sigmaY: 10 * eased,
+                  sigmaX: 5.5 * eased,
+                  sigmaY: 5.5 * eased,
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: AppColors.primaryInk.withValues(alpha: 0.82 * eased),
+                    color: AppColors.primaryInk.withValues(alpha: 0.72 * eased),
                     borderRadius: BorderRadius.circular(AppRadii.card),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.28 * eased),
+                      color: Colors.white.withValues(alpha: 0.22 * eased),
                     ),
                   ),
                   child: Material(
                     color: Colors.transparent,
-                    child: Opacity(
-                      opacity: eased,
-                      child: Transform.translate(
-                        offset: Offset(0, translateY),
-                        child: Transform.scale(
-                          scale: contentScale,
-                          child: LayoutBuilder(
-                            builder: (context, constraints) {
-                              return SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  22,
-                                  24,
-                                  22,
-                                  20,
-                                ),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: math.max(
-                                      0,
-                                      constraints.maxHeight - 44,
-                                    ),
+                    child: Transform.translate(
+                      offset: Offset(0, translateY),
+                      child: Transform.scale(
+                        scale: contentScale,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(
+                                22,
+                                24,
+                                22,
+                                20,
+                              ),
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(
+                                  minHeight: math.max(
+                                    0,
+                                    constraints.maxHeight - 44,
                                   ),
-                                  child: Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const _CoachGesture(
-                                          kind: _CoachGestureKind.right,
-                                          text:
-                                              'Свайп вправо добавляет маршрут в «Избранное»',
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const _DashedArrow(
-                                          direction: AxisDirection.right,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const _CoachGesture(
-                                          kind: _CoachGestureKind.left,
-                                          text:
-                                              'Свайп влево отправляет маршрут в конец списка',
-                                        ),
-                                        const SizedBox(height: 8),
-                                        const _DashedArrow(
-                                          direction: AxisDirection.left,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        const _CoachGesture(
-                                          kind: _CoachGestureKind.tap,
-                                          text:
-                                              'Кликните на карточку, чтобы узнать подробнее',
-                                        ),
-                                        const SizedBox(height: 22),
-                                        SizedBox(
-                                          width: 184,
-                                          height: 54,
-                                          child: AppGlassSurface(
-                                            borderRadius: AppRadii.capsule,
-                                            blur: 0,
-                                            fillColor: Colors.white.withValues(
-                                              alpha: 0.24,
+                                ),
+                                child: Center(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Opacity(
+                                        opacity: eased,
+                                        child: const Column(
+                                          children: [
+                                            _CoachGesture(
+                                              kind: _CoachGestureKind.right,
+                                              text:
+                                                  'Свайп вправо добавляет маршрут в «Избранное»',
                                             ),
-                                            borderColor: Colors.white
-                                                .withValues(alpha: 0.46),
-                                            child: Material(
-                                              color: Colors.transparent,
-                                              child: InkWell(
-                                                borderRadius:
-                                                    BorderRadius.circular(
-                                                      AppRadii.capsule,
-                                                    ),
-                                                onTap: _dismiss,
-                                                child: Center(
+                                            SizedBox(height: 8),
+                                            _DashedArrow(
+                                              direction: AxisDirection.right,
+                                            ),
+                                            SizedBox(height: 10),
+                                            _CoachGesture(
+                                              kind: _CoachGestureKind.left,
+                                              text:
+                                                  'Свайп влево отправляет маршрут в конец списка',
+                                            ),
+                                            SizedBox(height: 8),
+                                            _DashedArrow(
+                                              direction: AxisDirection.left,
+                                            ),
+                                            SizedBox(height: 10),
+                                            _CoachGesture(
+                                              kind: _CoachGestureKind.tap,
+                                              text:
+                                                  'Кликните на карточку, чтобы узнать подробнее',
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 22),
+                                      SizedBox(
+                                        width: 244,
+                                        height: 62,
+                                        child: AppGlassSurface(
+                                          key: const ValueKey(
+                                            'route-swipe-coach-cta-glass',
+                                          ),
+                                          borderRadius: AppRadii.capsule,
+                                          blur: useCupertinoGlass
+                                              ? 18 * eased
+                                              : 0,
+                                          fillColor: Colors.white.withValues(
+                                            alpha:
+                                                (useCupertinoGlass
+                                                    ? 0.38
+                                                    : 0.24) *
+                                                eased,
+                                          ),
+                                          borderColor: Colors.white.withValues(
+                                            alpha:
+                                                (useCupertinoGlass
+                                                    ? 0.88
+                                                    : 0.46) *
+                                                eased,
+                                          ),
+                                          borderWidth: useCupertinoGlass
+                                              ? 1.2
+                                              : 1,
+                                          boxShadow: useCupertinoGlass
+                                              ? [
+                                                  BoxShadow(
+                                                    color:
+                                                        const Color(
+                                                          0x30000000,
+                                                        ).withValues(
+                                                          alpha: 0.22 * eased,
+                                                        ),
+                                                    blurRadius: 18,
+                                                    offset: const Offset(0, 8),
+                                                  ),
+                                                  BoxShadow(
+                                                    color:
+                                                        const Color(
+                                                          0x66FFFFFF,
+                                                        ).withValues(
+                                                          alpha: 0.45 * eased,
+                                                        ),
+                                                    blurRadius: 14,
+                                                    offset: const Offset(0, -3),
+                                                  ),
+                                                ]
+                                              : AppShadows.glass,
+                                          child: Material(
+                                            color: Colors.transparent,
+                                            child: InkWell(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppRadii.capsule,
+                                                  ),
+                                              onTap: _dismiss,
+                                              child: Center(
+                                                child: Opacity(
+                                                  opacity: eased,
                                                   child: Text(
                                                     'Хорошо',
                                                     style: AppTypography.button
                                                         .copyWith(
                                                           color: Colors.white,
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w400,
                                                         ),
                                                   ),
                                                 ),
@@ -649,13 +970,13 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              );
-                            },
-                          ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -681,21 +1002,29 @@ class _CoachGesture extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: 56,
-          height: 46,
-          child: kind == _CoachGestureKind.tap
-              ? const Icon(
-                  Icons.touch_app_outlined,
-                  color: Colors.white,
-                  size: 46,
-                )
-              : CustomPaint(painter: _SwipeGesturePainter(kind)),
+          width: 64,
+          height: 54,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(painter: _SwipeGesturePainter(kind)),
+              ),
+              if (kind == _CoachGestureKind.tap)
+                const Positioned.fill(
+                  child: CustomPaint(painter: _TapGesturePainter()),
+                ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: AppTypography.coach.copyWith(color: Colors.white),
+        SizedBox(
+          width: 216,
+          child: Text(
+            text,
+            textAlign: TextAlign.center,
+            style: AppTypography.coach.copyWith(color: Colors.white),
+          ),
         ),
       ],
     );
@@ -713,7 +1042,7 @@ class _SwipeGesturePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final white = Paint()
       ..color = Colors.white
-      ..strokeWidth = 3
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final fill = Paint()
@@ -721,7 +1050,7 @@ class _SwipeGesturePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
     final ink = Paint()
       ..color = AppColors.primaryInk
-      ..strokeWidth = 2.5
+      ..strokeWidth = 2.2
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
@@ -729,23 +1058,32 @@ class _SwipeGesturePainter extends CustomPainter {
     final card = RRect.fromRectAndRadius(
       Rect.fromCenter(
         center: Offset(size.width / 2, size.height / 2),
-        width: 22,
-        height: 40,
+        width: 28,
+        height: 46,
       ),
-      const Radius.circular(5),
+      const Radius.circular(7),
     );
     canvas
-      ..drawLine(const Offset(8, 7), const Offset(8, 39), white)
-      ..drawLine(Offset(size.width - 8, 7), Offset(size.width - 8, 39), white)
+      ..drawLine(const Offset(8, 10), Offset(8, size.height - 10), white)
+      ..drawLine(
+        Offset(size.width - 8, 10),
+        Offset(size.width - 8, size.height - 10),
+        white,
+      )
       ..drawRRect(card, fill);
+
+    if (kind == _CoachGestureKind.tap) {
+      return;
+    }
 
     final pointsRight = kind == _CoachGestureKind.right;
     final centerX = size.width / 2;
+    final centerY = size.height / 2;
     final direction = pointsRight ? 1.0 : -1.0;
     final chevron = Path()
-      ..moveTo(centerX - direction * 4, 13)
-      ..lineTo(centerX + direction * 4, 23)
-      ..lineTo(centerX - direction * 4, 33);
+      ..moveTo(centerX - direction * 6, centerY - 11)
+      ..lineTo(centerX + direction * 5, centerY)
+      ..lineTo(centerX - direction * 6, centerY + 11);
     canvas.drawPath(chevron, ink);
   }
 
@@ -753,6 +1091,49 @@ class _SwipeGesturePainter extends CustomPainter {
   bool shouldRepaint(covariant _SwipeGesturePainter oldDelegate) {
     return oldDelegate.kind != kind;
   }
+}
+
+class _TapGesturePainter extends CustomPainter {
+  const _TapGesturePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.primaryInk
+      ..strokeWidth = 2.1
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    final centerX = size.width / 2;
+
+    canvas
+      ..drawLine(Offset(centerX, 11), Offset(centerX, 8), paint)
+      ..drawLine(Offset(centerX - 5, 13), Offset(centerX - 7, 10), paint)
+      ..drawLine(Offset(centerX + 5, 13), Offset(centerX + 7, 10), paint);
+
+    final hand = Path()
+      ..moveTo(centerX, 30)
+      ..lineTo(centerX, 18)
+      ..quadraticBezierTo(centerX, 15, centerX + 2.5, 15)
+      ..quadraticBezierTo(centerX + 5, 15, centerX + 5, 18)
+      ..lineTo(centerX + 5, 26)
+      ..lineTo(centerX + 7, 24)
+      ..quadraticBezierTo(centerX + 9.5, 23, centerX + 11, 26)
+      ..lineTo(centerX + 12.5, 26)
+      ..quadraticBezierTo(centerX + 15, 26, centerX + 15, 29)
+      ..lineTo(centerX + 14, 36)
+      ..quadraticBezierTo(centerX + 13, 40, centerX + 9, 42)
+      ..lineTo(centerX - 1, 42)
+      ..quadraticBezierTo(centerX - 4, 40, centerX - 7, 37)
+      ..lineTo(centerX - 11, 33)
+      ..quadraticBezierTo(centerX - 13, 31, centerX - 11, 29)
+      ..quadraticBezierTo(centerX - 9, 27, centerX - 7, 29)
+      ..lineTo(centerX, 35);
+    canvas.drawPath(hand, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _TapGesturePainter oldDelegate) => false;
 }
 
 class _DashedArrow extends StatelessWidget {
@@ -763,7 +1144,7 @@ class _DashedArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 176,
+      width: 204,
       height: 24,
       child: CustomPaint(painter: _DashedArrowPainter(direction)),
     );
@@ -781,7 +1162,7 @@ class _DashedArrowPainter extends CustomPainter {
     const dashGap = 5.0;
     final paint = Paint()
       ..color = Colors.white.withValues(alpha: 0.9)
-      ..strokeWidth = 2
+      ..strokeWidth = 1.6
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final y = size.height / 2;

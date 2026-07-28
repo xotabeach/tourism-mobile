@@ -1,11 +1,21 @@
 stages:
-  - validate
+  - code-style
+  - run-tests
 
-mobile-validate:
-  stage: validate
+mobile-code-style:
+  stage: code-style
   image: ghcr.io/cirruslabs/flutter:stable
   script:
-    - ./scripts/validate.sh
+    - flutter pub get
+    - dart format --set-exit-if-changed lib test
+    - flutter analyze --fatal-infos
+
+mobile-run-tests:
+  stage: run-tests
+  image: ghcr.io/cirruslabs/flutter:stable
+  script:
+    - flutter pub get
+    - flutter test
   # Security notes:
   # - flutter analyze + flutter test (includes test/security/)
   # - Enable GitLab Secret Detection template when tier confirmed:

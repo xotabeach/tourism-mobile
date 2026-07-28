@@ -19,9 +19,14 @@ final placesListProvider = FutureProvider<PlaceListPage>((ref) {
   return ref.watch(placesRepositoryProvider).listPlaces(regionSlug: 'crimea');
 });
 
-final placeDetailProvider = FutureProvider.family<PlaceDetail, String>((
-  ref,
-  id,
-) {
-  return ref.watch(placesRepositoryProvider).getPlace(id);
-});
+final placesSearchProvider = FutureProvider.autoDispose
+    .family<PlaceListPage, String>((ref, query) {
+      return ref
+          .watch(placesRepositoryProvider)
+          .listPlaces(regionSlug: 'crimea', query: query.trim());
+    });
+
+final placeDetailProvider = FutureProvider.autoDispose
+    .family<PlaceDetail, String>((ref, id) {
+      return ref.watch(placesRepositoryProvider).getPlace(id);
+    });

@@ -9,6 +9,10 @@ abstract final class AppShadows {
     BoxShadow(color: Color(0x19000000), blurRadius: 18, offset: Offset(0, 8)),
   ];
 
+  static const List<BoxShadow> tile = [
+    BoxShadow(color: Color(0x0F000000), blurRadius: 10, offset: Offset(0, 4)),
+  ];
+
   static const List<BoxShadow> deck = [
     BoxShadow(color: Color(0x24000000), blurRadius: 24, offset: Offset(0, 12)),
   ];

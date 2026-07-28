@@ -25,12 +25,13 @@ abstract final class AppTextStyles {
   static TextStyle displayTitle({
     Color color = const Color(0xFF111111),
     double fontSize = 40,
+    double height = 1.08,
   }) {
     return TextStyle(
       fontFamily: AppFonts.rubik,
       fontSize: fontSize,
       fontWeight: FontWeight.w600,
-      height: 1.08,
+      height: height,
       letterSpacing: 0.4,
       color: color,
     );

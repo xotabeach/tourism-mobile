@@ -24,6 +24,12 @@ abstract final class AppImages {
     return pathOrUrl.startsWith('assets/');
   }
 
+  /// Resolves a media reference to an image URL, or `null` when it cannot be
+  /// trusted.
+  ///
+  /// Server data is untrusted: only plain relative paths and `http(s)` URLs are
+  /// accepted, so schemes such as `javascript:`, `file:` or `data:` never reach
+  /// the image pipeline.
   static String? resolveMediaUrl(AppConfig config, String? pathOrUrl) {
     if (pathOrUrl == null || pathOrUrl.isEmpty) {
       return null;
@@ -31,8 +37,23 @@ abstract final class AppImages {
     if (isAssetPath(pathOrUrl)) {
       return null;
     }
-    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
-      return pathOrUrl;
+    final parsed = Uri.tryParse(pathOrUrl);
+    if (parsed == null) {
+      return null;
+    }
+    if (parsed.hasScheme) {
+      if (!parsed.isScheme('http') && !parsed.isScheme('https')) {
+        return null;
+      }
+      if (config.environment == AppEnvironment.local) {
+        return pathOrUrl;
+      }
+      final apiOrigin = Uri.parse(config.apiBaseUrl);
+      return parsed.isScheme('https') &&
+              parsed.host == apiOrigin.host &&
+              parsed.port == apiOrigin.port
+          ? pathOrUrl
+          : null;
     }
     final base = config.apiBaseUrl.replaceAll(RegExp(r'/$'), '');
     final path = pathOrUrl.startsWith('/') ? pathOrUrl : '/$pathOrUrl';

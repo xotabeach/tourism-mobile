@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,8 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/shared/presentation/placeholder_tab_screen.dart';
@@ -24,6 +27,7 @@ abstract final class AppRouteNames {
   static const home = 'home';
   static const places = 'places';
   static const placeDetails = 'place-details';
+  static const routePlaceDetails = 'route-place-details';
   static const routes = 'routes';
   static const routeDetails = 'route-details';
   static const favorites = 'favorites';
@@ -102,14 +106,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     name: AppRouteNames.routeDetails,
                     path: ':id',
-                    parentNavigatorKey: _rootNavigatorKey,
                     pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return _appTransitionPage(
-                        state,
-                        RouteDetailsScreen(routeId: id),
+                      final initialRoute = state.extra is RouteSummary
+                          ? state.extra! as RouteSummary
+                          : null;
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: RouteDetailsScreen(
+                          routeId: id,
+                          initialRoute: initialRoute,
+                        ),
                       );
                     },
+                    routes: [
+                      GoRoute(
+                        name: AppRouteNames.routePlaceDetails,
+                        path: 'place/:placeId',
+                        pageBuilder: (context, state) {
+                          final placeId = state.pathParameters['placeId']!;
+                          return CupertinoPage<void>(
+                            key: state.pageKey,
+                            child: PlaceDetailsScreen(placeId: placeId),
+                          );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -138,12 +160,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     name: AppRouteNames.placeDetails,
                     path: ':id',
-                    parentNavigatorKey: _rootNavigatorKey,
                     pageBuilder: (context, state) {
                       final id = state.pathParameters['id']!;
-                      return _appTransitionPage(
-                        state,
-                        PlaceDetailsScreen(placeId: id),
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: PlaceDetailsScreen(placeId: id),
                       );
                     },
                   ),
@@ -155,11 +176,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 name: AppRouteNames.profile,
-                path: '/profile',
-                builder: (context, state) => const PlaceholderTabScreen(
-                  title: 'Профиль',
-                  message: 'Профиль и вход — Phase 6.',
-                ),
+                path: ProfileScreen.routePath,
+                builder: (context, state) => const ProfileScreen(),
               ),
             ],
           ),
@@ -185,16 +203,15 @@ CustomTransitionPage<void> _appTransitionPage(
         curve: AppMotion.standard,
         reverseCurve: Curves.easeInCubic,
       );
-      final faded = FadeTransition(opacity: curved, child: child);
       if (reduceMotion) {
-        return faded;
+        return child;
       }
       return SlideTransition(
         position: Tween<Offset>(
           begin: const Offset(0, 0.014),
           end: Offset.zero,
         ).animate(curved),
-        child: faded,
+        child: child,
       );
     },
   );

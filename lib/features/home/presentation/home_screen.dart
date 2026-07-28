@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -27,18 +28,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'home-search');
   var _selectedChip = 'Все';
+  var _searchQuery = '';
 
   List<RouteSummary> _filtered(List<RouteSummary> items) {
-    if (_selectedChip == 'Все') {
-      return items;
-    }
-    final needle = _selectedChip.toLowerCase();
     return items.where((route) {
       final haystack =
-          '${route.name} ${route.shortDescription ?? ''} ${route.difficulty ?? ''} ${route.transportMode ?? ''}'
+          '${route.name} ${route.shortDescription ?? ''} '
+                  '${route.authorLabel ?? ''} ${route.difficulty ?? ''} '
+                  '${route.transportMode ?? ''}'
               .toLowerCase();
-      return switch (needle) {
+      final matchesChip = switch (_selectedChip.toLowerCase()) {
+        'все' => true,
         'море' =>
           haystack.contains('берег') ||
               haystack.contains('ялт') ||
@@ -57,7 +60,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               haystack.contains('сосны'),
         _ => true,
       };
+      return matchesChip &&
+          (_searchQuery.isEmpty || haystack.contains(_searchQuery));
     }).toList();
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value.trim().toLowerCase());
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() => _searchQuery = '');
+  }
+
+  void _dismissSearch() {
+    _searchFocus.unfocus();
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocus.dispose();
+    super.dispose();
   }
 
   @override
@@ -80,7 +105,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             padding: EdgeInsets.fromLTRB(
               AppSpacing.page,
-              topInset + AppSpacing.md,
+              topInset + AppSpacing.lg,
               AppSpacing.page,
               120,
             ),
@@ -91,8 +116,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   name: name,
                   selectedChip: _selectedChip,
                   chips: _chips,
-                  onChipSelected: (chip) =>
-                      setState(() => _selectedChip = chip),
+                  searchController: _searchController,
+                  searchFocus: _searchFocus,
+                  onSearchChanged: _onSearchChanged,
+                  onSearchClear: _clearSearch,
+                  onSearchDismiss: _dismissSearch,
+                  onChipSelected: (chip) {
+                    _dismissSearch();
+                    setState(() => _selectedChip = chip);
+                  },
                 );
               }
               if (items.isEmpty) {
@@ -116,7 +148,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('Ошибка: $error')),
+        error: (_, _) => AppAsyncErrorView(
+          onRetry: () => ref.invalidate(routesListProvider),
+        ),
       ),
     );
   }
@@ -127,12 +161,22 @@ class _HomeHeader extends StatelessWidget {
     required this.name,
     required this.selectedChip,
     required this.chips,
+    required this.searchController,
+    required this.searchFocus,
+    required this.onSearchChanged,
+    required this.onSearchClear,
+    required this.onSearchDismiss,
     required this.onChipSelected,
   });
 
   final String name;
   final String selectedChip;
   final List<String> chips;
+  final TextEditingController searchController;
+  final FocusNode searchFocus;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchClear;
+  final VoidCallback onSearchDismiss;
   final ValueChanged<String> onChipSelected;
 
   @override
@@ -142,42 +186,66 @@ class _HomeHeader extends StatelessWidget {
       children: [
         Row(
           children: [
-            const CircleAvatar(
-              radius: 24,
-              backgroundColor: AppColors.mistDark,
-              backgroundImage: AssetImage(AppImages.travelerPortrait),
-            ),
-            const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Привет, $name!', style: AppTypography.greeting),
-                  const SizedBox(height: 2),
-                  const Text(
-                    'Может пройдемся?',
-                    style: AppTypography.greetingSubtitle,
+              child: Semantics(
+                button: true,
+                label: 'Открыть профиль',
+                child: InkWell(
+                  onTap: () => context.goNamed(AppRouteNames.profile),
+                  borderRadius: BorderRadius.circular(AppRadii.tile),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      children: [
+                        const CircleAvatar(
+                          radius: 24,
+                          backgroundColor: AppColors.mistDark,
+                          backgroundImage: AssetImage(
+                            AppImages.travelerPortrait,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Привет, $name!',
+                                style: AppTypography.greeting,
+                              ),
+                              const SizedBox(height: 2),
+                              const Text(
+                                'Может пройдемся?',
+                                style: AppTypography.greetingSubtitle,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
-            AppGlassIconButton(
+            AppFlatIconButton(
               iconAsset: AppIconography.bell,
               semanticLabel: 'Уведомления',
               onPressed: () {},
-              dimension: 52,
-              fillColor: AppColors.glassFillStrong,
             ),
           ],
         ),
-        const SizedBox(height: AppSpacing.lg),
+        const SizedBox(height: AppSpacing.xl),
         AppSearchFilterRow(
-          onSearchTap: () => context.goNamed(AppRouteNames.routes),
+          controller: searchController,
+          focusNode: searchFocus,
+          onSearchChanged: onSearchChanged,
+          onSearchClear: onSearchClear,
+          onSearchDismiss: onSearchDismiss,
           onFilterTap: () => context.goNamed(AppRouteNames.places),
         ),
-        const SizedBox(height: AppSpacing.lg),
-        const BuildRouteBanner(),
         const SizedBox(height: AppSpacing.xl),
+        const BuildRouteBanner(),
+        const SizedBox(height: 25),
         const Row(
           children: [
             Expanded(
@@ -189,9 +257,9 @@ class _HomeHeader extends StatelessWidget {
             Text('Весь топ', style: AppTypography.sectionAction),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: AppSpacing.lg),
         const _TopTravelersRow(),
-        const SizedBox(height: AppSpacing.xl),
+        const SizedBox(height: 30),
         Row(
           children: [
             const Expanded(
@@ -206,7 +274,7 @@ class _HomeHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 17),
         AppFilterChipBar(
           labels: chips,
           selected: selectedChip,
@@ -236,11 +304,11 @@ class _TopTravelersRow extends StatelessWidget {
           Expanded(
             child: Container(
               height: 116,
-              padding: const EdgeInsets.fromLTRB(6, 10, 6, 9),
+              padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: AppShadows.card,
+                borderRadius: BorderRadius.circular(AppRadii.tile),
+                boxShadow: AppShadows.tile,
               ),
               child: Column(
                 children: [
