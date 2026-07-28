@@ -1,6 +1,7 @@
 stages:
   - code-style
   - run-tests
+  - mirror
 
 mobile-code-style:
   stage: code-style
@@ -22,3 +23,18 @@ mobile-run-tests:
   # include:
   #   - template: Security/Secret-Detection.gitlab-ci.yml
   allow_failure: false
+
+# Public GitHub showcase mirror. GitLab remains source of truth.
+github-mirror:
+  stage: mirror
+  image: alpine:3.21
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - bash scripts/ci-mirror-to-github.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "gamma" && $GITHUB_MIRROR_TOKEN'
+    - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_MIRROR_TOKEN'
+  needs:
+    - mobile-code-style
+    - mobile-run-tests
