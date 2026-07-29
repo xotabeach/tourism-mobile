@@ -106,4 +106,54 @@ abstract final class AppTypography {
     height: 1.3,
     letterSpacing: 0,
   );
+
+  /// Settings header brand «КРЫМТРИП».
+  static const TextStyle settingsBrand = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    letterSpacing: 4,
+    color: AppColors.settingsBrand,
+  );
+
+  /// Section title ending with colon («Настройки уведомлений:»).
+  static const TextStyle settingsSectionTitle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    height: 1.2,
+    letterSpacing: 0,
+    color: AppColors.settingsInk,
+  );
+
+  /// Settings row title (13/700).
+  static const TextStyle settingsRowTitle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 13,
+    fontWeight: FontWeight.w700,
+    height: 1.25,
+    letterSpacing: 0,
+    color: AppColors.settingsInk,
+  );
+
+  /// Settings row subtitle (12/400).
+  static const TextStyle settingsRowSubtitle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.3,
+    letterSpacing: 0,
+    color: AppColors.settingsSecondaryInk,
+  );
+
+  /// Black CTA on settings forms (16/600).
+  static const TextStyle settingsCta = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    height: 1.2,
+    letterSpacing: 0,
+    color: Colors.white,
+  );
 }

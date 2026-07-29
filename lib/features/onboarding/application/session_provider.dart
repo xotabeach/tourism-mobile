@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
@@ -18,6 +19,8 @@ class SessionState {
     this.phone,
     this.userId,
     this.accessToken,
+    this.avatarUrl,
+    this.coverUrl,
   });
 
   final bool isHydrated;
@@ -26,6 +29,8 @@ class SessionState {
   final String? phone;
   final String? userId;
   final String? accessToken;
+  final String? avatarUrl;
+  final String? coverUrl;
 
   bool get isAuthenticated =>
       onboardingCompleted && (accessToken != null || userId != null);
@@ -37,7 +42,11 @@ class SessionState {
     String? phone,
     String? userId,
     String? accessToken,
+    String? avatarUrl,
+    String? coverUrl,
     bool clearAccessToken = false,
+    bool clearAvatarUrl = false,
+    bool clearCoverUrl = false,
   }) {
     return SessionState(
       isHydrated: isHydrated ?? this.isHydrated,
@@ -46,6 +55,8 @@ class SessionState {
       phone: phone ?? this.phone,
       userId: userId ?? this.userId,
       accessToken: clearAccessToken ? null : (accessToken ?? this.accessToken),
+      avatarUrl: clearAvatarUrl ? null : (avatarUrl ?? this.avatarUrl),
+      coverUrl: clearCoverUrl ? null : (coverUrl ?? this.coverUrl),
     );
   }
 }
@@ -55,6 +66,7 @@ class SessionController extends StateNotifier<SessionState> {
     required AuthRepository authRepository,
     required SecureStoragePort secureStorage,
     required this.useMockData,
+    this.onSessionCleared,
     SessionState? initial,
   }) : _auth = authRepository,
        _storage = secureStorage,
@@ -63,6 +75,7 @@ class SessionController extends StateNotifier<SessionState> {
   final AuthRepository _auth;
   final SecureStoragePort _storage;
   final bool useMockData;
+  final void Function()? onSessionCleared;
   Future<String?>? _refreshInFlight;
 
   void saveIdentity({required String displayName, required String phone}) {
@@ -131,6 +144,8 @@ class SessionController extends StateNotifier<SessionState> {
       phone: me.phone,
       userId: me.id,
       accessToken: tokens.accessToken,
+      avatarUrl: me.avatarUrl,
+      coverUrl: me.coverUrl,
     );
   }
 
@@ -142,6 +157,79 @@ class SessionController extends StateNotifier<SessionState> {
       displayName: displayName?.trim() ?? state.displayName,
       accessToken: state.accessToken ?? 'mock-access',
       userId: state.userId ?? 'mock-user',
+    );
+  }
+
+  Future<void> updateDisplayName(String displayName) async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    final me = await _auth.patchMe(
+      accessToken: token,
+      displayName: displayName.trim(),
+    );
+    _applyMe(me);
+  }
+
+  Future<void> requestPhoneChange(String phone) async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    await _auth.requestPhoneChange(accessToken: token, phone: phone.trim());
+  }
+
+  Future<void> verifyPhoneChange({
+    required String phone,
+    required String code,
+    required bool privacyAccepted,
+    required bool personalDataAccepted,
+  }) async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    final me = await _auth.verifyPhoneChange(
+      accessToken: token,
+      phone: phone.trim(),
+      code: code,
+      privacyAccepted: privacyAccepted,
+      personalDataAccepted: personalDataAccepted,
+    );
+    _applyMe(me);
+  }
+
+  Future<void> uploadAvatar(String filePath) async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    final me = await _auth.uploadAvatar(
+      accessToken: token,
+      filePath: filePath,
+    );
+    _applyMe(me);
+  }
+
+  Future<void> uploadCover(String filePath) async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    final me = await _auth.uploadCover(accessToken: token, filePath: filePath);
+    _applyMe(me);
+  }
+
+  void _applyMe(MeProfile me) {
+    state = state.copyWith(
+      displayName: me.displayName,
+      phone: me.phone,
+      userId: me.id,
+      avatarUrl: me.avatarUrl,
+      coverUrl: me.coverUrl,
+      clearAvatarUrl: me.avatarUrl == null,
+      clearCoverUrl: me.coverUrl == null,
     );
   }
 
@@ -168,6 +256,8 @@ class SessionController extends StateNotifier<SessionState> {
         phone: me.phone,
         userId: me.id,
         accessToken: tokens.accessToken,
+        avatarUrl: me.avatarUrl,
+        coverUrl: me.coverUrl,
       );
     } on Object {
       await _storage.delete(key: SecureStorageKeys.refreshToken);
@@ -220,6 +310,7 @@ class SessionController extends StateNotifier<SessionState> {
     }
     await _storage.delete(key: SecureStorageKeys.refreshToken);
     state = const SessionState(isHydrated: true);
+    onSessionCleared?.call();
   }
 
   void resetOnboarding() {
@@ -240,10 +331,12 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
   ref,
 ) {
+  final cacheRegistry = ref.watch(apiCacheRegistryProvider);
   final controller = SessionController(
     authRepository: ref.watch(authRepositoryProvider),
     secureStorage: ref.watch(secureStorageProvider),
     useMockData: ref.watch(appConfigProvider).useMockData,
+    onSessionCleared: cacheRegistry.invalidateAll,
   );
   unawaited(controller.hydrate());
   return controller;

@@ -90,6 +90,85 @@ final class ApiAuthRepository implements AuthRepository {
     });
   }
 
+  @override
+  Future<void> requestPhoneChange({
+    required String accessToken,
+    required String phone,
+  }) {
+    return guardApiCall(() async {
+      await _dio.post<void>(
+        '/api/v1/me/phone/otp/request',
+        data: {'phone': phone},
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+    });
+  }
+
+  @override
+  Future<MeProfile> verifyPhoneChange({
+    required String accessToken,
+    required String phone,
+    required String code,
+    required bool privacyAccepted,
+    required bool personalDataAccepted,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/phone/otp/verify',
+        data: {
+          'phone': phone,
+          'code': code,
+          'privacy_accepted': privacyAccepted,
+          'personal_data_accepted': personalDataAccepted,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      return _meFrom(response.data);
+    });
+  }
+
+  @override
+  Future<MeProfile> uploadAvatar({
+    required String accessToken,
+    required String filePath,
+  }) {
+    return _uploadMedia(
+      accessToken: accessToken,
+      path: '/api/v1/me/avatar',
+      filePath: filePath,
+    );
+  }
+
+  @override
+  Future<MeProfile> uploadCover({
+    required String accessToken,
+    required String filePath,
+  }) {
+    return _uploadMedia(
+      accessToken: accessToken,
+      path: '/api/v1/me/cover',
+      filePath: filePath,
+    );
+  }
+
+  Future<MeProfile> _uploadMedia({
+    required String accessToken,
+    required String path,
+    required String filePath,
+  }) {
+    return guardApiCall(() async {
+      final form = FormData.fromMap({
+        'file': await MultipartFile.fromFile(filePath),
+      });
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: form,
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      return _meFrom(response.data);
+    });
+  }
+
   AuthTokens _tokensFrom(Map<String, dynamic>? data) {
     if (data == null) {
       throw const UnexpectedFailure();
@@ -117,11 +196,24 @@ final class ApiAuthRepository implements AuthRepository {
     if (id is! String || name is! String || phone is! String) {
       throw const UnexpectedFailure();
     }
-    return MeProfile(id: id, displayName: name, phone: phone);
+    final avatar = data['avatar_url'];
+    final cover = data['cover_url'];
+    return MeProfile(
+      id: id,
+      displayName: name,
+      phone: phone,
+      avatarUrl: avatar is String ? avatar : null,
+      coverUrl: cover is String ? cover : null,
+    );
   }
 }
 
 final class MockAuthRepository implements AuthRepository {
+  String _displayName = 'Путешественник';
+  String _phone = '+79000000000';
+  String? _avatarUrl;
+  String? _coverUrl;
+
   @override
   Future<void> requestOtp({
     required String displayName,
@@ -138,6 +230,7 @@ final class MockAuthRepository implements AuthRepository {
     if (!privacyAccepted || !personalDataAccepted) {
       throw const AuthFailure('Consents required');
     }
+    _phone = phone;
     return const AuthTokens(
       accessToken: 'mock-access',
       refreshToken: 'mock-refresh',
@@ -159,10 +252,12 @@ final class MockAuthRepository implements AuthRepository {
 
   @override
   Future<MeProfile> getMe(String accessToken) async {
-    return const MeProfile(
+    return MeProfile(
       id: 'mock-user',
-      displayName: 'Путешественник',
-      phone: '+79000000000',
+      displayName: _displayName,
+      phone: _phone,
+      avatarUrl: _avatarUrl,
+      coverUrl: _coverUrl,
     );
   }
 
@@ -171,10 +266,46 @@ final class MockAuthRepository implements AuthRepository {
     required String accessToken,
     required String displayName,
   }) async {
-    return MeProfile(
-      id: 'mock-user',
-      displayName: displayName,
-      phone: '+79000000000',
-    );
+    _displayName = displayName;
+    return getMe(accessToken);
+  }
+
+  @override
+  Future<void> requestPhoneChange({
+    required String accessToken,
+    required String phone,
+  }) async {}
+
+  @override
+  Future<MeProfile> verifyPhoneChange({
+    required String accessToken,
+    required String phone,
+    required String code,
+    required bool privacyAccepted,
+    required bool personalDataAccepted,
+  }) async {
+    if (!privacyAccepted || !personalDataAccepted) {
+      throw const AuthFailure('Consents required');
+    }
+    _phone = phone;
+    return getMe(accessToken);
+  }
+
+  @override
+  Future<MeProfile> uploadAvatar({
+    required String accessToken,
+    required String filePath,
+  }) async {
+    _avatarUrl = 'file://$filePath';
+    return getMe(accessToken);
+  }
+
+  @override
+  Future<MeProfile> uploadCover({
+    required String accessToken,
+    required String filePath,
+  }) async {
+    _coverUrl = 'file://$filePath';
+    return getMe(accessToken);
   }
 }

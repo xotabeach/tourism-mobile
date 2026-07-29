@@ -35,12 +35,16 @@ class ProfileSnapshot {
     required this.avatarImageAsset,
     required this.achievementPages,
     required this.publishedRoutes,
+    this.avatarImageUrl,
+    this.coverImageUrl,
   });
 
   final String displayName;
   final ProfileRank rank;
   final String coverImageAsset;
   final String avatarImageAsset;
+  final String? avatarImageUrl;
+  final String? coverImageUrl;
   final List<List<ProfileAchievement>> achievementPages;
   final List<RouteSummary> publishedRoutes;
 

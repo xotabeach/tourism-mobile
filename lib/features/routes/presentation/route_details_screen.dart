@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -110,6 +111,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   Widget _buildContent(RouteDetail route) {
     final config = ref.watch(appConfigProvider);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final isFavorite = ref.watch(
+      favoritesProvider.select((s) => s.routeIds.contains(route.id)),
+    );
 
     return ListView(
       key: const ValueKey('route-details-list'),
@@ -134,9 +138,15 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
               ),
               const Spacer(),
               _HeaderAction(
-                iconAsset: AppIconography.heart,
-                semanticLabel: 'В избранное',
-                onPressed: () => _showSoon('Избранное'),
+                icon: isFavorite
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                semanticLabel: isFavorite
+                    ? 'Удалить из избранного'
+                    : 'Добавить в избранное',
+                onPressed: () {
+                  unawaited(_toggleFavorite(route.id));
+                },
               ),
               const SizedBox(width: 8),
               _HeaderAction(
@@ -293,6 +303,17 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _toggleFavorite(String routeId) async {
+    try {
+      await ref.read(favoritesProvider.notifier).toggleRoute(routeId);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось обновить избранное')),
+      );
+    }
   }
 
   void _showSoon(String feature) {

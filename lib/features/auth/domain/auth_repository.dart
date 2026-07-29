@@ -15,11 +15,15 @@ class MeProfile {
     required this.id,
     required this.displayName,
     required this.phone,
+    this.avatarUrl,
+    this.coverUrl,
   });
 
   final String id;
   final String displayName;
   final String phone;
+  final String? avatarUrl;
+  final String? coverUrl;
 }
 
 abstract interface class AuthRepository {
@@ -41,5 +45,28 @@ abstract interface class AuthRepository {
   Future<MeProfile> patchMe({
     required String accessToken,
     required String displayName,
+  });
+
+  Future<void> requestPhoneChange({
+    required String accessToken,
+    required String phone,
+  });
+
+  Future<MeProfile> verifyPhoneChange({
+    required String accessToken,
+    required String phone,
+    required String code,
+    required bool privacyAccepted,
+    required bool personalDataAccepted,
+  });
+
+  Future<MeProfile> uploadAvatar({
+    required String accessToken,
+    required String filePath,
+  });
+
+  Future<MeProfile> uploadCover({
+    required String accessToken,
+    required String filePath,
   });
 }

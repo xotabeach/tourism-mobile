@@ -6,4 +6,7 @@ abstract final class AppRadii {
   static const double modal = 28;
   static const double capsule = 999;
   static const double circle = 999;
+
+  /// Settings rows, Travel+ banner, form blocks (Figma pixel spec).
+  static const double settingsTile = 14;
 }

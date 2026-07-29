@@ -171,7 +171,11 @@ abstract final class MockProfile {
     ),
   ];
 
-  static ProfileSnapshot snapshot({String? displayName}) {
+  static ProfileSnapshot snapshot({
+    String? displayName,
+    String? avatarImageUrl,
+    String? coverImageUrl,
+  }) {
     final name = (displayName?.trim().isNotEmpty ?? false)
         ? displayName!.trim()
         : 'Никита Можаров';
@@ -180,6 +184,8 @@ abstract final class MockProfile {
       rank: rank,
       coverImageAsset: AppImages.welcomeSunset,
       avatarImageAsset: AppImages.travelerPortrait,
+      avatarImageUrl: avatarImageUrl,
+      coverImageUrl: coverImageUrl,
       achievementPages: achievementPages,
       publishedRoutes: [
         for (final route in publishedRoutes)

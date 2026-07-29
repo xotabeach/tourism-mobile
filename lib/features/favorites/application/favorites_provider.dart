@@ -89,6 +89,14 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     }
   }
 
+  Future<void> togglePlace(String placeId) async {
+    if (state.placeIds.contains(placeId)) {
+      await removePlace(placeId);
+    } else {
+      await addPlace(placeId);
+    }
+  }
+
   Future<void> addPlace(String placeId) async {
     if (state.placeIds.contains(placeId)) {
       return;
@@ -142,7 +150,8 @@ final favoritesProvider =
         final becameAuthed =
             next.onboardingCompleted &&
             next.accessToken != null &&
-            !(previous?.onboardingCompleted ?? false);
+            (!(previous?.onboardingCompleted ?? false) ||
+                previous?.accessToken == null);
         if (becameAuthed && !config.useMockData) {
           unawaited(controller.refresh());
         }
@@ -152,7 +161,9 @@ final favoritesProvider =
         }
       });
       final session = ref.read(sessionProvider);
-      if (session.onboardingCompleted && !config.useMockData) {
+      if (session.onboardingCompleted &&
+          session.accessToken != null &&
+          !config.useMockData) {
         unawaited(controller.refresh());
       }
       return controller;
