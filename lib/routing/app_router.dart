@@ -15,6 +15,11 @@ import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_screen.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_support_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_screen.dart';
 import 'package:tourism_mobile/features/shared/presentation/placeholder_tab_screen.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
@@ -32,6 +37,22 @@ abstract final class AppRouteNames {
   static const routeDetails = 'route-details';
   static const favorites = 'favorites';
   static const profile = 'profile';
+  static const settings = 'settings';
+  static const settingsAccount = 'settings-account';
+  static const settingsChangeName = 'settings-change-name';
+  static const settingsChangePhoto = 'settings-change-photo';
+  static const settingsChangePhone = 'settings-change-phone';
+  static const settingsNotifications = 'settings-notifications';
+  static const settingsOffline = 'settings-offline';
+  static const settingsSupport = 'settings-support';
+  static const settingsFaqCategory = 'settings-faq-category';
+  static const settingsFaqAnswer = 'settings-faq-answer';
+  static const settingsChat = 'settings-chat';
+  static const settingsReport = 'settings-report';
+  static const settingsReportApp = 'settings-report-app';
+  static const settingsReportRoute = 'settings-report-route';
+  static const settingsThanks = 'settings-thanks';
+  static const settingsTravelPlus = 'settings-travel-plus';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -43,6 +64,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
+      if (!session.isHydrated) {
+        return null;
+      }
       final completed = session.onboardingCompleted;
       final loc = state.matchedLocation;
       final onOnboarding =
@@ -178,6 +202,165 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: AppRouteNames.profile,
                 path: ProfileScreen.routePath,
                 builder: (context, state) => const ProfileScreen(),
+                routes: [
+                  GoRoute(
+                    name: AppRouteNames.settings,
+                    path: SettingsScreen.routePath,
+                    pageBuilder: (context, state) => CupertinoPage<void>(
+                      key: state.pageKey,
+                      child: const SettingsScreen(),
+                    ),
+                    routes: [
+                      GoRoute(
+                        name: AppRouteNames.settingsAccount,
+                        path: 'account',
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const SettingsAccountScreen(),
+                        ),
+                        routes: [
+                          GoRoute(
+                            name: AppRouteNames.settingsChangeName,
+                            path: 'name',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsChangeNameScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsChangePhoto,
+                            path: 'photo',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsChangePhotoScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsChangePhone,
+                            path: 'phone',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsChangePhoneScreen(),
+                                ),
+                          ),
+                        ],
+                      ),
+                      GoRoute(
+                        name: AppRouteNames.settingsNotifications,
+                        path: 'notifications',
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const SettingsNotificationsScreen(),
+                        ),
+                      ),
+                      GoRoute(
+                        name: AppRouteNames.settingsOffline,
+                        path: 'offline',
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const SettingsOfflineScreen(),
+                        ),
+                      ),
+                      GoRoute(
+                        name: AppRouteNames.settingsSupport,
+                        path: 'support',
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const SettingsSupportScreen(),
+                        ),
+                        routes: [
+                          GoRoute(
+                            name: AppRouteNames.settingsFaqCategory,
+                            path: 'faq/:category',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: SettingsFaqCategoryScreen(
+                                    category: state.pathParameters['category']!,
+                                  ),
+                                ),
+                            routes: [
+                              GoRoute(
+                                name: AppRouteNames.settingsFaqAnswer,
+                                path: ':questionId',
+                                pageBuilder: (context, state) =>
+                                    CupertinoPage<void>(
+                                      key: state.pageKey,
+                                      child: SettingsFaqAnswerScreen(
+                                        category:
+                                            state.pathParameters['category']!,
+                                        questionId:
+                                            state.pathParameters['questionId']!,
+                                      ),
+                                    ),
+                              ),
+                            ],
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsChat,
+                            path: 'chat',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsChatScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsReport,
+                            path: 'report',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsReportScreen(),
+                                ),
+                            routes: [
+                              GoRoute(
+                                name: AppRouteNames.settingsReportApp,
+                                path: 'app',
+                                pageBuilder: (context, state) =>
+                                    CupertinoPage<void>(
+                                      key: state.pageKey,
+                                      child:
+                                          const SettingsReportAppFormScreen(),
+                                    ),
+                              ),
+                              GoRoute(
+                                name: AppRouteNames.settingsReportRoute,
+                                path: 'route',
+                                pageBuilder: (context, state) =>
+                                    CupertinoPage<void>(
+                                      key: state.pageKey,
+                                      child:
+                                          const SettingsReportRouteFormScreen(),
+                                    ),
+                              ),
+                            ],
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsThanks,
+                            path: 'thanks',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsThanksScreen(),
+                                ),
+                          ),
+                        ],
+                      ),
+                      GoRoute(
+                        name: AppRouteNames.settingsTravelPlus,
+                        path: 'travel-plus',
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const SettingsTravelPlusScreen(),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

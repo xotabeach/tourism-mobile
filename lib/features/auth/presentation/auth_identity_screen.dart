@@ -40,7 +40,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
     super.dispose();
   }
 
-  void _continue() {
+  void _continue() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
@@ -50,7 +50,22 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
           displayName: _nameController.text,
           phone: RuPhoneInputFormatter.toE164(_phoneController.text),
         );
-    context.goNamed(AppRouteNames.authOtp);
+    try {
+      await ref.read(sessionProvider.notifier).requestOtp();
+      if (!mounted) {
+        return;
+      }
+      context.goNamed(AppRouteNames.authOtp);
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Не удалось отправить код. Попробуйте ещё раз.'),
+        ),
+      );
+    }
   }
 
   @override

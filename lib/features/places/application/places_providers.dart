@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/features/places/data/api_places_repository.dart';
+import 'package:tourism_mobile/features/places/data/caching_places_repository.dart';
 import 'package:tourism_mobile/features/places/data/mock_places_repository.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/places/domain/places_repository.dart';
@@ -12,7 +14,10 @@ final placesRepositoryProvider = Provider<PlacesRepository>((ref) {
   if (config.useMockData) {
     return MockPlacesRepository();
   }
-  return ApiPlacesRepository(ref.watch(dioProvider));
+  return CachingPlacesRepository(
+    ApiPlacesRepository(ref.watch(dioProvider)),
+    registry: ref.watch(apiCacheRegistryProvider),
+  );
 });
 
 final placesListProvider = FutureProvider<PlaceListPage>((ref) {

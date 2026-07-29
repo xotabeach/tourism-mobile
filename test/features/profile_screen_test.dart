@@ -3,16 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
-import 'package:tourism_mobile/core/config/app_config.dart';
-import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 
-const _testConfig = AppConfig(
-  environment: AppEnvironment.local,
-  apiBaseUrl: 'http://localhost:8000',
-  appName: 'КрымТрип (Test)',
-  dataSource: AppDataSource.mock,
-);
+import '../support/test_overrides.dart';
 
 void main() {
   testWidgets('profile tab shows mock rank, achievements and routes', (
@@ -29,17 +22,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          sessionProvider.overrideWith(
-            (ref) => SessionController(
-              const SessionState(
-                onboardingCompleted: true,
-                displayName: 'Никита Можаров',
-              ),
-            ),
-          ),
-        ],
+        overrides: testSessionOverrides(
+          onboardingCompleted: true,
+          displayName: 'Никита Можаров',
+        ),
         child: const TourismApp(),
       ),
     );
@@ -55,7 +41,7 @@ void main() {
     expect(find.text('Топ 1345'), findsOneWidget);
     expect(find.text('Достижения:'), findsOneWidget);
     expect(find.text('Марафонец'), findsOneWidget);
-    expect(find.text('Опубликованные маршруты'), findsOneWidget);
+    expect(find.text('Популярные маршруты'), findsOneWidget);
     expect(find.text('Гора Чок-Сары-Кая'), findsOneWidget);
   });
 
@@ -73,17 +59,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [
-          appConfigProvider.overrideWithValue(_testConfig),
-          sessionProvider.overrideWith(
-            (ref) => SessionController(
-              const SessionState(
-                onboardingCompleted: true,
-                displayName: '<script>alert(1)</script>',
-              ),
-            ),
-          ),
-        ],
+        overrides: testSessionOverrides(
+          onboardingCompleted: true,
+          displayName: '<script>alert(1)</script>',
+        ),
         child: const TourismApp(),
       ),
     );

@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
@@ -17,7 +16,6 @@ import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
-import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
@@ -25,14 +23,10 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_c
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
+import '../support/test_overrides.dart';
+
 const _goldenKey = ValueKey('golden-surface');
 const _phoneSize = Size(393, 852);
-const _testConfig = AppConfig(
-  environment: AppEnvironment.local,
-  apiBaseUrl: 'http://localhost:8000',
-  appName: 'КрымТрип Golden',
-  dataSource: AppDataSource.mock,
-);
 
 const _routes = [
   RouteSummary(
@@ -436,18 +430,7 @@ Future<void> _pumpGolden(
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
-        appConfigProvider.overrideWithValue(_testConfig),
-        if (completedOnboarding)
-          sessionProvider.overrideWith(
-            (ref) => SessionController(
-              const SessionState(
-                onboardingCompleted: true,
-                displayName: 'Никита',
-              ),
-            ),
-          ),
-      ],
+      overrides: testSessionOverrides(onboardingCompleted: completedOnboarding),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light.copyWith(platform: platform),

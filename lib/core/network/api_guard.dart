@@ -15,7 +15,11 @@ Future<T> guardApiCall<T>(Future<T> Function() operation) async {
 }
 
 AppFailure _mapDioFailure(DioException error) {
-  if (error.response?.statusCode == 404) {
+  final status = error.response?.statusCode;
+  if (status == 401 || status == 403) {
+    return const AuthFailure();
+  }
+  if (status == 404) {
     return const NotFoundFailure();
   }
   return switch (error.type) {

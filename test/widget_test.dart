@@ -3,27 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
-import 'package:tourism_mobile/core/config/app_config.dart';
-import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 
-const _testConfig = AppConfig(
-  environment: AppEnvironment.local,
-  apiBaseUrl: 'http://localhost:8000',
-  appName: 'КрымТрип (Test)',
-  dataSource: AppDataSource.mock,
-);
+import 'support/test_overrides.dart';
 
 List<Override> _testOverrides({bool onboardingCompleted = false}) {
-  return [
-    appConfigProvider.overrideWithValue(_testConfig),
-    if (onboardingCompleted)
-      sessionProvider.overrideWith(
-        (ref) => SessionController(
-          const SessionState(onboardingCompleted: true, displayName: 'Никита'),
-        ),
-      ),
-  ];
+  return testSessionOverrides(onboardingCompleted: onboardingCompleted);
 }
 
 ProviderScope appWithCompletedOnboarding() {

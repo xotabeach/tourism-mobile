@@ -29,6 +29,21 @@ abstract final class AppColors {
   static const Color error = Color(0xFFB3261E);
   static const Color rating = Color(0xFFFFD21E);
 
+  /// Settings / Travel+ accent from Figma pixel spec (`#386FC4`).
+  static const Color accentBlue = Color(0xFF386FC4);
+
+  /// Outline icons + link blue on settings screens (`#2F6FD0`).
+  static const Color accentBlueIcon = Color(0xFF2F6FD0);
+
+  /// Primary ink on settings rows / section titles (`#212121`).
+  static const Color settingsInk = Color(0xFF212121);
+
+  /// Secondary captions on settings rows (`#909090`).
+  static const Color settingsSecondaryInk = Color(0xFF909090);
+
+  /// Brand mark in settings headers (`#8C8C8C`).
+  static const Color settingsBrand = Color(0xFF8C8C8C);
+
   // Compatibility aliases for existing screens.
   static const Color ink = primaryInk;
   static const Color inkSoft = secondaryInk;

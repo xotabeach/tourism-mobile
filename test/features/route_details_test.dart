@@ -6,19 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
-import 'package:tourism_mobile/core/config/app_config.dart';
-import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
-const _testConfig = AppConfig(
-  environment: AppEnvironment.local,
-  apiBaseUrl: 'http://localhost:8000',
-  appName: 'КрымТрип (Test)',
-  dataSource: AppDataSource.mock,
-);
+import '../support/test_overrides.dart';
 
 Future<Element> _openRouteDetails(WidgetTester tester) async {
   tester.view
@@ -32,17 +25,7 @@ Future<Element> _openRouteDetails(WidgetTester tester) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [
-        appConfigProvider.overrideWithValue(_testConfig),
-        sessionProvider.overrideWith(
-          (ref) => SessionController(
-            const SessionState(
-              onboardingCompleted: true,
-              displayName: 'Никита',
-            ),
-          ),
-        ),
-      ],
+      overrides: testSessionOverrides(onboardingCompleted: true),
       child: const TourismApp(),
     ),
   );

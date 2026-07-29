@@ -7,6 +7,7 @@ import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 
@@ -38,6 +39,9 @@ class PlaceDetailsScreen extends ConsumerWidget {
       body: placeAsync.when(
         data: (place) {
           final heroAsset = AppImages.placeCoverAsset(place.slug);
+          final isFavorite = ref.watch(
+            favoritesProvider.select((s) => s.placeIds.contains(place.id)),
+          );
           return CustomScrollView(
             slivers: [
               SliverAppBar(
@@ -54,9 +58,26 @@ class PlaceDetailsScreen extends ConsumerWidget {
                 ),
                 actions: [
                   _AdaptivePlaceHeaderButton(
-                    semanticLabel: 'В избранное',
-                    onPressed: () {},
-                    iconAsset: AppIconography.heart,
+                    semanticLabel: isFavorite
+                        ? 'Удалить из избранного'
+                        : 'Добавить в избранное',
+                    onPressed: () async {
+                      try {
+                        await ref
+                            .read(favoritesProvider.notifier)
+                            .togglePlace(place.id);
+                      } on Object {
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Не удалось обновить избранное'),
+                          ),
+                        );
+                      }
+                    },
+                    icon: isFavorite
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
                   ),
                   _AdaptivePlaceHeaderButton(
                     semanticLabel: 'Поделиться',

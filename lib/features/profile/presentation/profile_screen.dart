@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -15,6 +17,7 @@ import 'package:tourism_mobile/features/profile/application/profile_providers.da
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -51,8 +54,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _ProfileHeader(
             profile: profile,
             topInset: topInset,
-            onEdit: () => _snack('Редактирование профиля появится позже'),
-            onMore: () => _snack('Настройки профиля появятся позже'),
+            onMore: () => context.pushNamed(AppRouteNames.settings),
           ),
           Transform.translate(
             offset: const Offset(0, -28),
@@ -63,7 +65,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   _RankCard(rank: profile.rank),
                   const SizedBox(height: AppSpacing.xl),
-                  const Text('Достижения:', style: AppTypography.sectionTitle),
+                  Text(
+                    'Достижения:',
+                    style: AppTypography.sectionTitle.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                   const SizedBox(height: AppSpacing.sm),
                   _AchievementsCarousel(
                     pages: profile.achievementPages,
@@ -76,9 +83,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     },
                   ),
                   const SizedBox(height: AppSpacing.xl),
-                  const Text(
-                    'Опубликованные маршруты',
-                    style: AppTypography.sectionTitle,
+                  Text(
+                    'Популярные маршруты',
+                    style: AppTypography.sectionTitle.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   _PublishedRoutesCarousel(
@@ -102,14 +111,28 @@ class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.profile,
     required this.topInset,
-    required this.onEdit,
     required this.onMore,
   });
 
   final ProfileSnapshot profile;
   final double topInset;
-  final VoidCallback onEdit;
   final VoidCallback onMore;
+
+  ImageProvider get _cover {
+    final url = profile.coverImageUrl;
+    if (url != null && url.isNotEmpty) {
+      return NetworkImage(url);
+    }
+    return AssetImage(profile.coverImageAsset);
+  }
+
+  ImageProvider get _avatar {
+    final url = profile.avatarImageUrl;
+    if (url != null && url.isNotEmpty) {
+      return NetworkImage(url);
+    }
+    return AssetImage(profile.avatarImageAsset);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +142,7 @@ class _ProfileHeader extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Positioned.fill(
-            child: Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
+            child: Image(image: _cover, fit: BoxFit.cover),
           ),
           const Positioned.fill(
             child: DecoratedBox(
@@ -138,6 +161,18 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
           Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 120,
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: const ColoredBox(color: Color(0x33000000)),
+              ),
+            ),
+          ),
+          Positioned(
             left: AppSpacing.page,
             right: AppSpacing.page,
             bottom: 44,
@@ -152,7 +187,7 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: CircleAvatar(
                     radius: 32,
-                    backgroundImage: AssetImage(profile.avatarImageAsset),
+                    backgroundImage: _avatar,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -168,6 +203,7 @@ class _ProfileHeader extends StatelessWidget {
                         style: AppTypography.greeting.copyWith(
                           color: Colors.white,
                           fontSize: 22,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -185,18 +221,10 @@ class _ProfileHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: AppSpacing.xs),
                 _HeaderActionButton(
-                  tooltip: 'Редактировать профиль',
-                  onTap: onEdit,
-                  fillColor: Colors.white.withValues(alpha: 0.55),
-                  iconColor: AppColors.primaryInk,
-                  icon: Icons.edit_outlined,
-                ),
-                const SizedBox(width: 8),
-                _HeaderActionButton(
-                  tooltip: 'Ещё',
+                  tooltip: 'Настройки',
                   onTap: onMore,
-                  fillColor: Colors.white.withValues(alpha: 0.4),
-                  iconColor: AppColors.primaryInk,
+                  fillColor: Colors.black.withValues(alpha: 0.35),
+                  iconColor: Colors.white,
                   icon: Icons.more_horiz_rounded,
                 ),
               ],
@@ -260,6 +288,10 @@ class _RankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final progress = rank.nextRankPoints <= 0
+        ? 0.0
+        : (rank.progressPoints / rank.nextRankPoints).clamp(0.0, 1.0);
+
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
@@ -286,50 +318,70 @@ class _RankCard extends StatelessWidget {
                     textAlign: TextAlign.right,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.greeting.copyWith(fontSize: 17),
+                    style: AppTypography.greeting.copyWith(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            Row(
               children: [
-                _RankPill(
-                  label: '${rank.progressPoints} / ${rank.nextRankPoints} тп',
-                  filled: true,
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadii.capsule),
+                    child: SizedBox(
+                      height: 34,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          const ColoredBox(color: Color(0xFFE8E8E8)),
+                          FractionallySizedBox(
+                            widthFactor: progress,
+                            alignment: Alignment.centerLeft,
+                            child: const ColoredBox(color: AppColors.primaryInk),
+                          ),
+                          Center(
+                            child: Text(
+                              '${rank.progressPoints} / ${rank.nextRankPoints} тп',
+                              style: AppTypography.chip.copyWith(
+                                fontSize: 13,
+                                color: progress > 0.45
+                                    ? Colors.white
+                                    : AppColors.primaryInk,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-                _RankPill(label: 'Топ ${rank.leaderboardPlace}', filled: false),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.controlSurface,
+                    borderRadius: BorderRadius.circular(AppRadii.capsule),
+                  ),
+                  child: Text(
+                    'Топ ${rank.leaderboardPlace}',
+                    style: AppTypography.chip.copyWith(
+                      fontSize: 13,
+                      color: AppColors.primaryInk,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _RankPill extends StatelessWidget {
-  const _RankPill({required this.label, required this.filled});
-
-  final String label;
-  final bool filled;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-      decoration: BoxDecoration(
-        color: filled ? AppColors.primaryInk : AppColors.controlSurface,
-        borderRadius: BorderRadius.circular(AppRadii.capsule),
-      ),
-      child: Text(
-        label,
-        style: AppTypography.chip.copyWith(
-          fontSize: 13,
-          color: filled ? Colors.white : AppColors.primaryInk,
-          fontWeight: FontWeight.w500,
         ),
       ),
     );
@@ -406,7 +458,7 @@ class _AchievementTile extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: const BoxDecoration(
-                  color: AppColors.focus,
+                  color: AppColors.accentBlue,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -504,7 +556,7 @@ class _PageDots extends StatelessWidget {
           if (i > 0) const SizedBox(width: 6),
           AnimatedContainer(
             duration: const Duration(milliseconds: 180),
-            width: 7,
+            width: i == index ? 9 : 7,
             height: 7,
             decoration: BoxDecoration(
               shape: BoxShape.circle,

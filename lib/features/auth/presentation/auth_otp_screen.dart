@@ -82,12 +82,30 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
     _controller.selection = TextSelection.collapsed(offset: offset);
   }
 
-  void _startJourney() {
+  Future<void> _startJourney() async {
     if (!_canSubmit) {
       return;
     }
-    ref.read(sessionProvider.notifier).completeOnboarding();
-    context.goNamed(AppRouteNames.home);
+    try {
+      await ref
+          .read(sessionProvider.notifier)
+          .verifyOtp(
+            code: _code,
+            privacyAccepted: _privacyAccepted,
+            personalDataAccepted: _personalDataAccepted,
+          );
+      if (!mounted) {
+        return;
+      }
+      context.goNamed(AppRouteNames.home);
+    } on Object {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось подтвердить код.')),
+      );
+    }
   }
 
   @override

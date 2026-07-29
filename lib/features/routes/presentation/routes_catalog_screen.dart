@@ -93,7 +93,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
 
   void _handleSwipe(RouteSummary route, RouteSwipeAction action) {
     if (action == RouteSwipeAction.favorite) {
-      ref.read(favoriteRouteIdsProvider.notifier).add(route.id);
+      unawaited(ref.read(favoritesProvider.notifier).addRoute(route.id));
     }
   }
 

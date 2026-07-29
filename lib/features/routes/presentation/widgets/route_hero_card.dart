@@ -15,6 +15,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -236,7 +237,7 @@ class _RouteCardContent extends StatelessWidget {
                       const SizedBox(width: AppSpacing.xs),
                       AppFilteredOpacity(
                         opacity: actionOpacity,
-                        child: const _FavoriteButton(),
+                        child: _FavoriteButton(routeId: route.id),
                       ),
                     ],
                   ),
@@ -436,18 +437,19 @@ class _DifficultyRow extends StatelessWidget {
   }
 }
 
-class _FavoriteButton extends StatefulWidget {
-  const _FavoriteButton();
+class _FavoriteButton extends ConsumerStatefulWidget {
+  const _FavoriteButton({required this.routeId});
+
+  final String routeId;
 
   @override
-  State<_FavoriteButton> createState() => _FavoriteButtonState();
+  ConsumerState<_FavoriteButton> createState() => _FavoriteButtonState();
 }
 
-class _FavoriteButtonState extends State<_FavoriteButton>
+class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
-  var _selected = false;
 
   @override
   void initState() {
@@ -468,18 +470,30 @@ class _FavoriteButtonState extends State<_FavoriteButton>
     super.dispose();
   }
 
-  void _toggle() {
-    setState(() => _selected = !_selected);
+  Future<void> _toggle() async {
     unawaited(HapticFeedback.selectionClick());
     unawaited(_controller.forward(from: 0));
+    try {
+      await ref.read(favoritesProvider.notifier).toggleRoute(widget.routeId);
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось обновить избранное')),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final selected = ref.watch(
+      favoritesProvider.select(
+        (state) => state.routeIds.contains(widget.routeId),
+      ),
+    );
     return Semantics(
       button: true,
-      toggled: _selected,
-      label: _selected ? 'Удалить из избранного' : 'Добавить в избранное',
+      toggled: selected,
+      label: selected ? 'Удалить из избранного' : 'Добавить в избранное',
       child: AppGlassCircle(
         dimension: 44,
         blur: 10,
@@ -493,15 +507,15 @@ class _FavoriteButtonState extends State<_FavoriteButton>
             child: Stack(
               alignment: Alignment.center,
               children: [
-                if (_selected)
+                if (selected)
                   const Icon(
                     Icons.favorite_rounded,
                     color: Colors.white,
                     size: 20,
                   ),
-                const AppAssetIcon(
+                AppAssetIcon(
                   AppIconography.heart,
-                  color: Colors.white,
+                  color: Colors.white.withValues(alpha: selected ? 0.35 : 1),
                   size: 22,
                 ),
               ],
