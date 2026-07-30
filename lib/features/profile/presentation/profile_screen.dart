@@ -118,9 +118,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required double topInset,
     required bool isOwn,
   }) {
-    final showAchievements = isOwn && profile.achievementPages.isNotEmpty;
-    final showRank = isOwn;
-
+    // Same chrome for own and other profiles. Permissions only gate edit
+    // entry points (settings); rank/achievements stay visible (mock until
+    // Phase 14 durable progress API).
     return ColoredBox(
       color: AppColors.pageSurface,
       child: ListView(
@@ -144,32 +144,28 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (showRank) ...[
-                    _RankCard(rank: profile.rank),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-                  if (showAchievements) ...[
-                    Text(
-                      'Достижения:',
-                      style: AppTypography.sectionTitle.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    _AchievementsCarousel(
-                      pages: profile.achievementPages,
-                      pageIndex: _achievementPage,
-                      onPageChanged: (index) {
-                        setState(() => _achievementPage = index);
-                      },
-                      onAchievementTap: (achievement) {
-                        _snack(achievement.title);
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
+                  _RankCard(rank: profile.rank),
+                  const SizedBox(height: AppSpacing.xl),
                   Text(
-                    'Популярные маршруты',
+                    'Достижения:',
+                    style: AppTypography.sectionTitle.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _AchievementsCarousel(
+                    pages: profile.achievementPages,
+                    pageIndex: _achievementPage,
+                    onPageChanged: (index) {
+                      setState(() => _achievementPage = index);
+                    },
+                    onAchievementTap: (achievement) {
+                      _snack(achievement.title);
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  Text(
+                    'Опубликованные маршруты',
                     style: AppTypography.sectionTitle.copyWith(
                       fontWeight: FontWeight.w600,
                     ),

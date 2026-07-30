@@ -53,15 +53,10 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     final routes = await ref.watch(routesRepositoryProvider).listRoutes();
     return ProfileSnapshot(
       displayName: 'Путешественник',
-      rank: const ProfileRank(
-        title: 'Путешественник',
-        progressPoints: 0,
-        nextRankPoints: 100,
-        leaderboardPlace: 0,
-      ),
+      rank: MockProfile.rank,
       coverImageAsset: AppImages.welcomeSunset,
       avatarImageAsset: AppImages.travelerPortrait,
-      achievementPages: const [],
+      achievementPages: MockProfile.achievementPages,
       publishedRoutes: routes.items
           .where((route) => route.ownerUserId == userId)
           .toList(),
@@ -85,19 +80,16 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     );
   }
 
+  // Same profile chrome as own; only settings/edit are gated in the UI.
+  // Rank/achievements stay mock until Phase 14 durable progress API.
   return ProfileSnapshot(
     displayName: bundle.user.displayName,
-    rank: const ProfileRank(
-      title: 'Путешественник',
-      progressPoints: 0,
-      nextRankPoints: 100,
-      leaderboardPlace: 0,
-    ),
+    rank: MockProfile.rank,
     coverImageAsset: AppImages.welcomeSunset,
     avatarImageAsset: AppImages.travelerPortrait,
     avatarImageUrl: resolve(bundle.user.avatarUrl),
     coverImageUrl: resolve(bundle.user.coverUrl),
-    achievementPages: const [],
+    achievementPages: MockProfile.achievementPages,
     publishedRoutes: bundle.routes,
   );
 });
