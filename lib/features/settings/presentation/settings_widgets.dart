@@ -58,6 +58,9 @@ abstract final class TravelBannerGeometry {
       Offset(size.width - 7.3, size.height - 1.0);
 
   static const double diskRadius = 101.5;
+
+  /// Dashed route arc: 9 o'clock → 12 o'clock **clockwise** (Flutter angles).
+  /// Negative sweep draws below the banner edge and gets clipped away.
   static const double arcRadius = 110.4;
   static const double arcDash = 9;
   static const double arcGap = 2.6;
@@ -244,6 +247,7 @@ class SettingsCircleIconButton extends StatelessWidget {
     this.size = SettingsMetrics.headerButton,
     this.glass = false,
     this.borderColor,
+    this.borderWidth = 1.5,
   });
 
   final IconData icon;
@@ -254,6 +258,7 @@ class SettingsCircleIconButton extends StatelessWidget {
   final double size;
   final bool glass;
   final Color? borderColor;
+  final double borderWidth;
 
   @override
   Widget build(BuildContext context) {
@@ -277,7 +282,7 @@ class SettingsCircleIconButton extends StatelessWidget {
                       color:
                           borderColor ??
                           Colors.white.withValues(alpha: 0.75),
-                      width: 1.5,
+                      width: borderWidth,
                     )
                   : null,
             ),
@@ -664,10 +669,11 @@ class TravelPlusBanner extends StatelessWidget {
                       onTap: onTap,
                       background: Colors.white.withValues(alpha: 0.20),
                       iconColor: Colors.white,
-                      iconSize: 20,
-                      size: 47,
+                      iconSize: 22,
+                      size: 48,
                       glass: false,
-                      borderColor: Colors.white.withValues(alpha: 0.45),
+                      borderColor: Colors.white.withValues(alpha: 0.55),
+                      borderWidth: 1.5,
                     ),
                   ),
                   // Inside 3 pt gradient border over the outer frame.
@@ -690,13 +696,22 @@ class TravelPlusBanner extends StatelessWidget {
 class _TravelPlusTitle extends StatelessWidget {
   const _TravelPlusTitle();
 
+  static const _titleStyle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 52,
+    fontWeight: FontWeight.w600,
+    height: 1.25,
+    letterSpacing: 0,
+    color: Colors.white,
+  );
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       height: 52 * 1.25,
       width: double.infinity,
       child: FittedBox(
-        fit: BoxFit.contain,
+        fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: ShaderMask(
           blendMode: BlendMode.srcIn,
@@ -712,18 +727,8 @@ class _TravelPlusTitle extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                'ТРЕВЕЛ',
-                style: TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 52,
-                  fontWeight: FontWeight.w600,
-                  height: 1.25,
-                  letterSpacing: 0,
-                  color: Colors.white,
-                ),
-              ),
-              SizedBox(width: 18),
+              Text('ТРЕВЕЛ', style: _titleStyle),
+              SizedBox(width: 14),
               Padding(
                 padding: EdgeInsets.only(top: 2.3),
                 child: SizedBox(
@@ -779,7 +784,7 @@ class _TravelPlusMarkPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Status chip: no fill, backdrop blur + bottom shadow (§3.10).
+/// Status chip: capsule with light fill + backdrop blur + bottom shadow (§3.10).
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.label});
 
@@ -807,7 +812,7 @@ class _StatusChip extends StatelessWidget {
             width: 199,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             alignment: Alignment.center,
-            color: Colors.transparent,
+            color: Colors.white.withValues(alpha: 0.18),
             child: Text(
               label,
               maxLines: 1,
@@ -858,7 +863,7 @@ class _TravelBannerBorderPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Glow + disk + dashed arc + cursor — shared center (§3.4–3.7 / §3.15).
+/// Glow + disk + dashed arc + cursor — shared center (§3.4–3.7).
 class _TravelBannerDecorPainter extends CustomPainter {
   const _TravelBannerDecorPainter();
 
@@ -885,22 +890,22 @@ class _TravelBannerDecorPainter extends CustomPainter {
       Paint()..color = Colors.white.withValues(alpha: 0.07),
     );
 
-    // §3.6 arc: exact 90° from 9 o'clock → 12 o'clock (counter-clockwise).
-    final arcPaint = Paint()
-      ..color = SettingsColors.arcStroke
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = TravelBannerGeometry.arcStrokeWidth
-      ..strokeCap = StrokeCap.butt;
+    // §3.6 arc: 90° from 9 o'clock → 12 o'clock CLOCKWISE.
+    // Flutter: 0=east, positive=clockwise. π → +π/2 ends at 3π/2 (top).
+    // Negative sweep drew below the banner and was clipped — invisible.
     final arcPath = Path()
       ..addArc(
         Rect.fromCircle(center: c, radius: TravelBannerGeometry.arcRadius),
         math.pi, // 9 o'clock
-        -math.pi / 2, // to 12 o'clock
+        math.pi / 2, // clockwise to 12 o'clock
       );
-    _drawDashedPath(
+    _drawAsymmetricDashes(
       canvas,
       arcPath,
-      arcPaint,
+      center: c,
+      radius: TravelBannerGeometry.arcRadius,
+      color: SettingsColors.arcStroke,
+      thickness: TravelBannerGeometry.arcStrokeWidth,
       dash: TravelBannerGeometry.arcDash,
       gap: TravelBannerGeometry.arcGap,
     );
@@ -911,27 +916,141 @@ class _TravelBannerDecorPainter extends CustomPainter {
       c.dx + TravelBannerGeometry.arcRadius * math.cos(polar),
       c.dy + TravelBannerGeometry.arcRadius * math.sin(polar),
     );
-    // Tangent toward 12 o'clock (increasing angle from −166° toward −90°).
     final tangent = Offset(-math.sin(polar), math.cos(polar));
     final rotation = math.atan2(tangent.dx, -tangent.dy);
     _drawNavCursor(canvas, markerPos, rotation);
   }
 
-  static void _drawDashedPath(
+  static void _drawAsymmetricDashes(
     Canvas canvas,
     Path path,
-    Paint paint, {
+    {
+    required Offset center,
+    required double radius,
+    required Color color,
+    required double thickness,
     required double dash,
     required double gap,
   }) {
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    // Guarantee readable stitches even if annular fill path degenerates.
+    final stitch = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = thickness
+      ..strokeCap = StrokeCap.butt
+      ..isAntiAlias = true;
+    final outerR = radius + thickness / 2;
+    final innerR = radius - thickness / 2;
+    // Keep inner rounding subtle so dash gaps stay visible.
+    final innerRound = thickness * 0.22;
+
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
         final next = math.min(distance + dash, metric.length);
-        canvas.drawPath(metric.extractPath(distance, next), paint);
+        final segment = metric.extractPath(distance, next);
+        canvas.drawPath(segment, stitch);
+
+        final start = metric.getTangentForOffset(distance);
+        final end = metric.getTangentForOffset(next);
+        if (start == null || end == null) {
+          distance = next + gap;
+          continue;
+        }
+
+        final a0 = math.atan2(
+          start.position.dy - center.dy,
+          start.position.dx - center.dx,
+        );
+        final a1 = math.atan2(
+          end.position.dy - center.dy,
+          end.position.dx - center.dx,
+        );
+
+        var delta = a1 - a0;
+        while (delta > math.pi) {
+          delta -= 2 * math.pi;
+        }
+        while (delta < -math.pi) {
+          delta += 2 * math.pi;
+        }
+
+        final dashPath = _asymmetricDashPath(
+          center: center,
+          outerR: outerR,
+          innerR: innerR,
+          startAngle: a0,
+          sweep: delta,
+          innerRound: innerRound,
+        );
+        canvas.drawPath(dashPath, fill);
         distance = next + gap;
       }
     }
+  }
+
+  static Path _asymmetricDashPath({
+    required Offset center,
+    required double outerR,
+    required double innerR,
+    required double startAngle,
+    required double sweep,
+    required double innerRound,
+  }) {
+    final endAngle = startAngle + sweep;
+
+    Offset polar(double r, double a) =>
+        Offset(center.dx + r * math.cos(a), center.dy + r * math.sin(a));
+
+    final outerStart = polar(outerR, startAngle);
+    final innerEnd = polar(innerR, endAngle);
+
+    final path = Path()..moveTo(outerStart.dx, outerStart.dy);
+
+    // Outer edge stays flat/sharp.
+    path.arcTo(
+      Rect.fromCircle(center: center, radius: outerR),
+      startAngle,
+      sweep,
+      false,
+    );
+
+    // End radial side + subtle soft transition to inner edge.
+    path.lineTo(
+      center.dx + (innerR + innerRound) * math.cos(endAngle),
+      center.dy + (innerR + innerRound) * math.sin(endAngle),
+    );
+    path.arcToPoint(
+      innerEnd,
+      radius: Radius.circular(innerRound),
+      clockwise: sweep > 0,
+    );
+
+    // Inner edge is rounded/soft.
+    path.arcTo(
+      Rect.fromCircle(center: center, radius: innerR),
+      endAngle,
+      -sweep,
+      false,
+    );
+
+    // Start radial side + soft transition.
+    path.arcToPoint(
+      Offset(
+        center.dx + (innerR + innerRound) * math.cos(startAngle),
+        center.dy + (innerR + innerRound) * math.sin(startAngle),
+      ),
+      radius: Radius.circular(innerRound),
+      clockwise: sweep > 0,
+    );
+    path.lineTo(outerStart.dx, outerStart.dy);
+    path.close();
+
+    return path;
   }
 
   static void _drawNavCursor(Canvas canvas, Offset center, double angle) {
