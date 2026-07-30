@@ -1,3 +1,6 @@
+import 'dart:io';
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
@@ -65,6 +68,36 @@ abstract final class AppImages {
     return routeFallbacks[index];
   }
 
+  /// Avatar/cover [ImageProvider] from a resolved https URL, local `file://`,
+  /// or the bundled asset fallback. Network URLs use memory+disk cache.
+  static ImageProvider imageProvider({
+    required String? resolvedUrl,
+    String assetFallback = travelerPortrait,
+  }) {
+    if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
+      if (resolvedUrl.startsWith('file://')) {
+        return FileImage(File(Uri.parse(resolvedUrl).toFilePath()));
+      }
+      return CachedNetworkImageProvider(resolvedUrl);
+    }
+    return AssetImage(assetFallback);
+  }
+
+  /// Resolves session/API avatar refs (including local `file://` previews).
+  static ImageProvider avatarProvider({
+    required AppConfig config,
+    required String? avatarUrl,
+    String assetFallback = travelerPortrait,
+  }) {
+    if (avatarUrl != null && avatarUrl.startsWith('file://')) {
+      return FileImage(File(Uri.parse(avatarUrl).toFilePath()));
+    }
+    return imageProvider(
+      resolvedUrl: resolveMediaUrl(config, avatarUrl),
+      assetFallback: assetFallback,
+    );
+  }
+
   /// Stable mock/local cover for place catalog and detail heroes.
   static String placeCoverAsset(String slug) {
     return switch (slug) {
@@ -89,11 +122,13 @@ abstract final class AppImages {
     }
     final networkUrl = resolveMediaUrl(config, coverImageUrl);
     if (networkUrl != null) {
-      return Image.network(
-        networkUrl,
+      return CachedNetworkImage(
+        imageUrl: networkUrl,
         fit: fit,
-        alignment: alignment,
-        errorBuilder: (_, _, _) =>
+        alignment: alignment is Alignment ? alignment : Alignment.center,
+        errorWidget: (_, _, _) =>
+            Image.asset(fallback, fit: fit, alignment: alignment),
+        placeholder: (_, _) =>
             Image.asset(fallback, fit: fit, alignment: alignment),
       );
     }

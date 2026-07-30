@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +12,8 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -20,9 +21,13 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_c
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({super.key, this.userId});
 
   static const routePath = '/profile';
+  static const userRoutePath = 'users/:userId';
+
+  /// When set and different from the signed-in user, shows a view-only profile.
+  final String? userId;
 
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
@@ -40,8 +45,81 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final session = ref.watch(sessionProvider);
+    final viewingOther =
+        widget.userId != null &&
+        widget.userId!.isNotEmpty &&
+        widget.userId != session.userId;
+
+    if (viewingOther) {
+      final asyncProfile = ref.watch(publicProfileProvider(widget.userId!));
+      return asyncProfile.when(
+        data: (profile) => _buildBody(
+          profile: profile,
+          topInset: MediaQuery.paddingOf(context).top,
+          isOwn: false,
+        ),
+        loading: () => const ColoredBox(
+          color: AppColors.pageSurface,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+        error: (error, _) => ColoredBox(
+          color: AppColors.pageSurface,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.page),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Не удалось загрузить профиль',
+                    style: AppTypography.sectionTitle,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    '$error',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.routeMetadata,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextButton(
+                    onPressed: () =>
+                        ref.invalidate(publicProfileProvider(widget.userId!)),
+                    child: const Text('Повторить'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final profile = ref.watch(profileProvider);
-    final topInset = MediaQuery.paddingOf(context).top;
+    final sessionUserId = session.userId;
+    final ProfileSnapshot effective;
+    if (sessionUserId != null && sessionUserId.isNotEmpty) {
+      effective = ref
+          .watch(publicProfileProvider(sessionUserId))
+          .maybeWhen(data: (value) => value, orElse: () => profile);
+    } else {
+      effective = profile;
+    }
+    return _buildBody(
+      profile: effective,
+      topInset: MediaQuery.paddingOf(context).top,
+      isOwn: true,
+    );
+  }
+
+  Widget _buildBody({
+    required ProfileSnapshot profile,
+    required double topInset,
+    required bool isOwn,
+  }) {
+    final showAchievements = isOwn && profile.achievementPages.isNotEmpty;
+    final showRank = isOwn;
 
     return ColoredBox(
       color: AppColors.pageSurface,
@@ -54,7 +132,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           _ProfileHeader(
             profile: profile,
             topInset: topInset,
-            onMore: () => context.pushNamed(AppRouteNames.settings),
+            onMore: isOwn
+                ? () => context.pushNamed(AppRouteNames.settings)
+                : null,
+            onBack: isOwn ? null : () => context.pop(),
           ),
           Transform.translate(
             offset: const Offset(0, -28),
@@ -63,26 +144,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _RankCard(rank: profile.rank),
-                  const SizedBox(height: AppSpacing.xl),
-                  Text(
-                    'Достижения:',
-                    style: AppTypography.sectionTitle.copyWith(
-                      fontWeight: FontWeight.w600,
+                  if (showRank) ...[
+                    _RankCard(rank: profile.rank),
+                    const SizedBox(height: AppSpacing.xl),
+                  ],
+                  if (showAchievements) ...[
+                    Text(
+                      'Достижения:',
+                      style: AppTypography.sectionTitle.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _AchievementsCarousel(
-                    pages: profile.achievementPages,
-                    pageIndex: _achievementPage,
-                    onPageChanged: (index) {
-                      setState(() => _achievementPage = index);
-                    },
-                    onAchievementTap: (achievement) {
-                      _snack(achievement.title);
-                    },
-                  ),
-                  const SizedBox(height: AppSpacing.xl),
+                    const SizedBox(height: AppSpacing.sm),
+                    _AchievementsCarousel(
+                      pages: profile.achievementPages,
+                      pageIndex: _achievementPage,
+                      onPageChanged: (index) {
+                        setState(() => _achievementPage = index);
+                      },
+                      onAchievementTap: (achievement) {
+                        _snack(achievement.title);
+                      },
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                  ],
                   Text(
                     'Популярные маршруты',
                     style: AppTypography.sectionTitle.copyWith(
@@ -90,13 +175,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  _PublishedRoutesCarousel(
-                    routes: profile.publishedRoutes,
-                    pageIndex: _publishedPage,
-                    onPageChanged: (index) {
-                      setState(() => _publishedPage = index);
-                    },
-                  ),
+                  if (profile.publishedRoutes.isEmpty)
+                    Text(
+                      isOwn
+                          ? 'Пока нет опубликованных маршрутов'
+                          : 'У путешественника пока нет маршрутов',
+                      style: AppTypography.routeMetadata,
+                    )
+                  else
+                    _PublishedRoutesCarousel(
+                      routes: profile.publishedRoutes,
+                      pageIndex: _publishedPage,
+                      authorAvatarUrl: profile.avatarImageUrl,
+                      onPageChanged: (index) {
+                        setState(() => _publishedPage = index);
+                      },
+                    ),
                 ],
               ),
             ),
@@ -111,38 +205,33 @@ class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.profile,
     required this.topInset,
-    required this.onMore,
+    this.onMore,
+    this.onBack,
   });
 
   final ProfileSnapshot profile;
   final double topInset;
-  final VoidCallback onMore;
-
-  ImageProvider get _cover {
-    final url = profile.coverImageUrl;
-    if (url != null && url.isNotEmpty) {
-      return NetworkImage(url);
-    }
-    return AssetImage(profile.coverImageAsset);
-  }
-
-  ImageProvider get _avatar {
-    final url = profile.avatarImageUrl;
-    if (url != null && url.isNotEmpty) {
-      return NetworkImage(url);
-    }
-    return AssetImage(profile.avatarImageAsset);
-  }
+  final VoidCallback? onMore;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
+    final cover = AppImages.imageProvider(
+      resolvedUrl: profile.coverImageUrl,
+      assetFallback: profile.coverImageAsset,
+    );
+    final avatar = AppImages.imageProvider(
+      resolvedUrl: profile.avatarImageUrl,
+      assetFallback: profile.avatarImageAsset,
+    );
+
     return SizedBox(
       height: topInset + 236,
       child: Stack(
         fit: StackFit.expand,
         children: [
           Positioned.fill(
-            child: Image(image: _cover, fit: BoxFit.cover),
+            child: Image(image: cover, fit: BoxFit.cover),
           ),
           const Positioned.fill(
             child: DecoratedBox(
@@ -161,18 +250,6 @@ class _ProfileHeader extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: 120,
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: const ColoredBox(color: Color(0x33000000)),
-              ),
-            ),
-          ),
-          Positioned(
             left: AppSpacing.page,
             right: AppSpacing.page,
             bottom: 44,
@@ -187,7 +264,7 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: CircleAvatar(
                     radius: 32,
-                    backgroundImage: _avatar,
+                    backgroundImage: avatar,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -220,13 +297,22 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.xs),
-                _HeaderActionButton(
-                  tooltip: 'Настройки',
-                  onTap: onMore,
-                  fillColor: Colors.black.withValues(alpha: 0.35),
-                  iconColor: Colors.white,
-                  icon: Icons.more_horiz_rounded,
-                ),
+                if (onBack != null)
+                  _HeaderActionButton(
+                    tooltip: 'Назад',
+                    onTap: onBack!,
+                    fillColor: Colors.black.withValues(alpha: 0.35),
+                    iconColor: Colors.white,
+                    icon: Icons.arrow_back_ios_new_rounded,
+                  )
+                else if (onMore != null)
+                  _HeaderActionButton(
+                    tooltip: 'Настройки',
+                    onTap: onMore!,
+                    fillColor: Colors.black.withValues(alpha: 0.35),
+                    iconColor: Colors.white,
+                    icon: Icons.more_horiz_rounded,
+                  ),
               ],
             ),
           ),
@@ -413,6 +499,7 @@ class _AchievementsCarousel extends StatelessWidget {
             itemBuilder: (context, index) {
               final items = pages[index];
               return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var i = 0; i < items.length; i++) ...[
                     if (i > 0) const SizedBox(height: 8),
@@ -441,60 +528,63 @@ class _AchievementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppPressableScale(
-      borderRadius: AppRadii.card,
-      onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: AppColors.elevatedSurface,
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          boxShadow: AppShadows.tile,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: const BoxDecoration(
-                  color: AppColors.accentBlue,
-                  shape: BoxShape.circle,
+    return SizedBox(
+      width: double.infinity,
+      child: AppPressableScale(
+        borderRadius: AppRadii.card,
+        onTap: onTap,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.elevatedSurface,
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            boxShadow: AppShadows.tile,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: AppColors.accentBlue,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      achievement.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.chip.copyWith(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryInk,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        achievement.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.chip.copyWith(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryInk,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      achievement.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.routeMetadata.copyWith(
-                        color: AppColors.secondaryInk,
+                      const SizedBox(height: 2),
+                      Text(
+                        achievement.description,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.routeMetadata.copyWith(
+                          color: AppColors.secondaryInk,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: AppColors.secondaryInk,
-              ),
-            ],
+                const SizedBox(width: 8),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.secondaryInk,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -507,11 +597,13 @@ class _PublishedRoutesCarousel extends StatelessWidget {
     required this.routes,
     required this.pageIndex,
     required this.onPageChanged,
+    this.authorAvatarUrl,
   });
 
   final List<RouteSummary> routes;
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
+  final String? authorAvatarUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -529,6 +621,7 @@ class _PublishedRoutesCarousel extends StatelessWidget {
                   route: routes[index],
                   height: 304,
                   tags: const [],
+                  authorAvatarUrl: authorAvatarUrl,
                 ),
               );
             },

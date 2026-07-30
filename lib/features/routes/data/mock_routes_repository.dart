@@ -147,6 +147,7 @@ class MockRoutesRepository implements RoutesRepository {
       isRoundTrip: true,
       authorLabel: 'Никита',
       coverImageUrl: AppImages.coastPineTwilight,
+      ownerUserId: 'mock-user',
       stops: [
         RouteStop(
           id: 'stop-8',
@@ -195,6 +196,7 @@ class MockRoutesRepository implements RoutesRepository {
       isRoundTrip: true,
       authorLabel: 'Никита',
       coverImageUrl: AppImages.coastPineTwilight,
+      ownerUserId: 'mock-user',
       stops: [
         RouteStop(
           id: 'stop-11',

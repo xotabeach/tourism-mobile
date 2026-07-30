@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -156,7 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 }
 
-class _HomeHeader extends StatelessWidget {
+class _HomeHeader extends ConsumerWidget {
   const _HomeHeader({
     required this.name,
     required this.selectedChip,
@@ -180,7 +181,13 @@ class _HomeHeader extends StatelessWidget {
   final ValueChanged<String> onChipSelected;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
+    final session = ref.watch(sessionProvider);
+    final avatar = AppImages.avatarProvider(
+      config: config,
+      avatarUrl: session.avatarUrl,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -197,12 +204,10 @@ class _HomeHeader extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        const CircleAvatar(
+                        CircleAvatar(
                           radius: 24,
                           backgroundColor: AppColors.mistDark,
-                          backgroundImage: AssetImage(
-                            AppImages.travelerPortrait,
-                          ),
+                          backgroundImage: avatar,
                         ),
                         const SizedBox(width: 12),
                         Expanded(

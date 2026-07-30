@@ -37,6 +37,7 @@ abstract final class AppRouteNames {
   static const routeDetails = 'route-details';
   static const favorites = 'favorites';
   static const profile = 'profile';
+  static const userProfile = 'user-profile';
   static const settings = 'settings';
   static const settingsAccount = 'settings-account';
   static const settingsChangeName = 'settings-change-name';
@@ -203,6 +204,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: ProfileScreen.routePath,
                 builder: (context, state) => const ProfileScreen(),
                 routes: [
+                  GoRoute(
+                    name: AppRouteNames.userProfile,
+                    path: ProfileScreen.userRoutePath,
+                    pageBuilder: (context, state) {
+                      final userId = state.pathParameters['userId']!;
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: ProfileScreen(userId: userId),
+                      );
+                    },
+                  ),
                   GoRoute(
                     name: AppRouteNames.settings,
                     path: SettingsScreen.routePath,

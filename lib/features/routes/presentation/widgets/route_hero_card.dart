@@ -16,6 +16,7 @@ import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -82,6 +83,7 @@ class RouteHeroCard extends ConsumerWidget {
     this.interactive = true,
     this.variant = RouteCardVariant.list,
     this.visualProgress = 0,
+    this.authorAvatarUrl,
     super.key,
   });
 
@@ -94,9 +96,49 @@ class RouteHeroCard extends ConsumerWidget {
   /// Absolute swipe progress used to fade card actions under a semantic overlay.
   final double visualProgress;
 
+  /// Optional author avatar (resolved https / `file://`). Falls back to the
+  /// current session avatar when the route author matches the signed-in user.
+  final String? authorAvatarUrl;
+
+  void _openAuthor(BuildContext context, WidgetRef ref) {
+    final ownerId = route.ownerUserId;
+    if (ownerId == null || ownerId.isEmpty) {
+      return;
+    }
+    final session = ref.read(sessionProvider);
+    if (session.userId != null && session.userId == ownerId) {
+      context.goNamed(AppRouteNames.profile);
+      return;
+    }
+    unawaited(
+      context.pushNamed(
+        AppRouteNames.userProfile,
+        pathParameters: {'userId': ownerId},
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
+    final session = ref.watch(sessionProvider);
+    final resolvedAuthorAvatar =
+        authorAvatarUrl ?? route.authorAvatarUrl;
+    final authorName = route.authorLabel ?? '';
+    final sessionName = session.displayName?.trim() ?? '';
+    final isOwnRoute =
+        (route.ownerUserId != null && route.ownerUserId == session.userId) ||
+        (resolvedAuthorAvatar != null) ||
+        (sessionName.isNotEmpty &&
+            (authorName == sessionName ||
+                authorName.startsWith(sessionName.split(' ').first)));
+    final avatar = AppImages.avatarProvider(
+      config: config,
+      avatarUrl: resolvedAuthorAvatar ??
+          (isOwnRoute ? session.avatarUrl : null),
+    );
+    final canOpenAuthor =
+        route.ownerUserId != null && route.ownerUserId!.isNotEmpty;
     final card = RepaintBoundary(
       child: _RouteCardContent(
         route: route,
@@ -105,6 +147,8 @@ class RouteHeroCard extends ConsumerWidget {
         tags: tags,
         variant: variant,
         visualProgress: visualProgress.clamp(0, 1),
+        authorAvatar: avatar,
+        onAuthorTap: canOpenAuthor ? () => _openAuthor(context, ref) : null,
       ),
     );
 
@@ -132,6 +176,8 @@ class _RouteCardContent extends StatelessWidget {
     required this.tags,
     required this.variant,
     required this.visualProgress,
+    required this.authorAvatar,
+    this.onAuthorTap,
   });
 
   final RouteSummary route;
@@ -140,6 +186,8 @@ class _RouteCardContent extends StatelessWidget {
   final List<String> tags;
   final RouteCardVariant variant;
   final double visualProgress;
+  final ImageProvider authorAvatar;
+  final VoidCallback? onAuthorTap;
 
   @override
   Widget build(BuildContext context) {
@@ -191,47 +239,60 @@ class _RouteCardContent extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(1.5),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const CircleAvatar(
-                          radius: 18.5,
-                          backgroundImage: AssetImage(
-                            AppImages.travelerPortrait,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              route.authorLabel ?? 'Никита',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.chip.copyWith(
-                                fontSize: 15,
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: onAuthorTap,
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(1.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: CircleAvatar(
+                                  radius: 18.5,
+                                  backgroundImage: authorAvatar,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 1),
-                            Text(
-                              route.authorLabel?.contains('редакция') ?? false
-                                  ? transportLabel(route.transportMode)
-                                  : 'Продвинутый пешеход',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.routeMetadata.copyWith(
-                                fontSize: 12,
-                                color: Colors.white.withValues(alpha: 0.8),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      route.authorLabel ?? 'Никита',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.chip.copyWith(
+                                        fontSize: 15,
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Text(
+                                      route.authorLabel?.contains('редакция') ??
+                                              false
+                                          ? transportLabel(route.transportMode)
+                                          : 'Продвинутый пешеход',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.routeMetadata
+                                          .copyWith(
+                                            fontSize: 12,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.8,
+                                            ),
+                                          ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),

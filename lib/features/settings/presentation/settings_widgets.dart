@@ -23,21 +23,26 @@ abstract final class SettingsColors {
   static const Color fieldFill = Color(0xFFE7E7E7);
   static const Color hairline = Color(0xFFE3E3E3);
 
-  /// Banner fill axis ≈31° — §3.3: `#A5D4EA` → `#6580F5`.
-  static const Color bannerGradientStart = Color(0xFFA5D4EA);
-  static const Color bannerGradientEnd = Color(0xFF6580F5);
+  /// Banner fill — Figma property panel: `#90D3EB` → `#547BFC` @ 68%.
+  /// Axis ≈31° (§3.3): `begin: topLeft, end: Alignment(1.0, 0.18)`.
+  static const Color bannerGradientStart = Color(0xFF90D3EB);
+  static const Color bannerGradientEnd = Color(0xFF547BFC);
   static const Alignment bannerGradientEndAlign = Alignment(1.0, 0.18);
+  static const List<double> bannerGradientStops = [0.0, 0.68];
 
-  /// Title + plus shared ramp — §3.8.
-  static const Color titleGradientStart = Color(0xFF3D89C3);
-  static const Color titleGradientEnd = Color(0xFF183DE5);
+  /// Title ramp — Rubik SemiBold 52: `#0090C6` → `#0038F0`.
+  static const Color titleGradientStart = Color(0xFF0090C6);
+  static const Color titleGradientEnd = Color(0xFF0038F0);
 
   /// Arc / cursor — solid `#1537E7`, no alpha (§3.6 / §3.7).
   static const Color arcStroke = Color(0xFF1537E7);
   static const Color cursorFill = Color(0xFF1537E7);
 
-  static const Color bannerBorderTop = Color(0xFF67A7F8);
-  static const Color bannerBorderBottom = Color(0xFF3357F6);
+  /// Inside stroke 3 pt — `#67D6FF` → `#2558FF` @ 66%.
+  static const Color bannerBorderTop = Color(0xFF67D6FF);
+  static const Color bannerBorderBottom = Color(0xFF2558FF);
+  static const List<double> bannerBorderStops = [0.0, 0.66];
+  static const double bannerBorderWidth = 3;
 
   static const Color yearGradientStart = Color(0xFF72B2D2);
   static const Color yearGradientEnd = Color(0xFF5C7AF4);
@@ -632,6 +637,7 @@ class TravelPlusBanner extends StatelessWidget {
                             SettingsColors.bannerGradientStart,
                             SettingsColors.bannerGradientEnd,
                           ],
+                          stops: SettingsColors.bannerGradientStops,
                         ),
                       ),
                     ),
@@ -641,8 +647,8 @@ class TravelPlusBanner extends StatelessWidget {
                   ),
                   const Positioned(
                     left: 16,
-                    top: 12,
-                    right: 72,
+                    top: 14,
+                    right: 64,
                     child: _TravelPlusTitle(),
                   ),
                   Positioned(
@@ -660,11 +666,11 @@ class TravelPlusBanner extends StatelessWidget {
                       iconColor: Colors.white,
                       iconSize: 20,
                       size: 47,
-                      glass: true,
+                      glass: false,
                       borderColor: Colors.white.withValues(alpha: 0.45),
                     ),
                   ),
-                  // §3.12 — 2 pt gradient border over the outer frame.
+                  // Inside 3 pt gradient border over the outer frame.
                   const Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(painter: _TravelBannerBorderPainter()),
@@ -680,51 +686,54 @@ class TravelPlusBanner extends StatelessWidget {
   }
 }
 
-/// One ShaderMask over «ТРЕВЕЛ» + geometric «+» (§3.8–3.9).
+/// One ShaderMask over «ТРЕВЕЛ» + geometric «+».
 class _TravelPlusTitle extends StatelessWidget {
   const _TravelPlusTitle();
 
   @override
   Widget build(BuildContext context) {
-    return FittedBox(
-      fit: BoxFit.scaleDown,
-      alignment: Alignment.centerLeft,
-      child: ShaderMask(
-        blendMode: BlendMode.srcIn,
-        shaderCallback: (bounds) => const LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            SettingsColors.titleGradientStart,
-            SettingsColors.titleGradientEnd,
-          ],
-        ).createShader(bounds),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(
-              'ТРЕВЕЛ',
-              style: TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 50,
-                fontWeight: FontWeight.w800,
-                height: 1.0,
-                letterSpacing: 0,
-                color: Colors.white,
+    return SizedBox(
+      height: 52 * 1.25,
+      width: double.infinity,
+      child: FittedBox(
+        fit: BoxFit.contain,
+        alignment: Alignment.centerLeft,
+        child: ShaderMask(
+          blendMode: BlendMode.srcIn,
+          shaderCallback: (bounds) => const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              SettingsColors.titleGradientStart,
+              SettingsColors.titleGradientEnd,
+            ],
+          ).createShader(bounds),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'ТРЕВЕЛ',
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 52,
+                  fontWeight: FontWeight.w600,
+                  height: 1.25,
+                  letterSpacing: 0,
+                  color: Colors.white,
+                ),
               ),
-            ),
-            SizedBox(width: 18),
-            // Optical center of plus sits ~2.3 pt below letter optical center.
-            Padding(
-              padding: EdgeInsets.only(top: 2.3),
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CustomPaint(painter: _TravelPlusMarkPainter()),
+              SizedBox(width: 18),
+              Padding(
+                padding: EdgeInsets.only(top: 2.3),
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CustomPaint(painter: _TravelPlusMarkPainter()),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -795,10 +804,10 @@ class _StatusChip extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
             height: 33,
-            constraints: const BoxConstraints(minWidth: 160),
+            width: 199,
             padding: const EdgeInsets.symmetric(horizontal: 16),
             alignment: Alignment.center,
-            color: Colors.white.withValues(alpha: 0.02),
+            color: Colors.transparent,
             child: Text(
               label,
               maxLines: 1,
@@ -818,19 +827,20 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-/// 2 pt vertical gradient stroke matching outer radius (§3.12).
+/// Inside 3 pt vertical gradient stroke matching outer radius.
 class _TravelBannerBorderPainter extends CustomPainter {
   const _TravelBannerBorderPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
+    const width = SettingsColors.bannerBorderWidth;
     final rrect = RRect.fromRectAndRadius(
       Offset.zero & size,
       const Radius.circular(AppRadii.settingsTile),
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
+      ..strokeWidth = width
       ..shader = const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
@@ -838,8 +848,10 @@ class _TravelBannerBorderPainter extends CustomPainter {
           SettingsColors.bannerBorderTop,
           SettingsColors.bannerBorderBottom,
         ],
+        stops: SettingsColors.bannerBorderStops,
       ).createShader(Offset.zero & size);
-    canvas.drawRRect(rrect.deflate(1), paint);
+    // Inside alignment: center the stroke on the inset edge.
+    canvas.drawRRect(rrect.deflate(width / 2), paint);
   }
 
   @override
@@ -854,11 +866,11 @@ class _TravelBannerDecorPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final c = TravelBannerGeometry.centerFor(size);
 
-    // §3.4 soft corner glow (slightly stronger so the top-left disk reads).
+    // §3.4 soft corner glow — white ~8%.
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          Colors.white.withValues(alpha: 0.14),
+          Colors.white.withValues(alpha: 0.08),
           Colors.white.withValues(alpha: 0.0),
         ],
       ).createShader(
@@ -866,11 +878,11 @@ class _TravelBannerDecorPainter extends CustomPainter {
       );
     canvas.drawCircle(const Offset(45, 25), 120, glowPaint);
 
-    // §3.5 light disk (bottom-right concentric lens).
+    // §3.5 light disk — white 7%.
     canvas.drawCircle(
       c,
       TravelBannerGeometry.diskRadius,
-      Paint()..color = Colors.white.withValues(alpha: 0.10),
+      Paint()..color = Colors.white.withValues(alpha: 0.07),
     );
 
     // §3.6 arc: exact 90° from 9 o'clock → 12 o'clock (counter-clockwise).
@@ -968,6 +980,7 @@ class TravelPlusHeroBackground extends StatelessWidget {
             SettingsColors.bannerGradientStart,
             SettingsColors.bannerGradientEnd,
           ],
+          stops: SettingsColors.bannerGradientStops,
         ),
       ),
       child: Stack(

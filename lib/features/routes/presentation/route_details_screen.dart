@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -178,6 +179,26 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                   _AuthorRow(
                     name: route.authorLabel ?? 'КрымТрип редакция',
                     subtitle: 'Продвинутый пешеход',
+                    avatar: AppImages.avatarProvider(
+                      config: config,
+                      avatarUrl: route.authorAvatarUrl,
+                    ),
+                    onAuthorTap: route.ownerUserId == null
+                        ? null
+                        : () {
+                            final ownerId = route.ownerUserId!;
+                            final session = ref.read(sessionProvider);
+                            if (session.userId == ownerId) {
+                              context.goNamed(AppRouteNames.profile);
+                            } else {
+                              unawaited(
+                                context.pushNamed(
+                                  AppRouteNames.userProfile,
+                                  pathParameters: {'userId': ownerId},
+                                ),
+                              );
+                            }
+                          },
                     onMore: () => _showSoon('Меню маршрута'),
                   ),
                   const _SectionDivider(),
@@ -337,7 +358,7 @@ ImageProvider _routeCover(AppConfig config, RouteSummary route) {
   }
   final url = AppImages.resolveMediaUrl(config, route.coverImageUrl);
   if (url != null) {
-    return NetworkImage(url);
+    return AppImages.imageProvider(resolvedUrl: url);
   }
   return AssetImage(AppImages.routeFallbackAsset(route.slug));
 }
@@ -591,52 +612,66 @@ class _AuthorRow extends StatelessWidget {
   const _AuthorRow({
     required this.name,
     required this.subtitle,
+    required this.avatar,
     required this.onMore,
+    this.onAuthorTap,
   });
 
   final String name;
   final String subtitle;
+  final ImageProvider avatar;
   final VoidCallback onMore;
+  final VoidCallback? onAuthorTap;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const CircleAvatar(
-          radius: 24,
-          backgroundImage: AssetImage(AppImages.travelerPortrait),
-        ),
-        const SizedBox(width: 12),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  height: 1.2,
-                  color: AppColors.primaryInk,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onAuthorTap,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundImage: avatar,
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w400,
-                  height: 1.2,
-                  color: AppColors.secondaryInk,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 1.2,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         const SizedBox(width: 12),

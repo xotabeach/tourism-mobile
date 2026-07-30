@@ -53,6 +53,8 @@ class RouteSummary {
     this.isRoundTrip = false,
     this.authorLabel,
     this.coverImageUrl,
+    this.ownerUserId,
+    this.authorAvatarUrl,
   });
 
   final String id;
@@ -67,6 +69,8 @@ class RouteSummary {
   final bool isRoundTrip;
   final String? authorLabel;
   final String? coverImageUrl;
+  final String? ownerUserId;
+  final String? authorAvatarUrl;
 
   factory RouteSummary.fromJson(Map<String, dynamic> json) {
     return RouteSummary(
@@ -82,6 +86,8 @@ class RouteSummary {
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       authorLabel: json['author_label'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
+      ownerUserId: json['owner_user_id'] as String?,
+      authorAvatarUrl: json['author_avatar_url'] as String?,
     );
   }
 }
@@ -100,6 +106,8 @@ class RouteDetail extends RouteSummary {
     super.isRoundTrip,
     super.authorLabel,
     super.coverImageUrl,
+    super.ownerUserId,
+    super.authorAvatarUrl,
     required this.description,
     required this.stops,
   });
@@ -122,6 +130,8 @@ class RouteDetail extends RouteSummary {
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       authorLabel: json['author_label'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
+      ownerUserId: json['owner_user_id'] as String?,
+      authorAvatarUrl: json['author_avatar_url'] as String?,
       description: json['description'] as String?,
       stops: stopsJson
           .map((item) => RouteStop.fromJson(item as Map<String, dynamic>))

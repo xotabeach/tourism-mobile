@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -321,7 +322,10 @@ class _SettingsChangePhotoScreenState
       if (networkUrl.startsWith('file://')) {
         return FileImage(File(Uri.parse(networkUrl).toFilePath()));
       }
-      return NetworkImage(networkUrl);
+      return AppImages.imageProvider(
+        resolvedUrl: networkUrl,
+        assetFallback: asset,
+      );
     }
     return AssetImage(asset);
   }
