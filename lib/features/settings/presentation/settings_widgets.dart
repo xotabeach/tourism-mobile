@@ -315,8 +315,7 @@ class SettingsCircleIconButton extends StatelessWidget {
               border: glass || borderColor != null
                   ? Border.all(
                       color:
-                          borderColor ??
-                          Colors.white.withValues(alpha: 0.75),
+                          borderColor ?? Colors.white.withValues(alpha: 0.75),
                       width: borderWidth,
                     )
                   : null,
@@ -582,9 +581,7 @@ class SettingsPrimaryButton extends StatelessWidget {
                   onPressed!();
                 },
           borderRadius: BorderRadius.circular(AppRadii.capsule),
-          child: Center(
-            child: Text(label, style: AppTypography.settingsCta),
-          ),
+          child: Center(child: Text(label, style: AppTypography.settingsCta)),
         ),
       ),
     );
@@ -783,9 +780,7 @@ class _TravelPlusTitle extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             // Drop shadow behind ShaderMask (srcIn would eat TextStyle.shadows).
-            const IgnorePointer(
-              child: Text('ТРЕВЕЛ', style: _shadowStyle),
-            ),
+            const IgnorePointer(child: Text('ТРЕВЕЛ', style: _shadowStyle)),
             ShaderMask(
               blendMode: BlendMode.srcIn,
               shaderCallback: (bounds) => const LinearGradient(

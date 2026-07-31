@@ -4,12 +4,12 @@ import 'package:tourism_mobile/features/routes/domain/routes_repository.dart';
 
 class CachingRoutesRepository implements RoutesRepository {
   CachingRoutesRepository(this._inner, {required ApiCacheRegistry registry})
-      : _listCache = ApiCache<String, RouteListPage>(
-          ttl: const Duration(minutes: 5),
-        ),
-        _detailCache = ApiCache<String, RouteDetail>(
-          ttl: const Duration(minutes: 10),
-        ) {
+    : _listCache = ApiCache<String, RouteListPage>(
+        ttl: const Duration(minutes: 5),
+      ),
+      _detailCache = ApiCache<String, RouteDetail>(
+        ttl: const Duration(minutes: 10),
+      ) {
     registry.register(_listCache);
     registry.register(_detailCache);
   }

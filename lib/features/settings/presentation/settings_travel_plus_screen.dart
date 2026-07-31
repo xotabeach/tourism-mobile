@@ -322,7 +322,7 @@ class _PlanCard extends StatelessWidget {
                 top: 0,
                 bottom: 0,
                 child: Center(
-                  child:                   SettingsCircleIconButton(
+                  child: SettingsCircleIconButton(
                     icon: Icons.chevron_right_rounded,
                     onTap: onTap,
                     background: Colors.white.withValues(alpha: 0.20),

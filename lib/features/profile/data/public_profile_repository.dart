@@ -27,10 +27,7 @@ class PublicUserProfile {
 }
 
 class PublicProfileBundle {
-  const PublicProfileBundle({
-    required this.user,
-    required this.routes,
-  });
+  const PublicProfileBundle({required this.user, required this.routes});
 
   final PublicUserProfile user;
   final List<RouteSummary> routes;

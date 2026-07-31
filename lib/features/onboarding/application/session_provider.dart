@@ -205,10 +205,7 @@ class SessionController extends StateNotifier<SessionState> {
     if (token == null) {
       throw const AuthFailure('Нужна авторизация');
     }
-    final me = await _auth.uploadAvatar(
-      accessToken: token,
-      filePath: filePath,
-    );
+    final me = await _auth.uploadAvatar(accessToken: token, filePath: filePath);
     _applyMe(me);
   }
 

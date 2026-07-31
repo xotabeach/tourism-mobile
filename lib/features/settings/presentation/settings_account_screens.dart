@@ -361,9 +361,9 @@ class _SettingsChangePhoneScreenState
   Future<void> _requestCode() async {
     final phone = _controller.text.trim();
     if (phone.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите номер телефона')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите номер телефона')));
       return;
     }
     setState(() => _busy = true);
@@ -554,10 +554,7 @@ class _PhotoPreview extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               borderRadius: borderRadius,
-              image: DecorationImage(
-                image: image,
-                fit: BoxFit.cover,
-              ),
+              image: DecorationImage(image: image, fit: BoxFit.cover),
             ),
             child: DecoratedBox(
               decoration: BoxDecoration(

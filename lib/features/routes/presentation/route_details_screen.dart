@@ -633,10 +633,7 @@ class _AuthorRow extends StatelessWidget {
             onTap: onAuthorTap,
             child: Row(
               children: [
-                CircleAvatar(
-                  radius: 24,
-                  backgroundImage: avatar,
-                ),
+                CircleAvatar(radius: 24, backgroundImage: avatar),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(

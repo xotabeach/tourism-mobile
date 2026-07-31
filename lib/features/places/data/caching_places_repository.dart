@@ -4,12 +4,12 @@ import 'package:tourism_mobile/features/places/domain/places_repository.dart';
 
 class CachingPlacesRepository implements PlacesRepository {
   CachingPlacesRepository(this._inner, {required ApiCacheRegistry registry})
-      : _listCache = ApiCache<String, PlaceListPage>(
-          ttl: const Duration(minutes: 5),
-        ),
-        _detailCache = ApiCache<String, PlaceDetail>(
-          ttl: const Duration(minutes: 10),
-        ) {
+    : _listCache = ApiCache<String, PlaceListPage>(
+        ttl: const Duration(minutes: 5),
+      ),
+      _detailCache = ApiCache<String, PlaceDetail>(
+        ttl: const Duration(minutes: 10),
+      ) {
     registry.register(_listCache);
     registry.register(_detailCache);
   }

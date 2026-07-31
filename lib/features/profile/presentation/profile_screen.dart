@@ -258,10 +258,7 @@ class _ProfileHeader extends StatelessWidget {
                     color: Colors.white,
                     shape: BoxShape.circle,
                   ),
-                  child: CircleAvatar(
-                    radius: 32,
-                    backgroundImage: avatar,
-                  ),
+                  child: CircleAvatar(radius: 32, backgroundImage: avatar),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -423,7 +420,9 @@ class _RankCard extends StatelessWidget {
                           FractionallySizedBox(
                             widthFactor: progress,
                             alignment: Alignment.centerLeft,
-                            child: const ColoredBox(color: AppColors.primaryInk),
+                            child: const ColoredBox(
+                              color: AppColors.primaryInk,
+                            ),
                           ),
                           Center(
                             child: Text(

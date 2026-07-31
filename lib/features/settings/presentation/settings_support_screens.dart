@@ -86,9 +86,7 @@ List<Widget> _supportActionRows(BuildContext context) {
         );
       },
     ),
-    SettingsChatCta(
-      onTap: () => context.pushNamed(AppRouteNames.settingsChat),
-    ),
+    SettingsChatCta(onTap: () => context.pushNamed(AppRouteNames.settingsChat)),
   ];
 }
 
@@ -179,10 +177,7 @@ class SettingsFaqCategoryScreen extends StatelessWidget {
             subtitle: items[i].subtitle,
             onTap: () => context.pushNamed(
               AppRouteNames.settingsFaqAnswer,
-              pathParameters: {
-                'category': category,
-                'questionId': items[i].id,
-              },
+              pathParameters: {'category': category, 'questionId': items[i].id},
             ),
           ),
         ],
@@ -590,9 +585,9 @@ class _SettingsReportAppFormScreenState
   Future<void> _submit() async {
     final body = _description.text.trim();
     if (body.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Опишите проблему')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Опишите проблему')));
       return;
     }
     if (_busy) {
@@ -600,11 +595,13 @@ class _SettingsReportAppFormScreenState
     }
     setState(() => _busy = true);
     try {
-      await ref.read(supportRepositoryProvider).createTicket(
-        kind: 'app_error',
-        subject: 'Ошибка в приложении',
-        body: body,
-      );
+      await ref
+          .read(supportRepositoryProvider)
+          .createTicket(
+            kind: 'app_error',
+            subject: 'Ошибка в приложении',
+            body: body,
+          );
       if (!mounted) {
         return;
       }
@@ -782,15 +779,15 @@ class _SettingsReportRouteFormScreenState
   Future<void> _submit() async {
     final body = _description.text.trim();
     if (!_routeSelected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите маршрут')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Выберите маршрут')));
       return;
     }
     if (body.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Опишите проблему')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Опишите проблему')));
       return;
     }
     if (_busy) {
@@ -798,11 +795,13 @@ class _SettingsReportRouteFormScreenState
     }
     setState(() => _busy = true);
     try {
-      await ref.read(supportRepositoryProvider).createTicket(
-        kind: 'route_error',
-        subject: 'Ошибка на маршруте: Гора Чок-Сары-Кая',
-        body: body,
-      );
+      await ref
+          .read(supportRepositoryProvider)
+          .createTicket(
+            kind: 'route_error',
+            subject: 'Ошибка на маршруте: Гора Чок-Сары-Кая',
+            body: body,
+          );
       if (!mounted) {
         return;
       }
@@ -842,7 +841,9 @@ class _SettingsReportRouteFormScreenState
                 color: _routeSelected
                     ? const Color(0xFFF2F2F2)
                     : SettingsColors.fieldFill,
-                borderRadius: BorderRadius.circular(_routeSelected ? 12 : AppRadii.capsule),
+                borderRadius: BorderRadius.circular(
+                  _routeSelected ? 12 : AppRadii.capsule,
+                ),
                 child: Column(
                   children: [
                     InkWell(
@@ -888,9 +889,9 @@ class _SettingsReportRouteFormScreenState
                                         children: [
                                           Text(
                                             'Гора Чок-Сары-Кая',
-                                            style:
-                                                AppTypography.settingsRowTitle
-                                                    .copyWith(fontSize: 12),
+                                            style: AppTypography
+                                                .settingsRowTitle
+                                                .copyWith(fontSize: 12),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -921,10 +922,7 @@ class _SettingsReportRouteFormScreenState
                     ),
                     if (_pickerOpen)
                       for (var i = 0; i < 4; i++) ...[
-                        const Divider(
-                          height: 1,
-                          color: Color(0xFFEDEDED),
-                        ),
+                        const Divider(height: 1, color: Color(0xFFEDEDED)),
                         InkWell(
                           onTap: () => setState(() {
                             _routeSelected = true;

@@ -122,8 +122,7 @@ class RouteHeroCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final session = ref.watch(sessionProvider);
-    final resolvedAuthorAvatar =
-        authorAvatarUrl ?? route.authorAvatarUrl;
+    final resolvedAuthorAvatar = authorAvatarUrl ?? route.authorAvatarUrl;
     final authorName = route.authorLabel ?? '';
     final sessionName = session.displayName?.trim() ?? '';
     final isOwnRoute =
@@ -134,8 +133,8 @@ class RouteHeroCard extends ConsumerWidget {
                 authorName.startsWith(sessionName.split(' ').first)));
     final avatar = AppImages.avatarProvider(
       config: config,
-      avatarUrl: resolvedAuthorAvatar ??
-          (isOwnRoute ? session.avatarUrl : null),
+      avatarUrl:
+          resolvedAuthorAvatar ?? (isOwnRoute ? session.avatarUrl : null),
     );
     final canOpenAuthor =
         route.ownerUserId != null && route.ownerUserId!.isNotEmpty;
