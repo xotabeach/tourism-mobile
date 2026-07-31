@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
@@ -122,7 +123,7 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                   SettingsNavTile(
                     title: 'О сервисе',
                     subtitle: 'Вся важная документация',
-                    icon: Icons.description_outlined,
+                    iconAsset: AppIconography.settingsAbout,
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(

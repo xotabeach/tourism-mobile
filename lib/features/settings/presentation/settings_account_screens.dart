@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -34,25 +35,25 @@ class SettingsAccountScreen extends ConsumerWidget {
         SettingsNavTile(
           title: 'Сменить имя',
           subtitle: name,
-          icon: Icons.badge_outlined,
+          iconAsset: AppIconography.settingsChangeName,
           onTap: () => context.pushNamed(AppRouteNames.settingsChangeName),
         ),
         SettingsNavTile(
           title: 'Сменить фото',
           subtitle: 'Профиль и обложка профиля',
-          icon: Icons.photo_camera_outlined,
+          iconAsset: AppIconography.settingsChangePhoto,
           onTap: () => context.pushNamed(AppRouteNames.settingsChangePhoto),
         ),
         SettingsNavTile(
           title: 'Сменить номер телефона',
           subtitle: phone,
-          icon: Icons.smartphone_outlined,
+          iconAsset: AppIconography.settingsChangePhone,
           onTap: () => context.pushNamed(AppRouteNames.settingsChangePhone),
         ),
         SettingsNavTile(
           title: 'Сменить предпочтения',
           subtitle: 'Пройти текст по интересам сначала',
-          icon: Icons.favorite_border_rounded,
+          iconAsset: AppIconography.settingsChangePreferences,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Тест предпочтений появится позже')),

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -72,13 +73,13 @@ List<Widget> _supportActionRows(BuildContext context) {
     SettingsNavTile(
       title: 'Сообщить об ошибке',
       subtitle: 'На маршруте или в приложении',
-      icon: Icons.error_outline_rounded,
+      iconAsset: AppIconography.settingsReport,
       onTap: () => context.pushNamed(AppRouteNames.settingsReport),
     ),
     SettingsNavTile(
       title: 'Оценить приложение',
       subtitle: 'Это поможет нам в развитии',
-      icon: Icons.auto_awesome_outlined,
+      iconAsset: AppIconography.settingsRate,
       onTap: () {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Оценка приложения — позже')),
@@ -102,7 +103,7 @@ class SettingsSupportScreen extends StatelessWidget {
       children: [
         SettingsNavTile(
           title: 'Маршруты и навигация',
-          icon: Icons.place_outlined,
+          iconAsset: AppIconography.settingsFaqRoutes,
           dense: true,
           onTap: () => context.pushNamed(
             AppRouteNames.settingsFaqCategory,
@@ -112,7 +113,7 @@ class SettingsSupportScreen extends StatelessWidget {
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsNavTile(
           title: 'Вопросы по приложению',
-          icon: Icons.assignment_outlined,
+          iconAsset: AppIconography.settingsFaqApp,
           dense: true,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -123,7 +124,7 @@ class SettingsSupportScreen extends StatelessWidget {
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsNavTile(
           title: 'Баллы ТревелПоинт и достижения',
-          icon: Icons.workspace_premium_outlined,
+          iconAsset: AppIconography.settingsTravelPoints,
           dense: true,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -134,7 +135,7 @@ class SettingsSupportScreen extends StatelessWidget {
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsNavTile(
           title: 'Подписка Тревел +',
-          icon: Icons.add_box_outlined,
+          iconAsset: AppIconography.settingsTravelPlus,
           dense: true,
           onTap: () => context.pushNamed(AppRouteNames.settingsTravelPlus),
         ),
@@ -539,20 +540,20 @@ class SettingsReportScreen extends StatelessWidget {
       children: [
         SettingsNavTile(
           title: 'Ошибка на маршруте',
-          icon: Icons.place_outlined,
+          iconAsset: AppIconography.settingsFaqRoutes,
           dense: true,
           onTap: () => context.pushNamed(AppRouteNames.settingsReportRoute),
         ),
         SettingsNavTile(
           title: 'Ошибка в приложении',
-          icon: Icons.assignment_outlined,
+          iconAsset: AppIconography.settingsFaqApp,
           dense: true,
           onTap: () => context.pushNamed(AppRouteNames.settingsReportApp),
         ),
         SettingsNavTile(
           title: 'Оценить приложение',
           subtitle: 'Это поможет нам в развитии',
-          icon: Icons.auto_awesome_outlined,
+          iconAsset: AppIconography.settingsRate,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Оценка приложения — позже')),
@@ -741,7 +742,7 @@ class _SettingsReportAppFormScreenState
         SettingsNavTile(
           title: 'Оценить приложение',
           subtitle: 'Это поможет нам в развитии',
-          icon: Icons.auto_awesome_outlined,
+          iconAsset: AppIconography.settingsRate,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Оценка приложения — позже')),
@@ -1097,7 +1098,7 @@ class _SettingsReportRouteFormScreenState
         SettingsNavTile(
           title: 'Оценить приложение',
           subtitle: 'Это поможет нам в развитии',
-          icon: Icons.auto_awesome_outlined,
+          iconAsset: AppIconography.settingsRate,
           onTap: () {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Оценка приложения — позже')),

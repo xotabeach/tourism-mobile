@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -26,19 +27,19 @@ class SettingsScreen extends ConsumerWidget {
         SettingsNavTile(
           title: 'Настройки профиля',
           subtitle: 'Гибкие настройки для удоства',
-          icon: Icons.person_outline_rounded,
+          iconAsset: AppIconography.settingsProfile,
           onTap: () => context.pushNamed(AppRouteNames.settingsAccount),
         ),
         SettingsNavTile(
           title: 'Уведомления',
           subtitle: 'Гибкие настройки для удоства',
-          icon: Icons.notifications_none_rounded,
+          iconAsset: AppIconography.settingsNotifications,
           onTap: () => context.pushNamed(AppRouteNames.settingsNotifications),
         ),
         SettingsNavTile(
           title: 'Оффлайн маршруты',
           subtitle: 'Настройка скачивания маршрутов',
-          icon: Icons.download_outlined,
+          iconAsset: AppIconography.settingsOffline,
           onTap: () => context.pushNamed(AppRouteNames.settingsOffline),
         ),
         SettingsNavTile(
@@ -46,13 +47,13 @@ class SettingsScreen extends ConsumerWidget {
               ? 'Поддержка и обратная связь'
               : 'Поддержка',
           subtitle: 'Поможем с любым вопросом',
-          icon: Icons.chat_bubble_outline_rounded,
+          iconAsset: AppIconography.settingsSupport,
           onTap: () => context.pushNamed(AppRouteNames.settingsSupport),
         ),
         SettingsNavTile(
           title: 'О сервисе',
           subtitle: 'Вся важная документация',
-          icon: Icons.description_outlined,
+          iconAsset: AppIconography.settingsAbout,
           onTap: () {
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()

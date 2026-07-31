@@ -710,8 +710,8 @@ class _SwipeOverlay extends StatelessWidget {
                     if (favorite)
                       Container(
                         key: const ValueKey('swipe-action-indicator'),
-                        width: 42,
-                        height: 42,
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
@@ -722,18 +722,18 @@ class _SwipeOverlay extends StatelessWidget {
                         child: const AppAssetIcon(
                           AppIconography.heart,
                           color: Colors.white,
-                          size: 20,
+                          size: 16,
                         ),
                       )
                     else
                       const SizedBox.square(
                         key: ValueKey('swipe-action-indicator'),
-                        dimension: 42,
+                        dimension: 36,
                         child: Center(
                           child: AppAssetIcon(
                             AppIconography.sendToEnd,
                             color: Colors.white,
-                            size: 32,
+                            size: 18,
                           ),
                         ),
                       ),

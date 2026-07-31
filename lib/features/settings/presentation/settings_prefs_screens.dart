@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/cache/api_cache.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
@@ -21,21 +22,21 @@ class SettingsNotificationsScreen extends ConsumerWidget {
         SettingsToggleTile(
           title: 'Пуш-уведомления',
           subtitle: 'Уведомления из приложения',
-          icon: Icons.notifications_none_rounded,
+          iconAsset: AppIconography.settingsPush,
           value: prefs.pushEnabled,
           onChanged: controller.setPush,
         ),
         SettingsToggleTile(
           title: 'СМС',
           subtitle: 'Для оповещения без интернета',
-          icon: Icons.smartphone_outlined,
+          iconAsset: AppIconography.settingsSms,
           value: prefs.smsEnabled,
           onChanged: controller.setSms,
         ),
         SettingsToggleTile(
           title: 'Звуки и вибрация',
           subtitle: 'При приближении к точке',
-          icon: Icons.vibration_rounded,
+          iconAsset: AppIconography.settingsVibro,
           value: prefs.hapticsEnabled,
           onChanged: controller.setHaptics,
         ),
@@ -58,21 +59,21 @@ class SettingsOfflineScreen extends ConsumerWidget {
         SettingsToggleTile(
           title: 'Автоматическое скачивание',
           subtitle: 'При добавлении в избранное',
-          icon: Icons.download_outlined,
+          iconAsset: AppIconography.settingsAutoDownload,
           value: prefs.autoDownloadFavorites,
           onChanged: controller.setAutoDownload,
         ),
         SettingsToggleTile(
           title: 'Спрашивать разрешение',
           subtitle: 'Перед каждым скачиванием',
-          icon: Icons.help_outline_rounded,
+          iconAsset: AppIconography.settingsAskDownload,
           value: prefs.askBeforeDownload,
           onChanged: controller.setAskBeforeDownload,
         ),
         SettingsNavTile(
           title: 'Кэш приложения',
           subtitle: prefs.cacheSizeLabel,
-          icon: Icons.notifications_none_rounded,
+          iconAsset: AppIconography.settingsOffline,
           onTap: () => _clearCache(context, ref, controller),
           trailing: SettingsCircleIconButton(
             icon: Icons.delete_outline_rounded,

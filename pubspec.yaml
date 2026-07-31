@@ -29,6 +29,7 @@ flutter:
     - assets/icons/raster/
     - assets/icons/raster/ink/
     - assets/icons/raster/muted/
+    - assets/icons/raster/accent/
   fonts:
     - family: Rubik
       fonts:
