@@ -19,7 +19,6 @@ abstract final class SettingsColors {
   static const Color link = AppColors.accentBlueIcon;
   static const Color supportSubtitle = Color(0xFFB8CBE6);
   static const Color circleButton = Color(0xFF1C1C1E);
-
   /// Switch track off — from Figma export `switch-false.png`.
   static const Color toggleOff = Color(0xFFBCBCBF);
 
@@ -63,85 +62,54 @@ abstract final class SettingsColors {
 /// Compact settings banner vs full-bleed paywall hero.
 enum TravelBannerLayout { compact, hero }
 
-/// Settings Travel+ banner — Figma export `1258 × 480`.
+/// Shared concentric geometry from live Figma extract (`280:4790` / Ellipse 8+10).
 ///
-/// The blue card fills [designAspectRatio]. Compact numbers are in that
-/// design space and scale with `width / designSize.width`.
+/// Dashes live in the **10 pt annular track** between R=101 and R=111 —
+/// outer flat, inner soft. Compact and hero share radii, but not the center.
 abstract final class TravelBannerGeometry {
-  /// Etalon composition size (visible card ≈ artboard).
-  static const Size designSize = Size(1258, 480);
-  static const double designAspectRatio = 1258 / 480;
-
-  /// Alias used by painters (card == design frame in the app).
-  static Size get cardSize => designSize;
-
-  /// Soft corner radius (Figma card ≈54–62 on the 1258 frame).
-  static const double designCornerRadius = 58;
-
-  // —— Title «ТРЕВЕЛ +» ——
-  static const double titleLeft = 88;
-  static const double titleTop = 76;
-  static const double titleFontSize = 118;
-  static const double titlePlusSize = 96;
-  static const double titlePlusGap = 26;
-
-  // —— CTA pill ——
-  static const double ctaLeft = 84;
-  static const double ctaWidth = 669;
-  static const double ctaHeight = 109;
-  static const double ctaFontSize = 48;
-
-  /// From card bottom (Figma y≈303 → bottom ≈480−303−109).
-  static const double ctaBottom = 68;
-
-  // —— Chevron circle Ø160 ——
-  static const double circleSize = 160;
-  static const double circleRight = 74;
-  static const double circleBottom = 68;
-
-  // —— Route arc: large radius, top-right → bottom-left, marker low ——
-  static const Offset compactArcCenter = Offset(1180, 455);
-  static const double compactArcRadius = 420;
-  static const double compactSoftArcWidth = 72;
-
-  /// Start near top; negative sweep = CCW toward lower-left.
-  static const double compactArcStartDeg = -92;
-  static const double compactArcSweepDeg = -100;
-  static const double compactMarkerPolarDeg = -170;
-  static const double compactArcStroke = 3.2;
-  static const double compactArcDash = 16;
-  static const double compactArcGap = 9;
-
-  // —— Ambient lights ——
-  static const Offset compactTopLeftGlow = Offset(210, 30);
-  static const double compactTopLeftGlowRadius = 320;
-  static const Offset compactMidGlow = Offset(540, 220);
-  static const double compactMidGlowRadius = 230;
-  static const Offset compactDiskCenter = Offset(1180, 455);
-  static const double compactDiskRadius = 350;
-
-  /// Paywall hero design frame (separate composition).
+  /// Figma design frame for the paywall hero.
   static const Size heroDesignSize = Size(393, 275);
 
+  /// Compact (361×132): ≈ 7.3 pt left of right edge, 1.0 pt above bottom.
+  /// Hero (393×275): absolute Figma center **(329, 285)** — 10 pt below hero
+  /// bottom — scaled to the painted width.
   static Offset centerFor(Size size, TravelBannerLayout layout) {
     switch (layout) {
       case TravelBannerLayout.compact:
-        final s = size.width / designSize.width;
-        return Offset(compactArcCenter.dx * s, compactArcCenter.dy * s);
+        return Offset(size.width - 7.3, size.height - 1.0);
       case TravelBannerLayout.hero:
         final sx = size.width / heroDesignSize.width;
         return Offset(329.0 * sx, 285.0 * sx);
     }
   }
 
+  /// Ellipse 8 — light disk.
   static const double diskRadius = 101;
+
+  /// Ellipse 10 — outer track edge.
+  static const double outerRadius = 111;
+
+  /// Mid-radius of the dashed arc (guide between Ellipse 8/10).
   static const double trackMidRadius = 106;
+
+  /// Screenshot measure on `travel+ banner.png`: dashes are a **thin** stroke
+  /// (~3 pt), not a filled 10 pt annular pill.
   static const double arcStrokeWidth = 2.8;
   static const double arcDash = 7.5;
   static const double arcGap = 3.2;
+
+  /// Marker sits near the **inner** track edge (Figma Vector ≈ R 101.3).
   static const double markerRadius = 101.3;
+
+  /// From Figma marker bbox center (252.6, 218.4) vs C (329, 285).
   static const double markerPolarDegrees = -138.9;
+
+  /// Ellipse 11 glow — offset from decor center in design space (hero).
   static const Offset glowOffsetFromCenter = Offset(10.5, -259.5);
+
+  /// Compact banner is only 132 tall; hero offset clips off-canvas, so pull the
+  /// glow into the visible top of the card (still the same Ellipse 11 role).
+  static const Offset compactGlowOffsetFromCenter = Offset(-36, -108);
   static const double glowRadius = 75.5;
 }
 
@@ -152,6 +120,7 @@ abstract final class SettingsMetrics {
   static const double iconBox = 32;
   static const double headerButton = 46;
   static const double contentInset = 16;
+  static const double bannerHeight = 132;
 }
 
 /// Shared chrome: brand + dark circular back (+ optional check).
@@ -680,7 +649,11 @@ class SettingsTextField extends StatelessWidget {
   }
 }
 
-/// Travel+ banner — Figma export `1258×480` (aspect locked, proportional scale).
+/// Travel+ banner — Figma §3 (2nd edition, concentric geometry).
+///
+/// Decor paints on the **outer** 361×132 frame so §3.1 center
+/// `(353.7, 131.0)` stays correct. The 2 pt gradient border is an overlay,
+/// not an inset that shrinks the paint area.
 class TravelPlusBanner extends StatelessWidget {
   const TravelPlusBanner({
     super.key,
@@ -695,204 +668,175 @@ class TravelPlusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AspectRatio(
-      aspectRatio: TravelBannerGeometry.designAspectRatio,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final s =
-              constraints.maxWidth / TravelBannerGeometry.designSize.width;
-          final radius = TravelBannerGeometry.designCornerRadius * s;
-          final circle = TravelBannerGeometry.circleSize * s;
-
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () {
-                unawaited(HapticFeedback.selectionClick());
-                onTap();
-              },
-              borderRadius: BorderRadius.circular(radius),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(radius),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0x40001580),
-                      blurRadius: 32 * s,
-                      offset: Offset(0, 14 * s),
+    return Material(
+      color: Colors.transparent,
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          unawaited(HapticFeedback.selectionClick());
+          onTap();
+        },
+        borderRadius: BorderRadius.circular(AppRadii.settingsTile),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppRadii.settingsTile),
+            boxShadow: AppShadows.settingsElevated,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(AppRadii.settingsTile),
+            child: SizedBox(
+              height: SettingsMetrics.bannerHeight,
+              child: Stack(
+                clipBehavior: Clip.hardEdge,
+                children: [
+                  const Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: SettingsColors.bannerGradientEndAlign,
+                          colors: [
+                            SettingsColors.bannerGradientStart,
+                            SettingsColors.bannerGradientEnd,
+                          ],
+                          stops: SettingsColors.bannerGradientStops,
+                        ),
+                      ),
                     ),
-                    BoxShadow(
-                      color: const Color(0x24000000),
-                      blurRadius: 18 * s,
-                      offset: Offset(0, 8 * s),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(radius),
-                  child: Stack(
-                    clipBehavior: Clip.hardEdge,
-                    children: [
-                      const Positioned.fill(
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: SettingsColors.bannerGradientEndAlign,
-                              colors: [
-                                SettingsColors.bannerGradientStart,
-                                SettingsColors.bannerGradientEnd,
-                              ],
-                              stops: SettingsColors.bannerGradientStops,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const Positioned.fill(
-                        child: CustomPaint(
-                          painter: _TravelBannerDecorPainter(
-                            layout: TravelBannerLayout.compact,
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: TravelBannerGeometry.titleLeft * s,
-                        top: TravelBannerGeometry.titleTop * s,
-                        child: _TravelPlusTitle(designScale: s),
-                      ),
-                      Positioned(
-                        left: TravelBannerGeometry.ctaLeft * s,
-                        bottom: TravelBannerGeometry.ctaBottom * s,
-                        child: _StatusChip(
-                          label: subtitle,
-                          designScale: s,
-                        ),
-                      ),
-                      Positioned(
-                        right: TravelBannerGeometry.circleRight * s,
-                        bottom: TravelBannerGeometry.circleBottom * s,
-                        child: SettingsCircleIconButton(
-                          icon: Icons.chevron_right_rounded,
-                          onTap: onTap,
-                          background: Colors.white.withValues(alpha: 0.24),
-                          iconColor: Colors.white,
-                          iconSize: circle * 0.52,
-                          size: circle,
-                          glass: false,
-                          borderColor: Colors.white.withValues(alpha: 0.75),
-                          borderWidth: math.max(1.5, 2.2 * s),
-                        ),
-                      ),
-                      Positioned.fill(
-                        child: IgnorePointer(
-                          child: CustomPaint(
-                            painter: _TravelBannerBorderPainter(
-                              radius: radius,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
-                ),
+                  const Positioned.fill(
+                    child: CustomPaint(
+                      painter: _TravelBannerDecorPainter(
+                        layout: TravelBannerLayout.compact,
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 16,
+                    top: 14,
+                    right: 64,
+                    child: _TravelPlusTitle(),
+                  ),
+                  Positioned(
+                    left: 16,
+                    bottom: 16,
+                    child: _StatusChip(label: subtitle),
+                  ),
+                  Positioned(
+                    right: 16,
+                    bottom: 16,
+                    child: SettingsCircleIconButton(
+                      icon: Icons.chevron_right_rounded,
+                      onTap: onTap,
+                      background: Colors.white.withValues(alpha: 0.20),
+                      iconColor: Colors.white,
+                      iconSize: 22,
+                      size: 48,
+                      glass: false,
+                      borderColor: Colors.white.withValues(alpha: 0.55),
+                      borderWidth: 1.5,
+                    ),
+                  ),
+                  // Inside 3 pt gradient border over the outer frame.
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(painter: _TravelBannerBorderPainter()),
+                    ),
+                  ),
+                ],
               ),
             ),
-          );
-        },
+          ),
+        ),
       ),
     );
   }
 }
 
-/// One ShaderMask over «ТРЕВЕЛ» + geometric «+», scaled from the card design.
+/// One ShaderMask over «ТРЕВЕЛ» + geometric «+».
+/// Figma text layer `280:4801` is **251 × 36**; screenshot reads ~40pt glyph.
 class _TravelPlusTitle extends StatelessWidget {
-  const _TravelPlusTitle({this.designScale});
+  const _TravelPlusTitle();
 
-  /// Card scale `cardWidth / cardSize.width`. Null = paywall hero defaults.
-  final double? designScale;
+  static const _titleStyle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 40,
+    fontWeight: FontWeight.w600,
+    height: 1.0,
+    letterSpacing: 0.2,
+    color: Colors.white,
+  );
+
+  /// Soft lift — `#000681` @ ~35%, blur 3, slight y offset (Screenshot).
+  static const _shadowStyle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 40,
+    fontWeight: FontWeight.w600,
+    height: 1.0,
+    letterSpacing: 0.2,
+    color: Color(0x59000681),
+    shadows: [
+      Shadow(color: Color(0x59000681), blurRadius: 3, offset: Offset(0, 1)),
+    ],
+  );
+
+  static const _markSize = 20.0;
 
   @override
   Widget build(BuildContext context) {
-    final s = designScale;
-    final fontSize = s != null
-        ? TravelBannerGeometry.titleFontSize * s
-        : 40.0;
-    final plus = s != null ? TravelBannerGeometry.titlePlusSize * s : 20.0;
-    final gap = s != null ? TravelBannerGeometry.titlePlusGap * s : 8.0;
-    final shadowBlur = s != null ? 12 * s : 3.0;
-    final shadowOffset = s != null ? Offset(0, 3 * s) : const Offset(0, 1);
-
-    final titleStyle = TextStyle(
-      fontFamily: AppFonts.rubik,
-      fontSize: fontSize,
-      fontWeight: FontWeight.w700,
-      height: 1.0,
-      letterSpacing: s != null ? 1.0 * s : 0.2,
-      color: Colors.white,
-    );
-    final shadowStyle = titleStyle.copyWith(
-      color: const Color(0x99000681),
-      shadows: [
-        Shadow(
-          color: const Color(0x99000681),
-          blurRadius: shadowBlur,
-          offset: shadowOffset,
-        ),
-        if (s != null)
-          Shadow(
-            color: const Color(0x40000681),
-            blurRadius: 22 * s,
-            offset: Offset(0, 6 * s),
-          ),
-      ],
-    );
-
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        IgnorePointer(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('ТРЕВЕЛ', style: shadowStyle),
-              SizedBox(width: gap),
-              SizedBox(
-                width: plus,
-                height: plus,
-                child: const CustomPaint(
-                  painter: _TravelPlusMarkPainter(
-                    color: Color(0x73000681),
+    return SizedBox(
+      height: 40,
+      width: 260,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Drop shadow behind ShaderMask (srcIn would eat TextStyle.shadows).
+            const IgnorePointer(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('ТРЕВЕЛ', style: _shadowStyle),
+                  SizedBox(width: 8),
+                  SizedBox(
+                    width: _markSize,
+                    height: _markSize,
+                    child: CustomPaint(
+                      painter: _TravelPlusMarkPainter(color: Color(0x59000681)),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
-        ShaderMask(
-          blendMode: BlendMode.srcIn,
-          shaderCallback: (bounds) => const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              SettingsColors.titleGradientStart,
-              SettingsColors.titleGradientEnd,
-            ],
-          ).createShader(bounds),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text('ТРЕВЕЛ', style: titleStyle),
-              SizedBox(width: gap),
-              SizedBox(
-                width: plus,
-                height: plus,
-                child: const CustomPaint(painter: _TravelPlusMarkPainter()),
+            ),
+            ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) => const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [
+                  SettingsColors.titleGradientStart,
+                  SettingsColors.titleGradientEnd,
+                ],
+              ).createShader(bounds),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text('ТРЕВЕЛ', style: _titleStyle),
+                  SizedBox(width: 8),
+                  SizedBox(
+                    width: _markSize,
+                    height: _markSize,
+                    child: CustomPaint(painter: _TravelPlusMarkPainter()),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -939,65 +883,45 @@ class _TravelPlusMarkPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-/// Status chip / CTA pill — glass capsule scaled from the card design.
+/// Status chip: capsule with light fill + backdrop blur + bottom shadow (§3.10).
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label, this.designScale});
+  const _StatusChip({required this.label});
 
   final String label;
-  final double? designScale;
 
   @override
   Widget build(BuildContext context) {
-    final s = designScale;
-    final height = s != null ? TravelBannerGeometry.ctaHeight * s : 33.0;
-    final width = s != null ? TravelBannerGeometry.ctaWidth * s : 200.0;
-    final fontSize = s != null ? TravelBannerGeometry.ctaFontSize * s : 12.0;
-    final hPad = s != null ? 36 * s : 16.0;
-    final blur = s != null ? 16 * s : 8.0;
-
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.capsule),
-        boxShadow: [
+        boxShadow: const [
           BoxShadow(
-            color: const Color(0x59000A4A),
-            blurRadius: s != null ? 28 * s : 6,
-            offset: Offset(0, s != null ? 12 * s : 2),
-          ),
-          BoxShadow(
-            color: const Color(0x33000000),
-            blurRadius: s != null ? 14 * s : 4,
-            offset: Offset(0, s != null ? 5 * s : 1),
+            color: Color(0x1A000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
           ),
         ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.capsule),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
-            height: height,
-            width: width,
-            padding: EdgeInsets.symmetric(horizontal: hPad),
+            height: 33,
+            width: 200,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
             alignment: Alignment.center,
-            color: Colors.white.withValues(alpha: 0.22),
+            color: Colors.white.withValues(alpha: 0.18),
             child: Text(
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 fontFamily: AppFonts.rubik,
-                fontSize: fontSize,
+                fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: Colors.white,
-                height: 1.1,
-                shadows: [
-                  Shadow(
-                    color: const Color(0x66000000),
-                    blurRadius: s != null ? 6 * s : 2,
-                    offset: Offset(0, s != null ? 1.5 * s : 0.5),
-                  ),
-                ],
+                height: 1.2,
               ),
             ),
           ),
@@ -1007,21 +931,16 @@ class _StatusChip extends StatelessWidget {
   }
 }
 
-/// Inside gradient stroke matching the scaled outer radius.
+/// Inside 3 pt vertical gradient stroke matching outer radius.
 class _TravelBannerBorderPainter extends CustomPainter {
-  const _TravelBannerBorderPainter({this.radius = AppRadii.settingsTile});
-
-  final double radius;
+  const _TravelBannerBorderPainter();
 
   @override
   void paint(Canvas canvas, Size size) {
-    final width = math.max(
-      SettingsColors.bannerBorderWidth,
-      size.width * (3.2 / TravelBannerGeometry.cardSize.width),
-    );
+    const width = SettingsColors.bannerBorderWidth;
     final rrect = RRect.fromRectAndRadius(
       Offset.zero & size,
-      Radius.circular(radius),
+      const Radius.circular(AppRadii.settingsTile),
     );
     final paint = Paint()
       ..style = PaintingStyle.stroke
@@ -1035,15 +954,15 @@ class _TravelBannerBorderPainter extends CustomPainter {
         ],
         stops: SettingsColors.bannerBorderStops,
       ).createShader(Offset.zero & size);
+    // Inside alignment: center the stroke on the inset edge.
     canvas.drawRRect(rrect.deflate(width / 2), paint);
   }
 
   @override
-  bool shouldRepaint(covariant _TravelBannerBorderPainter oldDelegate) =>
-      oldDelegate.radius != radius;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
-/// Multilayer decor: top-left light, soft route band, dashed arc, nav cursor.
+/// Glow + disk + dashed annular track + cursor — shared center from layout.
 class _TravelBannerDecorPainter extends CustomPainter {
   const _TravelBannerDecorPainter({this.layout = TravelBannerLayout.compact});
 
@@ -1051,155 +970,49 @@ class _TravelBannerDecorPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (layout == TravelBannerLayout.compact) {
-      _paintCompact(canvas, size);
-      return;
-    }
-    _paintHero(canvas, size);
-  }
+    final c = TravelBannerGeometry.centerFor(size, layout);
+    final sx = layout == TravelBannerLayout.hero
+        ? size.width / TravelBannerGeometry.heroDesignSize.width
+        : 1.0;
 
-  void _paintCompact(Canvas canvas, Size size) {
-    final s = size.width / TravelBannerGeometry.cardSize.width;
-    final c = Offset(
-      TravelBannerGeometry.compactArcCenter.dx * s,
-      TravelBannerGeometry.compactArcCenter.dy * s,
-    );
-    final arcR = TravelBannerGeometry.compactArcRadius * s;
-    const start = TravelBannerGeometry.compactArcStartDeg * math.pi / 180;
-    const sweep = TravelBannerGeometry.compactArcSweepDeg * math.pi / 180;
-
-    // Soft pale mass — top-left (Figma depth layer).
-    final tl = Offset(
-      TravelBannerGeometry.compactTopLeftGlow.dx * s,
-      TravelBannerGeometry.compactTopLeftGlow.dy * s,
-    );
-    final tlR = TravelBannerGeometry.compactTopLeftGlowRadius * s;
-    canvas.drawCircle(
-      tl,
-      tlR,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.50),
-            const Color(0xFFC5EAF8).withValues(alpha: 0.28),
-            Colors.white.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.42, 1.0],
-        ).createShader(Rect.fromCircle(center: tl, radius: tlR)),
-    );
-
-    // Soft mid-field brightness (keeps the fill from reading as one gradient).
-    final mid = Offset(
-      TravelBannerGeometry.compactMidGlow.dx * s,
-      TravelBannerGeometry.compactMidGlow.dy * s,
-    );
-    final midR = TravelBannerGeometry.compactMidGlowRadius * s;
-    canvas.drawCircle(
-      mid,
-      midR,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.12),
-            Colors.white.withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: mid, radius: midR)),
-    );
-
-    // Pale disk behind the right-side composition.
-    final diskR = TravelBannerGeometry.compactDiskRadius * s;
-    final diskC = Offset(
-      TravelBannerGeometry.compactDiskCenter.dx * s,
-      TravelBannerGeometry.compactDiskCenter.dy * s,
-    );
-    canvas.drawCircle(
-      diskC,
-      diskR,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.18),
-            const Color(0xFF9EC8FF).withValues(alpha: 0.06),
-            Colors.white.withValues(alpha: 0.0),
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ).createShader(Rect.fromCircle(center: diskC, radius: diskR)),
-    );
-
-    // Wide translucent route band under the dashes (depth / motion).
-    final softPath = Path()
-      ..addArc(Rect.fromCircle(center: c, radius: arcR), start, sweep);
-    canvas.drawPath(
-      softPath,
-      Paint()
-        ..color = const Color(0x73D8F0FF)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = TravelBannerGeometry.compactSoftArcWidth * s
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * s),
-    );
-    canvas.drawPath(
-      softPath,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.16)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = TravelBannerGeometry.compactSoftArcWidth * 0.62 * s
-        ..strokeCap = StrokeCap.round
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 4 * s),
-    );
-
-    // Dashed route — large radius, marker in the lower-left of the sweep.
-    final dashPath = Path()
-      ..addArc(Rect.fromCircle(center: c, radius: arcR), start, sweep);
-    _drawThinDashes(
-      canvas,
-      dashPath,
-      color: SettingsColors.arcStroke.withValues(alpha: 0.72),
-      strokeWidth: TravelBannerGeometry.compactArcStroke * s,
-      dash: TravelBannerGeometry.compactArcDash * s,
-      gap: TravelBannerGeometry.compactArcGap * s,
-    );
-
-    const polar = TravelBannerGeometry.compactMarkerPolarDeg * math.pi / 180;
-    final markerPos = Offset(
-      c.dx + arcR * math.cos(polar),
-      c.dy + arcR * math.sin(polar),
-    );
-    // Tangent for CCW travel (negative sweep): opposite of CW unit tangent.
-    final tangent = Offset(math.sin(polar), -math.cos(polar));
-    final rotation = math.atan2(tangent.dx, -tangent.dy);
-    _drawNavCursor(canvas, markerPos, rotation, scale: s * 2.15);
-  }
-
-  void _paintHero(Canvas canvas, Size size) {
-    final c = TravelBannerGeometry.centerFor(size, TravelBannerLayout.hero);
-    final sx = size.width / TravelBannerGeometry.heroDesignSize.width;
     final diskR = TravelBannerGeometry.diskRadius * sx;
     final midR = TravelBannerGeometry.trackMidRadius * sx;
     final glowR = TravelBannerGeometry.glowRadius * sx;
     final markerR = TravelBannerGeometry.markerRadius * sx;
+    final glowOffset = layout == TravelBannerLayout.hero
+        ? TravelBannerGeometry.glowOffsetFromCenter
+        : TravelBannerGeometry.compactGlowOffsetFromCenter;
+
+    // Ellipse 11 — soft glow (hero: top-right of frame; compact: pulled in).
     final glowCenter = Offset(
-      c.dx + TravelBannerGeometry.glowOffsetFromCenter.dx * sx,
-      c.dy + TravelBannerGeometry.glowOffsetFromCenter.dy * sx,
+      c.dx + glowOffset.dx * sx,
+      c.dy + glowOffset.dy * sx,
     );
-    canvas.drawCircle(
-      glowCenter,
-      glowR,
-      Paint()
-        ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.28),
-            Colors.white.withValues(alpha: 0.0),
-          ],
-        ).createShader(Rect.fromCircle(center: glowCenter, radius: glowR)),
-    );
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          Colors.white.withValues(alpha: 0.28),
+          Colors.white.withValues(alpha: 0.08),
+          Colors.white.withValues(alpha: 0.0),
+        ],
+        stops: const [0.0, 0.45, 1.0],
+      ).createShader(Rect.fromCircle(center: glowCenter, radius: glowR));
+    canvas.drawCircle(glowCenter, glowR, glowPaint);
+
+    // Ellipse 8 — light disk. Keep visible as the pale circle behind the arc.
     canvas.drawCircle(
       c,
       diskR,
       Paint()..color = Colors.white.withValues(alpha: 0.14),
     );
+
+    // Thin dashed stroke on the track mid-radius (screenshot ≈ 2.8–3 pt).
     final arcPath = Path()
-      ..addArc(Rect.fromCircle(center: c, radius: midR), math.pi, math.pi / 2);
+      ..addArc(
+        Rect.fromCircle(center: c, radius: midR),
+        math.pi, // 9 o'clock
+        math.pi / 2, // clockwise to 12 o'clock
+      );
     _drawThinDashes(
       canvas,
       arcPath,
@@ -1208,18 +1021,16 @@ class _TravelBannerDecorPainter extends CustomPainter {
       dash: TravelBannerGeometry.arcDash * sx,
       gap: TravelBannerGeometry.arcGap * sx,
     );
+
+    // Vector 280:4800 — nav cursor on inner track edge.
     const polar = TravelBannerGeometry.markerPolarDegrees * math.pi / 180;
     final markerPos = Offset(
       c.dx + markerR * math.cos(polar),
       c.dy + markerR * math.sin(polar),
     );
     final tangent = Offset(-math.sin(polar), math.cos(polar));
-    _drawNavCursor(
-      canvas,
-      markerPos,
-      math.atan2(tangent.dx, -tangent.dy),
-      scale: sx,
-    );
+    final rotation = math.atan2(tangent.dx, -tangent.dy);
+    _drawNavCursor(canvas, markerPos, rotation, scale: sx);
   }
 
   static void _drawThinDashes(
