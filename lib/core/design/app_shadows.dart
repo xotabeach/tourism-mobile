@@ -17,13 +17,15 @@ abstract final class AppShadows {
     BoxShadow(color: Color(0x24000000), blurRadius: 24, offset: Offset(0, 12)),
   ];
 
-  /// White settings cards: rgba(0,0,0,0.06) / 0,2 / blur 8.
+  /// Settings rows / cards: soft lift below + light side bloom.
   static const List<BoxShadow> settingsTile = [
-    BoxShadow(color: Color(0x0F000000), blurRadius: 8, offset: Offset(0, 2)),
+    BoxShadow(color: Color(0x14000000), blurRadius: 10, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x0C000000), blurRadius: 6, offset: Offset(0, 0)),
   ];
 
-  /// Travel+ banner / active support row: rgba(0,0,0,0.10) / 0,4 / blur 12.
+  /// Travel+ banner / active support row — same language, a touch stronger.
   static const List<BoxShadow> settingsElevated = [
-    BoxShadow(color: Color(0x1A000000), blurRadius: 12, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x1A000000), blurRadius: 12, offset: Offset(0, 5)),
+    BoxShadow(color: Color(0x10000000), blurRadius: 8, offset: Offset(0, 0)),
   ];
 }

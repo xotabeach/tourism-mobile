@@ -166,20 +166,27 @@ class RouteStartButton extends StatelessWidget {
     required this.onPressed,
     this.visibility = 1,
     this.morphProgress = 0,
+    this.label = 'Пройти маршрут',
+    this.compactAlignedRight = false,
     super.key,
   });
 
   final VoidCallback onPressed;
   final double visibility;
   final double morphProgress;
+  final String label;
+  final bool compactAlignedRight;
 
   @override
   Widget build(BuildContext context) {
     final progress = visibility.clamp(0.0, 1.0);
     final morph = morphProgress.clamp(0.0, 1.0);
     final liquidStretch = math.sin(math.pi * morph);
+    final sideAlign = compactAlignedRight
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
     return Transform.scale(
-      alignment: morph > 0.5 ? Alignment.centerLeft : Alignment.bottomCenter,
+      alignment: morph > 0.5 ? sideAlign : Alignment.bottomCenter,
       scaleX: 1 + 0.025 * liquidStretch,
       scaleY: 1 - 0.045 * liquidStretch,
       child: SizedBox(
@@ -206,7 +213,7 @@ class RouteStartButton extends StatelessWidget {
                 onTap: onPressed,
                 child: Center(
                   child: Text(
-                    'Пройти маршрут',
+                    label,
                     style: AppTypography.button.copyWith(
                       fontSize: 17,
                       color: Colors.white.withValues(alpha: progress),

@@ -132,19 +132,8 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                       );
                     },
                   ),
-                  const SizedBox(height: 16),
-                  SettingsPrimaryButton(
-                    label: 'Продолжить',
-                    onPressed: () {
-                      controller.activateTravelPlus(yearly: true);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Подписка активирована (мок)'),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 24),
+                  // Bottom CTA lives in the shell nav («Продолжить»).
+                  const SizedBox(height: 140),
                 ],
               ),
             ),
@@ -166,12 +155,17 @@ class _BenefitCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x0A000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
+            color: Color(0x1F000000),
+            blurRadius: 14,
+            offset: Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 10,
+            offset: Offset(0, 0),
           ),
         ],
       ),
@@ -287,7 +281,7 @@ class _PlanCard extends StatelessWidget {
                 ),
               ),
               Positioned(
-                right: 56,
+                right: 62,
                 top: 0,
                 bottom: 0,
                 child: Column(

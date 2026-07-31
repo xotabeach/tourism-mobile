@@ -707,36 +707,26 @@ class _SwipeOverlay extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (favorite)
-                      Container(
-                        key: const ValueKey('swipe-action-indicator'),
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.78),
-                          ),
-                        ),
-                        child: const AppAssetIcon(
-                          AppIconography.heart,
-                          color: Colors.white,
-                          size: 16,
-                        ),
-                      )
-                    else
-                      const SizedBox.square(
-                        key: ValueKey('swipe-action-indicator'),
-                        dimension: 36,
+                    SizedBox.square(
+                      key: const ValueKey('swipe-action-indicator'),
+                      dimension: 44,
+                      child: AppGlassSurface(
+                        borderRadius: AppRadii.circle,
+                        blur: 14,
+                        fillColor: Colors.white.withValues(alpha: 0.20),
+                        borderColor: Colors.white.withValues(alpha: 0.72),
+                        boxShadow: const [],
                         child: Center(
                           child: AppAssetIcon(
-                            AppIconography.sendToEnd,
+                            favorite
+                                ? AppIconography.heart
+                                : AppIconography.sendToEnd,
                             color: Colors.white,
                             size: 18,
                           ),
                         ),
                       ),
+                    ),
                     const SizedBox(height: 6),
                     Text(
                       favorite ? 'В избранное' : 'В конец',

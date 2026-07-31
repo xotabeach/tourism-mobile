@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
@@ -17,6 +20,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
+import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -31,6 +35,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'home-search');
+  final _scrollController = ScrollController();
   var _selectedChip = 'Все';
   var _searchQuery = '';
 
@@ -81,6 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -88,6 +94,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(tabScrollToTopProvider(0), (previous, next) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: AppMotion.emphasized,
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
     final session = ref.watch(sessionProvider);
     final routesAsync = ref.watch(routesListProvider);
     final name = (session.displayName?.trim().isNotEmpty ?? false)
@@ -101,6 +119,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         data: (page) {
           final items = _filtered(page.items);
           return ListView.builder(
+            controller: _scrollController,
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),

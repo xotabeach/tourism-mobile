@@ -35,16 +35,16 @@ abstract final class SettingsColors {
   static const Alignment bannerGradientEndAlign = Alignment(1.0, 0.18);
   static const List<double> bannerGradientStops = [0.0, 0.68];
 
-  /// Title ramp — Rubik SemiBold ~36: `#0090C6` → `#0038F0`.
-  static const Color titleGradientStart = Color(0xFF0090C6);
-  static const Color titleGradientEnd = Color(0xFF0038F0);
+  /// Title ramp — `#1287B3` → `#0035E3` (paywall / banner).
+  static const Color titleGradientStart = Color(0xFF1287B3);
+  static const Color titleGradientEnd = Color(0xFF0035E3);
 
   /// Title drop shadow — `#000681` @ 25%, blur 3.
   static const Color titleShadow = Color(0x40000681);
 
-  /// Arc / cursor — solid `#1537E7`, no alpha (§3.6 / §3.7).
-  static const Color arcStroke = Color(0xFF1537E7);
-  static const Color cursorFill = Color(0xFF1537E7);
+  /// Dashed route — `#003DED` @ 30%. Cursor keeps solid `#003DED`.
+  static const Color arcStroke = Color(0x4D003DED);
+  static const Color cursorFill = Color(0xFF003DED);
 
   /// Inside stroke 3 pt — `#67D6FF` → `#2558FF` @ 66%.
   static const Color bannerBorderTop = Color(0xFF67D6FF);
@@ -92,25 +92,27 @@ abstract final class TravelBannerGeometry {
   /// Mid-radius of the dashed arc (guide between Ellipse 8/10).
   static const double trackMidRadius = 106;
 
-  /// Screenshot measure on `travel+ banner.png`: dashes are a **thin** stroke
-  /// (~3 pt), not a filled 10 pt annular pill.
-  static const double arcStrokeWidth = 2.8;
-  static const double arcDash = 7.5;
-  static const double arcGap = 3.2;
+  /// Thin dashed route stroke; dash/gap tuned from `travel+ banner.png`.
+  static const double arcStrokeWidth = 2.15;
+  static const double arcDash = 6.5;
+  static const double arcGap = 5.2;
 
   /// Marker sits near the **inner** track edge (Figma Vector ≈ R 101.3).
   static const double markerRadius = 101.3;
 
-  /// From Figma marker bbox center (252.6, 218.4) vs C (329, 285).
-  static const double markerPolarDegrees = -138.9;
+  /// On the dashed quarter, toward 9 o'clock (left + lower on the path).
+  static const double markerPolarDegrees = -168;
 
   /// Ellipse 11 glow — offset from decor center in design space (hero).
   static const Offset glowOffsetFromCenter = Offset(10.5, -259.5);
 
-  /// Compact banner is only 132 tall; hero offset clips off-canvas, so pull the
-  /// glow into the visible top of the card (still the same Ellipse 11 role).
-  static const Offset compactGlowOffsetFromCenter = Offset(-36, -108);
+  /// Compact: soft secondary glow near top-left title area.
+  static const Offset compactGlowOffsetFromCenter = Offset(-290, -100);
   static const double glowRadius = 75.5;
+
+  /// Soft white disk @ 6% opacity (compact: top-left; hero: top-right clipped).
+  static const double accentGlowRadius = 64;
+  static const double accentGlowOpacity = 0.06;
 }
 
 abstract final class SettingsMetrics {
@@ -375,76 +377,82 @@ class SettingsNavTile extends StatelessWidget {
     final iconColor = emphasized ? Colors.white : SettingsColors.accentIcon;
     final chevronColor = emphasized ? Colors.white : const Color(0xFF000000);
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap == null
-            ? null
-            : () {
-                unawaited(HapticFeedback.selectionClick());
-                onTap!();
-              },
-        borderRadius: BorderRadius.circular(AppRadii.settingsTile),
-        child: Ink(
-          height: height,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AppRadii.settingsTile),
-            boxShadow: emphasized
-                ? AppShadows.settingsElevated
-                : AppShadows.settingsTile,
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                if (iconAsset != null || icon != null) ...[
-                  SizedBox.square(
-                    dimension: SettingsMetrics.iconBox,
-                    child: iconAsset != null
-                        ? AppAssetIcon(
-                            iconAsset!,
-                            size: AppIconography.settings,
-                            color: iconColor,
-                          )
-                        : Icon(icon, size: 28, color: iconColor),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.settingsRowTitle.copyWith(
-                          color: titleColor,
-                        ),
-                      ),
-                      if (hasSubtitle) ...[
-                        const SizedBox(height: 2),
+    final radius = BorderRadius.circular(AppRadii.settingsTile);
+
+    // Shadow must sit outside Material — Ink shadows are clipped and invisible.
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: emphasized
+            ? AppShadows.settingsElevated
+            : AppShadows.settingsTile,
+      ),
+      child: Material(
+        color: bg,
+        borderRadius: radius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap == null
+              ? null
+              : () {
+                  unawaited(HapticFeedback.selectionClick());
+                  onTap!();
+                },
+          borderRadius: radius,
+          child: SizedBox(
+            height: height,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  if (iconAsset != null || icon != null) ...[
+                    SizedBox.square(
+                      dimension: SettingsMetrics.iconBox,
+                      child: iconAsset != null
+                          ? AppAssetIcon(
+                              iconAsset!,
+                              size: AppIconography.settings,
+                              color: iconColor,
+                            )
+                          : Icon(icon, size: 28, color: iconColor),
+                    ),
+                    const SizedBox(width: 12),
+                  ],
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          subtitle!,
+                          title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AppTypography.settingsRowSubtitle.copyWith(
-                            color: subColor,
+                          style: AppTypography.settingsRowTitle.copyWith(
+                            color: titleColor,
                           ),
                         ),
+                        if (hasSubtitle) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            subtitle!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.settingsRowSubtitle.copyWith(
+                              color: subColor,
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
-                  ),
-                ),
-                trailing ??
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      size: 20,
-                      color: chevronColor,
                     ),
-              ],
+                  ),
+                  trailing ??
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: chevronColor,
+                      ),
+                ],
+              ),
             ),
           ),
         ),
@@ -453,8 +461,8 @@ class SettingsNavTile extends StatelessWidget {
   }
 }
 
-/// Figma switch: off = round white thumb on grey; on = elongated white capsule
-/// on blue (`switch-true.png` / `switch-false.png`). Flat, no thumb shadow.
+/// Figma switch (`switch-true.png` / `switch-false.png`): elongated white
+/// capsule thumb on both states — grey track off, blue track on. Flat.
 class SettingsToggle extends StatelessWidget {
   const SettingsToggle({
     super.key,
@@ -465,11 +473,11 @@ class SettingsToggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  static const double _width = 51;
-  static const double _height = 28;
-  static const double _pad = 3;
-  static const double _thumbH = _height - _pad * 2;
-  static const double _thumbOnW = 30;
+  static const double _width = 62;
+  static const double _height = 26;
+  static const double _pad = 2;
+  static const double _thumbH = 22;
+  static const double _thumbW = 34;
 
   @override
   Widget build(BuildContext context) {
@@ -495,7 +503,7 @@ class SettingsToggle extends StatelessWidget {
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeOut,
-            width: value ? _thumbOnW : _thumbH,
+            width: _thumbW,
             height: _thumbH,
             decoration: BoxDecoration(
               color: Colors.white,
@@ -755,13 +763,13 @@ class TravelPlusBanner extends StatelessWidget {
 }
 
 /// One ShaderMask over «ТРЕВЕЛ» + geometric «+».
-/// Figma text layer `280:4801` is **251 × 36**; screenshot reads ~40pt glyph.
+/// Shared by settings compact banner and paywall hero.
 class _TravelPlusTitle extends StatelessWidget {
   const _TravelPlusTitle();
 
   static const _titleStyle = TextStyle(
     fontFamily: AppFonts.rubik,
-    fontSize: 40,
+    fontSize: 42,
     fontWeight: FontWeight.w600,
     height: 1.0,
     letterSpacing: 0.2,
@@ -771,7 +779,7 @@ class _TravelPlusTitle extends StatelessWidget {
   /// Soft lift — `#000681` @ ~35%, blur 3, slight y offset (Screenshot).
   static const _shadowStyle = TextStyle(
     fontFamily: AppFonts.rubik,
-    fontSize: 40,
+    fontSize: 42,
     fontWeight: FontWeight.w600,
     height: 1.0,
     letterSpacing: 0.2,
@@ -781,13 +789,13 @@ class _TravelPlusTitle extends StatelessWidget {
     ],
   );
 
-  static const _markSize = 20.0;
+  static const _markSize = 21.0;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 40,
-      width: 260,
+      height: 42,
+      width: 270,
       child: Align(
         alignment: Alignment.centerLeft,
         child: Stack(
@@ -978,40 +986,60 @@ class _TravelBannerDecorPainter extends CustomPainter {
     final diskR = TravelBannerGeometry.diskRadius * sx;
     final midR = TravelBannerGeometry.trackMidRadius * sx;
     final glowR = TravelBannerGeometry.glowRadius * sx;
-    final markerR = TravelBannerGeometry.markerRadius * sx;
     final glowOffset = layout == TravelBannerLayout.hero
         ? TravelBannerGeometry.glowOffsetFromCenter
         : TravelBannerGeometry.compactGlowOffsetFromCenter;
 
-    // Ellipse 11 — soft glow (hero: top-right of frame; compact: pulled in).
-    final glowCenter = Offset(
-      c.dx + glowOffset.dx * sx,
-      c.dy + glowOffset.dy * sx,
+    // Soft white disk @ 6%: compact top-left; hero top-right (~12–15% clipped).
+    final glowRAccent = TravelBannerGeometry.accentGlowRadius * sx;
+    final accentCenter = layout == TravelBannerLayout.hero
+        ? Offset(size.width - glowRAccent * 0.85, glowRAccent * 0.85)
+        : const Offset(52, 26);
+    canvas.drawCircle(
+      accentCenter,
+      glowRAccent,
+      Paint()
+        ..color = Colors.white.withValues(
+          alpha: TravelBannerGeometry.accentGlowOpacity,
+        )
+        ..isAntiAlias = true,
     );
-    final glowPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.28),
-          Colors.white.withValues(alpha: 0.08),
-          Colors.white.withValues(alpha: 0.0),
-        ],
-        stops: const [0.0, 0.45, 1.0],
-      ).createShader(Rect.fromCircle(center: glowCenter, radius: glowR));
-    canvas.drawCircle(glowCenter, glowR, glowPaint);
 
-    // Ellipse 8 — light disk. Keep visible as the pale circle behind the arc.
+    // Ellipse 11 — secondary soft glow (compact near title; hero subdued).
+    if (layout == TravelBannerLayout.compact) {
+      final glowCenter = Offset(
+        c.dx + glowOffset.dx * sx,
+        c.dy + glowOffset.dy * sx,
+      );
+      canvas.drawCircle(
+        glowCenter,
+        glowR,
+        Paint()
+          ..shader = RadialGradient(
+            colors: [
+              Colors.white.withValues(alpha: 0.10),
+              Colors.white.withValues(alpha: 0.0),
+            ],
+          ).createShader(Rect.fromCircle(center: glowCenter, radius: glowR)),
+      );
+    }
+
+    // Ellipse 8 — light disk behind the arc.
     canvas.drawCircle(
       c,
       diskR,
       Paint()..color = Colors.white.withValues(alpha: 0.14),
     );
 
-    // Thin dashed stroke on the track mid-radius (screenshot ≈ 2.8–3 pt).
+    // Dashed route: same quarter direction, extended to the banner edge on hero.
+    final arcSweep = layout == TravelBannerLayout.hero
+        ? math.pi * 0.78
+        : math.pi / 2;
     final arcPath = Path()
       ..addArc(
         Rect.fromCircle(center: c, radius: midR),
         math.pi, // 9 o'clock
-        math.pi / 2, // clockwise to 12 o'clock
+        arcSweep, // clockwise toward / past 12 o'clock
       );
     _drawThinDashes(
       canvas,
@@ -1022,11 +1050,11 @@ class _TravelBannerDecorPainter extends CustomPainter {
       gap: TravelBannerGeometry.arcGap * sx,
     );
 
-    // Vector 280:4800 — nav cursor on inner track edge.
+    // Nav cursor on the dashed path (mid track), left/lower along the arc.
     const polar = TravelBannerGeometry.markerPolarDegrees * math.pi / 180;
     final markerPos = Offset(
-      c.dx + markerR * math.cos(polar),
-      c.dy + markerR * math.sin(polar),
+      c.dx + midR * math.cos(polar),
+      c.dy + midR * math.sin(polar),
     );
     final tangent = Offset(-math.sin(polar), math.cos(polar));
     final rotation = math.atan2(tangent.dx, -tangent.dy);

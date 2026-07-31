@@ -5,7 +5,7 @@ abstract final class AppMotion {
   static const Duration normal = Duration(milliseconds: 180);
   static const Duration emphasized = Duration(milliseconds: 260);
   static const Duration droplet = Duration(milliseconds: 360);
-  static const Duration detailMorph = Duration(milliseconds: 560);
+  static const Duration detailMorph = Duration(milliseconds: 720);
   static const Duration reduced = Duration(milliseconds: 150);
 
   static const Curve standard = Curves.easeOutCubic;

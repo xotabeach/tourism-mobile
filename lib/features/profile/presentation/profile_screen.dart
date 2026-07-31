@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
@@ -19,6 +20,7 @@ import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
+import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key, this.userId});
@@ -34,8 +36,15 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final _scrollController = ScrollController();
   var _achievementPage = 0;
   var _publishedPage = 0;
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   void _snack(String message) {
     ScaffoldMessenger.of(context)
@@ -45,6 +54,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(tabScrollToTopProvider(4), (previous, next) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: AppMotion.emphasized,
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
     final session = ref.watch(sessionProvider);
     final viewingOther =
         widget.userId != null &&
@@ -124,6 +145,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     return ColoredBox(
       color: AppColors.pageSurface,
       child: ListView(
+        controller: _scrollController,
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),

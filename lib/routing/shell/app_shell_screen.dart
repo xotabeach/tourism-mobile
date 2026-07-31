@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -13,7 +14,13 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
+import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
+import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
+import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 const _appNavDestinations = [
   _NavDestination(
@@ -48,7 +55,7 @@ final _appFloatingNavKey = GlobalKey<_AppFloatingNavBarState>(
   debugLabel: 'app-floating-navigation',
 );
 
-class AppShellScreen extends StatelessWidget {
+class AppShellScreen extends ConsumerWidget {
   const AppShellScreen({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
@@ -63,14 +70,48 @@ class AppShellScreen extends StatelessWidget {
     if (segments.length == 2 && segments.first == 'places') {
       return 3;
     }
+    // `/profile/settings` and every nested settings screen.
+    if (segments.length >= 2 &&
+        segments.first == 'profile' &&
+        segments[1] == 'settings') {
+      return 4;
+    }
     return null;
   }
 
-  void _onDestinationSelected(int index) {
+  void _onDestinationSelected(
+    BuildContext context,
+    WidgetRef ref,
+    int index,
+  ) {
+    final onCurrentBranch = index == navigationShell.currentIndex;
+    final path = GoRouterState.of(context).uri.path;
+    if (onCurrentBranch && _isBranchRootPath(path, index)) {
+      unawaited(HapticFeedback.selectionClick());
+      ref.read(tabScrollToTopProvider(index).notifier).state++;
+      return;
+    }
     navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: onCurrentBranch,
     );
+  }
+
+  static bool _isBranchRootPath(String path, int index) {
+    switch (index) {
+      case 0:
+        return path == HomeScreen.routePath || path == '/';
+      case 1:
+        return path == RoutesCatalogScreen.routePath;
+      case 2:
+        return path == '/favorites';
+      case 3:
+        return path == PlacesCatalogScreen.routePath;
+      case 4:
+        return path == ProfileScreen.routePath;
+      default:
+        return false;
+    }
   }
 
   void _startRoute(BuildContext context) {
@@ -81,12 +122,35 @@ class AppShellScreen extends StatelessWidget {
       );
   }
 
+  void _continueTravelPlus(BuildContext context, WidgetRef ref) {
+    ref
+        .read(settingsPreferencesProvider.notifier)
+        .activateTravelPlus(yearly: true);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        const SnackBar(content: Text('Подписка активирована (мок)')),
+      );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
+    final path = GoRouterState.of(context).uri.path;
     final detailNavigationIndex = _detailNavigationIndex(context);
     final showDetailsChrome = detailNavigationIndex != null;
     final showRouteAction = detailNavigationIndex == 0;
+    // CTA only on Travel+ paywall — other settings keep compact nav alone.
+    final showTravelPlusAction =
+        detailNavigationIndex == 4 && path.contains('/travel-plus');
+    final detailActionLabel = showTravelPlusAction
+        ? 'Продолжить'
+        : 'Пройти маршрут';
+    final VoidCallback? detailAction = showRouteAction
+        ? () => _startRoute(context)
+        : showTravelPlusAction
+        ? () => _continueTravelPlus(context, ref)
+        : null;
 
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
@@ -124,11 +188,12 @@ class AppShellScreen extends StatelessWidget {
             child: AppFloatingNavBar(
               key: _appFloatingNavKey,
               currentIndex: navigationShell.currentIndex,
-              onTap: _onDestinationSelected,
+              onTap: (index) => _onDestinationSelected(context, ref, index),
               detailMode: showDetailsChrome,
               compactDestinationIndex:
                   detailNavigationIndex ?? navigationShell.currentIndex,
-              onStartRoute: showRouteAction ? () => _startRoute(context) : null,
+              onStartRoute: detailAction,
+              startRouteLabel: detailActionLabel,
             ),
           ),
         ],
@@ -144,6 +209,7 @@ class AppFloatingNavBar extends StatefulWidget {
     this.detailMode = false,
     this.compactDestinationIndex = 0,
     this.onStartRoute,
+    this.startRouteLabel = 'Пройти маршрут',
     super.key,
   }) : assert(
          compactDestinationIndex >= 0 &&
@@ -155,6 +221,7 @@ class AppFloatingNavBar extends StatefulWidget {
   final bool detailMode;
   final int compactDestinationIndex;
   final VoidCallback? onStartRoute;
+  final String startRouteLabel;
 
   @override
   State<AppFloatingNavBar> createState() => _AppFloatingNavBarState();
@@ -166,6 +233,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   static const _detailHeight = 126.0;
   static const _activeDiameter = 58.0;
   static const _segmentGap = 10.0;
+  static const _autoCollapseDelay = Duration(seconds: 5);
 
   late final AnimationController _positionController;
   late final AnimationController _detailPresenceController;
@@ -173,6 +241,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   late double _position;
   late double _fromPosition;
   late int _targetIndex;
+  Timer? _autoCollapseTimer;
 
   @override
   void initState() {
@@ -209,15 +278,19 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     super.didUpdateWidget(oldWidget);
     if (widget.detailMode != oldWidget.detailMode) {
       if (widget.detailMode) {
+        _cancelAutoCollapse();
         _detailExpansionController.value = 0;
         _animateTo(widget.compactDestinationIndex);
         _animateDetailPresence(1);
       } else {
+        _cancelAutoCollapse();
         _animateTo(widget.currentIndex);
         _animateDetailPresence(0);
+        _detailExpansionController.value = 0;
       }
     } else if (widget.detailMode &&
         widget.compactDestinationIndex != oldWidget.compactDestinationIndex) {
+      _cancelAutoCollapse();
       _detailExpansionController.value = 0;
       _animateTo(widget.compactDestinationIndex);
     } else if (!widget.detailMode && widget.currentIndex != _targetIndex) {
@@ -227,6 +300,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
 
   @override
   void dispose() {
+    _cancelAutoCollapse();
     _positionController
       ..removeListener(_tick)
       ..dispose();
@@ -240,6 +314,19 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _rebuild() => setState(() {});
+
+  void _cancelAutoCollapse() {
+    _autoCollapseTimer?.cancel();
+    _autoCollapseTimer = null;
+  }
+
+  void _scheduleAutoCollapse() {
+    _cancelAutoCollapse();
+    if (!widget.detailMode || _detailExpansionController.value < 0.99) {
+      return;
+    }
+    _autoCollapseTimer = Timer(_autoCollapseDelay, _collapseDetailNavigation);
+  }
 
   void _tick() {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -283,6 +370,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     if (!widget.detailMode || _detailExpansionController.value >= 1) {
       return;
     }
+    _cancelAutoCollapse();
     _detailExpansionController.duration =
         MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
@@ -290,11 +378,28 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     unawaited(HapticFeedback.selectionClick());
     unawaited(
       _detailExpansionController.forward().then((_) {
-        if (mounted) {
-          setState(() {});
+        if (!mounted || !widget.detailMode) {
+          return;
         }
+        setState(() {});
+        _scheduleAutoCollapse();
       }),
     );
+  }
+
+  void _collapseDetailNavigation() {
+    if (!mounted || !widget.detailMode) {
+      return;
+    }
+    if (_detailExpansionController.value <= 0) {
+      return;
+    }
+    _cancelAutoCollapse();
+    _detailExpansionController.duration =
+        MediaQuery.disableAnimationsOf(context)
+        ? AppMotion.reduced
+        : AppMotion.detailMorph;
+    unawaited(_detailExpansionController.reverse());
   }
 
   void _handleTap(int index) {
@@ -303,6 +408,10 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         index == widget.compactDestinationIndex) {
       _expandDetailNavigation();
       return;
+    }
+    // Any tap on the expanded menu postpones auto-collapse.
+    if (widget.detailMode && _detailExpansionController.value > 0.5) {
+      _scheduleAutoCollapse();
     }
     if (index != widget.currentIndex) {
       unawaited(HapticFeedback.selectionClick());
@@ -337,9 +446,20 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         child: LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            final ctaMorph = Curves.easeInOutCubic.transform(compactProgress);
-            final ctaLeft = (_activeDiameter + _segmentGap) * ctaMorph;
-            final ctaTop = (_detailHeight - _height) * ctaMorph;
+            final compactOnRight = widget.compactDestinationIndex >= 3;
+            // Expand: mostly rise first, then widen — soft overlap, no expo snap.
+            final expandT = (1 - compactProgress).clamp(0.0, 1.0);
+            final riseT = Curves.easeInOutCubic.transform(
+              (expandT / 0.58).clamp(0.0, 1.0),
+            );
+            final widenT = expandT <= 0.28
+                ? 0.0
+                : Curves.easeInOutCubic.transform(
+                    ((expandT - 0.28) / 0.72).clamp(0.0, 1.0),
+                  );
+            final ctaInset =
+                (_activeDiameter + _segmentGap) * (1 - widenT);
+            final ctaTop = (_detailHeight - _height) * (1 - riseT);
 
             return Stack(
               clipBehavior: Clip.none,
@@ -347,14 +467,16 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                 if (widget.detailMode && widget.onStartRoute != null)
                   Positioned(
                     key: const ValueKey('route-start-button-position'),
-                    left: ctaLeft,
-                    right: 0,
+                    left: compactOnRight ? 0 : ctaInset,
+                    right: compactOnRight ? ctaInset : 0,
                     top: ctaTop,
                     height: _height,
                     child: RouteStartButton(
                       visibility: presence,
-                      morphProgress: ctaMorph,
+                      morphProgress: 1 - widenT,
                       onPressed: widget.onStartRoute!,
+                      label: widget.startRouteLabel,
+                      compactAlignedRight: compactOnRight,
                     ),
                   ),
                 Positioned(
@@ -367,6 +489,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                     compactProgress: compactProgress,
                     phase: phase,
                     reduceMotion: reduceMotion,
+                    compactOnRight: compactOnRight,
                   ),
                 ),
               ],
@@ -382,11 +505,14 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     required double compactProgress,
     required double phase,
     required bool reduceMotion,
+    required bool compactOnRight,
   }) {
     final slotWidth = width / _appNavDestinations.length;
     final regularActiveCenterX = (_position + 0.5) * slotWidth;
     final regularFromCenterX = (_fromPosition + 0.5) * slotWidth;
-    const compactCenterX = _activeDiameter / 2;
+    final compactCenterX = compactOnRight
+        ? width - _activeDiameter / 2
+        : _activeDiameter / 2;
     final activeCenterX = lerpDouble(
       regularActiveCenterX,
       compactCenterX,
@@ -508,7 +634,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
           ),
           if (compactProgress > 0.995)
             Positioned(
-              left: 0,
+              left: compactOnRight ? width - _activeDiameter : 0,
               top: 0,
               width: _activeDiameter,
               height: _height,

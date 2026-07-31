@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
@@ -12,6 +13,7 @@ import 'package:tourism_mobile/features/places/application/places_providers.dart
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
+import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 class PlacesCatalogScreen extends ConsumerStatefulWidget {
   const PlacesCatalogScreen({super.key});
@@ -29,6 +31,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
 
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'places-search');
+  final _scrollController = ScrollController();
   Timer? _searchDebounce;
   var _selectedChip = 'Все';
   var _searchQuery = '';
@@ -84,6 +87,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _scrollController.dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -91,6 +95,18 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<int>(tabScrollToTopProvider(3), (previous, next) {
+      if (!_scrollController.hasClients) {
+        return;
+      }
+      unawaited(
+        _scrollController.animateTo(
+          0,
+          duration: AppMotion.emphasized,
+          curve: Curves.easeOutCubic,
+        ),
+      );
+    });
     final placesAsync = _searchQuery.isEmpty
         ? ref.watch(placesListProvider)
         : ref.watch(placesSearchProvider(_searchQuery));
@@ -100,6 +116,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
       child: SafeArea(
         bottom: false,
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const BouncingScrollPhysics(
             parent: AlwaysScrollableScrollPhysics(),
           ),
