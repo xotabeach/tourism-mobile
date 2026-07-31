@@ -30,4 +30,13 @@ flutter analyze --fatal-infos
 printf 'Running flutter test...\n'
 flutter test
 
+# Pixel goldens are macOS-only (CI Linux skips them). Fail closed here so a
+# push from a Mac cannot ship a stale baseline that CI would never catch.
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  printf 'Running macOS pixel goldens...\n'
+  flutter test test/golden
+else
+  printf 'Pixel goldens: SKIP (non-macOS host; enforced on developer Macs)\n'
+fi
+
 printf 'Validation completed successfully.\n'

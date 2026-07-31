@@ -3,19 +3,25 @@ stages:
   - run-tests
   - mirror
 
+# Pinned so formatter/analyzer behaviour cannot drift away from local machines.
+# Bump deliberately together with the team's local SDK.
+.flutter-image: &flutter-image ghcr.io/cirruslabs/flutter:3.44.7
+
 mobile-code-style:
   stage: code-style
-  image: ghcr.io/cirruslabs/flutter:stable
+  image: *flutter-image
   script:
-    - flutter pub get
+    - flutter pub get --enforce-lockfile
     - dart format --set-exit-if-changed lib test
     - flutter analyze --fatal-infos
 
 mobile-run-tests:
   stage: run-tests
-  image: ghcr.io/cirruslabs/flutter:stable
+  image: *flutter-image
   script:
-    - flutter pub get
+    - flutter pub get --enforce-lockfile
+    # Pixel goldens are macOS-only (see test/golden/ui_golden_test.dart); this
+    # runs the host-independent checks. Goldens are gated by the pre-push hook.
     - flutter test
   # Security notes:
   # - flutter analyze + flutter test (includes test/security/)
