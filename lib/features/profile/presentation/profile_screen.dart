@@ -139,56 +139,75 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           Transform.translate(
             offset: const Offset(0, -28),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _RankCard(rank: profile.rank),
-                  const SizedBox(height: AppSpacing.xl),
-                  Text(
-                    'Достижения:',
-                    style: AppTypography.sectionTitle.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
                   ),
-                  const SizedBox(height: AppSpacing.sm),
-                  _AchievementsCarousel(
-                    pages: profile.achievementPages,
-                    pageIndex: _achievementPage,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RankCard(rank: profile.rank),
+                      const SizedBox(height: AppSpacing.xl),
+                      Text(
+                        'Достижения:',
+                        style: AppTypography.sectionTitle.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                  ),
+                ),
+                // Full-bleed PageView so adjacent pages clip at the screen
+                // edge, not inside the page inset.
+                _AchievementsCarousel(
+                  pages: profile.achievementPages,
+                  pageIndex: _achievementPage,
+                  onPageChanged: (index) {
+                    setState(() => _achievementPage = index);
+                  },
+                  onAchievementTap: (achievement) {
+                    _snack(achievement.title);
+                  },
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.page,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Опубликованные маршруты',
+                        style: AppTypography.sectionTitle.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                      if (profile.publishedRoutes.isEmpty)
+                        Text(
+                          isOwn
+                              ? 'Пока нет опубликованных маршрутов'
+                              : 'У путешественника пока нет маршрутов',
+                          style: AppTypography.routeMetadata,
+                        ),
+                    ],
+                  ),
+                ),
+                if (profile.publishedRoutes.isNotEmpty)
+                  _PublishedRoutesCarousel(
+                    routes: profile.publishedRoutes,
+                    pageIndex: _publishedPage,
+                    authorAvatarUrl: profile.avatarImageUrl,
                     onPageChanged: (index) {
-                      setState(() => _achievementPage = index);
-                    },
-                    onAchievementTap: (achievement) {
-                      _snack(achievement.title);
+                      setState(() => _publishedPage = index);
                     },
                   ),
-                  const SizedBox(height: AppSpacing.xl),
-                  Text(
-                    'Опубликованные маршруты',
-                    style: AppTypography.sectionTitle.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (profile.publishedRoutes.isEmpty)
-                    Text(
-                      isOwn
-                          ? 'Пока нет опубликованных маршрутов'
-                          : 'У путешественника пока нет маршрутов',
-                      style: AppTypography.routeMetadata,
-                    )
-                  else
-                    _PublishedRoutesCarousel(
-                      routes: profile.publishedRoutes,
-                      pageIndex: _publishedPage,
-                      authorAvatarUrl: profile.avatarImageUrl,
-                      onPageChanged: (index) {
-                        setState(() => _publishedPage = index);
-                      },
-                    ),
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -491,19 +510,25 @@ class _AchievementsCarousel extends StatelessWidget {
           child: PageView.builder(
             itemCount: pages.length,
             onPageChanged: onPageChanged,
+            padEnds: false,
             itemBuilder: (context, index) {
               final items = pages[index];
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (var i = 0; i < items.length; i++) ...[
-                    if (i > 0) const SizedBox(height: 8),
-                    _AchievementTile(
-                      achievement: items[i],
-                      onTap: () => onAchievementTap(items[i]),
-                    ),
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.page,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var i = 0; i < items.length; i++) ...[
+                      if (i > 0) const SizedBox(height: 8),
+                      _AchievementTile(
+                        achievement: items[i],
+                        onTap: () => onAchievementTap(items[i]),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               );
             },
           ),
@@ -609,9 +634,12 @@ class _PublishedRoutesCarousel extends StatelessWidget {
           child: PageView.builder(
             itemCount: routes.length,
             onPageChanged: onPageChanged,
+            padEnds: false,
             itemBuilder: (context, index) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.page,
+                ),
                 child: RouteHeroCard(
                   route: routes[index],
                   height: 304,
