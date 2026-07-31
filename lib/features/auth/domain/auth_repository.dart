@@ -17,6 +17,9 @@ class MeProfile {
     required this.phone,
     this.avatarUrl,
     this.coverUrl,
+    this.notifyPushEnabled = true,
+    this.notifySmsEnabled = false,
+    this.notifyHapticsEnabled = true,
   });
 
   final String id;
@@ -24,6 +27,9 @@ class MeProfile {
   final String phone;
   final String? avatarUrl;
   final String? coverUrl;
+  final bool notifyPushEnabled;
+  final bool notifySmsEnabled;
+  final bool notifyHapticsEnabled;
 }
 
 abstract interface class AuthRepository {
@@ -44,7 +50,10 @@ abstract interface class AuthRepository {
 
   Future<MeProfile> patchMe({
     required String accessToken,
-    required String displayName,
+    String? displayName,
+    bool? notifyPushEnabled,
+    bool? notifySmsEnabled,
+    bool? notifyHapticsEnabled,
   });
 
   Future<void> requestPhoneChange({

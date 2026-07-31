@@ -21,6 +21,9 @@ class SessionState {
     this.accessToken,
     this.avatarUrl,
     this.coverUrl,
+    this.notifyPushEnabled = true,
+    this.notifySmsEnabled = false,
+    this.notifyHapticsEnabled = true,
   });
 
   final bool isHydrated;
@@ -31,6 +34,9 @@ class SessionState {
   final String? accessToken;
   final String? avatarUrl;
   final String? coverUrl;
+  final bool notifyPushEnabled;
+  final bool notifySmsEnabled;
+  final bool notifyHapticsEnabled;
 
   bool get isAuthenticated =>
       onboardingCompleted && (accessToken != null || userId != null);
@@ -44,6 +50,9 @@ class SessionState {
     String? accessToken,
     String? avatarUrl,
     String? coverUrl,
+    bool? notifyPushEnabled,
+    bool? notifySmsEnabled,
+    bool? notifyHapticsEnabled,
     bool clearAccessToken = false,
     bool clearAvatarUrl = false,
     bool clearCoverUrl = false,
@@ -57,6 +66,9 @@ class SessionState {
       accessToken: clearAccessToken ? null : (accessToken ?? this.accessToken),
       avatarUrl: clearAvatarUrl ? null : (avatarUrl ?? this.avatarUrl),
       coverUrl: clearCoverUrl ? null : (coverUrl ?? this.coverUrl),
+      notifyPushEnabled: notifyPushEnabled ?? this.notifyPushEnabled,
+      notifySmsEnabled: notifySmsEnabled ?? this.notifySmsEnabled,
+      notifyHapticsEnabled: notifyHapticsEnabled ?? this.notifyHapticsEnabled,
     );
   }
 }
@@ -146,6 +158,9 @@ class SessionController extends StateNotifier<SessionState> {
       accessToken: tokens.accessToken,
       avatarUrl: me.avatarUrl,
       coverUrl: me.coverUrl,
+      notifyPushEnabled: me.notifyPushEnabled,
+      notifySmsEnabled: me.notifySmsEnabled,
+      notifyHapticsEnabled: me.notifyHapticsEnabled,
     );
   }
 
@@ -168,6 +183,30 @@ class SessionController extends StateNotifier<SessionState> {
     final me = await _auth.patchMe(
       accessToken: token,
       displayName: displayName.trim(),
+    );
+    _applyMe(me);
+  }
+
+  Future<void> updateNotificationPrefs({
+    bool? notifyPushEnabled,
+    bool? notifySmsEnabled,
+    bool? notifyHapticsEnabled,
+  }) async {
+    final token = state.accessToken;
+    if (token == null) {
+      // Local/mock preview without a session — keep toggles responsive.
+      state = state.copyWith(
+        notifyPushEnabled: notifyPushEnabled,
+        notifySmsEnabled: notifySmsEnabled,
+        notifyHapticsEnabled: notifyHapticsEnabled,
+      );
+      return;
+    }
+    final me = await _auth.patchMe(
+      accessToken: token,
+      notifyPushEnabled: notifyPushEnabled,
+      notifySmsEnabled: notifySmsEnabled,
+      notifyHapticsEnabled: notifyHapticsEnabled,
     );
     _applyMe(me);
   }
@@ -225,6 +264,9 @@ class SessionController extends StateNotifier<SessionState> {
       userId: me.id,
       avatarUrl: me.avatarUrl,
       coverUrl: me.coverUrl,
+      notifyPushEnabled: me.notifyPushEnabled,
+      notifySmsEnabled: me.notifySmsEnabled,
+      notifyHapticsEnabled: me.notifyHapticsEnabled,
       clearAvatarUrl: me.avatarUrl == null,
       clearCoverUrl: me.coverUrl == null,
     );
@@ -255,6 +297,9 @@ class SessionController extends StateNotifier<SessionState> {
         accessToken: tokens.accessToken,
         avatarUrl: me.avatarUrl,
         coverUrl: me.coverUrl,
+        notifyPushEnabled: me.notifyPushEnabled,
+        notifySmsEnabled: me.notifySmsEnabled,
+        notifyHapticsEnabled: me.notifyHapticsEnabled,
       );
     } on Object {
       await _storage.delete(key: SecureStorageKeys.refreshToken);

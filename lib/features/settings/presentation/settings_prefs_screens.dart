@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
@@ -13,8 +16,8 @@ class SettingsNotificationsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefs = ref.watch(settingsPreferencesProvider);
-    final controller = ref.read(settingsPreferencesProvider.notifier);
+    final session = ref.watch(sessionProvider);
+    final sessionCtl = ref.read(sessionProvider.notifier);
     return SettingsScaffold(
       title: 'Настройки уведомлений:',
       showSave: true,
@@ -23,22 +26,34 @@ class SettingsNotificationsScreen extends ConsumerWidget {
           title: 'Пуш-уведомления',
           subtitle: 'Уведомления из приложения',
           iconAsset: AppIconography.settingsPush,
-          value: prefs.pushEnabled,
-          onChanged: controller.setPush,
+          value: session.notifyPushEnabled,
+          onChanged: (value) {
+            unawaited(
+              sessionCtl.updateNotificationPrefs(notifyPushEnabled: value),
+            );
+          },
         ),
         SettingsToggleTile(
           title: 'СМС',
           subtitle: 'Для оповещения без интернета',
           iconAsset: AppIconography.settingsSms,
-          value: prefs.smsEnabled,
-          onChanged: controller.setSms,
+          value: session.notifySmsEnabled,
+          onChanged: (value) {
+            unawaited(
+              sessionCtl.updateNotificationPrefs(notifySmsEnabled: value),
+            );
+          },
         ),
         SettingsToggleTile(
           title: 'Звуки и вибрация',
           subtitle: 'При приближении к точке',
           iconAsset: AppIconography.settingsVibro,
-          value: prefs.hapticsEnabled,
-          onChanged: controller.setHaptics,
+          value: session.notifyHapticsEnabled,
+          onChanged: (value) {
+            unawaited(
+              sessionCtl.updateNotificationPrefs(notifyHapticsEnabled: value),
+            );
+          },
         ),
       ],
     );

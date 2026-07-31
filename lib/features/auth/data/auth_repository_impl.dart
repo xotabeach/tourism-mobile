@@ -78,12 +78,21 @@ final class ApiAuthRepository implements AuthRepository {
   @override
   Future<MeProfile> patchMe({
     required String accessToken,
-    required String displayName,
+    String? displayName,
+    bool? notifyPushEnabled,
+    bool? notifySmsEnabled,
+    bool? notifyHapticsEnabled,
   }) {
     return guardApiCall(() async {
+      final data = <String, dynamic>{
+        'display_name': ?displayName,
+        'notify_push_enabled': ?notifyPushEnabled,
+        'notify_sms_enabled': ?notifySmsEnabled,
+        'notify_haptics_enabled': ?notifyHapticsEnabled,
+      };
       final response = await _dio.patch<Map<String, dynamic>>(
         '/api/v1/me',
-        data: {'display_name': displayName},
+        data: data,
         options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
       );
       return _meFrom(response.data);
@@ -204,6 +213,9 @@ final class ApiAuthRepository implements AuthRepository {
       phone: phone,
       avatarUrl: avatar is String ? avatar : null,
       coverUrl: cover is String ? cover : null,
+      notifyPushEnabled: data['notify_push_enabled'] as bool? ?? true,
+      notifySmsEnabled: data['notify_sms_enabled'] as bool? ?? false,
+      notifyHapticsEnabled: data['notify_haptics_enabled'] as bool? ?? true,
     );
   }
 }
@@ -213,6 +225,9 @@ final class MockAuthRepository implements AuthRepository {
   String _phone = '+79000000000';
   String? _avatarUrl;
   String? _coverUrl;
+  bool _notifyPushEnabled = true;
+  bool _notifySmsEnabled = false;
+  bool _notifyHapticsEnabled = true;
 
   @override
   Future<void> requestOtp({
@@ -258,15 +273,32 @@ final class MockAuthRepository implements AuthRepository {
       phone: _phone,
       avatarUrl: _avatarUrl,
       coverUrl: _coverUrl,
+      notifyPushEnabled: _notifyPushEnabled,
+      notifySmsEnabled: _notifySmsEnabled,
+      notifyHapticsEnabled: _notifyHapticsEnabled,
     );
   }
 
   @override
   Future<MeProfile> patchMe({
     required String accessToken,
-    required String displayName,
+    String? displayName,
+    bool? notifyPushEnabled,
+    bool? notifySmsEnabled,
+    bool? notifyHapticsEnabled,
   }) async {
-    _displayName = displayName;
+    if (displayName != null) {
+      _displayName = displayName;
+    }
+    if (notifyPushEnabled != null) {
+      _notifyPushEnabled = notifyPushEnabled;
+    }
+    if (notifySmsEnabled != null) {
+      _notifySmsEnabled = notifySmsEnabled;
+    }
+    if (notifyHapticsEnabled != null) {
+      _notifyHapticsEnabled = notifyHapticsEnabled;
+    }
     return getMe(accessToken);
   }
 

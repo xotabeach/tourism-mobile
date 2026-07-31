@@ -2,9 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 class SettingsPreferences {
   const SettingsPreferences({
-    this.pushEnabled = true,
-    this.smsEnabled = false,
-    this.hapticsEnabled = true,
     this.autoDownloadFavorites = true,
     this.askBeforeDownload = false,
     this.travelPlusActive = false,
@@ -12,9 +9,6 @@ class SettingsPreferences {
     this.cacheSizeLabel = 'Кеш API мест и маршрутов',
   });
 
-  final bool pushEnabled;
-  final bool smsEnabled;
-  final bool hapticsEnabled;
   final bool autoDownloadFavorites;
   final bool askBeforeDownload;
   final bool travelPlusActive;
@@ -22,9 +16,6 @@ class SettingsPreferences {
   final String cacheSizeLabel;
 
   SettingsPreferences copyWith({
-    bool? pushEnabled,
-    bool? smsEnabled,
-    bool? hapticsEnabled,
     bool? autoDownloadFavorites,
     bool? askBeforeDownload,
     bool? travelPlusActive,
@@ -32,9 +23,6 @@ class SettingsPreferences {
     String? cacheSizeLabel,
   }) {
     return SettingsPreferences(
-      pushEnabled: pushEnabled ?? this.pushEnabled,
-      smsEnabled: smsEnabled ?? this.smsEnabled,
-      hapticsEnabled: hapticsEnabled ?? this.hapticsEnabled,
       autoDownloadFavorites:
           autoDownloadFavorites ?? this.autoDownloadFavorites,
       askBeforeDownload: askBeforeDownload ?? this.askBeforeDownload,
@@ -49,9 +37,6 @@ class SettingsPreferences {
 class SettingsController extends StateNotifier<SettingsPreferences> {
   SettingsController() : super(const SettingsPreferences());
 
-  void setPush(bool value) => state = state.copyWith(pushEnabled: value);
-  void setSms(bool value) => state = state.copyWith(smsEnabled: value);
-  void setHaptics(bool value) => state = state.copyWith(hapticsEnabled: value);
   void setAutoDownload(bool value) =>
       state = state.copyWith(autoDownloadFavorites: value);
   void setAskBeforeDownload(bool value) =>

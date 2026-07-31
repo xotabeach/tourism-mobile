@@ -19,7 +19,11 @@ abstract final class SettingsColors {
   static const Color link = AppColors.accentBlueIcon;
   static const Color supportSubtitle = Color(0xFFB8CBE6);
   static const Color circleButton = Color(0xFF1C1C1E);
-  static const Color toggleOff = Color(0xFFE5E5E5);
+  /// Switch track off — from Figma export `switch-false.png`.
+  static const Color toggleOff = Color(0xFFBCBCBF);
+
+  /// Switch track on — from Figma export `switch-true.png` (`#1267BF`).
+  static const Color toggleOn = Color(0xFF1267BF);
   static const Color checkboxBorder = Color(0xFFB9B9B9);
   static const Color fieldFill = Color(0xFFE7E7E7);
   static const Color hairline = Color(0xFFE3E3E3);
@@ -85,12 +89,14 @@ abstract final class TravelBannerGeometry {
   /// Ellipse 10 — outer track edge.
   static const double outerRadius = 111;
 
-  /// Mid-radius of the dashed track (annular band 101…111).
+  /// Mid-radius of the dashed arc (guide between Ellipse 8/10).
   static const double trackMidRadius = 106;
 
-  static const double trackThickness = 10;
-  static const double arcDash = 9;
-  static const double arcGap = 2.6;
+  /// Screenshot measure on `travel+ banner.png`: dashes are a **thin** stroke
+  /// (~3 pt), not a filled 10 pt annular pill.
+  static const double arcStrokeWidth = 2.8;
+  static const double arcDash = 7.5;
+  static const double arcGap = 3.2;
 
   /// Marker sits near the **inner** track edge (Figma Vector ≈ R 101.3).
   static const double markerRadius = 101.3;
@@ -98,8 +104,12 @@ abstract final class TravelBannerGeometry {
   /// From Figma marker bbox center (252.6, 218.4) vs C (329, 285).
   static const double markerPolarDegrees = -138.9;
 
-  /// Ellipse 11 glow — offset from decor center in design space.
+  /// Ellipse 11 glow — offset from decor center in design space (hero).
   static const Offset glowOffsetFromCenter = Offset(10.5, -259.5);
+
+  /// Compact banner is only 132 tall; hero offset clips off-canvas, so pull the
+  /// glow into the visible top of the card (still the same Ellipse 11 role).
+  static const Offset compactGlowOffsetFromCenter = Offset(-36, -108);
   static const double glowRadius = 75.5;
 }
 
@@ -443,6 +453,8 @@ class SettingsNavTile extends StatelessWidget {
   }
 }
 
+/// Figma switch: off = round white thumb on grey; on = elongated white capsule
+/// on blue (`switch-true.png` / `switch-false.png`). Flat, no thumb shadow.
 class SettingsToggle extends StatelessWidget {
   const SettingsToggle({
     super.key,
@@ -452,6 +464,12 @@ class SettingsToggle extends StatelessWidget {
 
   final bool value;
   final ValueChanged<bool> onChanged;
+
+  static const double _width = 51;
+  static const double _height = 28;
+  static const double _pad = 3;
+  static const double _thumbH = _height - _pad * 2;
+  static const double _thumbOnW = 30;
 
   @override
   Widget build(BuildContext context) {
@@ -463,28 +481,25 @@ class SettingsToggle extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
-        width: 56,
-        height: 30,
-        padding: const EdgeInsets.all(2),
+        width: _width,
+        height: _height,
+        padding: const EdgeInsets.all(_pad),
         decoration: BoxDecoration(
-          color: value ? SettingsColors.accent : SettingsColors.toggleOff,
+          color: value ? SettingsColors.toggleOn : SettingsColors.toggleOff,
           borderRadius: BorderRadius.circular(AppRadii.capsule),
         ),
-        child: Align(
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-          child: Container(
-            width: 26,
-            height: 26,
-            decoration: const BoxDecoration(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            width: value ? _thumbOnW : _thumbH,
+            height: _thumbH,
+            decoration: BoxDecoration(
               color: Colors.white,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x26000000),
-                  blurRadius: 3,
-                  offset: Offset(0, 1),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(AppRadii.capsule),
             ),
           ),
         ),
@@ -740,47 +755,61 @@ class TravelPlusBanner extends StatelessWidget {
 }
 
 /// One ShaderMask over «ТРЕВЕЛ» + geometric «+».
-/// Figma text layer `280:4801` is **251 × 36** — not 52 + FittedBox.
+/// Figma text layer `280:4801` is **251 × 36**; screenshot reads ~40pt glyph.
 class _TravelPlusTitle extends StatelessWidget {
   const _TravelPlusTitle();
 
   static const _titleStyle = TextStyle(
     fontFamily: AppFonts.rubik,
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: FontWeight.w600,
     height: 1.0,
-    letterSpacing: 0,
+    letterSpacing: 0.2,
     color: Colors.white,
   );
 
+  /// Soft lift — `#000681` @ ~35%, blur 3, slight y offset (Screenshot).
   static const _shadowStyle = TextStyle(
     fontFamily: AppFonts.rubik,
-    fontSize: 36,
+    fontSize: 40,
     fontWeight: FontWeight.w600,
     height: 1.0,
-    letterSpacing: 0,
-    color: SettingsColors.titleShadow,
+    letterSpacing: 0.2,
+    color: Color(0x59000681),
     shadows: [
-      Shadow(
-        color: SettingsColors.titleShadow,
-        blurRadius: 3,
-        offset: Offset.zero,
-      ),
+      Shadow(color: Color(0x59000681), blurRadius: 3, offset: Offset(0, 1)),
     ],
   );
+
+  static const _markSize = 20.0;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 36,
-      width: 251,
+      height: 40,
+      width: 260,
       child: Align(
         alignment: Alignment.centerLeft,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
             // Drop shadow behind ShaderMask (srcIn would eat TextStyle.shadows).
-            const IgnorePointer(child: Text('ТРЕВЕЛ', style: _shadowStyle)),
+            const IgnorePointer(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('ТРЕВЕЛ', style: _shadowStyle),
+                  SizedBox(width: 8),
+                  SizedBox(
+                    width: _markSize,
+                    height: _markSize,
+                    child: CustomPaint(
+                      painter: _TravelPlusMarkPainter(color: Color(0x59000681)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
             ShaderMask(
               blendMode: BlendMode.srcIn,
               shaderCallback: (bounds) => const LinearGradient(
@@ -798,8 +827,8 @@ class _TravelPlusTitle extends StatelessWidget {
                   Text('ТРЕВЕЛ', style: _titleStyle),
                   SizedBox(width: 8),
                   SizedBox(
-                    width: 18,
-                    height: 18,
+                    width: _markSize,
+                    height: _markSize,
                     child: CustomPaint(painter: _TravelPlusMarkPainter()),
                   ),
                 ],
@@ -813,12 +842,14 @@ class _TravelPlusTitle extends StatelessWidget {
 }
 
 class _TravelPlusMarkPainter extends CustomPainter {
-  const _TravelPlusMarkPainter();
+  const _TravelPlusMarkPainter({this.color = Colors.white});
+
+  final Color color;
 
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white
+      ..color = color
       ..style = PaintingStyle.fill;
     final stroke = size.shortestSide * 0.23;
     final cx = size.width / 2;
@@ -848,7 +879,8 @@ class _TravelPlusMarkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _TravelPlusMarkPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 /// Status chip: capsule with light fill + backdrop blur + bottom shadow (§3.10).
@@ -944,46 +976,48 @@ class _TravelBannerDecorPainter extends CustomPainter {
         : 1.0;
 
     final diskR = TravelBannerGeometry.diskRadius * sx;
-    final outerR = TravelBannerGeometry.outerRadius * sx;
     final midR = TravelBannerGeometry.trackMidRadius * sx;
     final glowR = TravelBannerGeometry.glowRadius * sx;
     final markerR = TravelBannerGeometry.markerRadius * sx;
+    final glowOffset = layout == TravelBannerLayout.hero
+        ? TravelBannerGeometry.glowOffsetFromCenter
+        : TravelBannerGeometry.compactGlowOffsetFromCenter;
 
-    // Ellipse 11 — soft top-right glow (relative to decor center).
+    // Ellipse 11 — soft glow (hero: top-right of frame; compact: pulled in).
     final glowCenter = Offset(
-      c.dx + TravelBannerGeometry.glowOffsetFromCenter.dx * sx,
-      c.dy + TravelBannerGeometry.glowOffsetFromCenter.dy * sx,
+      c.dx + glowOffset.dx * sx,
+      c.dy + glowOffset.dy * sx,
     );
     final glowPaint = Paint()
       ..shader = RadialGradient(
         colors: [
-          Colors.white.withValues(alpha: 0.14),
+          Colors.white.withValues(alpha: 0.28),
+          Colors.white.withValues(alpha: 0.08),
           Colors.white.withValues(alpha: 0.0),
         ],
+        stops: const [0.0, 0.45, 1.0],
       ).createShader(Rect.fromCircle(center: glowCenter, radius: glowR));
     canvas.drawCircle(glowCenter, glowR, glowPaint);
 
-    // Ellipse 8 — light disk, white ~7%. No solid ring strokes.
+    // Ellipse 8 — light disk. Keep visible as the pale circle behind the arc.
     canvas.drawCircle(
       c,
       diskR,
-      Paint()..color = Colors.white.withValues(alpha: 0.07),
+      Paint()..color = Colors.white.withValues(alpha: 0.14),
     );
 
-    // Dashed track in annular band [diskR, outerR], 9 o'clock → 12 o'clock.
+    // Thin dashed stroke on the track mid-radius (screenshot ≈ 2.8–3 pt).
     final arcPath = Path()
       ..addArc(
         Rect.fromCircle(center: c, radius: midR),
         math.pi, // 9 o'clock
         math.pi / 2, // clockwise to 12 o'clock
       );
-    _drawAsymmetricDashes(
+    _drawThinDashes(
       canvas,
       arcPath,
-      center: c,
-      outerR: outerR,
-      innerR: diskR,
       color: SettingsColors.arcStroke,
+      strokeWidth: TravelBannerGeometry.arcStrokeWidth * sx,
       dash: TravelBannerGeometry.arcDash * sx,
       gap: TravelBannerGeometry.arcGap * sx,
     );
@@ -999,127 +1033,29 @@ class _TravelBannerDecorPainter extends CustomPainter {
     _drawNavCursor(canvas, markerPos, rotation, scale: sx);
   }
 
-  static void _drawAsymmetricDashes(
+  static void _drawThinDashes(
     Canvas canvas,
     Path path, {
-    required Offset center,
-    required double outerR,
-    required double innerR,
     required Color color,
+    required double strokeWidth,
     required double dash,
     required double gap,
   }) {
-    final fill = Paint()
+    final stroke = Paint()
       ..color = color
-      ..style = PaintingStyle.fill
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
-    final thickness = outerR - innerR;
-    // Inner edge softer (~0.5× radial thickness); outer stays flat/sharp.
-    final innerRound = thickness * 0.52;
 
     for (final metric in path.computeMetrics()) {
       var distance = 0.0;
       while (distance < metric.length) {
         final next = math.min(distance + dash, metric.length);
-        final start = metric.getTangentForOffset(distance);
-        final end = metric.getTangentForOffset(next);
-        if (start == null || end == null) {
-          distance = next + gap;
-          continue;
-        }
-
-        final a0 = math.atan2(
-          start.position.dy - center.dy,
-          start.position.dx - center.dx,
-        );
-        final a1 = math.atan2(
-          end.position.dy - center.dy,
-          end.position.dx - center.dx,
-        );
-
-        var delta = a1 - a0;
-        while (delta > math.pi) {
-          delta -= 2 * math.pi;
-        }
-        while (delta < -math.pi) {
-          delta += 2 * math.pi;
-        }
-
-        canvas.drawPath(
-          _asymmetricDashPath(
-            center: center,
-            outerR: outerR,
-            innerR: innerR,
-            startAngle: a0,
-            sweep: delta,
-            innerRound: innerRound,
-          ),
-          fill,
-        );
+        canvas.drawPath(metric.extractPath(distance, next), stroke);
         distance = next + gap;
       }
     }
-  }
-
-  static Path _asymmetricDashPath({
-    required Offset center,
-    required double outerR,
-    required double innerR,
-    required double startAngle,
-    required double sweep,
-    required double innerRound,
-  }) {
-    final endAngle = startAngle + sweep;
-    final round = innerRound.clamp(0.5, (outerR - innerR).clamp(1.0, 20.0));
-
-    Offset polar(double r, double a) =>
-        Offset(center.dx + r * math.cos(a), center.dy + r * math.sin(a));
-
-    final outerStart = polar(outerR, startAngle);
-    final innerEnd = polar(innerR, endAngle);
-
-    final path = Path()..moveTo(outerStart.dx, outerStart.dy);
-
-    // Outer edge stays flat/sharp.
-    path.arcTo(
-      Rect.fromCircle(center: center, radius: outerR),
-      startAngle,
-      sweep,
-      false,
-    );
-
-    // End radial side + soft transition to inner edge.
-    path.lineTo(
-      center.dx + (innerR + round) * math.cos(endAngle),
-      center.dy + (innerR + round) * math.sin(endAngle),
-    );
-    path.arcToPoint(
-      innerEnd,
-      radius: Radius.circular(round),
-      clockwise: sweep > 0,
-    );
-
-    // Inner edge is rounded/soft.
-    path.arcTo(
-      Rect.fromCircle(center: center, radius: innerR),
-      endAngle,
-      -sweep,
-      false,
-    );
-
-    // Start radial side + soft transition.
-    path.arcToPoint(
-      Offset(
-        center.dx + (innerR + round) * math.cos(startAngle),
-        center.dy + (innerR + round) * math.sin(startAngle),
-      ),
-      radius: Radius.circular(round),
-      clockwise: sweep > 0,
-    );
-    path.lineTo(outerStart.dx, outerStart.dy);
-    path.close();
-
-    return path;
   }
 
   static void _drawNavCursor(
