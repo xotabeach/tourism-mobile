@@ -4,8 +4,9 @@ stages:
   - mirror
 
 # Pinned so formatter/analyzer behaviour cannot drift away from local machines.
-# Bump deliberately together with the team's local SDK.
-.flutter-image: &flutter-image ghcr.io/cirruslabs/flutter:3.44.7
+# Cirrus publishes minor.0 tags (latest available: 3.44.0); local SDK may be a
+# later 3.44.x patch — bump only when a matching image exists on GHCR.
+.flutter-image: &flutter-image ghcr.io/cirruslabs/flutter:3.44.0
 
 mobile-code-style:
   stage: code-style
