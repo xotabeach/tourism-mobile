@@ -196,20 +196,41 @@ if [[ ! -f "${ARTIFACT}" ]]; then
   exit 1
 fi
 
-printf '\n==> Artifact:\n  %s\n' "${ARTIFACT}"
+DIST_DIR="${PROJECT_ROOT}/dist"
+mkdir -p "${DIST_DIR}"
+
+EXT="${ARTIFACT##*.}"
+FRIENDLY_NAME="CrimeaTrip-${APP_ENV}-${DATA_SOURCE}.${EXT}"
+if [[ "${SPLIT_PER_ABI}" -eq 1 ]]; then
+  # Prefer a clear arm64 name; other ABIs keep an abi suffix.
+  case "$(basename "${ARTIFACT}")" in
+    *arm64*) FRIENDLY_NAME="CrimeaTrip-${APP_ENV}-${DATA_SOURCE}-arm64.${EXT}" ;;
+    *armeabi*) FRIENDLY_NAME="CrimeaTrip-${APP_ENV}-${DATA_SOURCE}-armeabi-v7a.${EXT}" ;;
+    *x86_64*) FRIENDLY_NAME="CrimeaTrip-${APP_ENV}-${DATA_SOURCE}-x86_64.${EXT}" ;;
+  esac
+fi
+FRIENDLY_PATH="${DIST_DIR}/${FRIENDLY_NAME}"
+cp -f "${ARTIFACT}" "${FRIENDLY_PATH}"
+
+printf '\n==> Artifact (Flutter):\n  %s\n' "${ARTIFACT}"
 ls -lh "${ARTIFACT}"
+printf '\n==> Named copy:\n  %s\n' "${FRIENDLY_PATH}"
+ls -lh "${FRIENDLY_PATH}"
 
 if [[ "${INSTALL}" -eq 1 ]]; then
   require_command adb
   printf '\n==> Installing via adb...\n'
-  adb install -r "${ARTIFACT}"
+  adb install -r "${FRIENDLY_PATH}"
   printf 'Installed. Package: com.crimeatravel.tourism_mobile\n'
 else
   cat <<EOF
 
 Install on a phone (USB debugging on):
-  adb install -r "${ARTIFACT}"
+  adb install -r "${FRIENDLY_PATH}"
 
 Or re-run with --install.
+
+Copy to Desktop:
+  cp "${FRIENDLY_PATH}" "\$HOME/Desktop/"
 EOF
 fi

@@ -561,6 +561,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       resizeToAvoidBottomInset: false,
       body: Column(
         children: [
+          _PinnedChatBrandBar(topInset: top),
           Expanded(
             child: CustomScrollView(
               controller: _scrollController,
@@ -571,17 +572,15 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
               slivers: [
                 SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.fromLTRB(
+                    padding: const EdgeInsets.fromLTRB(
                       SettingsMetrics.contentInset,
-                      top + 8,
+                      12,
                       SettingsMetrics.contentInset,
                       20,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SettingsTopBar(),
-                        const SizedBox(height: 12),
                         if (_loading)
                           const Padding(
                             padding: EdgeInsets.only(top: 48),
@@ -671,6 +670,68 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Compact pinned header matching the home brand bar metrics, with back.
+class _PinnedChatBrandBar extends StatelessWidget {
+  const _PinnedChatBrandBar({required this.topInset});
+
+  final double topInset;
+
+  static const double _rowHeight = 28;
+  static const double _backSize = 28;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.pageSurface,
+      elevation: 0,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: AppColors.mistDark.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            SettingsMetrics.contentInset,
+            topInset + 2,
+            SettingsMetrics.contentInset,
+            6,
+          ),
+          child: SizedBox(
+            height: _rowHeight,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Text(
+                  'КРЫМТРИП',
+                  style: AppTypography.settingsBrand.copyWith(
+                    color: AppColors.settingsBrand,
+                    fontSize: 15,
+                    height: 1,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: SettingsCircleIconButton(
+                    icon: Icons.arrow_back_ios_new_rounded,
+                    onTap: () => context.pop(),
+                    background: SettingsColors.circleButton,
+                    iconColor: Colors.white,
+                    iconSize: 14,
+                    size: _backSize,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

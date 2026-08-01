@@ -21,6 +21,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Первое сообщение'), findsOneWidget);
+    expect(find.text('КРЫМТРИП'), findsOneWidget);
     final composer = find.byType(TextField);
     expect(
       tester.getRect(composer).bottom,

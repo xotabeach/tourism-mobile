@@ -22,7 +22,8 @@ class AuthOtpScreen extends ConsumerStatefulWidget {
   ConsumerState<AuthOtpScreen> createState() => _AuthOtpScreenState();
 }
 
-class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
+class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
+    with WidgetsBindingObserver {
   static const _length = 4;
 
   final _controller = TextEditingController();
@@ -33,6 +34,7 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller.addListener(_onCodeChanged);
     _focusNode.addListener(() {
       if (mounted) {
@@ -42,18 +44,31 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
     // Open the keyboard on the first cell as soon as the screen settles.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        _focusNode.requestFocus();
+        _openKeyboard(caretAt: 0);
       }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller
       ..removeListener(_onCodeChanged)
       ..dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // iOS dismisses the soft keyboard on background but often leaves the
+    // FocusNode focused, so a later requestFocus() is a no-op. Drop focus so
+    // the next cell tap can re-attach the input connection.
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      _focusNode.unfocus();
+    }
   }
 
   String get _code => _controller.text;
@@ -76,10 +91,31 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen> {
     setState(() {});
   }
 
-  void _focusAt(int index) {
+  void _openKeyboard({required int caretAt}) {
+    final offset = caretAt.clamp(0, _code.length);
+    if (_focusNode.hasFocus) {
+      // Force a fresh input connection when focus is stale (common after resume).
+      _focusNode.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        _attachKeyboard(offset);
+      });
+      return;
+    }
+    _attachKeyboard(offset);
+  }
+
+  void _attachKeyboard(int offset) {
     _focusNode.requestFocus();
-    final offset = index.clamp(0, _code.length);
     _controller.selection = TextSelection.collapsed(offset: offset);
+    // Belt-and-suspenders for platforms that keep focus without showing IME.
+    unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.show'));
+  }
+
+  void _focusAt(int index) {
+    _openKeyboard(caretAt: index);
   }
 
   Future<void> _startJourney() async {
