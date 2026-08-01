@@ -35,6 +35,16 @@ final profileProvider = Provider<ProfileSnapshot>((ref) {
   );
 });
 
+ProfileRank _rankWithPoints(int travelPoints) {
+  const base = MockProfile.rank;
+  return ProfileRank(
+    title: base.title,
+    progressPoints: travelPoints,
+    nextRankPoints: base.nextRankPoints,
+    leaderboardPlace: base.leaderboardPlace,
+  );
+}
+
 /// Public/view profile by user id. Always loads API routes; for the signed-in
 /// user keeps local session avatar/cover and mock gamification chrome.
 final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
@@ -65,31 +75,57 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
 
   final bundle = await ref.watch(publicProfileRepositoryProvider).fetch(userId);
   String? resolve(String? raw) => AppImages.resolveMediaUrl(config, raw);
+  final rank = _rankWithPoints(bundle.user.travelPoints);
 
   if (isOwn) {
     final own = ref.watch(profileProvider);
     return ProfileSnapshot(
       displayName: own.displayName,
-      rank: own.rank,
+      rank: rank,
       coverImageAsset: own.coverImageAsset,
       avatarImageAsset: own.avatarImageAsset,
       avatarImageUrl: own.avatarImageUrl,
       coverImageUrl: own.coverImageUrl,
       achievementPages: own.achievementPages,
       publishedRoutes: bundle.routes,
+      likedByMe: false,
+      travelPoints: bundle.user.travelPoints,
     );
   }
 
-  // Same profile chrome as own; only settings/edit are gated in the UI.
-  // Rank/achievements stay mock until Phase 14 durable progress API.
   return ProfileSnapshot(
     displayName: bundle.user.displayName,
-    rank: MockProfile.rank,
+    rank: rank,
     coverImageAsset: AppImages.welcomeSunset,
     avatarImageAsset: AppImages.travelerPortrait,
     avatarImageUrl: resolve(bundle.user.avatarUrl),
     coverImageUrl: resolve(bundle.user.coverUrl),
     achievementPages: MockProfile.achievementPages,
     publishedRoutes: bundle.routes,
+    likedByMe: bundle.user.likedByMe,
+    travelPoints: bundle.user.travelPoints,
   );
 });
+
+final profileLikeControllerProvider =
+    AsyncNotifierProvider<ProfileLikeController, void>(ProfileLikeController.new);
+
+class ProfileLikeController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<void> toggle(String userId) async {
+    final current = ref.read(publicProfileProvider(userId)).valueOrNull;
+    final liked = current?.likedByMe ?? false;
+    final repo = ref.read(publicProfileRepositoryProvider);
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      if (liked) {
+        await repo.unlike(userId);
+      } else {
+        await repo.like(userId);
+      }
+      ref.invalidate(publicProfileProvider(userId));
+    });
+  }
+}

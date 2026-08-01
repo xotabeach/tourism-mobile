@@ -709,7 +709,7 @@ class _SwipeOverlay extends StatelessWidget {
                   children: [
                     SizedBox.square(
                       key: const ValueKey('swipe-action-indicator'),
-                      dimension: 44,
+                      dimension: 52,
                       child: AppGlassSurface(
                         borderRadius: AppRadii.circle,
                         blur: 14,
@@ -722,7 +722,7 @@ class _SwipeOverlay extends StatelessWidget {
                                 ? AppIconography.heart
                                 : AppIconography.sendToEnd,
                             color: Colors.white,
-                            size: 18,
+                            size: 24,
                           ),
                         ),
                       ),
@@ -992,8 +992,8 @@ class _CoachGesture extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: 64,
-          height: 54,
+          width: kind == _CoachGestureKind.tap ? 88 : 64,
+          height: kind == _CoachGestureKind.tap ? 72 : 54,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1090,11 +1090,19 @@ class _TapGesturePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = AppColors.primaryInk
-      ..strokeWidth = 2.1
+      ..strokeWidth = 2.4
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round
       ..style = PaintingStyle.stroke;
-    final centerX = size.width / 2;
+    const designW = 64.0;
+    const designH = 54.0;
+    const sxBase = designW;
+    const syBase = designH;
+    final sx = size.width / sxBase;
+    final sy = size.height / syBase;
+    canvas.save();
+    canvas.scale(sx * 1.35, sy * 1.35);
+    final centerX = 32.0;
 
     canvas
       ..drawLine(Offset(centerX, 11), Offset(centerX, 8), paint)
@@ -1119,7 +1127,9 @@ class _TapGesturePainter extends CustomPainter {
       ..quadraticBezierTo(centerX - 13, 31, centerX - 11, 29)
       ..quadraticBezierTo(centerX - 9, 27, centerX - 7, 29)
       ..lineTo(centerX, 35);
-    canvas.drawPath(hand, paint);
+    canvas
+      ..drawPath(hand, paint)
+      ..restore();
   }
 
   @override
@@ -1134,8 +1144,8 @@ class _DashedArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 204,
-      height: 24,
+      width: 260,
+      height: 18,
       child: CustomPaint(painter: _DashedArrowPainter(direction)),
     );
   }
@@ -1148,17 +1158,18 @@ class _DashedArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const dashWidth = 8.0;
-    const dashGap = 5.0;
+    const dashWidth = 6.0;
+    const dashGap = 4.0;
+    const tipPad = 8.0;
     final paint = Paint()
       ..color = Colors.white.withValues(alpha: 0.9)
-      ..strokeWidth = 1.6
+      ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final y = size.height / 2;
     final pointsRight = direction == AxisDirection.right;
-    final lineStart = pointsRight ? 0.0 : 12.0;
-    final lineEnd = pointsRight ? size.width - 12 : size.width;
+    final lineStart = pointsRight ? 0.0 : tipPad;
+    final lineEnd = pointsRight ? size.width - tipPad : size.width;
 
     for (var x = lineStart; x < lineEnd; x += dashWidth + dashGap) {
       canvas.drawLine(
@@ -1169,10 +1180,10 @@ class _DashedArrowPainter extends CustomPainter {
     }
 
     final tipX = pointsRight ? size.width - 1 : 1.0;
-    final baseX = pointsRight ? size.width - 12 : 12.0;
+    final baseX = pointsRight ? size.width - tipPad : tipPad;
     canvas
-      ..drawLine(Offset(baseX, y - 7), Offset(tipX, y), paint)
-      ..drawLine(Offset(baseX, y + 7), Offset(tipX, y), paint);
+      ..drawLine(Offset(baseX, y - 5), Offset(tipX, y), paint)
+      ..drawLine(Offset(baseX, y + 5), Offset(tipX, y), paint);
   }
 
   @override

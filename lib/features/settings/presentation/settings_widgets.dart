@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 
 /// Colors from Figma settings pixel spec.
@@ -204,7 +205,7 @@ class SettingsScaffold extends StatelessWidget {
                   else
                     const SizedBox(height: SettingsMetrics.rowGap),
                   if (spaceChildren) ..._spaced(children) else ...children,
-                  const SizedBox(height: 120),
+                  const SizedBox(height: AppSpacing.shellBottomContent),
                 ],
               ),
             ),

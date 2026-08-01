@@ -15,6 +15,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
@@ -79,6 +80,19 @@ class AppShellScreen extends ConsumerWidget {
     return null;
   }
 
+  /// Guest/demo profile: `/profile/users/:userId` for another traveler.
+  bool _isGuestProfilePath(BuildContext context, WidgetRef ref) {
+    final segments = GoRouterState.of(context).uri.pathSegments;
+    if (segments.length < 3 ||
+        segments[0] != 'profile' ||
+        segments[1] != 'users') {
+      return false;
+    }
+    final viewedId = segments[2];
+    final selfId = ref.watch(sessionProvider).userId;
+    return viewedId.isNotEmpty && viewedId != selfId;
+  }
+
   void _onDestinationSelected(
     BuildContext context,
     WidgetRef ref,
@@ -86,7 +100,9 @@ class AppShellScreen extends ConsumerWidget {
   ) {
     final onCurrentBranch = index == navigationShell.currentIndex;
     final path = GoRouterState.of(context).uri.path;
-    if (onCurrentBranch && _isBranchRootPath(path, index)) {
+    final scrolledDown = ref.read(tabScrolledDownProvider(index));
+    if (onCurrentBranch &&
+        (scrolledDown || _isBranchRootPath(path, index))) {
       unawaited(HapticFeedback.selectionClick());
       ref.read(tabScrollToTopProvider(index).notifier).state++;
       return;
@@ -138,7 +154,11 @@ class AppShellScreen extends ConsumerWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final path = GoRouterState.of(context).uri.path;
     final detailNavigationIndex = _detailNavigationIndex(context);
-    final showDetailsChrome = detailNavigationIndex != null;
+    final guestProfile = _isGuestProfilePath(context, ref);
+    final showDetailsChrome = detailNavigationIndex != null && !guestProfile;
+    final historyBackMode = guestProfile;
+    final currentIndex = navigationShell.currentIndex;
+    final scrolledDown = ref.watch(tabScrolledDownProvider(currentIndex));
     final showRouteAction = detailNavigationIndex == 0;
     // CTA only on Travel+ paywall — other settings keep compact nav alone.
     final showTravelPlusAction =
@@ -187,11 +207,20 @@ class AppShellScreen extends ConsumerWidget {
             bottom: bottomInset > 0 ? bottomInset : AppSpacing.sm,
             child: AppFloatingNavBar(
               key: _appFloatingNavKey,
-              currentIndex: navigationShell.currentIndex,
+              currentIndex: currentIndex,
               onTap: (index) => _onDestinationSelected(context, ref, index),
               detailMode: showDetailsChrome,
-              compactDestinationIndex:
-                  detailNavigationIndex ?? navigationShell.currentIndex,
+              historyBackMode: historyBackMode,
+              scrollToTopMode: scrolledDown && !historyBackMode,
+              compactDestinationIndex: historyBackMode
+                  ? currentIndex
+                  : (detailNavigationIndex ?? currentIndex),
+              onHistoryBack: () {
+                unawaited(HapticFeedback.selectionClick());
+                if (context.canPop()) {
+                  context.pop();
+                }
+              },
               onStartRoute: detailAction,
               startRouteLabel: detailActionLabel,
             ),
@@ -207,7 +236,10 @@ class AppFloatingNavBar extends StatefulWidget {
     required this.currentIndex,
     required this.onTap,
     this.detailMode = false,
+    this.historyBackMode = false,
+    this.scrollToTopMode = false,
     this.compactDestinationIndex = 0,
+    this.onHistoryBack,
     this.onStartRoute,
     this.startRouteLabel = 'Пройти маршрут',
     super.key,
@@ -219,9 +251,14 @@ class AppFloatingNavBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final bool detailMode;
+  final bool historyBackMode;
+  final bool scrollToTopMode;
   final int compactDestinationIndex;
+  final VoidCallback? onHistoryBack;
   final VoidCallback? onStartRoute;
   final String startRouteLabel;
+
+  bool get compactChrome => detailMode || historyBackMode;
 
   @override
   State<AppFloatingNavBar> createState() => _AppFloatingNavBarState();
@@ -260,13 +297,13 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     _detailPresenceController = AnimationController(
       vsync: this,
       duration: AppMotion.detailMorph,
-      value: widget.detailMode ? 1 : 0,
+      value: widget.compactChrome ? 1 : 0,
     )..addListener(_rebuild);
     _detailExpansionController = AnimationController(
       vsync: this,
       duration: AppMotion.detailMorph,
     )..addListener(_rebuild);
-    if (widget.detailMode) {
+    if (widget.compactChrome) {
       _position = widget.compactDestinationIndex.toDouble();
       _fromPosition = _position;
       _targetIndex = widget.compactDestinationIndex;
@@ -276,8 +313,8 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   @override
   void didUpdateWidget(covariant AppFloatingNavBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.detailMode != oldWidget.detailMode) {
-      if (widget.detailMode) {
+    if (widget.compactChrome != oldWidget.compactChrome) {
+      if (widget.compactChrome) {
         _cancelAutoCollapse();
         _detailExpansionController.value = 0;
         _animateTo(widget.compactDestinationIndex);
@@ -288,12 +325,12 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         _animateDetailPresence(0);
         _detailExpansionController.value = 0;
       }
-    } else if (widget.detailMode &&
+    } else if (widget.compactChrome &&
         widget.compactDestinationIndex != oldWidget.compactDestinationIndex) {
       _cancelAutoCollapse();
       _detailExpansionController.value = 0;
       _animateTo(widget.compactDestinationIndex);
-    } else if (!widget.detailMode && widget.currentIndex != _targetIndex) {
+    } else if (!widget.compactChrome && widget.currentIndex != _targetIndex) {
       _animateTo(widget.currentIndex);
     }
   }
@@ -322,7 +359,10 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
 
   void _scheduleAutoCollapse() {
     _cancelAutoCollapse();
-    if (!widget.detailMode || _detailExpansionController.value < 0.99) {
+    // Guest back mode stays collapsed; only detail chrome can expand.
+    if (!widget.detailMode ||
+        widget.historyBackMode ||
+        _detailExpansionController.value < 0.99) {
       return;
     }
     _autoCollapseTimer = Timer(_autoCollapseDelay, _collapseDetailNavigation);
@@ -367,7 +407,9 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _expandDetailNavigation() {
-    if (!widget.detailMode || _detailExpansionController.value >= 1) {
+    if (!widget.detailMode ||
+        widget.historyBackMode ||
+        _detailExpansionController.value >= 1) {
       return;
     }
     _cancelAutoCollapse();
@@ -403,6 +445,10 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _handleTap(int index) {
+    if (widget.historyBackMode) {
+      widget.onHistoryBack?.call();
+      return;
+    }
     if (widget.detailMode &&
         _detailExpansionController.value < 1 &&
         index == widget.compactDestinationIndex) {
@@ -420,6 +466,14 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     widget.onTap(index);
   }
 
+  void _handleCompactOverlayTap() {
+    if (widget.historyBackMode) {
+      widget.onHistoryBack?.call();
+      return;
+    }
+    _expandDetailNavigation();
+  }
+
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
@@ -430,10 +484,11 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     final expanded = _detailExpansionController.value;
     final compactProgress = presence * (1 - expanded);
     final showDetailLayout =
-        widget.detailMode ||
+        widget.compactChrome ||
         _detailPresenceController.isAnimating ||
         presence > 0.001;
-    final hasDetailAction = widget.onStartRoute != null;
+    final hasDetailAction =
+        widget.detailMode && widget.onStartRoute != null;
     final totalHeight = showDetailLayout && hasDetailAction
         ? _detailHeight
         : _height;
@@ -544,6 +599,11 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     )!;
     final trailingEnd = lerpDouble(width, compactCenterX, compactProgress)!;
     final revealProgress = 1 - compactProgress;
+    // Fade row icons in place (no horizontal slide). Compact glyph crossfades
+    // at the fixed left/right anchor so the active button does not drift.
+    final rowIconVisibility = (revealProgress).clamp(0.0, 1.0);
+    final compactIconOpacity = compactProgress.clamp(0.0, 1.0);
+    final compactLeft = compactOnRight ? width - _activeDiameter : 0.0;
 
     return FocusTraversalGroup(
       policy: OrderedTraversalPolicy(),
@@ -596,7 +656,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
           ),
           Positioned.fill(
             child: IgnorePointer(
-              ignoring: compactProgress > 0.995,
+              ignoring: compactProgress > 0.5,
               child: Row(
                 children: [
                   for (
@@ -614,17 +674,11 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                           0,
                           1,
                         ),
-                        visibility: index == widget.compactDestinationIndex
-                            ? 1
-                            : ((revealProgress -
-                                          (index - widget.compactDestinationIndex)
-                                                  .abs() *
-                                              0.04) /
-                                      0.78)
-                                  .clamp(0, 1),
-                        translationX:
-                            (compactCenterX - (index + 0.5) * slotWidth) *
-                            compactProgress,
+                        visibility: rowIconVisibility,
+                        showScrollToTop:
+                            widget.scrollToTopMode &&
+                            index == widget.currentIndex &&
+                            !widget.compactChrome,
                         onTap: _handleTap,
                       ),
                     ),
@@ -632,25 +686,48 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
               ),
             ),
           ),
-          if (compactProgress > 0.995)
+          if (compactIconOpacity > 0.01)
             Positioned(
-              left: compactOnRight ? width - _activeDiameter : 0,
+              left: compactLeft,
               top: 0,
               width: _activeDiameter,
               height: _height,
-              child: Semantics(
-                label:
-                    'Развернуть навигацию, выбран раздел '
-                    '${_appNavDestinations[widget.compactDestinationIndex].label}',
-                button: true,
-                selected: true,
-                child: Tooltip(
-                  message: 'Развернуть навигацию',
-                  child: GestureDetector(
-                    key: const ValueKey('expand-detail-navigation'),
-                    behavior: HitTestBehavior.opaque,
-                    onTap: _expandDetailNavigation,
-                    child: const SizedBox.expand(),
+              child: Opacity(
+                opacity: compactIconOpacity,
+                child: Semantics(
+                  label: widget.historyBackMode
+                      ? 'Назад'
+                      : 'Развернуть навигацию, выбран раздел '
+                            '${_appNavDestinations[widget.compactDestinationIndex].label}',
+                  button: true,
+                  selected: true,
+                  child: Tooltip(
+                    message: widget.historyBackMode
+                        ? 'Назад'
+                        : 'Развернуть навигацию',
+                    child: GestureDetector(
+                      key: ValueKey(
+                        widget.historyBackMode
+                            ? 'history-back-navigation'
+                            : 'expand-detail-navigation',
+                      ),
+                      behavior: HitTestBehavior.opaque,
+                      onTap: _handleCompactOverlayTap,
+                      child: Center(
+                        child: widget.historyBackMode
+                            ? const Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                size: 20,
+                                color: Colors.white,
+                              )
+                            : AppAssetIcon(
+                                _appNavDestinations[widget.compactDestinationIndex]
+                                    .selectedIcon,
+                                size: AppIconography.navigation,
+                                color: Colors.white,
+                              ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -679,7 +756,7 @@ class _NavItem extends StatelessWidget {
     required this.index,
     required this.activeWeight,
     this.visibility = 1,
-    this.translationX = 0,
+    this.showScrollToTop = false,
     required this.onTap,
   });
 
@@ -687,7 +764,7 @@ class _NavItem extends StatelessWidget {
   final int index;
   final double activeWeight;
   final double visibility;
-  final double translationX;
+  final bool showScrollToTop;
   final ValueChanged<int> onTap;
 
   @override
@@ -696,46 +773,52 @@ class _NavItem extends StatelessWidget {
     final inactiveColor = AppColors.inactiveNavigationIcon.withValues(
       alpha: 0.84 * visibility,
     );
+    final label = showScrollToTop ? 'Наверх' : destination.label;
 
     return ExcludeSemantics(
       excluding: visibility < 0.99,
       child: IgnorePointer(
         ignoring: visibility < 0.99,
-        child: Transform.translate(
-          offset: Offset(translationX, 0),
-          child: Semantics(
-            label: destination.label,
-            button: true,
-            selected: selected,
-            sortKey: OrdinalSortKey(index.toDouble()),
-            child: Tooltip(
-              message: destination.label,
-              child: InkResponse(
-                onTap: () => onTap(index),
-                radius: 30,
-                containedInkWell: true,
-                highlightShape: BoxShape.circle,
-                child: Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      AppAssetIcon(
-                        destination.icon,
-                        size: AppIconography.navigation,
-                        color: inactiveColor.withValues(
-                          alpha: inactiveColor.a * (1 - activeWeight),
-                        ),
-                      ),
-                      AppAssetIcon(
-                        destination.selectedIcon,
-                        size: AppIconography.navigation,
+        child: Semantics(
+          label: label,
+          button: true,
+          selected: selected,
+          sortKey: OrdinalSortKey(index.toDouble()),
+          child: Tooltip(
+            message: label,
+            child: InkResponse(
+              onTap: () => onTap(index),
+              radius: 30,
+              containedInkWell: true,
+              highlightShape: BoxShape.circle,
+              child: Center(
+                child: showScrollToTop
+                    ? Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        size: 28,
                         color: Colors.white.withValues(
                           alpha: activeWeight * visibility,
                         ),
+                      )
+                    : Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          AppAssetIcon(
+                            destination.icon,
+                            size: AppIconography.navigation,
+                            color: inactiveColor.withValues(
+                              alpha: inactiveColor.a * (1 - activeWeight),
+                            ),
+                          ),
+                          AppAssetIcon(
+                            destination.selectedIcon,
+                            size: AppIconography.navigation,
+                            color: Colors.white.withValues(
+                              alpha: activeWeight * visibility,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
               ),
             ),
           ),

@@ -9,12 +9,16 @@ class PublicUserProfile {
     required this.displayName,
     this.avatarUrl,
     this.coverUrl,
+    this.travelPoints = 0,
+    this.likedByMe = false,
   });
 
   final String id;
   final String displayName;
   final String? avatarUrl;
   final String? coverUrl;
+  final int travelPoints;
+  final bool likedByMe;
 
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
     return PublicUserProfile(
@@ -22,6 +26,8 @@ class PublicUserProfile {
       displayName: json['display_name'] as String,
       avatarUrl: json['avatar_url'] as String?,
       coverUrl: json['cover_url'] as String?,
+      travelPoints: (json['travel_points'] as num?)?.toInt() ?? 0,
+      likedByMe: json['liked_by_me'] as bool? ?? false,
     );
   }
 }
@@ -35,6 +41,8 @@ class PublicProfileBundle {
 
 abstract class PublicProfileRepository {
   Future<PublicProfileBundle> fetch(String userId);
+  Future<void> like(String userId);
+  Future<void> unlike(String userId);
 }
 
 class ApiPublicProfileRepository implements PublicProfileRepository {
@@ -57,6 +65,20 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
         user: PublicUserProfile.fromJson(userResponse.data!),
         routes: page.items,
       );
+    });
+  }
+
+  @override
+  Future<void> like(String userId) {
+    return guardApiCall(() async {
+      await _dio.put<void>('/api/v1/users/$userId/like');
+    });
+  }
+
+  @override
+  Future<void> unlike(String userId) {
+    return guardApiCall(() async {
+      await _dio.delete<void>('/api/v1/users/$userId/like');
     });
   }
 }

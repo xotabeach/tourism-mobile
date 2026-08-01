@@ -36,6 +36,19 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   var _selectedChip = 'Все';
   var _searchQuery = '';
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    syncTabScrolledDown(ref, 3, _scrollController.offset);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
   List<PlaceSummary> _filtered(List<PlaceSummary> items) {
     if (_selectedChip == 'Все') {
       return items;
@@ -87,7 +100,9 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   @override
   void dispose() {
     _searchDebounce?.cancel();
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();

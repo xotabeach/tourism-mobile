@@ -37,6 +37,8 @@ class ProfileSnapshot {
     required this.publishedRoutes,
     this.avatarImageUrl,
     this.coverImageUrl,
+    this.likedByMe = false,
+    this.travelPoints,
   });
 
   final String displayName;
@@ -47,6 +49,8 @@ class ProfileSnapshot {
   final String? coverImageUrl;
   final List<List<ProfileAchievement>> achievementPages;
   final List<RouteSummary> publishedRoutes;
+  final bool likedByMe;
+  final int? travelPoints;
 
   String get firstName {
     final parts = displayName.trim().split(RegExp(r'\s+'));

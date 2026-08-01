@@ -9,4 +9,7 @@ abstract final class AppSpacing {
 
   static const double page = 16;
   static const double floatingNavInset = 16;
+
+  /// Bottom inset under shell content so lists clear the floating nav.
+  static const double shellBottomContent = 96;
 }

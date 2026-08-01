@@ -33,11 +33,31 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
+  static const _pinnedBarThreshold = 48.0;
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'home-search');
   final _scrollController = ScrollController();
   var _selectedChip = 'Все';
   var _searchQuery = '';
+  var _showPinnedBrand = false;
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    final offset = _scrollController.offset;
+    syncTabScrolledDown(ref, 0, offset);
+    final show = offset > _pinnedBarThreshold;
+    if (show != _showPinnedBrand) {
+      setState(() => _showPinnedBrand = show);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   List<RouteSummary> _filtered(List<RouteSummary> items) {
     return items.where((route) {
@@ -86,7 +106,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     _searchController.dispose();
     _searchFocus.dispose();
     super.dispose();
@@ -115,61 +137,124 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return ColoredBox(
       color: AppColors.mist,
-      child: routesAsync.when(
-        data: (page) {
-          final items = _filtered(page.items);
-          return ListView.builder(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.page,
-              topInset + AppSpacing.lg,
-              AppSpacing.page,
-              120,
-            ),
-            itemCount: 1 + (items.isEmpty ? 1 : items.length),
-            itemBuilder: (context, index) {
-              if (index == 0) {
-                return _HomeHeader(
-                  name: name,
-                  selectedChip: _selectedChip,
-                  chips: _chips,
-                  searchController: _searchController,
-                  searchFocus: _searchFocus,
-                  onSearchChanged: _onSearchChanged,
-                  onSearchClear: _clearSearch,
-                  onSearchDismiss: _dismissSearch,
-                  onChipSelected: (chip) {
-                    _dismissSearch();
-                    setState(() => _selectedChip = chip);
-                  },
-                );
-              }
-              if (items.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.only(top: 32),
-                  child: Center(child: Text('Маршруты не найдены')),
-                );
-              }
-              final route = items[index - 1];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: RouteHeroCard(
-                  route: route,
-                  height: 304,
-                  tags: index == 1
-                      ? const ['Горы', 'С детьми', 'Пешком']
-                      : const [],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          routesAsync.when(
+            data: (page) {
+              final items = _filtered(page.items);
+              return ListView.builder(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
                 ),
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.page,
+                  topInset + AppSpacing.lg,
+                  AppSpacing.page,
+                  AppSpacing.shellBottomContent,
+                ),
+                itemCount: 1 + (items.isEmpty ? 1 : items.length),
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    return _HomeHeader(
+                      name: name,
+                      selectedChip: _selectedChip,
+                      chips: _chips,
+                      searchController: _searchController,
+                      searchFocus: _searchFocus,
+                      onSearchChanged: _onSearchChanged,
+                      onSearchClear: _clearSearch,
+                      onSearchDismiss: _dismissSearch,
+                      onChipSelected: (chip) {
+                        _dismissSearch();
+                        setState(() => _selectedChip = chip);
+                      },
+                    );
+                  }
+                  if (items.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 32),
+                      child: Center(child: Text('Маршруты не найдены')),
+                    );
+                  }
+                  final route = items[index - 1];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: RouteHeroCard(
+                      route: route,
+                      height: 304,
+                      tags: index == 1
+                          ? const ['Горы', 'С детьми', 'Пешком']
+                          : const [],
+                    ),
+                  );
+                },
               );
             },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, _) => AppAsyncErrorView(
-          onRetry: () => ref.invalidate(routesListProvider),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, _) => AppAsyncErrorView(
+              onRetry: () => ref.invalidate(routesListProvider),
+            ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            child: IgnorePointer(
+              ignoring: !_showPinnedBrand,
+              child: AnimatedSlide(
+                duration: AppMotion.normal,
+                curve: Curves.easeOutCubic,
+                offset: _showPinnedBrand ? Offset.zero : const Offset(0, -1),
+                child: AnimatedOpacity(
+                  duration: AppMotion.normal,
+                  opacity: _showPinnedBrand ? 1 : 0,
+                  child: _HomePinnedBrandBar(topInset: topInset),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomePinnedBrandBar extends StatelessWidget {
+  const _HomePinnedBrandBar({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.pageSurface.withValues(alpha: 0.94),
+      elevation: 0,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: AppColors.mistDark.withValues(alpha: 0.55)),
+          ),
+        ),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            topInset + 8,
+            AppSpacing.page,
+            10,
+          ),
+          child: SizedBox(
+            height: 40,
+            child: Center(
+              child: Text(
+                'КРЫМТРИП',
+                style: AppTypography.settingsBrand.copyWith(
+                  color: AppColors.settingsBrand,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

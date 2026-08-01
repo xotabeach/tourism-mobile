@@ -40,9 +40,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   var _achievementPage = 0;
   var _publishedPage = 0;
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    syncTabScrolledDown(ref, 4, _scrollController.offset);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
   @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     super.dispose();
   }
 
@@ -149,7 +164,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
-        padding: const EdgeInsets.only(bottom: 120),
+        padding: const EdgeInsets.only(bottom: AppSpacing.shellBottomContent),
         children: [
           _ProfileHeader(
             profile: profile,
@@ -157,7 +172,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             onMore: isOwn
                 ? () => context.pushNamed(AppRouteNames.settings)
                 : null,
-            onBack: isOwn ? null : () => context.pop(),
+            likedByMe: profile.likedByMe,
+            onLike: isOwn
+                ? null
+                : () {
+                    final userId = widget.userId;
+                    if (userId == null || userId.isEmpty) {
+                      return;
+                    }
+                    unawaited(
+                      ref
+                          .read(profileLikeControllerProvider.notifier)
+                          .toggle(userId),
+                    );
+                  },
           ),
           Transform.translate(
             offset: const Offset(0, -28),
@@ -243,13 +271,15 @@ class _ProfileHeader extends StatelessWidget {
     required this.profile,
     required this.topInset,
     this.onMore,
-    this.onBack,
+    this.onLike,
+    this.likedByMe = false,
   });
 
   final ProfileSnapshot profile;
   final double topInset;
   final VoidCallback? onMore;
-  final VoidCallback? onBack;
+  final VoidCallback? onLike;
+  final bool likedByMe;
 
   @override
   Widget build(BuildContext context) {
@@ -263,7 +293,7 @@ class _ProfileHeader extends StatelessWidget {
     );
 
     return SizedBox(
-      height: topInset + 236,
+      height: topInset + 190,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -331,13 +361,15 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.xs),
-                if (onBack != null)
+                if (onLike != null)
                   _HeaderActionButton(
-                    tooltip: 'Назад',
-                    onTap: onBack!,
+                    tooltip: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
+                    onTap: onLike!,
                     fillColor: Colors.black.withValues(alpha: 0.35),
                     iconColor: Colors.white,
-                    icon: Icons.arrow_back_ios_new_rounded,
+                    icon: likedByMe
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
                   )
                 else if (onMore != null)
                   _HeaderActionButton(
@@ -446,14 +478,16 @@ class _RankCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFE8E8E8)),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(AppRadii.capsule),
                     child: SizedBox(
-                      height: 34,
+                      height: 40,
                       child: Stack(
                         fit: StackFit.expand,
                         children: [
@@ -484,10 +518,9 @@ class _RankCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 8,
-                  ),
+                  height: 40,
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   decoration: BoxDecoration(
                     color: AppColors.controlSurface,
                     borderRadius: BorderRadius.circular(AppRadii.capsule),
