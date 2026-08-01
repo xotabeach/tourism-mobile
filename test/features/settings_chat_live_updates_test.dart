@@ -34,6 +34,19 @@ void main() {
       isTrue,
     );
 
+    await tester.tap(find.text('Первое сообщение'));
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isFalse,
+    );
+
+    await tester.tap(find.byType(TextField));
+    await tester.pump();
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
     await tester.tap(find.byKey(const ValueKey('chat-empty-space')));
     await tester.pump();
     expect(
@@ -106,9 +119,15 @@ void main() {
     expect(controller.position.pixels, 0);
 
     await tester.tap(find.byType(TextField));
+    await tester.pump();
+    // Simulate shell-resized keyboard via raw view metrics (parent Scaffold
+    // strips MediaQuery.viewInsets for nested chat screens).
     tester.view.viewInsets = const FakeViewPadding(bottom: 320);
     addTearDown(tester.view.resetViewInsets);
     await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 160));
+    await tester.pump(const Duration(milliseconds: 320));
     await tester.pumpAndSettle();
 
     expect(

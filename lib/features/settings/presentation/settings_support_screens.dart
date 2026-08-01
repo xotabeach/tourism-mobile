@@ -335,9 +335,23 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
   }
 
   void _onComposerFocusChange() {
-    if (_composerFocus.hasFocus) {
-      _scrollToLatest();
+    if (!_composerFocus.hasFocus) {
+      return;
     }
+    // Parent AppShell Scaffold strips MediaQuery.viewInsets; extents update
+    // across the keyboard animation, so retry while focus stays.
+    _scrollToLatest(animate: true);
+    _scrollToLatestSoon();
+  }
+
+  void _dismissKeyboard() {
+    FocusManager.instance.primaryFocus?.unfocus();
+  }
+
+  /// Raw view inset in logical pixels (survives parent Scaffold inset stripping).
+  double _keyboardInset() {
+    final view = View.of(context);
+    return MediaQueryData.fromView(view).viewInsets.bottom;
   }
 
   @override
@@ -353,18 +367,32 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
 
   @override
   void didChangeMetrics() {
-    _handleKeyboardInset();
-  }
-
-  void _handleKeyboardInset() {
     if (!mounted) {
       return;
     }
-    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final inset = _keyboardInset();
     final opened = inset > _lastViewInset + 1;
     _lastViewInset = inset;
-    if (opened) {
-      _scrollToLatest();
+    if (opened || (inset > 0 && _composerFocus.hasFocus)) {
+      _scrollToLatest(animate: false);
+      if (opened) {
+        _scrollToLatestSoon();
+      }
+    }
+  }
+
+  void _scrollToLatestSoon() {
+    for (final delay in const [
+      Duration(milliseconds: 50),
+      Duration(milliseconds: 160),
+      Duration(milliseconds: 320),
+    ]) {
+      Future<void>.delayed(delay, () {
+        if (!mounted || !_composerFocus.hasFocus) {
+          return;
+        }
+        _scrollToLatest(animate: false);
+      });
     }
   }
 
@@ -407,8 +435,12 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       if (!mounted || !_scrollController.hasClients) {
         return;
       }
-      final target = _scrollController.position.maxScrollExtent;
-      if (!animate || (_scrollController.position.pixels - target).abs() < 1) {
+      final position = _scrollController.position;
+      final target = position.maxScrollExtent;
+      if ((position.pixels - target).abs() < 0.5) {
+        return;
+      }
+      if (!animate) {
         _scrollController.jumpTo(target);
         return;
       }
@@ -421,14 +453,8 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       );
     }
 
-    if (_scrollController.hasClients) {
-      // Wait one frame so resizeToAvoidBottomInset can update extents.
-      WidgetsBinding.instance.addPostFrameCallback((_) => go());
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => go());
-    });
+    // Wait a frame so the shell Scaffold can shrink before we read extents.
+    WidgetsBinding.instance.addPostFrameCallback((_) => go());
   }
 
   void _adoptMessages(SupportTicket updated, {required bool scroll}) {
@@ -527,29 +553,18 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
 
   @override
   Widget build(BuildContext context) {
-    // MediaQuery updates are the most reliable keyboard signal in tests/devices.
-    final inset = MediaQuery.viewInsetsOf(context).bottom;
-    if (inset != _lastViewInset) {
-      final opened = inset > _lastViewInset + 1;
-      _lastViewInset = inset;
-      if (opened) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _scrollToLatest();
-          }
-        });
-      }
-    }
     final messages = _ticket?.messages ?? const <SupportMessage>[];
     final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
-      resizeToAvoidBottomInset: true,
+      // Shell Scaffold already resizes for the keyboard and strips viewInsets.
+      resizeToAvoidBottomInset: false,
       body: Column(
         children: [
           Expanded(
             child: CustomScrollView(
               controller: _scrollController,
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -572,33 +587,40 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
                             padding: EdgeInsets.only(top: 48),
                             child: Center(child: CircularProgressIndicator()),
                           )
-                        else ...[
-                          const Center(
-                            child: Text(
-                              'Сегодня',
-                              style: AppTypography.settingsRowSubtitle,
+                        else
+                          GestureDetector(
+                            key: const ValueKey('chat-message-area'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _dismissKeyboard,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Center(
+                                  child: Text(
+                                    'Сегодня',
+                                    style: AppTypography.settingsRowSubtitle,
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                if (_error != null)
+                                  Text(
+                                    _error!,
+                                    style: AppTypography.settingsRowSubtitle
+                                        .copyWith(color: AppColors.error),
+                                  ),
+                                if (messages.isEmpty && _error == null)
+                                  Text(
+                                    'Напишите сообщение — создадим обращение в поддержку.',
+                                    style: AppTypography.settingsRowSubtitle
+                                        .copyWith(color: AppColors.settingsInk),
+                                  ),
+                                for (final message in messages) ...[
+                                  const SizedBox(height: 12),
+                                  _ChatBubble(message: message),
+                                ],
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 20),
-                          if (_error != null)
-                            Text(
-                              _error!,
-                              style: AppTypography.settingsRowSubtitle.copyWith(
-                                color: AppColors.error,
-                              ),
-                            ),
-                          if (messages.isEmpty && _error == null)
-                            Text(
-                              'Напишите сообщение — создадим обращение в поддержку.',
-                              style: AppTypography.settingsRowSubtitle.copyWith(
-                                color: AppColors.settingsInk,
-                              ),
-                            ),
-                          for (final message in messages) ...[
-                            const SizedBox(height: 12),
-                            _ChatBubble(message: message),
-                          ],
-                        ],
                       ],
                     ),
                   ),
@@ -607,8 +629,9 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
                   hasScrollBody: false,
                   child: GestureDetector(
                     key: const ValueKey('chat-empty-space'),
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _dismissKeyboard,
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ],
