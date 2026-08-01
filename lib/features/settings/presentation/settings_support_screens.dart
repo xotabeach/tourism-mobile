@@ -675,14 +675,11 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
   }
 }
 
-/// Compact pinned header matching the home brand bar metrics, with back.
+/// Pinned chat header: home-like brand styling, original back button size.
 class _PinnedChatBrandBar extends StatelessWidget {
   const _PinnedChatBrandBar({required this.topInset});
 
   final double topInset;
-
-  static const double _rowHeight = 28;
-  static const double _backSize = 28;
 
   @override
   Widget build(BuildContext context) {
@@ -705,7 +702,7 @@ class _PinnedChatBrandBar extends StatelessWidget {
             6,
           ),
           child: SizedBox(
-            height: _rowHeight,
+            height: SettingsMetrics.headerButton,
             child: Stack(
               alignment: Alignment.center,
               children: [
@@ -713,7 +710,7 @@ class _PinnedChatBrandBar extends StatelessWidget {
                   'КРЫМТРИП',
                   style: AppTypography.settingsBrand.copyWith(
                     color: AppColors.settingsBrand,
-                    fontSize: 15,
+                    fontSize: 20,
                     height: 1,
                   ),
                 ),
@@ -724,8 +721,8 @@ class _PinnedChatBrandBar extends StatelessWidget {
                     onTap: () => context.pop(),
                     background: SettingsColors.circleButton,
                     iconColor: Colors.white,
-                    iconSize: 14,
-                    size: _backSize,
+                    iconSize: 18,
+                    size: SettingsMetrics.headerButton,
                   ),
                 ),
               ],
