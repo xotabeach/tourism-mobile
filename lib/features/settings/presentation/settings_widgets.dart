@@ -617,25 +617,34 @@ class SettingsTextField extends StatelessWidget {
   const SettingsTextField({
     super.key,
     required this.controller,
+    this.focusNode,
     this.hintText,
     this.keyboardType,
     this.maxLength,
     this.textCapitalization = TextCapitalization.none,
+    this.textInputAction,
+    this.onSubmitted,
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String? hintText;
   final TextInputType? keyboardType;
   final int? maxLength;
   final TextCapitalization textCapitalization;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       keyboardType: keyboardType,
       maxLength: maxLength,
       textCapitalization: textCapitalization,
+      textInputAction: textInputAction,
+      onSubmitted: onSubmitted,
       style: AppTypography.settingsRowSubtitle.copyWith(
         color: AppColors.settingsInk,
         fontSize: 14,

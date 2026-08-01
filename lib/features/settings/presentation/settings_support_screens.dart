@@ -304,17 +304,22 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
   static const _refreshInterval = Duration(seconds: 3);
 
   final _composer = TextEditingController();
+  final _composerFocus = FocusNode();
+  final _scrollController = ScrollController();
   SupportTicket? _ticket;
   Timer? _refreshTimer;
   var _loading = true;
   var _sending = false;
   var _refreshing = false;
+  var _lastViewInset = 0.0;
+  var _lastMessageCount = 0;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _composerFocus.addListener(_onComposerFocusChange);
     unawaited(_bootstrap());
   }
 
@@ -322,8 +327,17 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _refreshTimer?.cancel();
+    _composerFocus.removeListener(_onComposerFocusChange);
     _composer.dispose();
+    _composerFocus.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onComposerFocusChange() {
+    if (_composerFocus.hasFocus) {
+      _scrollToLatest();
+    }
   }
 
   @override
@@ -337,6 +351,23 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
     _refreshTimer = null;
   }
 
+  @override
+  void didChangeMetrics() {
+    _handleKeyboardInset();
+  }
+
+  void _handleKeyboardInset() {
+    if (!mounted) {
+      return;
+    }
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    final opened = inset > _lastViewInset + 1;
+    _lastViewInset = inset;
+    if (opened) {
+      _scrollToLatest();
+    }
+  }
+
   Future<void> _bootstrap() async {
     setState(() {
       _loading = true;
@@ -348,6 +379,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       final chat = tickets.where((t) => t.kind == 'chat').firstOrNull;
       if (chat != null) {
         _ticket = await repo.getTicket(chat.id);
+        _lastMessageCount = _ticket?.messages.length ?? 0;
         _startRefreshTimer();
       }
     } on AppFailure catch (error) {
@@ -355,6 +387,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
     } finally {
       if (mounted) {
         setState(() => _loading = false);
+        _scrollToLatest(animate: false);
       }
     }
   }
@@ -367,6 +400,46 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       _refreshInterval,
       (_) => unawaited(_refreshTicket()),
     );
+  }
+
+  void _scrollToLatest({bool animate = true}) {
+    void go() {
+      if (!mounted || !_scrollController.hasClients) {
+        return;
+      }
+      final target = _scrollController.position.maxScrollExtent;
+      if (!animate || (_scrollController.position.pixels - target).abs() < 1) {
+        _scrollController.jumpTo(target);
+        return;
+      }
+      unawaited(
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOut,
+        ),
+      );
+    }
+
+    if (_scrollController.hasClients) {
+      // Wait one frame so resizeToAvoidBottomInset can update extents.
+      WidgetsBinding.instance.addPostFrameCallback((_) => go());
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => go());
+    });
+  }
+
+  void _adoptMessages(SupportTicket updated, {required bool scroll}) {
+    final count = updated.messages.length;
+    final grew = count > _lastMessageCount;
+    _ticket = updated;
+    _lastMessageCount = count;
+    _error = null;
+    if (scroll || grew) {
+      _scrollToLatest();
+    }
   }
 
   Future<void> _refreshTicket() async {
@@ -382,10 +455,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       if (!mounted) {
         return;
       }
-      setState(() {
-        _ticket = updated;
-        _error = null;
-      });
+      setState(() => _adoptMessages(updated, scroll: false));
     } on AppFailure {
       return;
     } finally {
@@ -402,28 +472,42 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
     try {
       final repo = ref.read(supportRepositoryProvider);
       if (_ticket == null) {
-        _ticket = await repo.createTicket(
+        final created = await repo.createTicket(
           kind: 'chat',
           subject: 'Чат поддержки',
           body: text,
         );
+        if (!mounted) {
+          return;
+        }
+        setState(() => _adoptMessages(created, scroll: true));
       } else {
         final message = await repo.addMessage(
           ticketId: _ticket!.id,
           body: text,
         );
-        _ticket = SupportTicket(
-          id: _ticket!.id,
-          kind: _ticket!.kind,
-          subject: _ticket!.subject,
-          status: _ticket!.status,
-          routeId: _ticket!.routeId,
-          createdAt: _ticket!.createdAt,
-          updatedAt: message.createdAt,
-          messages: [..._ticket!.messages, message],
+        if (!mounted) {
+          return;
+        }
+        setState(
+          () => _adoptMessages(
+            SupportTicket(
+              id: _ticket!.id,
+              kind: _ticket!.kind,
+              subject: _ticket!.subject,
+              status: _ticket!.status,
+              routeId: _ticket!.routeId,
+              createdAt: _ticket!.createdAt,
+              updatedAt: message.createdAt,
+              messages: [..._ticket!.messages, message],
+            ),
+            scroll: true,
+          ),
         );
       }
       _composer.clear();
+      // Keep the soft keyboard open for consecutive replies.
+      _composerFocus.requestFocus();
       _startRefreshTimer();
     } on AppFailure catch (error) {
       if (!mounted) {
@@ -435,6 +519,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
     } finally {
       if (mounted) {
         setState(() => _sending = false);
+        _composerFocus.requestFocus();
       }
       unawaited(_refreshTicket());
     }
@@ -442,108 +527,127 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
 
   @override
   Widget build(BuildContext context) {
+    // MediaQuery updates are the most reliable keyboard signal in tests/devices.
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset != _lastViewInset) {
+      final opened = inset > _lastViewInset + 1;
+      _lastViewInset = inset;
+      if (opened) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _scrollToLatest();
+          }
+        });
+      }
+    }
     final messages = _ticket?.messages ?? const <SupportMessage>[];
     final top = MediaQuery.paddingOf(context).top;
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
-      body: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Column(
-          children: [
-            Expanded(
-              child: CustomScrollView(
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                slivers: [
-                  SliverToBoxAdapter(
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(
-                        SettingsMetrics.contentInset,
-                        top + 8,
-                        SettingsMetrics.contentInset,
-                        20,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const SettingsTopBar(),
-                          const SizedBox(height: 12),
-                          if (_loading)
-                            const Padding(
-                              padding: EdgeInsets.only(top: 48),
-                              child: Center(child: CircularProgressIndicator()),
-                            )
-                          else ...[
-                            const Center(
-                              child: Text(
-                                'Сегодня',
-                                style: AppTypography.settingsRowSubtitle,
+      resizeToAvoidBottomInset: true,
+      body: Column(
+        children: [
+          Expanded(
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      SettingsMetrics.contentInset,
+                      top + 8,
+                      SettingsMetrics.contentInset,
+                      20,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SettingsTopBar(),
+                        const SizedBox(height: 12),
+                        if (_loading)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 48),
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        else ...[
+                          const Center(
+                            child: Text(
+                              'Сегодня',
+                              style: AppTypography.settingsRowSubtitle,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          if (_error != null)
+                            Text(
+                              _error!,
+                              style: AppTypography.settingsRowSubtitle.copyWith(
+                                color: AppColors.error,
                               ),
                             ),
-                            const SizedBox(height: 20),
-                            if (_error != null)
-                              Text(
-                                _error!,
-                                style: AppTypography.settingsRowSubtitle
-                                    .copyWith(color: AppColors.error),
+                          if (messages.isEmpty && _error == null)
+                            Text(
+                              'Напишите сообщение — создадим обращение в поддержку.',
+                              style: AppTypography.settingsRowSubtitle.copyWith(
+                                color: AppColors.settingsInk,
                               ),
-                            if (messages.isEmpty && _error == null)
-                              Text(
-                                'Напишите сообщение — создадим обращение в поддержку.',
-                                style: AppTypography.settingsRowSubtitle
-                                    .copyWith(color: AppColors.settingsInk),
-                              ),
-                            for (final message in messages) ...[
-                              const SizedBox(height: 12),
-                              _ChatBubble(message: message),
-                            ],
+                            ),
+                          for (final message in messages) ...[
+                            const SizedBox(height: 12),
+                            _ChatBubble(message: message),
                           ],
                         ],
-                      ),
+                      ],
                     ),
                   ),
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: GestureDetector(
-                      key: const ValueKey('chat-empty-space'),
-                      behavior: HitTestBehavior.translucent,
-                      onTap: () =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
+                ),
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: GestureDetector(
+                    key: const ValueKey('chat-empty-space'),
+                    behavior: HitTestBehavior.translucent,
+                    onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SettingsTextField(
+                      controller: _composer,
+                      focusNode: _composerFocus,
+                      hintText: 'Сообщение…',
+                      maxLength: 4000,
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) {
+                        if (!_sending) {
+                          unawaited(_send());
+                        }
+                      },
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  SettingsCircleIconButton(
+                    icon: Icons.send_rounded,
+                    onTap: _sending ? () {} : () => unawaited(_send()),
+                    background: SettingsColors.accent,
+                    iconColor: Colors.white,
+                    size: 46,
+                    iconSize: 20,
                   ),
                 ],
               ),
             ),
-            SafeArea(
-              top: false,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: SettingsTextField(
-                        controller: _composer,
-                        hintText: 'Сообщение…',
-                        maxLength: 4000,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    SettingsCircleIconButton(
-                      icon: Icons.send_rounded,
-                      onTap: _sending ? () {} : _send,
-                      background: SettingsColors.accent,
-                      iconColor: Colors.white,
-                      size: 46,
-                      iconSize: 20,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

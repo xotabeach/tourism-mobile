@@ -48,11 +48,94 @@ void main() {
 
     expect(find.text('Ответ оператора'), findsOneWidget);
   });
+
+  testWidgets('keeps keyboard focus after sending a message', (tester) async {
+    final repository = _LiveChatRepository(canSend: true);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [supportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: SettingsChatScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final composer = find.byType(TextField);
+    await tester.tap(composer);
+    await tester.enterText(composer, 'Второе сообщение');
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Второе сообщение'), findsOneWidget);
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus,
+      isTrue,
+    );
+  });
+
+  testWidgets('scrolls latest message into view when keyboard opens', (
+    tester,
+  ) async {
+    final repository = _LiveChatRepository(
+      extraMessages: List.generate(
+        12,
+        (index) => SupportMessage(
+          id: 'bulk-$index',
+          author: 'user',
+          body: 'Сообщение $index',
+          createdAt: DateTime.utc(2026, 8, 1, 11, index),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [supportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: SettingsChatScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.byType(Scrollable).first;
+    final controller = tester.widget<Scrollable>(scrollable).controller!;
+    // Move away from the bottom so focus/keyboard must pull latest into view.
+    controller.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(controller.position.pixels, 0);
+
+    await tester.tap(find.byType(TextField));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(tester.view.resetViewInsets);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(
+      controller.position.pixels,
+      closeTo(controller.position.maxScrollExtent, 1),
+    );
+    final lastMessageBottom = tester.getRect(find.text('Сообщение 11')).bottom;
+    final composerTop = tester.getRect(find.byType(TextField)).top;
+    expect(lastMessageBottom, lessThanOrEqualTo(composerTop + 8));
+  });
 }
 
 final class _LiveChatRepository implements SupportRepository {
-  _LiveChatRepository() : _ticket = _ticketWithMessages(const []);
+  _LiveChatRepository({
+    this.canSend = false,
+    List<SupportMessage>? extraMessages,
+  }) : _ticket = _ticketWithMessages([
+         SupportMessage(
+           id: 'user-1',
+           author: 'user',
+           body: 'Первое сообщение',
+           createdAt: DateTime.utc(2026, 8, 1, 11),
+         ),
+         ...?extraMessages,
+       ]);
 
+  final bool canSend;
   SupportTicket _ticket;
 
   static SupportTicket _ticketWithMessages(List<SupportMessage> messages) {
@@ -72,7 +155,19 @@ final class _LiveChatRepository implements SupportRepository {
   Future<SupportMessage> addMessage({
     required String ticketId,
     required String body,
-  }) async => throw UnimplementedError();
+  }) async {
+    if (!canSend) {
+      throw UnimplementedError();
+    }
+    final message = SupportMessage(
+      id: 'user-${_ticket.messages.length + 1}',
+      author: 'user',
+      body: body,
+      createdAt: DateTime.utc(2026, 8, 1, 12, _ticket.messages.length),
+    );
+    _ticket = _ticketWithMessages([..._ticket.messages, message]);
+    return message;
+  }
 
   void addOperatorReply(String body) {
     final reply = SupportMessage(
@@ -96,14 +191,5 @@ final class _LiveChatRepository implements SupportRepository {
   Future<SupportTicket> getTicket(String ticketId) async => _ticket;
 
   @override
-  Future<List<SupportTicket>> listTickets() async {
-    final firstMessage = SupportMessage(
-      id: 'user-1',
-      author: 'user',
-      body: 'Первое сообщение',
-      createdAt: DateTime.utc(2026, 8, 1, 11),
-    );
-    _ticket = _ticketWithMessages([firstMessage, ..._ticket.messages]);
-    return [_ticket];
-  }
+  Future<List<SupportTicket>> listTickets() async => [_ticket];
 }
