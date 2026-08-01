@@ -861,6 +861,7 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                             SizedBox(height: 8),
                                             _DashedArrow(
                                               direction: AxisDirection.right,
+                                              shift: 18,
                                             ),
                                             SizedBox(height: 10),
                                             _CoachGesture(
@@ -871,6 +872,7 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                             SizedBox(height: 8),
                                             _DashedArrow(
                                               direction: AxisDirection.left,
+                                              shift: 18,
                                             ),
                                             SizedBox(height: 10),
                                             _CoachGesture(
@@ -992,8 +994,8 @@ class _CoachGesture extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: kind == _CoachGestureKind.tap ? 88 : 64,
-          height: kind == _CoachGestureKind.tap ? 72 : 54,
+          width: kind == _CoachGestureKind.tap ? 48 : 64,
+          height: kind == _CoachGestureKind.tap ? 42 : 54,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1101,8 +1103,9 @@ class _TapGesturePainter extends CustomPainter {
     final sx = size.width / sxBase;
     final sy = size.height / syBase;
     canvas.save();
-    canvas.scale(sx * 1.35, sy * 1.35);
-    final centerX = 32.0;
+    // Keep finger glyph compact — no extra blow-up over the design box.
+    canvas.scale(sx * 0.72, sy * 0.72);
+    const centerX = 32.0;
 
     canvas
       ..drawLine(Offset(centerX, 11), Offset(centerX, 8), paint)
@@ -1137,16 +1140,22 @@ class _TapGesturePainter extends CustomPainter {
 }
 
 class _DashedArrow extends StatelessWidget {
-  const _DashedArrow({required this.direction});
+  const _DashedArrow({required this.direction, this.shift = 0});
 
   final AxisDirection direction;
+  /// Nudge tip further in its pointing direction (right → +, left → −).
+  final double shift;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 260,
-      height: 18,
-      child: CustomPaint(painter: _DashedArrowPainter(direction)),
+    final pointsRight = direction == AxisDirection.right;
+    return Transform.translate(
+      offset: Offset(pointsRight ? shift : -shift, 0),
+      child: SizedBox(
+        width: 200,
+        height: 14,
+        child: CustomPaint(painter: _DashedArrowPainter(direction)),
+      ),
     );
   }
 }
@@ -1158,12 +1167,12 @@ class _DashedArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const dashWidth = 6.0;
-    const dashGap = 4.0;
-    const tipPad = 8.0;
+    const dashWidth = 5.0;
+    const dashGap = 3.5;
+    const tipPad = 6.0;
     final paint = Paint()
       ..color = Colors.white.withValues(alpha: 0.9)
-      ..strokeWidth = 1.2
+      ..strokeWidth = 1.0
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final y = size.height / 2;
@@ -1182,8 +1191,8 @@ class _DashedArrowPainter extends CustomPainter {
     final tipX = pointsRight ? size.width - 1 : 1.0;
     final baseX = pointsRight ? size.width - tipPad : tipPad;
     canvas
-      ..drawLine(Offset(baseX, y - 5), Offset(tipX, y), paint)
-      ..drawLine(Offset(baseX, y + 5), Offset(tipX, y), paint);
+      ..drawLine(Offset(baseX, y - 3.5), Offset(tipX, y), paint)
+      ..drawLine(Offset(baseX, y + 3.5), Offset(tipX, y), paint);
   }
 
   @override

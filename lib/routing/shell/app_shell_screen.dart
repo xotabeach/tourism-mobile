@@ -155,8 +155,7 @@ class AppShellScreen extends ConsumerWidget {
     final path = GoRouterState.of(context).uri.path;
     final detailNavigationIndex = _detailNavigationIndex(context);
     final guestProfile = _isGuestProfilePath(context, ref);
-    final showDetailsChrome = detailNavigationIndex != null && !guestProfile;
-    final historyBackMode = guestProfile;
+    final showDetailsChrome = detailNavigationIndex != null;
     final currentIndex = navigationShell.currentIndex;
     final scrolledDown = ref.watch(tabScrolledDownProvider(currentIndex));
     final showRouteAction = detailNavigationIndex == 0;
@@ -210,11 +209,11 @@ class AppShellScreen extends ConsumerWidget {
               currentIndex: currentIndex,
               onTap: (index) => _onDestinationSelected(context, ref, index),
               detailMode: showDetailsChrome,
-              historyBackMode: historyBackMode,
-              scrollToTopMode: scrolledDown && !historyBackMode,
-              compactDestinationIndex: historyBackMode
-                  ? currentIndex
-                  : (detailNavigationIndex ?? currentIndex),
+              // Guest profile keeps the full nav; Home slot becomes history back.
+              historyBackMode: guestProfile,
+              scrollToTopMode: scrolledDown && !guestProfile,
+              compactDestinationIndex:
+                  detailNavigationIndex ?? currentIndex,
               onHistoryBack: () {
                 unawaited(HapticFeedback.selectionClick());
                 if (context.canPop()) {
@@ -258,7 +257,8 @@ class AppFloatingNavBar extends StatefulWidget {
   final VoidCallback? onStartRoute;
   final String startRouteLabel;
 
-  bool get compactChrome => detailMode || historyBackMode;
+  /// Only detail/settings chrome collapses the bar. Guest back keeps full nav.
+  bool get compactChrome => detailMode;
 
   @override
   State<AppFloatingNavBar> createState() => _AppFloatingNavBarState();
@@ -359,10 +359,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
 
   void _scheduleAutoCollapse() {
     _cancelAutoCollapse();
-    // Guest back mode stays collapsed; only detail chrome can expand.
-    if (!widget.detailMode ||
-        widget.historyBackMode ||
-        _detailExpansionController.value < 0.99) {
+    if (!widget.detailMode || _detailExpansionController.value < 0.99) {
       return;
     }
     _autoCollapseTimer = Timer(_autoCollapseDelay, _collapseDetailNavigation);
@@ -407,9 +404,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _expandDetailNavigation() {
-    if (!widget.detailMode ||
-        widget.historyBackMode ||
-        _detailExpansionController.value >= 1) {
+    if (!widget.detailMode || _detailExpansionController.value >= 1) {
       return;
     }
     _cancelAutoCollapse();
@@ -445,7 +440,8 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _handleTap(int index) {
-    if (widget.historyBackMode) {
+    // Guest profile: Home slot is history-back (same as edge swipe).
+    if (widget.historyBackMode && index == 0) {
       widget.onHistoryBack?.call();
       return;
     }
@@ -467,10 +463,6 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _handleCompactOverlayTap() {
-    if (widget.historyBackMode) {
-      widget.onHistoryBack?.call();
-      return;
-    }
     _expandDetailNavigation();
   }
 
@@ -599,11 +591,6 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     )!;
     final trailingEnd = lerpDouble(width, compactCenterX, compactProgress)!;
     final revealProgress = 1 - compactProgress;
-    // Fade row icons in place (no horizontal slide). Compact glyph crossfades
-    // at the fixed left/right anchor so the active button does not drift.
-    final rowIconVisibility = (revealProgress).clamp(0.0, 1.0);
-    final compactIconOpacity = compactProgress.clamp(0.0, 1.0);
-    final compactLeft = compactOnRight ? width - _activeDiameter : 0.0;
 
     return FocusTraversalGroup(
       policy: OrderedTraversalPolicy(),
@@ -656,7 +643,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
           ),
           Positioned.fill(
             child: IgnorePointer(
-              ignoring: compactProgress > 0.5,
+              ignoring: compactProgress > 0.995,
               child: Row(
                 children: [
                   for (
@@ -674,11 +661,26 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                           0,
                           1,
                         ),
-                        visibility: rowIconVisibility,
+                        visibility: index == widget.compactDestinationIndex
+                            ? 1
+                            : ((revealProgress -
+                                          (index -
+                                                      widget
+                                                          .compactDestinationIndex)
+                                                  .abs() *
+                                              0.04) /
+                                      0.78)
+                                  .clamp(0, 1),
+                        translationX:
+                            (compactCenterX - (index + 0.5) * slotWidth) *
+                            compactProgress,
+                        showHistoryBack:
+                            widget.historyBackMode && index == 0,
                         showScrollToTop:
                             widget.scrollToTopMode &&
                             index == widget.currentIndex &&
-                            !widget.compactChrome,
+                            !widget.compactChrome &&
+                            !(widget.historyBackMode && index == 0),
                         onTap: _handleTap,
                       ),
                     ),
@@ -686,48 +688,25 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
               ),
             ),
           ),
-          if (compactIconOpacity > 0.01)
+          if (compactProgress > 0.995)
             Positioned(
-              left: compactLeft,
+              left: compactOnRight ? width - _activeDiameter : 0,
               top: 0,
               width: _activeDiameter,
               height: _height,
-              child: Opacity(
-                opacity: compactIconOpacity,
-                child: Semantics(
-                  label: widget.historyBackMode
-                      ? 'Назад'
-                      : 'Развернуть навигацию, выбран раздел '
-                            '${_appNavDestinations[widget.compactDestinationIndex].label}',
-                  button: true,
-                  selected: true,
-                  child: Tooltip(
-                    message: widget.historyBackMode
-                        ? 'Назад'
-                        : 'Развернуть навигацию',
-                    child: GestureDetector(
-                      key: ValueKey(
-                        widget.historyBackMode
-                            ? 'history-back-navigation'
-                            : 'expand-detail-navigation',
-                      ),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: _handleCompactOverlayTap,
-                      child: Center(
-                        child: widget.historyBackMode
-                            ? const Icon(
-                                Icons.arrow_back_ios_new_rounded,
-                                size: 20,
-                                color: Colors.white,
-                              )
-                            : AppAssetIcon(
-                                _appNavDestinations[widget.compactDestinationIndex]
-                                    .selectedIcon,
-                                size: AppIconography.navigation,
-                                color: Colors.white,
-                              ),
-                      ),
-                    ),
+              child: Semantics(
+                label:
+                    'Развернуть навигацию, выбран раздел '
+                    '${_appNavDestinations[widget.compactDestinationIndex].label}',
+                button: true,
+                selected: true,
+                child: Tooltip(
+                  message: 'Развернуть навигацию',
+                  child: GestureDetector(
+                    key: const ValueKey('expand-detail-navigation'),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _handleCompactOverlayTap,
+                    child: const SizedBox.expand(),
                   ),
                 ),
               ),
@@ -756,6 +735,8 @@ class _NavItem extends StatelessWidget {
     required this.index,
     required this.activeWeight,
     this.visibility = 1,
+    this.translationX = 0,
+    this.showHistoryBack = false,
     this.showScrollToTop = false,
     required this.onTap,
   });
@@ -764,61 +745,78 @@ class _NavItem extends StatelessWidget {
   final int index;
   final double activeWeight;
   final double visibility;
+  final double translationX;
+  final bool showHistoryBack;
   final bool showScrollToTop;
   final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final selected = activeWeight > 0.99;
+    final selected = activeWeight > 0.99 && !showHistoryBack;
     final inactiveColor = AppColors.inactiveNavigationIcon.withValues(
       alpha: 0.84 * visibility,
     );
-    final label = showScrollToTop ? 'Наверх' : destination.label;
+    final label = showHistoryBack
+        ? 'Назад'
+        : showScrollToTop
+        ? 'Наверх'
+        : destination.label;
 
     return ExcludeSemantics(
       excluding: visibility < 0.99,
       child: IgnorePointer(
         ignoring: visibility < 0.99,
-        child: Semantics(
-          label: label,
-          button: true,
-          selected: selected,
-          sortKey: OrdinalSortKey(index.toDouble()),
-          child: Tooltip(
-            message: label,
-            child: InkResponse(
-              onTap: () => onTap(index),
-              radius: 30,
-              containedInkWell: true,
-              highlightShape: BoxShape.circle,
-              child: Center(
-                child: showScrollToTop
-                    ? Icon(
-                        Icons.keyboard_arrow_up_rounded,
-                        size: 28,
-                        color: Colors.white.withValues(
-                          alpha: activeWeight * visibility,
+        child: Transform.translate(
+          offset: Offset(translationX, 0),
+          child: Semantics(
+            label: label,
+            button: true,
+            selected: selected,
+            sortKey: OrdinalSortKey(index.toDouble()),
+            child: Tooltip(
+              message: label,
+              child: InkResponse(
+                onTap: () => onTap(index),
+                radius: 30,
+                containedInkWell: true,
+                highlightShape: BoxShape.circle,
+                child: Center(
+                  child: showHistoryBack
+                      ? Icon(
+                          Icons.arrow_back_ios_new_rounded,
+                          size: 20,
+                          color: AppColors.inactiveNavigationIcon.withValues(
+                            alpha: 0.92 * visibility,
+                          ),
+                        )
+                      : showScrollToTop
+                      ? Icon(
+                          Icons.keyboard_arrow_up_rounded,
+                          size: 28,
+                          color: Colors.white.withValues(
+                            alpha: activeWeight * visibility,
+                          ),
+                        )
+                      : Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            AppAssetIcon(
+                              destination.icon,
+                              size: AppIconography.navigation,
+                              color: inactiveColor.withValues(
+                                alpha: inactiveColor.a * (1 - activeWeight),
+                              ),
+                            ),
+                            AppAssetIcon(
+                              destination.selectedIcon,
+                              size: AppIconography.navigation,
+                              color: Colors.white.withValues(
+                                alpha: activeWeight * visibility,
+                              ),
+                            ),
+                          ],
                         ),
-                      )
-                    : Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          AppAssetIcon(
-                            destination.icon,
-                            size: AppIconography.navigation,
-                            color: inactiveColor.withValues(
-                              alpha: inactiveColor.a * (1 - activeWeight),
-                            ),
-                          ),
-                          AppAssetIcon(
-                            destination.selectedIcon,
-                            size: AppIconography.navigation,
-                            color: Colors.white.withValues(
-                              alpha: activeWeight * visibility,
-                            ),
-                          ),
-                        ],
-                      ),
+                ),
               ),
             ),
           ),

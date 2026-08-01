@@ -229,7 +229,7 @@ class _HomePinnedBrandBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.pageSurface.withValues(alpha: 0.94),
+      color: AppColors.pageSurface,
       elevation: 0,
       child: DecoratedBox(
         decoration: BoxDecoration(
@@ -240,17 +240,19 @@ class _HomePinnedBrandBar extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.fromLTRB(
             AppSpacing.page,
-            topInset + 8,
+            topInset + 2,
             AppSpacing.page,
-            10,
+            6,
           ),
           child: SizedBox(
-            height: 40,
+            height: 28,
             child: Center(
               child: Text(
                 'КРЫМТРИП',
                 style: AppTypography.settingsBrand.copyWith(
                   color: AppColors.settingsBrand,
+                  fontSize: 15,
+                  height: 1,
                 ),
               ),
             ),
