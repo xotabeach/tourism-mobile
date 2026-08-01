@@ -45,6 +45,13 @@ Release без `APP_ENV` автоматически выбирает `production
 запускаться без неплейсхолдерного `API_BASE_URL`. Android release signing
 берётся из gitignored `android/key.properties` (без fallback на debug key).
 
+Подписанный release APK с test API (нужен локальный `android/key.properties`):
+
+```bash
+./scripts/build-signed-apk.sh          # → build/app/outputs/flutter-apk/app-release.apk
+./scripts/build-signed-apk.sh --install
+```
+
 Полная шпаргалка по iOS/Android сборкам, `dart-define`, signed APK/AAB и
 установке на устройство:
 [mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md)
