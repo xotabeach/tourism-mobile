@@ -195,8 +195,11 @@ class RouteStartButton extends StatelessWidget {
         child: AppGlassSurface(
           borderRadius: AppRadii.capsule,
           blur: 20 * progress,
-          fillColor: AppColors.primaryInk.withValues(alpha: 0.9 * progress),
-          borderColor: Colors.white.withValues(alpha: 0.42 * progress),
+          // Match floating-nav active droplet fill.
+          fillColor: AppColors.activeNavigationFill.withValues(
+            alpha: 0.96 * progress,
+          ),
+          borderColor: Colors.white.withValues(alpha: 0.28 * progress),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.16 * progress),

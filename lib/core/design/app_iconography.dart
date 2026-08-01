@@ -22,6 +22,7 @@ abstract final class AppIconography {
   static const String search = '$_root/search.png';
   static const String sendToEnd = '$_root/send_to_end.png';
   static const String variant17 = '$_root/variant_17.png';
+  static const String click = '$_root/click.png';
 
   // Settings — section roots
   static const String settingsProfile = '$_root/settings_profile.png';
@@ -100,6 +101,7 @@ abstract final class AppIconography {
     search,
     sendToEnd,
     variant17,
+    click,
     ...settingsAssets,
   ];
 

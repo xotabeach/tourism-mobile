@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
+import 'package:tourism_mobile/core/validation/display_name.dart';
 import 'package:tourism_mobile/features/auth/presentation/ru_phone_input_formatter.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -97,19 +98,12 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                   controller: _nameController,
                   textCapitalization: TextCapitalization.words,
                   textInputAction: TextInputAction.next,
+                  maxLength: DisplayNamePolicy.maxLength,
                   decoration: const InputDecoration(
                     hintText: 'Введите ваше имя',
+                    counterText: '',
                   ),
-                  validator: (value) {
-                    final trimmed = value?.trim() ?? '';
-                    if (trimmed.isEmpty) {
-                      return 'Укажите имя';
-                    }
-                    if (trimmed.length > 80) {
-                      return 'Слишком длинное имя';
-                    }
-                    return null;
-                  },
+                  validator: DisplayNamePolicy.validationError,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

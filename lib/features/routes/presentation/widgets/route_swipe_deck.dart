@@ -861,7 +861,6 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                             SizedBox(height: 8),
                                             _DashedArrow(
                                               direction: AxisDirection.right,
-                                              shift: 18,
                                             ),
                                             SizedBox(height: 10),
                                             _CoachGesture(
@@ -872,7 +871,6 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                             SizedBox(height: 8),
                                             _DashedArrow(
                                               direction: AxisDirection.left,
-                                              shift: 18,
                                             ),
                                             SizedBox(height: 10),
                                             _CoachGesture(
@@ -994,8 +992,8 @@ class _CoachGesture extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          width: kind == _CoachGestureKind.tap ? 48 : 64,
-          height: kind == _CoachGestureKind.tap ? 42 : 54,
+          width: 64,
+          height: 54,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -1003,8 +1001,14 @@ class _CoachGesture extends StatelessWidget {
                 child: CustomPaint(painter: _SwipeGesturePainter(kind)),
               ),
               if (kind == _CoachGestureKind.tap)
-                const Positioned.fill(
-                  child: CustomPaint(painter: _TapGesturePainter()),
+                // SVG optical center sits a bit high; nudge down inside the card.
+                Transform.translate(
+                  offset: const Offset(0, 2),
+                  child: const AppAssetIcon(
+                    AppIconography.click,
+                    size: 34,
+                    color: AppColors.primaryInk,
+                  ),
                 ),
             ],
           ),
@@ -1068,14 +1072,15 @@ class _SwipeGesturePainter extends CustomPainter {
       return;
     }
 
+    // Left chevron sits well at -1; right is a milder +4 (was too far right).
     final pointsRight = kind == _CoachGestureKind.right;
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
     final direction = pointsRight ? 1.0 : -1.0;
+    final centerX = size.width / 2 + (pointsRight ? 1.0 : -1.0);
+    final centerY = size.height / 2;
     final chevron = Path()
-      ..moveTo(centerX - direction * 6, centerY - 11)
-      ..lineTo(centerX + direction * 5, centerY)
-      ..lineTo(centerX - direction * 6, centerY + 11);
+      ..moveTo(centerX - direction * 5, centerY - 9)
+      ..lineTo(centerX + direction * 4, centerY)
+      ..lineTo(centerX - direction * 5, centerY + 9);
     canvas.drawPath(chevron, ink);
   }
 
@@ -1085,77 +1090,17 @@ class _SwipeGesturePainter extends CustomPainter {
   }
 }
 
-class _TapGesturePainter extends CustomPainter {
-  const _TapGesturePainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = AppColors.primaryInk
-      ..strokeWidth = 2.4
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
-    const designW = 64.0;
-    const designH = 54.0;
-    const sxBase = designW;
-    const syBase = designH;
-    final sx = size.width / sxBase;
-    final sy = size.height / syBase;
-    canvas.save();
-    // Keep finger glyph compact — no extra blow-up over the design box.
-    canvas.scale(sx * 0.72, sy * 0.72);
-    const centerX = 32.0;
-
-    canvas
-      ..drawLine(Offset(centerX, 11), Offset(centerX, 8), paint)
-      ..drawLine(Offset(centerX - 5, 13), Offset(centerX - 7, 10), paint)
-      ..drawLine(Offset(centerX + 5, 13), Offset(centerX + 7, 10), paint);
-
-    final hand = Path()
-      ..moveTo(centerX, 30)
-      ..lineTo(centerX, 18)
-      ..quadraticBezierTo(centerX, 15, centerX + 2.5, 15)
-      ..quadraticBezierTo(centerX + 5, 15, centerX + 5, 18)
-      ..lineTo(centerX + 5, 26)
-      ..lineTo(centerX + 7, 24)
-      ..quadraticBezierTo(centerX + 9.5, 23, centerX + 11, 26)
-      ..lineTo(centerX + 12.5, 26)
-      ..quadraticBezierTo(centerX + 15, 26, centerX + 15, 29)
-      ..lineTo(centerX + 14, 36)
-      ..quadraticBezierTo(centerX + 13, 40, centerX + 9, 42)
-      ..lineTo(centerX - 1, 42)
-      ..quadraticBezierTo(centerX - 4, 40, centerX - 7, 37)
-      ..lineTo(centerX - 11, 33)
-      ..quadraticBezierTo(centerX - 13, 31, centerX - 11, 29)
-      ..quadraticBezierTo(centerX - 9, 27, centerX - 7, 29)
-      ..lineTo(centerX, 35);
-    canvas
-      ..drawPath(hand, paint)
-      ..restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _TapGesturePainter oldDelegate) => false;
-}
-
 class _DashedArrow extends StatelessWidget {
-  const _DashedArrow({required this.direction, this.shift = 0});
+  const _DashedArrow({required this.direction});
 
   final AxisDirection direction;
-  /// Nudge tip further in its pointing direction (right → +, left → −).
-  final double shift;
 
   @override
   Widget build(BuildContext context) {
-    final pointsRight = direction == AxisDirection.right;
-    return Transform.translate(
-      offset: Offset(pointsRight ? shift : -shift, 0),
-      child: SizedBox(
-        width: 200,
-        height: 14,
-        child: CustomPaint(painter: _DashedArrowPainter(direction)),
-      ),
+    return SizedBox(
+      width: 260,
+      height: 18,
+      child: CustomPaint(painter: _DashedArrowPainter(direction)),
     );
   }
 }
@@ -1167,12 +1112,12 @@ class _DashedArrowPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const dashWidth = 5.0;
-    const dashGap = 3.5;
-    const tipPad = 6.0;
+    const dashWidth = 6.0;
+    const dashGap = 4.0;
+    const tipPad = 8.0;
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.9)
-      ..strokeWidth = 1.0
+      ..color = Colors.white.withValues(alpha: 0.95)
+      ..strokeWidth = 1.85
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
     final y = size.height / 2;
@@ -1191,8 +1136,8 @@ class _DashedArrowPainter extends CustomPainter {
     final tipX = pointsRight ? size.width - 1 : 1.0;
     final baseX = pointsRight ? size.width - tipPad : tipPad;
     canvas
-      ..drawLine(Offset(baseX, y - 3.5), Offset(tipX, y), paint)
-      ..drawLine(Offset(baseX, y + 3.5), Offset(tipX, y), paint);
+      ..drawLine(Offset(baseX, y - 5.5), Offset(tipX, y), paint)
+      ..drawLine(Offset(baseX, y + 5.5), Offset(tipX, y), paint);
   }
 
   @override

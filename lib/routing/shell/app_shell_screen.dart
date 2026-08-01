@@ -52,6 +52,26 @@ const _appNavDestinations = [
 ];
 const _appNavDestinationCount = 5;
 
+/// Compact droplet parks on the destination **slot center**, not the bar edge.
+///
+/// Edge parking (`width ± diameter/2`) is a few px off the last/first tab
+/// centers, so Profile→Settings (and reverse expand) looked like the active
+/// pill drifting sideways. Slot-center parking keeps translation of the
+/// compact destination at 0 for the whole collapse/expand.
+@visibleForTesting
+double floatingNavCompactCenterX({
+  required double width,
+  required int compactDestinationIndex,
+  int destinationCount = _appNavDestinationCount,
+}) {
+  assert(destinationCount > 0);
+  assert(
+    compactDestinationIndex >= 0 && compactDestinationIndex < destinationCount,
+  );
+  final slotWidth = width / destinationCount;
+  return (compactDestinationIndex + 0.5) * slotWidth;
+}
+
 final _appFloatingNavKey = GlobalKey<_AppFloatingNavBarState>(
   debugLabel: 'app-floating-navigation',
 );
@@ -507,6 +527,9 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
             final ctaInset =
                 (_activeDiameter + _segmentGap) * (1 - widenT);
             final ctaTop = (_detailHeight - _height) * (1 - riseT);
+            // ~13% narrower than the track next to the compact droplet.
+            final ctaTrack = math.max(0.0, width - ctaInset);
+            final ctaSidePad = ctaTrack * 0.065;
 
             return Stack(
               clipBehavior: Clip.none,
@@ -514,8 +537,8 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                 if (widget.detailMode && widget.onStartRoute != null)
                   Positioned(
                     key: const ValueKey('route-start-button-position'),
-                    left: compactOnRight ? 0 : ctaInset,
-                    right: compactOnRight ? ctaInset : 0,
+                    left: (compactOnRight ? 0.0 : ctaInset) + ctaSidePad,
+                    right: (compactOnRight ? ctaInset : 0.0) + ctaSidePad,
                     top: ctaTop,
                     height: _height,
                     child: RouteStartButton(
@@ -536,7 +559,6 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                     compactProgress: compactProgress,
                     phase: phase,
                     reduceMotion: reduceMotion,
-                    compactOnRight: compactOnRight,
                   ),
                 ),
               ],
@@ -552,14 +574,14 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     required double compactProgress,
     required double phase,
     required bool reduceMotion,
-    required bool compactOnRight,
   }) {
     final slotWidth = width / _appNavDestinations.length;
     final regularActiveCenterX = (_position + 0.5) * slotWidth;
     final regularFromCenterX = (_fromPosition + 0.5) * slotWidth;
-    final compactCenterX = compactOnRight
-        ? width - _activeDiameter / 2
-        : _activeDiameter / 2;
+    final compactCenterX = floatingNavCompactCenterX(
+      width: width,
+      compactDestinationIndex: widget.compactDestinationIndex,
+    );
     final activeCenterX = lerpDouble(
       regularActiveCenterX,
       compactCenterX,
@@ -591,6 +613,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     )!;
     final trailingEnd = lerpDouble(width, compactCenterX, compactProgress)!;
     final revealProgress = 1 - compactProgress;
+    final compactLeft = compactCenterX - _activeDiameter / 2;
 
     return FocusTraversalGroup(
       policy: OrderedTraversalPolicy(),
@@ -690,7 +713,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
           ),
           if (compactProgress > 0.995)
             Positioned(
-              left: compactOnRight ? width - _activeDiameter : 0,
+              left: compactLeft,
               top: 0,
               width: _activeDiameter,
               height: _height,

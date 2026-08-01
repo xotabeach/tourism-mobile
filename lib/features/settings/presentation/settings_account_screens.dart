@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/core/validation/display_name.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -107,13 +108,14 @@ class _SettingsChangeNameScreenState
       );
       return;
     }
-    final name = _controller.text.trim();
-    if (name.isEmpty || name.length > 80) {
+    final nameError = DisplayNamePolicy.validationError(_controller.text);
+    if (nameError != null) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Введите корректное имя')));
+      ).showSnackBar(SnackBar(content: Text(nameError)));
       return;
     }
+    final name = _controller.text.trim();
     setState(() => _busy = true);
     try {
       await ref.read(sessionProvider.notifier).updateDisplayName(name);
@@ -147,7 +149,7 @@ class _SettingsChangeNameScreenState
         SettingsTextField(
           controller: _controller,
           hintText: 'Введите новое имя',
-          maxLength: 80,
+          maxLength: DisplayNamePolicy.maxLength,
           textCapitalization: TextCapitalization.words,
         ),
         const SizedBox(height: 16),
