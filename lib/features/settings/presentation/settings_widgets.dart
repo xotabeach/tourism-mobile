@@ -20,6 +20,7 @@ abstract final class SettingsColors {
   static const Color link = AppColors.accentBlueIcon;
   static const Color supportSubtitle = Color(0xFFB8CBE6);
   static const Color circleButton = Color(0xFF1C1C1E);
+
   /// Switch track off — from Figma export `switch-false.png`.
   static const Color toggleOff = Color(0xFFBCBCBF);
 

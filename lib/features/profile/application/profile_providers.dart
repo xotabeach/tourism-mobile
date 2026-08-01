@@ -108,7 +108,9 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
 });
 
 final profileLikeControllerProvider =
-    AsyncNotifierProvider<ProfileLikeController, void>(ProfileLikeController.new);
+    AsyncNotifierProvider<ProfileLikeController, void>(
+      ProfileLikeController.new,
+    );
 
 class ProfileLikeController extends AsyncNotifier<void> {
   @override

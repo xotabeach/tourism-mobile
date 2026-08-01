@@ -113,24 +113,16 @@ class AppShellScreen extends ConsumerWidget {
     return viewedId.isNotEmpty && viewedId != selfId;
   }
 
-  void _onDestinationSelected(
-    BuildContext context,
-    WidgetRef ref,
-    int index,
-  ) {
+  void _onDestinationSelected(BuildContext context, WidgetRef ref, int index) {
     final onCurrentBranch = index == navigationShell.currentIndex;
     final path = GoRouterState.of(context).uri.path;
     final scrolledDown = ref.read(tabScrolledDownProvider(index));
-    if (onCurrentBranch &&
-        (scrolledDown || _isBranchRootPath(path, index))) {
+    if (onCurrentBranch && (scrolledDown || _isBranchRootPath(path, index))) {
       unawaited(HapticFeedback.selectionClick());
       ref.read(tabScrollToTopProvider(index).notifier).state++;
       return;
     }
-    navigationShell.goBranch(
-      index,
-      initialLocation: onCurrentBranch,
-    );
+    navigationShell.goBranch(index, initialLocation: onCurrentBranch);
   }
 
   static bool _isBranchRootPath(String path, int index) {
@@ -173,9 +165,10 @@ class AppShellScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final path = GoRouterState.of(context).uri.path;
+    final hideFloatingNav = path == '/profile/settings/support/chat';
     final detailNavigationIndex = _detailNavigationIndex(context);
     final guestProfile = _isGuestProfilePath(context, ref);
-    final showDetailsChrome = detailNavigationIndex != null;
+    final showDetailsChrome = detailNavigationIndex != null && !hideFloatingNav;
     final currentIndex = navigationShell.currentIndex;
     final scrolledDown = ref.watch(tabScrolledDownProvider(currentIndex));
     final showRouteAction = detailNavigationIndex == 0;
@@ -220,30 +213,30 @@ class AppShellScreen extends ConsumerWidget {
                 ),
               ),
             ),
-          Positioned(
-            left: AppSpacing.floatingNavInset,
-            right: AppSpacing.floatingNavInset,
-            bottom: bottomInset > 0 ? bottomInset : AppSpacing.sm,
-            child: AppFloatingNavBar(
-              key: _appFloatingNavKey,
-              currentIndex: currentIndex,
-              onTap: (index) => _onDestinationSelected(context, ref, index),
-              detailMode: showDetailsChrome,
-              // Guest profile keeps the full nav; Home slot becomes history back.
-              historyBackMode: guestProfile,
-              scrollToTopMode: scrolledDown && !guestProfile,
-              compactDestinationIndex:
-                  detailNavigationIndex ?? currentIndex,
-              onHistoryBack: () {
-                unawaited(HapticFeedback.selectionClick());
-                if (context.canPop()) {
-                  context.pop();
-                }
-              },
-              onStartRoute: detailAction,
-              startRouteLabel: detailActionLabel,
+          if (!hideFloatingNav)
+            Positioned(
+              left: AppSpacing.floatingNavInset,
+              right: AppSpacing.floatingNavInset,
+              bottom: bottomInset > 0 ? bottomInset : AppSpacing.sm,
+              child: AppFloatingNavBar(
+                key: _appFloatingNavKey,
+                currentIndex: currentIndex,
+                onTap: (index) => _onDestinationSelected(context, ref, index),
+                detailMode: showDetailsChrome,
+                // Guest profile keeps the full nav; Home slot becomes history back.
+                historyBackMode: guestProfile,
+                scrollToTopMode: scrolledDown && !guestProfile,
+                compactDestinationIndex: detailNavigationIndex ?? currentIndex,
+                onHistoryBack: () {
+                  unawaited(HapticFeedback.selectionClick());
+                  if (context.canPop()) {
+                    context.pop();
+                  }
+                },
+                onStartRoute: detailAction,
+                startRouteLabel: detailActionLabel,
+              ),
             ),
-          ),
         ],
       ),
     );
@@ -499,8 +492,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         widget.compactChrome ||
         _detailPresenceController.isAnimating ||
         presence > 0.001;
-    final hasDetailAction =
-        widget.detailMode && widget.onStartRoute != null;
+    final hasDetailAction = widget.detailMode && widget.onStartRoute != null;
     final totalHeight = showDetailLayout && hasDetailAction
         ? _detailHeight
         : _height;
@@ -524,8 +516,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                 : Curves.easeInOutCubic.transform(
                     ((expandT - 0.28) / 0.72).clamp(0.0, 1.0),
                   );
-            final ctaInset =
-                (_activeDiameter + _segmentGap) * (1 - widenT);
+            final ctaInset = (_activeDiameter + _segmentGap) * (1 - widenT);
             final ctaTop = (_detailHeight - _height) * (1 - riseT);
             // ~13% narrower than the track next to the compact droplet.
             final ctaTrack = math.max(0.0, width - ctaInset);
@@ -687,9 +678,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                         visibility: index == widget.compactDestinationIndex
                             ? 1
                             : ((revealProgress -
-                                          (index -
-                                                      widget
-                                                          .compactDestinationIndex)
+                                          (index - widget.compactDestinationIndex)
                                                   .abs() *
                                               0.04) /
                                       0.78)
@@ -697,8 +686,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                         translationX:
                             (compactCenterX - (index + 0.5) * slotWidth) *
                             compactProgress,
-                        showHistoryBack:
-                            widget.historyBackMode && index == 0,
+                        showHistoryBack: widget.historyBackMode && index == 0,
                         showScrollToTop:
                             widget.scrollToTopMode &&
                             index == widget.currentIndex &&

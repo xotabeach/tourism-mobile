@@ -7,7 +7,10 @@ final tabScrollToTopProvider = StateProvider.family<int, int>((ref, tabIndex) {
 });
 
 /// True when the tab's primary scroll view is past [kTabScrolledDownThreshold].
-final tabScrolledDownProvider = StateProvider.family<bool, int>((ref, tabIndex) {
+final tabScrolledDownProvider = StateProvider.family<bool, int>((
+  ref,
+  tabIndex,
+) {
   return false;
 });
 

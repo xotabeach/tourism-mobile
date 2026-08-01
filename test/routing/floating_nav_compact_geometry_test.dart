@@ -35,18 +35,21 @@ void main() {
       expect((slotCenter - edgePark).abs(), greaterThan(4));
     });
 
-    test('active destination translation stays zero across compact progress', () {
-      const width = 350.0;
-      const index = 4;
-      final compactCenter = floatingNavCompactCenterX(
-        width: width,
-        compactDestinationIndex: index,
-      );
-      const slotCenter = (index + 0.5) * (width / 5);
-      for (final progress in [0.0, 0.25, 0.5, 0.75, 1.0]) {
-        final translationX = (compactCenter - slotCenter) * progress;
-        expect(translationX, 0);
-      }
-    });
+    test(
+      'active destination translation stays zero across compact progress',
+      () {
+        const width = 350.0;
+        const index = 4;
+        final compactCenter = floatingNavCompactCenterX(
+          width: width,
+          compactDestinationIndex: index,
+        );
+        const slotCenter = (index + 0.5) * (width / 5);
+        for (final progress in [0.0, 0.25, 0.5, 0.75, 1.0]) {
+          final translationX = (compactCenter - slotCenter) * progress;
+          expect(translationX, 0);
+        }
+      },
+    );
   });
 }

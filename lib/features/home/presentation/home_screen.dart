@@ -234,7 +234,9 @@ class _HomePinnedBrandBar extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           border: Border(
-            bottom: BorderSide(color: AppColors.mistDark.withValues(alpha: 0.55)),
+            bottom: BorderSide(
+              color: AppColors.mistDark.withValues(alpha: 0.55),
+            ),
           ),
         ),
         child: Padding(
