@@ -299,23 +299,42 @@ class SettingsChatScreen extends ConsumerStatefulWidget {
   ConsumerState<SettingsChatScreen> createState() => _SettingsChatScreenState();
 }
 
-class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen> {
+class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
+    with WidgetsBindingObserver {
+  static const _refreshInterval = Duration(seconds: 3);
+
   final _composer = TextEditingController();
   SupportTicket? _ticket;
+  Timer? _refreshTimer;
   var _loading = true;
   var _sending = false;
+  var _refreshing = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_bootstrap());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
     _composer.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startRefreshTimer();
+      unawaited(_refreshTicket());
+      return;
+    }
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
   }
 
   Future<void> _bootstrap() async {
@@ -329,6 +348,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen> {
       final chat = tickets.where((t) => t.kind == 'chat').firstOrNull;
       if (chat != null) {
         _ticket = await repo.getTicket(chat.id);
+        _startRefreshTimer();
       }
     } on AppFailure catch (error) {
       _error = error.message;
@@ -336,6 +356,40 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  void _startRefreshTimer() {
+    if (_ticket == null || _refreshTimer != null) {
+      return;
+    }
+    _refreshTimer = Timer.periodic(
+      _refreshInterval,
+      (_) => unawaited(_refreshTicket()),
+    );
+  }
+
+  Future<void> _refreshTicket() async {
+    final ticket = _ticket;
+    if (!mounted || ticket == null || _sending || _refreshing) {
+      return;
+    }
+    _refreshing = true;
+    try {
+      final updated = await ref
+          .read(supportRepositoryProvider)
+          .getTicket(ticket.id);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _ticket = updated;
+        _error = null;
+      });
+    } on AppFailure {
+      return;
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -370,6 +424,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen> {
         );
       }
       _composer.clear();
+      _startRefreshTimer();
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
@@ -381,66 +436,115 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen> {
       if (mounted) {
         setState(() => _sending = false);
       }
+      unawaited(_refreshTicket());
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final messages = _ticket?.messages ?? const <SupportMessage>[];
-    return SettingsScaffold(
-      spaceChildren: false,
-      children: [
-        if (_loading)
-          const Padding(
-            padding: EdgeInsets.only(top: 48),
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else ...[
-          const Center(
-            child: Text('Сегодня', style: AppTypography.settingsRowSubtitle),
-          ),
-          const SizedBox(height: 20),
-          if (_error != null)
-            Text(
-              _error!,
-              style: AppTypography.settingsRowSubtitle.copyWith(
-                color: AppColors.error,
+    final top = MediaQuery.paddingOf(context).top;
+    return Scaffold(
+      backgroundColor: AppColors.pageSurface,
+      body: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                slivers: [
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        SettingsMetrics.contentInset,
+                        top + 8,
+                        SettingsMetrics.contentInset,
+                        20,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SettingsTopBar(),
+                          const SizedBox(height: 12),
+                          if (_loading)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 48),
+                              child: Center(child: CircularProgressIndicator()),
+                            )
+                          else ...[
+                            const Center(
+                              child: Text(
+                                'Сегодня',
+                                style: AppTypography.settingsRowSubtitle,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            if (_error != null)
+                              Text(
+                                _error!,
+                                style: AppTypography.settingsRowSubtitle
+                                    .copyWith(color: AppColors.error),
+                              ),
+                            if (messages.isEmpty && _error == null)
+                              Text(
+                                'Напишите сообщение — создадим обращение в поддержку.',
+                                style: AppTypography.settingsRowSubtitle
+                                    .copyWith(color: AppColors.settingsInk),
+                              ),
+                            for (final message in messages) ...[
+                              const SizedBox(height: 12),
+                              _ChatBubble(message: message),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: GestureDetector(
+                      key: const ValueKey('chat-empty-space'),
+                      behavior: HitTestBehavior.translucent,
+                      onTap: () =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
+                    ),
+                  ),
+                ],
               ),
             ),
-          if (!_loading && messages.isEmpty && _error == null)
-            Text(
-              'Напишите сообщение — создадим обращение в поддержку.',
-              style: AppTypography.settingsRowSubtitle.copyWith(
-                color: AppColors.settingsInk,
-              ),
-            ),
-          for (final message in messages) ...[
-            const SizedBox(height: 12),
-            _ChatBubble(message: message),
-          ],
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: SettingsTextField(
-                  controller: _composer,
-                  hintText: 'Сообщение…',
-                  maxLength: 4000,
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: SettingsTextField(
+                        controller: _composer,
+                        hintText: 'Сообщение…',
+                        maxLength: 4000,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    SettingsCircleIconButton(
+                      icon: Icons.send_rounded,
+                      onTap: _sending ? () {} : _send,
+                      background: SettingsColors.accent,
+                      iconColor: Colors.white,
+                      size: 46,
+                      iconSize: 20,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              SettingsCircleIconButton(
-                icon: Icons.send_rounded,
-                onTap: _sending ? () {} : _send,
-                background: SettingsColors.accent,
-                iconColor: Colors.white,
-                size: 46,
-                iconSize: 20,
-              ),
-            ],
-          ),
-        ],
-      ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

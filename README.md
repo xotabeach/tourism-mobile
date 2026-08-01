@@ -43,7 +43,12 @@ flutter run \
 
 Release без `APP_ENV` автоматически выбирает `production` и откажется
 запускаться без неплейсхолдерного `API_BASE_URL`. Android release signing
-настраивается только в защищённом release pipeline; debug key не используется.
+берётся из gitignored `android/key.properties` (без fallback на debug key).
+
+Полная шпаргалка по iOS/Android сборкам, `dart-define`, signed APK/AAB и
+установке на устройство:
+[mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md)
+(в monorepo) / канон в `tourism-platform/docs/mobile-build-and-install.md`.
 
 Проверки:
 
