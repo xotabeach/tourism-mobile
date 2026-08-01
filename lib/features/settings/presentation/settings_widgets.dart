@@ -795,10 +795,12 @@ class _TravelPlusTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Banner Positioned(left/right) can tighten below the intrinsic title
+    // width (CI/Linux fonts); scale down instead of overflowing the Row.
     return SizedBox(
       height: 42,
-      width: 270,
-      child: Align(
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
         alignment: Alignment.centerLeft,
         child: Stack(
           clipBehavior: Clip.none,

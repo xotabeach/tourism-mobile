@@ -322,7 +322,7 @@ void main() {
     await tester.pump();
     expect(
       tester.getSize(find.byKey(const ValueKey('swipe-action-indicator'))),
-      const Size.square(44),
+      const Size.square(52),
     );
 
     await gesture.moveBy(const Offset(100, 0));
@@ -331,7 +331,7 @@ void main() {
     expect(transform.transform.getTranslation().x.abs(), lessThanOrEqualTo(45));
     expect(
       tester.getSize(find.byKey(const ValueKey('swipe-action-indicator'))),
-      const Size.square(44),
+      const Size.square(52),
     );
 
     await gesture.up();
