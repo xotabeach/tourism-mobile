@@ -1,17 +1,26 @@
 import 'dart:ui' show Tristate;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 import '../support/test_overrides.dart';
+
+double _headerPaintExtent(WidgetTester tester) {
+  final render = tester.renderObject<RenderSliverPersistentHeader>(
+    find.byType(SliverPersistentHeader),
+  );
+  return render.geometry!.paintExtent;
+}
 
 Future<Element> _openRouteDetails(WidgetTester tester) async {
   tester.view
@@ -55,41 +64,50 @@ bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
 }
 
 void main() {
-  testWidgets('gallery expands and collapses only when its media is tapped', (
+  testWidgets('route hero starts expanded and shrinks on scroll', (
     tester,
   ) async {
     final handle = tester.ensureSemantics();
     await _openRouteDetails(tester);
 
-    final header = find.byType(RouteMediaHeader);
-    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+    expect(find.byType(RouteCollapsingHeader), findsOneWidget);
+    expect(
+      _headerPaintExtent(tester),
+      closeTo(RouteCollapsingHeader.expandedHeight, 0.5),
+    );
 
-    await tester.tap(header);
+    await tester.drag(
+      find.byKey(const ValueKey('route-details-list')),
+      const Offset(0, -220),
+    );
     await tester.pumpAndSettle();
-    expect(tester.getSize(header).height, greaterThan(852 / 2));
 
-    await tester.tap(header);
-    await tester.pumpAndSettle();
-    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+    final collapsed = _headerPaintExtent(tester);
+    expect(collapsed, lessThan(RouteCollapsingHeader.expandedHeight - 40));
+    expect(collapsed, lessThanOrEqualTo(120));
 
     handle.dispose();
   });
 
-  testWidgets('scrolling route content does not expand the gallery', (
+  testWidgets('scrolling keeps the hero collapsed until scrolled back', (
     tester,
   ) async {
     await _openRouteDetails(tester);
 
-    final header = find.byType(RouteMediaHeader);
-    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+    expect(
+      _headerPaintExtent(tester),
+      closeTo(RouteCollapsingHeader.expandedHeight, 0.5),
+    );
 
     await tester.drag(
-      find.text('Классика Южного берега').last,
-      const Offset(0, -180),
+      find.byKey(const ValueKey('route-details-list')),
+      const Offset(0, -220),
     );
     await tester.pumpAndSettle();
 
-    expect(tester.getSize(header).height, RouteMediaHeader.collapsedHeight);
+    final afterScroll = _headerPaintExtent(tester);
+    expect(afterScroll, lessThan(RouteCollapsingHeader.expandedHeight - 40));
+
     final scrollable = find
         .descendant(
           of: find.byKey(const ValueKey('route-details-list')),
@@ -99,6 +117,16 @@ void main() {
     expect(
       tester.state<ScrollableState>(scrollable).position.pixels,
       greaterThan(0),
+    );
+
+    await tester.drag(
+      find.byKey(const ValueKey('route-details-list')),
+      const Offset(0, 280),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      _headerPaintExtent(tester),
+      closeTo(RouteCollapsingHeader.expandedHeight, 0.5),
     );
   });
 
@@ -195,7 +223,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.bySemanticsLabel('Маршруты'), findsOneWidget);
-    expect(find.byType(RouteMediaHeader), findsOneWidget);
+    expect(find.byType(RouteCollapsingHeader), findsOneWidget);
     final expandedButton = tester.getRect(find.byType(RouteStartButton));
     expect(expandedButton.bottom, lessThanOrEqualTo(compactBar.bottom - 68));
 

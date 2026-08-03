@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
-import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
@@ -17,9 +16,9 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
-import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteDetailsScreen extends ConsumerStatefulWidget {
@@ -38,45 +37,15 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
   ConsumerState<RouteDetailsScreen> createState() => _RouteDetailsScreenState();
 }
 
-class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
-    with SingleTickerProviderStateMixin {
+class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
   final _scrollController = ScrollController();
-  late final AnimationController _galleryController;
 
   int? _selectedStop;
 
   @override
-  void initState() {
-    super.initState();
-    _galleryController = AnimationController(
-      vsync: this,
-      duration: AppMotion.emphasized,
-    );
-  }
-
-  @override
   void dispose() {
-    _galleryController.dispose();
     _scrollController.dispose();
     super.dispose();
-  }
-
-  void _toggleGallery() {
-    _settleGallery(_galleryController.value < 0.5 ? 1 : 0);
-  }
-
-  void _settleGallery(double target) {
-    if (MediaQuery.disableAnimationsOf(context)) {
-      _galleryController.value = target;
-      return;
-    }
-    final remaining = (target - _galleryController.value).abs();
-    _galleryController.duration = Duration(
-      milliseconds: (220 + 120 * remaining).round(),
-    );
-    unawaited(
-      _galleryController.animateTo(target, curve: AppMotion.emphasizedCurve),
-    );
   }
 
   void _selectStop(int index) => setState(() => _selectedStop = index);
@@ -115,158 +84,126 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     final isFavorite = ref.watch(
       favoritesProvider.select((s) => s.routeIds.contains(route.id)),
     );
+    final authorName = route.authorLabel ?? 'КрымТрип редакция';
 
-    return ListView(
+    return CustomScrollView(
       key: const ValueKey('route-details-list'),
       controller: _scrollController,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      padding: EdgeInsets.zero,
-      children: [
-        AnimatedBuilder(
-          animation: _galleryController,
-          builder: (context, _) => RouteMediaHeader(
-            images: _galleryImages(config, route),
-            expansionProgress: _galleryController.value,
-            onToggle: _toggleGallery,
-            heroTag: 'route-cover-${route.id}',
-            actions: [
-              _HeaderAction(
-                icon: Icons.arrow_back_rounded,
-                semanticLabel: 'Назад',
-                onPressed: () => context.pop(),
-              ),
-              const Spacer(),
-              _HeaderAction(
-                icon: isFavorite
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
-                semanticLabel: isFavorite
-                    ? 'Удалить из избранного'
-                    : 'Добавить в избранное',
-                onPressed: () {
-                  unawaited(_toggleFavorite(route.id));
-                },
-              ),
-              const SizedBox(width: 8),
-              _HeaderAction(
-                icon: Icons.ios_share_rounded,
-                semanticLabel: 'Поделиться',
-                onPressed: () => _showSoon('Поделиться маршрутом'),
-              ),
-              const SizedBox(width: 8),
-              _HeaderAction(
-                iconAsset: AppIconography.download,
-                semanticLabel: 'Скачать офлайн',
-                onPressed: () => _showSoon('Офлайн-режим'),
-              ),
-            ],
+      slivers: [
+        RouteCollapsingHeader(
+          images: _galleryImages(config, route),
+          title: route.name,
+          authorName: authorName,
+          authorSubtitle: 'Продвинутый пешеход',
+          avatar: AppImages.avatarProvider(
+            config: config,
+            avatarUrl: route.authorAvatarUrl,
           ),
+          isFavorite: isFavorite,
+          heroTag: 'route-cover-${route.id}',
+          onBack: () => context.pop(),
+          onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
+          onShare: () => _showSoon('Поделиться маршрутом'),
+          onDownload: () => _showSoon('Офлайн-режим'),
+          onAuthorTap: route.ownerUserId == null
+              ? null
+              : () {
+                  final ownerId = route.ownerUserId!;
+                  final session = ref.read(sessionProvider);
+                  if (session.userId == ownerId) {
+                    context.goNamed(AppRouteNames.profile);
+                  } else {
+                    unawaited(
+                      context.pushNamed(
+                        AppRouteNames.userProfile,
+                        pathParameters: {'userId': ownerId},
+                      ),
+                    );
+                  }
+                },
         ),
-        Transform.translate(
-          offset: const Offset(0, -24),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              color: AppColors.elevatedSurface,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(18, 16, 18, 178 + bottomInset),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _AuthorRow(
-                    name: route.authorLabel ?? 'КрымТрип редакция',
-                    subtitle: 'Продвинутый пешеход',
-                    avatar: AppImages.avatarProvider(
-                      config: config,
-                      avatarUrl: route.authorAvatarUrl,
-                    ),
-                    onAuthorTap: route.ownerUserId == null
-                        ? null
-                        : () {
-                            final ownerId = route.ownerUserId!;
-                            final session = ref.read(sessionProvider);
-                            if (session.userId == ownerId) {
-                              context.goNamed(AppRouteNames.profile);
-                            } else {
-                              unawaited(
-                                context.pushNamed(
-                                  AppRouteNames.userProfile,
-                                  pathParameters: {'userId': ownerId},
-                                ),
-                              );
-                            }
-                          },
-                    onMore: () => _showSoon('Меню маршрута'),
-                  ),
-                  const _SectionDivider(),
-                  Text(
-                    route.name,
-                    key: const ValueKey('route-details-title'),
-                    style: AppTypography.routeTitle.copyWith(
-                      fontSize: 24,
-                      height: 1.14,
-                      color: AppColors.primaryInk,
-                    ),
-                  ),
-                  if (route.description != null) ...[
-                    const SizedBox(height: 12),
+        SliverToBoxAdapter(
+          child: Transform.translate(
+            offset: const Offset(0, -20),
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.elevatedSurface,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(18, 20, 18, 118 + bottomInset),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      route.description!,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        height: 1.42,
-                        color: AppColors.secondaryInk,
+                      route.name,
+                      key: const ValueKey('route-details-title'),
+                      style: AppTypography.routeTitle.copyWith(
+                        fontSize: 24,
+                        height: 1.14,
+                        color: AppColors.primaryInk,
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 18),
-                  _AudioGuideCard(
-                    title: route.name,
-                    author: route.authorLabel ?? 'КрымТрип редакция',
-                    image: _routeCover(config, route),
-                    onPlay: () => _showSoon('Аудиогид'),
-                  ),
-                  const SizedBox(height: 16),
-                  const _RouteTagsRow(
-                    tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
-                  ),
-                  const SizedBox(height: 16),
-                  _RouteFacts(route: route),
-                  const _SectionDivider(),
-                  const _SectionTitle('Карта маршрута:'),
-                  const SizedBox(height: 14),
-                  RouteMapPreview(
-                    stops: route.stops,
-                    selectedIndex: _selectedStop,
-                    onPinTap: _selectStop,
-                  ),
-                  const SizedBox(height: 24),
-                  const _SectionTitle('Остановки:'),
-                  const SizedBox(height: 6),
-                  for (var index = 0; index < route.stops.length; index++)
-                    _StopRow(
-                      stop: route.stops[index],
-                      selected: _selectedStop == index,
-                      showDivider: index != route.stops.length - 1,
-                      onNumberTap: () => _selectStop(index),
-                      onOpen: () => _openPlace(route.stops[index]),
+                    if (route.description != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        route.description!,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.42,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    _AudioGuideCard(
+                      title: route.name,
+                      author: authorName,
+                      image: _routeCover(config, route),
+                      onPlay: () => _showSoon('Аудиогид'),
                     ),
-                  _SimilarRoutesSection(currentRouteId: route.id),
-                  const SizedBox(height: 22),
-                  const _RatingRow(rating: '4,9', topLabel: '# ТОП 153'),
-                  const SizedBox(height: 14),
-                  for (final review in _designReviews) ...[
-                    _ReviewCard(review: review),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 16),
+                    const _RouteTagsRow(
+                      tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                    ),
+                    const SizedBox(height: 16),
+                    _RouteFacts(route: route),
+                    const _SectionDivider(),
+                    const _SectionTitle('Карта маршрута:'),
+                    const SizedBox(height: 14),
+                    RouteMapPreview(
+                      stops: route.stops,
+                      selectedIndex: _selectedStop,
+                      onPinTap: _selectStop,
+                    ),
+                    const SizedBox(height: 24),
+                    const _SectionTitle('Остановки:'),
+                    const SizedBox(height: 6),
+                    for (var index = 0; index < route.stops.length; index++)
+                      _StopRow(
+                        stop: route.stops[index],
+                        selected: _selectedStop == index,
+                        showDivider: index != route.stops.length - 1,
+                        onNumberTap: () => _selectStop(index),
+                        onOpen: () => _openPlace(route.stops[index]),
+                      ),
+                    _SimilarRoutesSection(currentRouteId: route.id),
+                    const SizedBox(height: 22),
+                    const _RatingRow(rating: '4,9', topLabel: '# ТОП 153'),
+                    const SizedBox(height: 14),
+                    for (final review in _designReviews) ...[
+                      _ReviewCard(review: review),
+                      const SizedBox(height: 12),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -279,46 +216,31 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     final config = ref.watch(appConfigProvider);
     return ColoredBox(
       color: AppColors.elevatedSurface,
-      child: Column(
-        children: [
-          RouteMediaHeader(
+      child: CustomScrollView(
+        physics: const NeverScrollableScrollPhysics(),
+        slivers: [
+          RouteCollapsingHeader(
             images: [_routeCover(config, route)],
-            expansionProgress: 0,
-            onToggle: () {},
+            title: route.name,
+            authorName: route.authorLabel ?? 'КрымТрип редакция',
+            authorSubtitle: 'Продвинутый пешеход',
+            avatar: AppImages.avatarProvider(
+              config: config,
+              avatarUrl: route.authorAvatarUrl,
+            ),
+            isFavorite: false,
             heroTag: 'route-cover-${route.id}',
-            actions: [
-              _HeaderAction(
-                icon: Icons.arrow_back_rounded,
-                semanticLabel: 'Назад',
-                onPressed: () => context.pop(),
-              ),
-            ],
+            onBack: () => context.pop(),
+            onToggleFavorite: () {},
+            onShare: () {},
+            onDownload: () {},
+            onAuthorTap: null,
           ),
-          Expanded(
+          const SliverFillRemaining(
+            hasScrollBody: false,
             child: Padding(
-              padding: const EdgeInsets.all(18),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 180,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: AppColors.controlSurface,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    width: double.infinity,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: AppColors.controlSurface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ],
-              ),
+              padding: EdgeInsets.all(18),
+              child: Center(child: CircularProgressIndicator()),
             ),
           ),
         ],
@@ -563,136 +485,6 @@ class _SimilarRouteCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _HeaderAction extends StatelessWidget {
-  const _HeaderAction({
-    required this.semanticLabel,
-    required this.onPressed,
-    this.icon,
-    this.iconAsset,
-  });
-
-  final IconData? icon;
-  final String? iconAsset;
-  final String semanticLabel;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: semanticLabel,
-      child: AppGlassCircle(
-        dimension: 44,
-        blur: 10,
-        fillColor: Colors.black.withValues(alpha: 0.26),
-        borderColor: Colors.white.withValues(alpha: 0.22),
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onPressed,
-            child: Center(
-              child: iconAsset != null
-                  ? AppAssetIcon(iconAsset!, size: 22)
-                  : Icon(icon, size: 22, color: Colors.white),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AuthorRow extends StatelessWidget {
-  const _AuthorRow({
-    required this.name,
-    required this.subtitle,
-    required this.avatar,
-    required this.onMore,
-    this.onAuthorTap,
-  });
-
-  final String name;
-  final String subtitle;
-  final ImageProvider avatar;
-  final VoidCallback onMore;
-  final VoidCallback? onAuthorTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: onAuthorTap,
-            child: Row(
-              children: [
-                CircleAvatar(radius: 24, backgroundImage: avatar),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                          color: AppColors.primaryInk,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          height: 1.2,
-                          color: AppColors.secondaryInk,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Semantics(
-          button: true,
-          label: 'Меню маршрута',
-          child: SizedBox.square(
-            dimension: 48,
-            child: Material(
-              color: AppColors.primaryInk,
-              shape: const CircleBorder(),
-              clipBehavior: Clip.antiAlias,
-              child: InkWell(
-                onTap: onMore,
-                child: const Icon(
-                  Icons.more_horiz_rounded,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

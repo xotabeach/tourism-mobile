@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -157,107 +158,108 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Same chrome for own and other profiles. Permissions only gate edit
     // entry points (settings); rank/achievements stay visible (mock until
     // Phase 14 durable progress API).
+    final onMore = isOwn
+        ? () => context.pushNamed(AppRouteNames.settings)
+        : null;
+    final onLike = isOwn
+        ? null
+        : () {
+            final userId = widget.userId;
+            if (userId == null || userId.isEmpty) {
+              return;
+            }
+            unawaited(
+              ref.read(profileLikeControllerProvider.notifier).toggle(userId),
+            );
+          };
+
     return ColoredBox(
       color: AppColors.pageSurface,
-      child: ListView(
+      child: CustomScrollView(
         controller: _scrollController,
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
         ),
-        padding: const EdgeInsets.only(bottom: AppSpacing.shellBottomContent),
-        children: [
-          _ProfileHeader(
+        slivers: [
+          _ProfileCollapsingHeader(
             profile: profile,
             topInset: topInset,
-            onMore: isOwn
-                ? () => context.pushNamed(AppRouteNames.settings)
-                : null,
+            onMore: onMore,
+            onLike: onLike,
             likedByMe: profile.likedByMe,
-            onLike: isOwn
-                ? null
-                : () {
-                    final userId = widget.userId;
-                    if (userId == null || userId.isEmpty) {
-                      return;
-                    }
-                    unawaited(
-                      ref
-                          .read(profileLikeControllerProvider.notifier)
-                          .toggle(userId),
-                    );
-                  },
           ),
-          Transform.translate(
-            offset: const Offset(0, -28),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.page,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _RankCard(rank: profile.rank),
-                      const SizedBox(height: AppSpacing.xl),
-                      Text(
-                        'Достижения:',
-                        style: AppTypography.sectionTitle.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
-                  ),
-                ),
-                // Full-bleed PageView so adjacent pages clip at the screen
-                // edge, not inside the page inset.
-                _AchievementsCarousel(
-                  pages: profile.achievementPages,
-                  pageIndex: _achievementPage,
-                  onPageChanged: (index) {
-                    setState(() => _achievementPage = index);
-                  },
-                  onAchievementTap: (achievement) {
-                    _snack(achievement.title);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.page,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Опубликованные маршруты',
-                        style: AppTypography.sectionTitle.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (profile.publishedRoutes.isEmpty)
+          SliverToBoxAdapter(
+            child: Transform.translate(
+              offset: const Offset(0, -28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _RankCard(rank: profile.rank),
+                        const SizedBox(height: AppSpacing.xl),
                         Text(
-                          isOwn
-                              ? 'Пока нет опубликованных маршрутов'
-                              : 'У путешественника пока нет маршрутов',
-                          style: AppTypography.routeMetadata,
+                          'Достижения:',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                    ],
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
+                    ),
                   ),
-                ),
-                if (profile.publishedRoutes.isNotEmpty)
-                  _PublishedRoutesCarousel(
-                    routes: profile.publishedRoutes,
-                    pageIndex: _publishedPage,
-                    authorAvatarUrl: profile.avatarImageUrl,
+                  _AchievementsCarousel(
+                    pages: profile.achievementPages,
+                    pageIndex: _achievementPage,
                     onPageChanged: (index) {
-                      setState(() => _publishedPage = index);
+                      setState(() => _achievementPage = index);
+                    },
+                    onAchievementTap: (achievement) {
+                      _snack(achievement.title);
                     },
                   ),
-              ],
+                  const SizedBox(height: AppSpacing.xl),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Опубликованные маршруты',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (profile.publishedRoutes.isEmpty)
+                          Text(
+                            isOwn
+                                ? 'Пока нет опубликованных маршрутов'
+                                : 'У путешественника пока нет маршрутов',
+                            style: AppTypography.routeMetadata,
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (profile.publishedRoutes.isNotEmpty)
+                    _PublishedRoutesCarousel(
+                      routes: profile.publishedRoutes,
+                      pageIndex: _publishedPage,
+                      authorAvatarUrl: profile.avatarImageUrl,
+                      onPageChanged: (index) {
+                        setState(() => _publishedPage = index);
+                      },
+                    ),
+                  const SizedBox(height: AppSpacing.shellBottomContent),
+                ],
+              ),
             ),
           ),
         ],
@@ -266,14 +268,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-class _ProfileHeader extends StatelessWidget {
-  const _ProfileHeader({
+class _ProfileCollapsingHeader extends StatelessWidget {
+  const _ProfileCollapsingHeader({
     required this.profile,
     required this.topInset,
     this.onMore,
     this.onLike,
     this.likedByMe = false,
   });
+
+  static const double expandedBody = 190;
+  static const double collapsedBar = 56;
 
   final ProfileSnapshot profile;
   final double topInset;
@@ -292,98 +297,170 @@ class _ProfileHeader extends StatelessWidget {
       assetFallback: profile.avatarImageAsset,
     );
 
-    return SizedBox(
-      height: topInset + 190,
-      child: Stack(
+    return CollapsingHeroSliver(
+      expandedHeight: topInset + expandedBody,
+      collapsedHeight: topInset + collapsedBar,
+      background: Stack(
         fit: StackFit.expand,
         children: [
-          Positioned.fill(
-            child: Image(image: cover, fit: BoxFit.cover),
-          ),
-          const Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x33000000),
-                    Color(0x00000000),
-                    Color(0x99000000),
-                  ],
-                  stops: [0, 0.42, 1],
-                ),
+          Image(image: cover, fit: BoxFit.cover),
+          const DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0x33000000),
+                  Color(0x00000000),
+                  Color(0x99000000),
+                ],
+                stops: [0, 0.42, 1],
               ),
-            ),
-          ),
-          Positioned(
-            left: AppSpacing.page,
-            right: AppSpacing.page,
-            bottom: 44,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: CircleAvatar(radius: 32, backgroundImage: avatar),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        profile.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.greeting.copyWith(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        profile.rank.title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.greetingSubtitle.copyWith(
-                          color: Colors.white.withValues(alpha: 0.88),
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: AppSpacing.xs),
-                if (onLike != null)
-                  _HeaderActionButton(
-                    tooltip: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
-                    onTap: onLike!,
-                    fillColor: Colors.black.withValues(alpha: 0.35),
-                    iconColor: Colors.white,
-                    icon: likedByMe
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                  )
-                else if (onMore != null)
-                  _HeaderActionButton(
-                    tooltip: 'Настройки',
-                    onTap: onMore!,
-                    fillColor: Colors.black.withValues(alpha: 0.35),
-                    iconColor: Colors.white,
-                    icon: Icons.more_horiz_rounded,
-                  ),
-              ],
             ),
           ),
         ],
       ),
+      builder: (context, t, shrinkOffset, currentExtent) {
+        final expandedVis = CollapseProgress.fadeOut(t, start: 0.0, end: 0.55);
+        final collapsedVis = CollapseProgress.fadeIn(t, start: 0.4, end: 0.9);
+        final action = onLike != null
+            ? _HeaderActionButton(
+                tooltip: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
+                onTap: onLike!,
+                fillColor: Colors.black.withValues(alpha: 0.35),
+                iconColor: Colors.white,
+                icon: likedByMe
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+              )
+            : onMore != null
+            ? _HeaderActionButton(
+                tooltip: 'Настройки',
+                onTap: onMore!,
+                fillColor: Colors.black.withValues(alpha: 0.35),
+                iconColor: Colors.white,
+                icon: Icons.more_horiz_rounded,
+              )
+            : null;
+        final collapsedAction = onLike != null
+            ? CollapsingHeroAction(
+                semanticLabel: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
+                icon: likedByMe
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                onPhoto: false,
+                onPressed: onLike!,
+              )
+            : onMore != null
+            ? CollapsingHeroAction(
+                semanticLabel: 'Настройки',
+                icon: Icons.more_horiz_rounded,
+                onPhoto: false,
+                onPressed: onMore!,
+              )
+            : null;
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CollapseLayer(
+              visibility: expandedVis,
+              scaleAlignment: Alignment.bottomLeft,
+              translate: Offset(0, 12 * t),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppSpacing.page,
+                  topInset + 8,
+                  AppSpacing.page,
+                  44,
+                ),
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: CircleAvatar(
+                          radius: 32,
+                          backgroundImage: avatar,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              profile.displayName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.greeting.copyWith(
+                                color: Colors.white,
+                                fontSize: 22,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              profile.rank.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.greetingSubtitle.copyWith(
+                                color: Colors.white.withValues(alpha: 0.88),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (action != null) ...[
+                        const SizedBox(width: AppSpacing.xs),
+                        action,
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            CollapseLayer(
+              visibility: collapsedVis,
+              child: Padding(
+                padding: EdgeInsets.only(top: topInset),
+                child: SizedBox(
+                  height: collapsedBar,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        CircleAvatar(radius: 16, backgroundImage: avatar),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            profile.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.greeting.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryInk,
+                            ),
+                          ),
+                        ),
+                        ?collapsedAction,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

@@ -1,14 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
+import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 
 class PlaceDetailsScreen extends ConsumerWidget {
@@ -38,110 +41,33 @@ class PlaceDetailsScreen extends ConsumerWidget {
     return Scaffold(
       body: placeAsync.when(
         data: (place) {
-          final heroAsset = AppImages.placeCoverAsset(place.slug);
           final isFavorite = ref.watch(
             favoritesProvider.select((s) => s.placeIds.contains(place.id)),
           );
           return CustomScrollView(
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
             slivers: [
-              SliverAppBar(
-                expandedHeight: 320,
-                pinned: true,
-                foregroundColor: Colors.white,
-                backgroundColor: AppColors.ink,
-                automaticallyImplyLeading: false,
-                leading: _AdaptivePlaceHeaderButton(
-                  key: const ValueKey('place-details-back'),
-                  semanticLabel: 'Назад',
-                  icon: Icons.arrow_back_rounded,
-                  onPressed: () => context.pop(),
-                ),
-                actions: [
-                  _AdaptivePlaceHeaderButton(
-                    semanticLabel: isFavorite
-                        ? 'Удалить из избранного'
-                        : 'Добавить в избранное',
-                    onPressed: () async {
-                      try {
-                        await ref
-                            .read(favoritesProvider.notifier)
-                            .togglePlace(place.id);
-                      } on Object {
-                        if (!context.mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Не удалось обновить избранное'),
-                          ),
-                        );
-                      }
-                    },
-                    icon: isFavorite
-                        ? Icons.favorite_rounded
-                        : Icons.favorite_border_rounded,
-                  ),
-                  _AdaptivePlaceHeaderButton(
-                    semanticLabel: 'Поделиться',
-                    onPressed: () {},
-                    icon: Icons.ios_share_rounded,
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                flexibleSpace: FlexibleSpaceBar(
-                  background: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Image.asset(heroAsset, fit: BoxFit.cover),
-                      DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.12),
-                              Colors.black.withValues(alpha: 0.75),
-                            ],
-                          ),
-                        ),
+              _PlaceCollapsingHeader(
+                place: place,
+                isFavorite: isFavorite,
+                onBack: () => context.pop(),
+                onToggleFavorite: () async {
+                  try {
+                    await ref
+                        .read(favoritesProvider.notifier)
+                        .togglePlace(place.id);
+                  } on Object {
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Не удалось обновить избранное'),
                       ),
-                      Positioned(
-                        left: 20,
-                        right: 20,
-                        bottom: 24,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: [
-                                for (final category in place.categories.take(2))
-                                  _GlassPill(label: category.name),
-                                if (place.isPaid)
-                                  const _GlassPill(label: 'Платно'),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              place.name,
-                              style: Theme.of(context).textTheme.headlineMedium
-                                  ?.copyWith(color: Colors.white),
-                            ),
-                            if (place.shortDescription != null) ...[
-                              const SizedBox(height: 8),
-                              Text(
-                                place.shortDescription!,
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.88),
-                                  height: 1.3,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                    );
+                  }
+                },
+                onShare: () {},
               ),
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(
@@ -238,43 +164,200 @@ class PlaceDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _AdaptivePlaceHeaderButton extends StatelessWidget {
-  const _AdaptivePlaceHeaderButton({
-    required this.semanticLabel,
-    required this.onPressed,
-    this.icon,
-    this.iconAsset,
-    super.key,
-  }) : assert((icon == null) != (iconAsset == null));
+class _PlaceCollapsingHeader extends StatelessWidget {
+  const _PlaceCollapsingHeader({
+    required this.place,
+    required this.isFavorite,
+    required this.onBack,
+    required this.onToggleFavorite,
+    required this.onShare,
+  });
 
-  final String semanticLabel;
-  final VoidCallback onPressed;
-  final IconData? icon;
-  final String? iconAsset;
+  static const double expandedHeight = 320;
+  static const double collapsedBar = 56;
+
+  final PlaceDetail place;
+  final bool isFavorite;
+  final VoidCallback onBack;
+  final Future<void> Function() onToggleFavorite;
+  final VoidCallback onShare;
+
+  void _showMenu(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    unawaited(() async {
+      final value = await showMenu<String>(
+        context: context,
+        position: RelativeRect.fromLTRB(100, top + 8, 12, 0),
+        items: [
+          PopupMenuItem(
+            value: 'favorite',
+            child: Text(isFavorite ? 'Удалить из избранного' : 'В избранное'),
+          ),
+          const PopupMenuItem(value: 'share', child: Text('Поделиться')),
+        ],
+      );
+      switch (value) {
+        case 'favorite':
+          await onToggleFavorite();
+        case 'share':
+          onShare();
+      }
+    }());
+  }
 
   @override
   Widget build(BuildContext context) {
-    final iconWidget = iconAsset == null
-        ? Icon(icon, color: Colors.white, size: 22)
-        : AppAssetIcon(iconAsset!, color: Colors.white, size: 22);
-    final button = IconButton(
-      tooltip: semanticLabel,
-      onPressed: onPressed,
-      padding: EdgeInsets.zero,
-      icon: iconWidget,
-    );
-    if (Theme.of(context).platform != TargetPlatform.iOS) {
-      return button;
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: AppGlassCircle(
-        dimension: 44,
-        blur: 24,
-        fillColor: Colors.black.withValues(alpha: 0.28),
-        borderColor: Colors.white.withValues(alpha: 0.48),
-        child: button,
+    final topInset = MediaQuery.paddingOf(context).top;
+    final heroAsset = AppImages.placeCoverAsset(place.slug);
+
+    return CollapsingHeroSliver(
+      expandedHeight: expandedHeight,
+      collapsedHeight: topInset + collapsedBar,
+      background: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(heroAsset, fit: BoxFit.cover),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.12),
+                  Colors.black.withValues(alpha: 0.75),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
+      builder: (context, t, shrinkOffset, currentExtent) {
+        final expandedVis = CollapseProgress.fadeOut(t, start: 0.0, end: 0.55);
+        final collapsedVis = CollapseProgress.fadeIn(t, start: 0.4, end: 0.9);
+
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            CollapseLayer(
+              visibility: expandedVis,
+              scaleAlignment: Alignment.topCenter,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Positioned(
+                    top: topInset + 8,
+                    left: 12,
+                    right: 12,
+                    child: Row(
+                      children: [
+                        CollapsingHeroAction(
+                          key: const ValueKey('place-details-back'),
+                          semanticLabel: 'Назад',
+                          icon: Icons.arrow_back_rounded,
+                          onPressed: onBack,
+                        ),
+                        const Spacer(),
+                        CollapsingHeroAction(
+                          semanticLabel: isFavorite
+                              ? 'Удалить из избранного'
+                              : 'Добавить в избранное',
+                          icon: isFavorite
+                              ? Icons.favorite_rounded
+                              : Icons.favorite_border_rounded,
+                          onPressed: () => unawaited(onToggleFavorite()),
+                        ),
+                        const SizedBox(width: 8),
+                        CollapsingHeroAction(
+                          semanticLabel: 'Поделиться',
+                          icon: Icons.ios_share_rounded,
+                          onPressed: onShare,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    left: 20,
+                    right: 20,
+                    bottom: 24,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final category in place.categories.take(2))
+                              _GlassPill(label: category.name),
+                            if (place.isPaid) const _GlassPill(label: 'Платно'),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          place.name,
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(color: Colors.white),
+                        ),
+                        if (place.shortDescription != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            place.shortDescription!,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.88),
+                              height: 1.3,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            CollapseLayer(
+              visibility: collapsedVis,
+              child: Padding(
+                padding: EdgeInsets.only(top: topInset),
+                child: SizedBox(
+                  height: collapsedBar,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        CollapsingHeroAction(
+                          semanticLabel: 'Назад',
+                          icon: Icons.arrow_back_rounded,
+                          onPhoto: false,
+                          onPressed: onBack,
+                        ),
+                        Expanded(
+                          child: Text(
+                            place.name,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.settingsRowTitle.copyWith(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        CollapsingHeroAction(
+                          semanticLabel: 'Меню места',
+                          icon: Icons.more_horiz_rounded,
+                          onPhoto: false,
+                          onPressed: () => _showMenu(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
