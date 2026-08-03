@@ -852,6 +852,28 @@ class SettingsReportScreen extends StatelessWidget {
   }
 }
 
+const _appProblemTypes = <String>[
+  'Приложение вылетает / зависает',
+  'Ошибка отображения',
+  'Проблема с авторизацией',
+  'Другое',
+];
+
+const _routeProblemTypes = <String>[
+  'Тропа закрыта / перекрыта',
+  'Неточность на карте',
+  'Опасный участок',
+  'Устарела информация',
+  'Другое',
+];
+
+const _mockReportRoutes = <(String, String)>[
+  ('Гора Чок-Сары-Кая', 'Опубликован: 12.05.26'),
+  ('Большой каньон Крыма', 'Опубликован: 03.04.26'),
+  ('Мыс Ай-Тодор', 'Опубликован: 21.03.26'),
+  ('Тропа Голицына', 'Опубликован: 08.02.26'),
+];
+
 class SettingsReportAppFormScreen extends ConsumerStatefulWidget {
   const SettingsReportAppFormScreen({super.key});
 
@@ -863,6 +885,8 @@ class SettingsReportAppFormScreen extends ConsumerStatefulWidget {
 class _SettingsReportAppFormScreenState
     extends ConsumerState<SettingsReportAppFormScreen> {
   final _description = TextEditingController();
+  String? _problemType;
+  var _problemTypeOpen = false;
   var _busy = false;
 
   @override
@@ -873,6 +897,12 @@ class _SettingsReportAppFormScreenState
 
   Future<void> _submit() async {
     final body = _description.text.trim();
+    if (_problemType == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Выберите тип проблемы')));
+      return;
+    }
     if (body.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -888,7 +918,7 @@ class _SettingsReportAppFormScreenState
           .read(supportRepositoryProvider)
           .createTicket(
             kind: 'app_error',
-            subject: 'Ошибка в приложении',
+            subject: 'Ошибка в приложении: $_problemType',
             body: body,
           );
       if (!mounted) {
@@ -917,113 +947,24 @@ class _SettingsReportAppFormScreenState
       spaceChildren: false,
       onSave: _busy ? null : _submit,
       children: [
-        SettingsFormCard(
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Тип проблемы:',
-                      style: AppTypography.settingsRowTitle.copyWith(
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Приложение вылетает / зависает',
-                      style: AppTypography.settingsRowSubtitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.expand_more_rounded, size: 20),
-            ],
-          ),
+        _ReportOptionPicker(
+          label: 'Тип проблемы:',
+          value: _problemType,
+          placeholder: 'Выберите тип проблемы',
+          open: _problemTypeOpen,
+          options: _appProblemTypes,
+          onToggle: () => setState(() => _problemTypeOpen = !_problemTypeOpen),
+          onSelect: (value) => setState(() {
+            _problemType = value;
+            _problemTypeOpen = false;
+          }),
         ),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Описание:',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _description,
-                maxLines: 4,
-                maxLength: 2000,
-                style: AppTypography.settingsRowSubtitle.copyWith(
-                  color: AppColors.settingsInk,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Опишите проблему максимально подробно',
-                  hintStyle: AppTypography.settingsRowSubtitle,
-                  filled: true,
-                  fillColor: AppColors.elevatedSurface,
-                  contentPadding: const EdgeInsets.all(12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: SettingsColors.hairline,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: SettingsColors.hairline,
-                    ),
-                  ),
-                  counterText: '',
-                ),
-              ),
-            ],
-          ),
-        ),
+        _ReportDescriptionCard(controller: _description),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Скриншот проблемы (рекомендуется):',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 10),
-              SettingsDashedUpload(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Вложение скриншота — позже')),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+        const _ReportScreenshotCard(),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Устройство и версия (автоматически)',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Версия 0.32.1 (Бета). Iphone 16, IOS 27.',
-                style: AppTypography.settingsRowSubtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
+        const _ReportDeviceCard(),
         const SizedBox(height: 16),
         SettingsNavTile(
           title: 'Оценить приложение',
@@ -1055,8 +996,10 @@ class SettingsReportRouteFormScreen extends ConsumerStatefulWidget {
 class _SettingsReportRouteFormScreenState
     extends ConsumerState<SettingsReportRouteFormScreen> {
   final _description = TextEditingController();
-  var _routeSelected = false;
-  var _pickerOpen = false;
+  int? _selectedRouteIndex;
+  var _routePickerOpen = false;
+  String? _problemType;
+  var _problemTypeOpen = false;
   var _busy = false;
 
   @override
@@ -1067,10 +1010,17 @@ class _SettingsReportRouteFormScreenState
 
   Future<void> _submit() async {
     final body = _description.text.trim();
-    if (!_routeSelected) {
+    final routeIndex = _selectedRouteIndex;
+    if (routeIndex == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Выберите маршрут')));
+      return;
+    }
+    if (_problemType == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Выберите тип проблемы')));
       return;
     }
     if (body.isEmpty) {
@@ -1083,12 +1033,13 @@ class _SettingsReportRouteFormScreenState
       return;
     }
     setState(() => _busy = true);
+    final routeName = _mockReportRoutes[routeIndex].$1;
     try {
       await ref
           .read(supportRepositoryProvider)
           .createTicket(
             kind: 'route_error',
-            subject: 'Ошибка на маршруте: Гора Чок-Сары-Кая',
+            subject: 'Ошибка на маршруте: $routeName ($_problemType)',
             body: body,
           );
       if (!mounted) {
@@ -1111,6 +1062,9 @@ class _SettingsReportRouteFormScreenState
 
   @override
   Widget build(BuildContext context) {
+    final selected = _selectedRouteIndex == null
+        ? null
+        : _mockReportRoutes[_selectedRouteIndex!];
     return SettingsScaffold(
       title: 'Ошибка в маршруте:',
       showSave: true,
@@ -1126,261 +1080,49 @@ class _SettingsReportRouteFormScreenState
                 style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
               ),
               const SizedBox(height: 10),
-              Material(
-                color: _routeSelected
-                    ? const Color(0xFFF2F2F2)
-                    : SettingsColors.fieldFill,
-                borderRadius: BorderRadius.circular(
-                  _routeSelected ? 12 : AppRadii.capsule,
-                ),
-                child: Column(
-                  children: [
-                    InkWell(
-                      onTap: () => setState(() => _pickerOpen = !_pickerOpen),
-                      borderRadius: BorderRadius.circular(
-                        _routeSelected ? 12 : AppRadii.capsule,
-                      ),
-                      child: SizedBox(
-                        height: _routeSelected ? 56 : 48,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          child: Row(
-                            children: [
-                              if (_routeSelected)
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
-                                  child: Image.asset(
-                                    AppImages.coastalBayHills,
-                                    width: 44,
-                                    height: 40,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => Container(
-                                      width: 44,
-                                      height: 40,
-                                      color: AppColors.controlSurface,
-                                    ),
-                                  ),
-                                )
-                              else
-                                const Icon(
-                                  Icons.search_rounded,
-                                  size: 18,
-                                  color: Color(0xFF9A9A9A),
-                                ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: _routeSelected
-                                    ? Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Гора Чок-Сары-Кая',
-                                            style: AppTypography
-                                                .settingsRowTitle
-                                                .copyWith(fontSize: 12),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          Text(
-                                            'Опубликован: 12.05.26',
-                                            style: AppTypography
-                                                .settingsRowSubtitle
-                                                .copyWith(fontSize: 11),
-                                          ),
-                                        ],
-                                      )
-                                    : const Text(
-                                        'Искать маршрут',
-                                        style:
-                                            AppTypography.settingsRowSubtitle,
-                                      ),
-                              ),
-                              Icon(
-                                _pickerOpen
-                                    ? Icons.expand_less_rounded
-                                    : Icons.expand_more_rounded,
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    if (_pickerOpen)
-                      for (var i = 0; i < 4; i++) ...[
-                        const Divider(height: 1, color: Color(0xFFEDEDED)),
-                        InkWell(
-                          onTap: () => setState(() {
-                            _routeSelected = true;
-                            _pickerOpen = false;
-                          }),
-                          child: SizedBox(
-                            height: 56,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                              ),
-                              child: Row(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.asset(
-                                      AppImages.coastalBayHills,
-                                      width: 44,
-                                      height: 40,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) => Container(
-                                        width: 44,
-                                        height: 40,
-                                        color: AppColors.controlSurface,
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Column(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Гора Чок-Сары-Кая',
-                                          style: AppTypography.settingsRowTitle
-                                              .copyWith(fontSize: 12),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          'Опубликован: 12.05.26',
-                                          style: AppTypography
-                                              .settingsRowSubtitle
-                                              .copyWith(fontSize: 11),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                  ],
-                ),
+              _ReportRoutePicker(
+                selectedTitle: selected?.$1,
+                selectedSubtitle: selected?.$2,
+                open: _routePickerOpen,
+                routes: _mockReportRoutes,
+                onToggle: () => setState(() {
+                  _routePickerOpen = !_routePickerOpen;
+                  if (_routePickerOpen) {
+                    _problemTypeOpen = false;
+                  }
+                }),
+                onSelect: (index) => setState(() {
+                  _selectedRouteIndex = index;
+                  _routePickerOpen = false;
+                }),
               ),
             ],
           ),
         ),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Тип проблемы:',
-                      style: AppTypography.settingsRowTitle.copyWith(
-                        fontSize: 12,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    const Text(
-                      'Тропа закрыта / перекрыта',
-                      style: AppTypography.settingsRowSubtitle,
-                    ),
-                  ],
-                ),
-              ),
-              const Icon(Icons.expand_more_rounded, size: 20),
-            ],
-          ),
+        _ReportOptionPicker(
+          label: 'Тип проблемы:',
+          value: _problemType,
+          placeholder: 'Выберите тип проблемы',
+          open: _problemTypeOpen,
+          options: _routeProblemTypes,
+          onToggle: () => setState(() {
+            _problemTypeOpen = !_problemTypeOpen;
+            if (_problemTypeOpen) {
+              _routePickerOpen = false;
+            }
+          }),
+          onSelect: (value) => setState(() {
+            _problemType = value;
+            _problemTypeOpen = false;
+          }),
         ),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Описание:',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _description,
-                maxLines: 4,
-                maxLength: 2000,
-                style: AppTypography.settingsRowSubtitle.copyWith(
-                  color: AppColors.settingsInk,
-                ),
-                decoration: InputDecoration(
-                  hintText: 'Опишите проблему максимально подробно',
-                  hintStyle: AppTypography.settingsRowSubtitle,
-                  filled: true,
-                  fillColor: AppColors.elevatedSurface,
-                  contentPadding: const EdgeInsets.all(12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: SettingsColors.hairline,
-                    ),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: SettingsColors.hairline,
-                    ),
-                  ),
-                  counterText: '',
-                ),
-              ),
-            ],
-          ),
-        ),
+        _ReportDescriptionCard(controller: _description),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Скриншот проблемы (рекомендуется):',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 10),
-              SettingsDashedUpload(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Вложение скриншота — позже')),
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
+        const _ReportScreenshotCard(),
         const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Устройство и версия (автоматически)',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Версия 0.32.1 (Бета). Iphone 16, IOS 27.',
-                style: AppTypography.settingsRowSubtitle,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ),
-        ),
+        const _ReportDeviceCard(),
         const SizedBox(height: 16),
         SettingsNavTile(
           title: 'Оценить приложение',
@@ -1397,6 +1139,358 @@ class _SettingsReportRouteFormScreenState
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),
         ),
       ],
+    );
+  }
+}
+
+class _ReportOptionPicker extends StatelessWidget {
+  const _ReportOptionPicker({
+    required this.label,
+    required this.value,
+    required this.placeholder,
+    required this.open,
+    required this.options,
+    required this.onToggle,
+    required this.onSelect,
+  });
+
+  final String label;
+  final String? value;
+  final String placeholder;
+  final bool open;
+  final List<String> options;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsFormCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onToggle,
+            borderRadius: BorderRadius.circular(AppRadii.settingsTile),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          label,
+                          style: AppTypography.settingsRowTitle.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          value ?? placeholder,
+                          style: value == null
+                              ? AppTypography.settingsRowSubtitle
+                              : AppTypography.settingsRowSubtitle.copyWith(
+                                  color: AppColors.settingsInk,
+                                ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    open
+                        ? Icons.expand_less_rounded
+                        : Icons.expand_more_rounded,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open)
+            for (final option in options) ...[
+              const Divider(height: 1, color: Color(0xFFEDEDED)),
+              InkWell(
+                onTap: () => onSelect(option),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
+                    child: Text(
+                      option,
+                      style: AppTypography.settingsRowSubtitle.copyWith(
+                        color: option == value
+                            ? AppColors.settingsInk
+                            : AppColors.secondaryInk,
+                        fontWeight: option == value
+                            ? FontWeight.w600
+                            : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportRoutePicker extends StatelessWidget {
+  const _ReportRoutePicker({
+    required this.selectedTitle,
+    required this.selectedSubtitle,
+    required this.open,
+    required this.routes,
+    required this.onToggle,
+    required this.onSelect,
+  });
+
+  final String? selectedTitle;
+  final String? selectedSubtitle;
+  final bool open;
+  final List<(String, String)> routes;
+  final VoidCallback onToggle;
+  final ValueChanged<int> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final selected = selectedTitle != null;
+    // Keep a stable rounded rect while open/selected so the dropdown does not
+    // morph from a capsule pill into a tall stadium shape.
+    final radius = (open || selected) ? 12.0 : AppRadii.capsule;
+    return Material(
+      color: selected ? const Color(0xFFF2F2F2) : SettingsColors.fieldFill,
+      borderRadius: BorderRadius.circular(radius),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onToggle,
+            child: SizedBox(
+              height: selected ? 56 : 48,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
+                  children: [
+                    if (selected)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.asset(
+                          AppImages.coastalBayHills,
+                          width: 44,
+                          height: 40,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => Container(
+                            width: 44,
+                            height: 40,
+                            color: AppColors.controlSurface,
+                          ),
+                        ),
+                      )
+                    else
+                      const Icon(
+                        Icons.search_rounded,
+                        size: 18,
+                        color: Color(0xFF9A9A9A),
+                      ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: selected
+                          ? Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedTitle!,
+                                  style: AppTypography.settingsRowTitle
+                                      .copyWith(fontSize: 12),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text(
+                                  selectedSubtitle!,
+                                  style: AppTypography.settingsRowSubtitle
+                                      .copyWith(fontSize: 11),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'Искать маршрут',
+                              style: AppTypography.settingsRowSubtitle,
+                            ),
+                    ),
+                    Icon(
+                      open
+                          ? Icons.expand_less_rounded
+                          : Icons.expand_more_rounded,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          if (open)
+            for (var i = 0; i < routes.length; i++) ...[
+              const Divider(height: 1, color: Color(0xFFEDEDED)),
+              InkWell(
+                onTap: () => onSelect(i),
+                child: SizedBox(
+                  height: 56,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            AppImages.coastalBayHills,
+                            width: 44,
+                            height: 40,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              width: 44,
+                              height: 40,
+                              color: AppColors.controlSurface,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                routes[i].$1,
+                                style: AppTypography.settingsRowTitle.copyWith(
+                                  fontSize: 12,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              Text(
+                                routes[i].$2,
+                                style: AppTypography.settingsRowSubtitle
+                                    .copyWith(fontSize: 11),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportDescriptionCard extends StatelessWidget {
+  const _ReportDescriptionCard({required this.controller});
+
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Описание:',
+            style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: controller,
+            maxLines: 4,
+            maxLength: 2000,
+            style: AppTypography.settingsRowSubtitle.copyWith(
+              color: AppColors.settingsInk,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Опишите проблему максимально подробно',
+              hintStyle: AppTypography.settingsRowSubtitle,
+              filled: true,
+              fillColor: AppColors.elevatedSurface,
+              contentPadding: const EdgeInsets.all(12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SettingsColors.hairline),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: SettingsColors.hairline),
+              ),
+              counterText: '',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportScreenshotCard extends StatelessWidget {
+  const _ReportScreenshotCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Скриншот проблемы (рекомендуется):',
+            style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          SettingsDashedUpload(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Вложение скриншота — позже')),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportDeviceCard extends StatelessWidget {
+  const _ReportDeviceCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Устройство и версия (автоматически)',
+            style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Версия 0.32.1 (Бета). Iphone 16, IOS 27.',
+            style: AppTypography.settingsRowSubtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 }

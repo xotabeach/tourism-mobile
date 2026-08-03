@@ -157,61 +157,66 @@ class SettingsScaffold extends StatelessWidget {
     final top = MediaQuery.paddingOf(context).top;
     return ColoredBox(
       color: AppColors.pageSurface,
-      child: CustomScrollView(
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding:
-                  padding ??
-                  EdgeInsets.fromLTRB(
-                    SettingsMetrics.contentInset,
-                    top + 8,
-                    SettingsMetrics.contentInset,
-                    0,
-                  ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SettingsTopBar(
-                    showSave: showSave,
-                    onSave: onSave ?? () => context.pop(),
-                  ),
-                  if (headerOverlay != null) ...[
-                    const SizedBox(height: 12),
-                    headerOverlay!,
-                  ],
-                  if (title != null) ...[
-                    SizedBox(height: headerOverlay == null ? 12 : 14),
-                    Text(
-                      title!,
-                      style: AppTypography.settingsSectionTitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+      child: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: CustomScrollView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding:
+                    padding ??
+                    EdgeInsets.fromLTRB(
+                      SettingsMetrics.contentInset,
+                      top + 8,
+                      SettingsMetrics.contentInset,
+                      0,
                     ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SettingsTopBar(
+                      showSave: showSave,
+                      onSave: onSave ?? () => context.pop(),
+                    ),
+                    if (headerOverlay != null) ...[
+                      const SizedBox(height: 16),
+                      headerOverlay!,
+                    ],
+                    if (title != null) ...[
+                      SizedBox(height: headerOverlay == null ? 20 : 18),
                       Text(
-                        subtitle!,
-                        style: AppTypography.settingsRowSubtitle,
-                        maxLines: 3,
+                        title!,
+                        style: AppTypography.settingsSectionTitle,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ],
-                    const SizedBox(height: 12),
-                  ] else if (headerOverlay == null)
-                    const SizedBox(height: 12)
-                  else
-                    const SizedBox(height: SettingsMetrics.rowGap),
-                  if (spaceChildren) ..._spaced(children) else ...children,
-                  const SizedBox(height: AppSpacing.shellBottomContent),
-                ],
+                      if (subtitle != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          subtitle!,
+                          style: AppTypography.settingsRowSubtitle,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                      const SizedBox(height: 14),
+                    ] else if (headerOverlay == null)
+                      const SizedBox(height: 20)
+                    else
+                      const SizedBox(height: SettingsMetrics.rowGap),
+                    if (spaceChildren) ..._spaced(children) else ...children,
+                    const SizedBox(height: AppSpacing.shellBottomContent),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1253,13 +1258,16 @@ class SettingsFormCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.settingsTile),
-        boxShadow: AppShadows.settingsTile,
+    return SizedBox(
+      width: double.infinity,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.elevatedSurface,
+          borderRadius: BorderRadius.circular(AppRadii.settingsTile),
+          boxShadow: AppShadows.settingsTile,
+        ),
+        child: Padding(padding: padding, child: child),
       ),
-      child: Padding(padding: padding, child: child),
     );
   }
 }
