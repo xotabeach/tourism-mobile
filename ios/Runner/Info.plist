@@ -48,7 +48,11 @@
 		</dict>
 	</dict>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Нужен доступ к фото, чтобы обновить аватар и обложку профиля.</string>
+	<string>Нужен доступ к медиатеке, чтобы добавлять фото и видео к маршрутам и профилю.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Камера нужна, чтобы снимать фото и видео для маршрута.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Микрофон нужен для записи звука при съёмке видео маршрута.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -7,20 +7,25 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
+import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_results_screen.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
+import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_support_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_checkout_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_screen.dart';
-import 'package:tourism_mobile/features/shared/presentation/placeholder_tab_screen.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
@@ -35,7 +40,11 @@ abstract final class AppRouteNames {
   static const routePlaceDetails = 'route-place-details';
   static const routes = 'routes';
   static const routeDetails = 'route-details';
-  static const favorites = 'favorites';
+  static const favorites = 'favorites'; // legacy alias → routeMatch
+  static const routeMatch = 'route-match';
+  static const routeMatchResults = 'route-match-results';
+  static const routePublish = 'route-publish';
+  static const myRoutes = 'my-routes';
   static const profile = 'profile';
   static const userProfile = 'user-profile';
   static const settings = 'settings';
@@ -44,6 +53,7 @@ abstract final class AppRouteNames {
   static const settingsChangePhoto = 'settings-change-photo';
   static const settingsChangePhone = 'settings-change-phone';
   static const settingsNotifications = 'settings-notifications';
+  static const settingsNotificationsInbox = 'settings-notifications-inbox';
   static const settingsOffline = 'settings-offline';
   static const settingsSupport = 'settings-support';
   static const settingsFaqCategory = 'settings-faq-category';
@@ -54,6 +64,7 @@ abstract final class AppRouteNames {
   static const settingsReportRoute = 'settings-report-route';
   static const settingsThanks = 'settings-thanks';
   static const settingsTravelPlus = 'settings-travel-plus';
+  static const settingsTravelPlusCheckout = 'settings-travel-plus-checkout';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -118,6 +129,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: AppRouteNames.home,
                 path: HomeScreen.routePath,
                 builder: (context, state) => const HomeScreen(),
+                routes: [
+                  // Places stay in-app but outside the tab bar.
+                  GoRoute(
+                    name: AppRouteNames.places,
+                    path: 'places',
+                    builder: (context, state) => const PlacesCatalogScreen(),
+                    routes: [
+                      GoRoute(
+                        name: AppRouteNames.placeDetails,
+                        path: ':id',
+                        pageBuilder: (context, state) {
+                          final id = state.pathParameters['id']!;
+                          return CupertinoPage<void>(
+                            key: state.pageKey,
+                            child: PlaceDetailsScreen(placeId: id),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),
@@ -165,35 +197,44 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                name: AppRouteNames.routeMatch,
+                path: RouteMatchScreen.routePath,
+                builder: (context, state) => const RouteMatchScreen(),
+                routes: [
+                  GoRoute(
+                    name: AppRouteNames.routeMatchResults,
+                    path: RouteMatchResultsScreen.routePath,
+                    pageBuilder: (context, state) {
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: const RouteMatchResultsScreen(),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              GoRoute(
+                name: AppRouteNames.routePublish,
+                path: RoutePublishScreen.routePath,
+                pageBuilder: (context, state) => CupertinoPage<void>(
+                  key: state.pageKey,
+                  child: const RoutePublishScreen(),
+                ),
+              ),
+              // Legacy deep link used by older builds / tests.
+              GoRoute(
                 name: AppRouteNames.favorites,
                 path: '/favorites',
-                builder: (context, state) => const PlaceholderTabScreen(
-                  title: 'Подобрать маршрут',
-                  message:
-                      'Форма подбора маршрута появится в Phase 8A Route Builder.',
-                ),
+                redirect: (context, state) => RouteMatchScreen.routePath,
               ),
             ],
           ),
           StatefulShellBranch(
             routes: [
               GoRoute(
-                name: AppRouteNames.places,
-                path: PlacesCatalogScreen.routePath,
-                builder: (context, state) => const PlacesCatalogScreen(),
-                routes: [
-                  GoRoute(
-                    name: AppRouteNames.placeDetails,
-                    path: ':id',
-                    pageBuilder: (context, state) {
-                      final id = state.pathParameters['id']!;
-                      return CupertinoPage<void>(
-                        key: state.pageKey,
-                        child: PlaceDetailsScreen(placeId: id),
-                      );
-                    },
-                  ),
-                ],
+                name: AppRouteNames.myRoutes,
+                path: MyRoutesScreen.routePath,
+                builder: (context, state) => const MyRoutesScreen(),
               ),
             ],
           ),
@@ -267,6 +308,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           key: state.pageKey,
                           child: const SettingsNotificationsScreen(),
                         ),
+                        routes: [
+                          GoRoute(
+                            name: AppRouteNames.settingsNotificationsInbox,
+                            path: 'inbox',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child:
+                                      const SettingsNotificationsInboxScreen(),
+                                ),
+                          ),
+                        ],
                       ),
                       GoRoute(
                         name: AppRouteNames.settingsOffline,
@@ -369,6 +422,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           key: state.pageKey,
                           child: const SettingsTravelPlusScreen(),
                         ),
+                        routes: [
+                          GoRoute(
+                            name: AppRouteNames.settingsTravelPlusCheckout,
+                            path: 'checkout',
+                            pageBuilder: (context, state) {
+                              final yearly =
+                                  state.uri.queryParameters['yearly'] == 'true';
+                              return CupertinoPage<void>(
+                                key: state.pageKey,
+                                child: SettingsTravelPlusCheckoutScreen(
+                                  initialYearly: yearly,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),

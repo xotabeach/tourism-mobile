@@ -110,7 +110,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<int>(tabScrollToTopProvider(3), (previous, next) {
+    ref.listen<int>(tabScrollToTopProvider(0), (previous, next) {
       if (!_scrollController.hasClients) {
         return;
       }

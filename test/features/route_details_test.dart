@@ -89,6 +89,48 @@ void main() {
     handle.dispose();
   });
 
+  testWidgets('tapping route cover expands the gallery', (tester) async {
+    final handle = tester.ensureSemantics();
+    await _openRouteDetails(tester);
+
+    expect(
+      _headerPaintExtent(tester),
+      closeTo(RouteCollapsingHeader.expandedHeight, 0.5),
+    );
+
+    await tester.tap(
+      find.bySemanticsLabel(
+        'Обложка маршрута, нажмите, чтобы раскрыть галерею',
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const galleryMax = 852 * RouteCollapsingHeader.galleryHeightFactor;
+    expect(_headerPaintExtent(tester), closeTo(galleryMax, 1.5));
+    expect(find.bySemanticsLabel('Галерея маршрута раскрыта'), findsOneWidget);
+
+    handle.dispose();
+  });
+
+  testWidgets('route cover photos can be swiped horizontally', (tester) async {
+    await _openRouteDetails(tester);
+
+    final pageView = find.descendant(
+      of: find.byType(RouteCollapsingHeader),
+      matching: find.byType(PageView),
+    );
+    expect(pageView, findsOneWidget);
+
+    final controller = tester.widget<PageView>(pageView).controller;
+    expect(controller, isNotNull);
+    expect(controller!.page ?? 0, closeTo(0, 0.05));
+
+    await tester.drag(pageView, const Offset(-280, 0));
+    await tester.pumpAndSettle();
+
+    expect(controller.page ?? 0, greaterThan(0.5));
+  });
+
   testWidgets('scrolling keeps the hero collapsed until scrolled back', (
     tester,
   ) async {
@@ -222,7 +264,7 @@ void main() {
     expect(movingButton.top, greaterThanOrEqualTo(compactBar.top));
     await tester.pumpAndSettle();
 
-    expect(find.bySemanticsLabel('Маршруты'), findsOneWidget);
+    expect(find.bySemanticsLabel('Главная'), findsOneWidget);
     expect(find.byType(RouteCollapsingHeader), findsOneWidget);
     final expandedButton = tester.getRect(find.byType(RouteStartButton));
     expect(expandedButton.bottom, lessThanOrEqualTo(compactBar.bottom - 68));

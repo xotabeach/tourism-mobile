@@ -2,14 +2,17 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class SettingsNotificationsScreen extends ConsumerWidget {
   const SettingsNotificationsScreen({super.key});
@@ -18,10 +21,21 @@ class SettingsNotificationsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final session = ref.watch(sessionProvider);
     final sessionCtl = ref.read(sessionProvider.notifier);
+    final unread = ref.watch(notificationsUnreadCountProvider);
+    final inboxSubtitle = unread == 0
+        ? 'У вас нет новых уведомлений'
+        : 'Новых уведомлений: $unread';
     return SettingsScaffold(
       title: 'Настройки уведомлений:',
       showSave: true,
       children: [
+        SettingsNavTile(
+          title: 'Уведомления',
+          subtitle: inboxSubtitle,
+          iconAsset: AppIconography.settingsNotifications,
+          onTap: () =>
+              context.pushNamed(AppRouteNames.settingsNotificationsInbox),
+        ),
         SettingsToggleTile(
           title: 'Пуш-уведомления',
           subtitle: 'Уведомления из приложения',

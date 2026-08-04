@@ -594,7 +594,7 @@ class BuildRouteBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppPressableScale(
       borderRadius: AppRadii.card,
-      onTap: () => context.goNamed(AppRouteNames.routes),
+      onTap: () => context.goNamed(AppRouteNames.routeMatch),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.card),
         child: SizedBox(

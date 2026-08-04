@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
+import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -210,56 +211,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 child: AnimatedOpacity(
                   duration: AppMotion.normal,
                   opacity: _showPinnedBrand ? 1 : 0,
-                  child: _HomePinnedBrandBar(topInset: topInset),
+                  child: AppBrandBar(topInset: topInset),
                 ),
               ),
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _HomePinnedBrandBar extends StatelessWidget {
-  const _HomePinnedBrandBar({required this.topInset});
-
-  final double topInset;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.pageSurface,
-      elevation: 0,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          border: Border(
-            bottom: BorderSide(
-              color: AppColors.mistDark.withValues(alpha: 0.55),
-            ),
-          ),
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            AppSpacing.page,
-            topInset + 2,
-            AppSpacing.page,
-            6,
-          ),
-          child: SizedBox(
-            height: 28,
-            child: Center(
-              child: Text(
-                'КРЫМТРИП',
-                style: AppTypography.settingsBrand.copyWith(
-                  color: AppColors.settingsBrand,
-                  fontSize: 15,
-                  height: 1,
-                ),
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -354,7 +311,7 @@ class _HomeHeader extends ConsumerWidget {
           onSearchChanged: onSearchChanged,
           onSearchClear: onSearchClear,
           onSearchDismiss: onSearchDismiss,
-          onFilterTap: () => context.goNamed(AppRouteNames.places),
+          onFilterTap: () => context.pushNamed(AppRouteNames.places),
         ),
         const SizedBox(height: AppSpacing.xl),
         const BuildRouteBanner(),

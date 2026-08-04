@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -48,7 +50,11 @@ typedef CollapsingHeroBuilder =
       double currentExtent,
     );
 
-/// Pinned media hero that collapses with scroll via opacity / transform only.
+/// Media hero that collapses with scroll via opacity / transform only.
+///
+/// Prefer [pinned] = false when the next sliver overlaps the hero (rounded
+/// sheet / rank card): pinned headers paint above following content and break
+/// that layering. Use pinned only when the collapsed bar must stay on top.
 class CollapsingHeroSliver extends StatelessWidget {
   const CollapsingHeroSliver({
     required this.expandedHeight,
@@ -57,6 +63,7 @@ class CollapsingHeroSliver extends StatelessWidget {
     this.parallaxFactor = 0.35,
     this.collapsedColor = AppColors.elevatedSurface,
     this.background,
+    this.pinned = true,
     super.key,
   });
 
@@ -65,14 +72,18 @@ class CollapsingHeroSliver extends StatelessWidget {
   final CollapsingHeroBuilder builder;
   final double parallaxFactor;
   final Color collapsedColor;
+  final bool pinned;
 
   /// Optional media layer drawn behind overlays with parallax + fade.
+  ///
+  /// Prefer putting interactive media (e.g. [PageView]) here and keeping
+  /// [builder] overlays sparse so empty areas pass hit tests through.
   final Widget? background;
 
   @override
   Widget build(BuildContext context) {
     return SliverPersistentHeader(
-      pinned: true,
+      pinned: pinned,
       delegate: _CollapsingHeroDelegate(
         expandedHeight: expandedHeight,
         collapsedHeight: collapsedHeight,
@@ -122,6 +133,12 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
     final mediaFade = CollapseProgress.fadeOut(t, start: 0.15, end: 0.85);
     final barFade = CollapseProgress.fadeIn(t, start: 0.35, end: 0.9);
 
+    // Soft-clamp parallax so the media does not leap above the safe area.
+    final parallaxY = -math.min(
+      shrinkOffset * parallaxFactor,
+      (maxExtent - minExtent) * parallaxFactor,
+    );
+
     return SizedBox(
       height: currentExtent,
       child: ClipRect(
@@ -132,7 +149,7 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
               Opacity(
                 opacity: mediaFade,
                 child: Transform.translate(
-                  offset: Offset(0, -shrinkOffset * parallaxFactor),
+                  offset: Offset(0, parallaxY),
                   child: SizedBox(
                     height: maxExtent,
                     width: double.infinity,
@@ -140,9 +157,12 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
                   ),
                 ),
               ),
-            Opacity(
-              opacity: barFade,
-              child: ColoredBox(color: collapsedColor),
+            IgnorePointer(
+              ignoring: barFade < 0.05,
+              child: Opacity(
+                opacity: barFade,
+                child: ColoredBox(color: collapsedColor),
+              ),
             ),
             builder(context, t, shrinkOffset, currentExtent),
           ],
@@ -230,7 +250,7 @@ class CollapsingHeroAction extends StatelessWidget {
   }
 }
 
-/// Convenience: fade + scale a layer without changing layout size.
+/// Convenience: fade (+ optional scale) a layer without changing layout size.
 class CollapseLayer extends StatelessWidget {
   const CollapseLayer({
     required this.visibility,
@@ -238,6 +258,7 @@ class CollapseLayer extends StatelessWidget {
     this.scaleAlignment = Alignment.center,
     this.translate = Offset.zero,
     this.ignorePointersWhenHidden = true,
+    this.scale = true,
     super.key,
   });
 
@@ -247,22 +268,27 @@ class CollapseLayer extends StatelessWidget {
   final Offset translate;
   final bool ignorePointersWhenHidden;
 
+  /// When false, only opacity / translate are applied (avoids “drifting up”
+  /// while a pinned hero collapses).
+  final bool scale;
+
   @override
   Widget build(BuildContext context) {
     final v = visibility.clamp(0.0, 1.0);
+    Widget content = child;
+    if (scale) {
+      content = Transform.scale(
+        alignment: scaleAlignment,
+        scale: 0.82 + 0.18 * v,
+        child: content,
+      );
+    }
+    if (translate != Offset.zero) {
+      content = Transform.translate(offset: translate, child: content);
+    }
     return IgnorePointer(
       ignoring: ignorePointersWhenHidden && v < 0.05,
-      child: Opacity(
-        opacity: v,
-        child: Transform.translate(
-          offset: translate,
-          child: Transform.scale(
-            alignment: scaleAlignment,
-            scale: 0.82 + 0.18 * v,
-            child: child,
-          ),
-        ),
-      ),
+      child: Opacity(opacity: v, child: content),
     );
   }
 }

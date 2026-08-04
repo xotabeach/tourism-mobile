@@ -2,43 +2,45 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 
-/// Collapsing media hero for route details (scroll shrink + PageView photos).
+/// Collapsing media hero for route details.
+///
+/// Scroll shrinks the hero; a tap toggles gallery expansion (taller media).
+/// Author row lives in the body sheet — not on the photo — to match design.
 class RouteCollapsingHeader extends StatefulWidget {
   const RouteCollapsingHeader({
     required this.images,
     required this.title,
-    required this.authorName,
-    required this.authorSubtitle,
-    required this.avatar,
     required this.isFavorite,
     required this.onBack,
     required this.onToggleFavorite,
     required this.onShare,
     required this.onDownload,
-    required this.onAuthorTap,
+    this.expansionProgress = 0,
+    this.onToggleGallery,
     this.heroTag,
     super.key,
   });
 
+  /// Resting (non–gallery-expanded) media height.
   static const double expandedHeight = 320;
   static const double collapsedBarHeight = 56;
+  static const double galleryHeightFactor = 0.66;
 
   final List<ImageProvider> images;
   final String title;
-  final String authorName;
-  final String authorSubtitle;
-  final ImageProvider avatar;
   final bool isFavorite;
+  final double expansionProgress;
+  final VoidCallback? onToggleGallery;
   final VoidCallback onBack;
   final VoidCallback onToggleFavorite;
   final VoidCallback onShare;
   final VoidCallback onDownload;
-  final VoidCallback? onAuthorTap;
   final Object? heroTag;
 
   @override
@@ -83,62 +85,88 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
     }());
   }
 
+  double _mediaMaxExtent(BuildContext context) {
+    final galleryMax =
+        MediaQuery.sizeOf(context).height *
+        RouteCollapsingHeader.galleryHeightFactor;
+    final progress = widget.expansionProgress.clamp(0.0, 1.0);
+    return RouteCollapsingHeader.expandedHeight +
+        (galleryMax - RouteCollapsingHeader.expandedHeight) * progress;
+  }
+
   @override
   Widget build(BuildContext context) {
     final topInset = MediaQuery.paddingOf(context).top;
     final collapsedHeight = topInset + RouteCollapsingHeader.collapsedBarHeight;
+    final mediaMax = _mediaMaxExtent(context);
+    final galleryOpen = widget.expansionProgress > 0.5;
 
     return CollapsingHeroSliver(
-      expandedHeight: RouteCollapsingHeader.expandedHeight,
+      pinned: true,
+      expandedHeight: mediaMax,
       collapsedHeight: collapsedHeight,
-      background: Stack(
-        fit: StackFit.expand,
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            physics: const BouncingScrollPhysics(),
-            onPageChanged: (value) => setState(() => _page = value),
-            itemCount: widget.images.length,
-            itemBuilder: (context, index) {
-              final image = Image(
-                image: widget.images[index],
-                fit: BoxFit.cover,
-              );
-              if (index == 0 && widget.heroTag != null) {
-                return Hero(
-                  tag: widget.heroTag!,
-                  transitionOnUserGestures: true,
-                  child: image,
-                );
-              }
-              return image;
-            },
-          ),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x59000000),
-                  Color(0x00000000),
-                  Color(0x99000000),
-                ],
-                stops: [0, 0.38, 1],
+      // GestureDetector parents PageView: tap toggles gallery, horizontal
+      // drag still reaches the pager (same hit-test path / gesture arena).
+      background: Semantics(
+        label: galleryOpen
+            ? 'Галерея маршрута раскрыта'
+            : 'Обложка маршрута, нажмите, чтобы раскрыть галерею',
+        button: true,
+        onTap: widget.onToggleGallery,
+        child: GestureDetector(
+          onTap: widget.onToggleGallery,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              PageView.builder(
+                controller: _pageController,
+                physics: const BouncingScrollPhysics(),
+                onPageChanged: (value) => setState(() => _page = value),
+                itemCount: widget.images.length,
+                itemBuilder: (context, index) {
+                  final image = Image(
+                    image: widget.images[index],
+                    fit: BoxFit.cover,
+                  );
+                  if (index == 0 && widget.heroTag != null) {
+                    return Hero(
+                      tag: widget.heroTag!,
+                      transitionOnUserGestures: true,
+                      child: image,
+                    );
+                  }
+                  return image;
+                },
               ),
-            ),
+              const IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0x59000000),
+                        Color(0x00000000),
+                        Color(0x4D000000),
+                      ],
+                      stops: [0, 0.38, 1],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
       builder: (context, t, shrinkOffset, currentExtent) {
         final expandedVis = CollapseProgress.fadeOut(t, start: 0.0, end: 0.55);
         final collapsedVis = CollapseProgress.fadeIn(t, start: 0.4, end: 0.9);
-        final compactTitle = '${widget.authorName}: ${widget.title}';
 
+        // Keep overlays sparse: empty regions must miss hit tests so the
+        // background PageView can receive horizontal drags.
         return Stack(
           fit: StackFit.expand,
           children: [
-            // Expanded chrome: actions + author strip + dots.
             CollapseLayer(
               visibility: expandedVis,
               scaleAlignment: Alignment.topCenter,
@@ -184,27 +212,40 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 72,
-                    child: _PageDots(
-                      count: widget.images.length,
-                      active: _page,
-                    ),
-                  ),
-                  Positioned(
-                    left: 16,
-                    right: 16,
-                    bottom: 16,
-                    child: _ExpandedAuthorStrip(
-                      name: widget.authorName,
-                      subtitle: widget.authorSubtitle,
-                      avatar: widget.avatar,
-                      onAuthorTap: widget.onAuthorTap,
+                    // Sit above the sheet lip so dots stay on the photo.
+                    bottom: 36,
+                    child: IgnorePointer(
+                      child: _PageDots(
+                        count: widget.images.length,
+                        active: _page,
+                      ),
                     ),
                   ),
                 ],
               ),
             ),
-            // Collapsed chrome: back + compact identity + menu.
+            // Rounded sheet lip painted with the header so body content is
+            // not covered by the pinned media (author stays in the body).
+            CollapseLayer(
+              visibility: expandedVis,
+              child: const IgnorePointer(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: SizedBox(
+                    height: 24,
+                    width: double.infinity,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: AppColors.elevatedSurface,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
             CollapseLayer(
               visibility: collapsedVis,
               scaleAlignment: Alignment.center,
@@ -224,30 +265,14 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
                         ),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: widget.onAuthorTap,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircleAvatar(
-                                  radius: 14,
-                                  backgroundImage: widget.avatar,
-                                ),
-                                const SizedBox(width: 8),
-                                Flexible(
-                                  child: Text(
-                                    compactTitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.settingsRowTitle
-                                        .copyWith(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                  ),
-                                ),
-                              ],
+                          child: Text(
+                            widget.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.settingsRowTitle.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -267,74 +292,6 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
           ],
         );
       },
-    );
-  }
-}
-
-class _ExpandedAuthorStrip extends StatelessWidget {
-  const _ExpandedAuthorStrip({
-    required this.name,
-    required this.subtitle,
-    required this.avatar,
-    this.onAuthorTap,
-  });
-
-  final String name;
-  final String subtitle;
-  final ImageProvider avatar;
-  final VoidCallback? onAuthorTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onAuthorTap,
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(2),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-            child: CircleAvatar(radius: 22, backgroundImage: avatar),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w400,
-                    height: 1.2,
-                    color: Colors.white.withValues(alpha: 0.88),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -37,15 +37,60 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
   ConsumerState<RouteDetailsScreen> createState() => _RouteDetailsScreenState();
 }
 
-class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
+class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
+    with SingleTickerProviderStateMixin {
   final _scrollController = ScrollController();
+  late final AnimationController _galleryController;
 
   int? _selectedStop;
 
   @override
+  void initState() {
+    super.initState();
+    _galleryController = AnimationController(
+      vsync: this,
+      duration: AppMotion.emphasized,
+    );
+    _scrollController.addListener(_onScrollCollapseGallery);
+  }
+
+  @override
   void dispose() {
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScrollCollapseGallery)
+      ..dispose();
+    _galleryController.dispose();
     super.dispose();
+  }
+
+  void _onScrollCollapseGallery() {
+    if (_scrollController.offset > 24 && _galleryController.value > 0) {
+      _settleGallery(0);
+    }
+  }
+
+  void _toggleGallery() {
+    if (_scrollController.hasClients && _scrollController.offset > 24) {
+      return;
+    }
+    _settleGallery(_galleryController.value < 0.5 ? 1 : 0);
+  }
+
+  void _settleGallery(double target) {
+    if (!mounted) {
+      return;
+    }
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _galleryController.value = target;
+      return;
+    }
+    final remaining = (target - _galleryController.value).abs();
+    _galleryController.duration = Duration(
+      milliseconds: (220 + 120 * remaining).round(),
+    );
+    unawaited(
+      _galleryController.animateTo(target, curve: AppMotion.emphasizedCurve),
+    );
   }
 
   void _selectStop(int index) => setState(() => _selectedStop = index);
@@ -86,58 +131,66 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
     );
     final authorName = route.authorLabel ?? 'КрымТрип редакция';
 
-    return CustomScrollView(
-      key: const ValueKey('route-details-list'),
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      slivers: [
-        RouteCollapsingHeader(
-          images: _galleryImages(config, route),
-          title: route.name,
-          authorName: authorName,
-          authorSubtitle: 'Продвинутый пешеход',
-          avatar: AppImages.avatarProvider(
-            config: config,
-            avatarUrl: route.authorAvatarUrl,
-          ),
-          isFavorite: isFavorite,
-          heroTag: 'route-cover-${route.id}',
-          onBack: () => context.pop(),
-          onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
-          onShare: () => _showSoon('Поделиться маршрутом'),
-          onDownload: () => _showSoon('Офлайн-режим'),
-          onAuthorTap: route.ownerUserId == null
-              ? null
-              : () {
-                  final ownerId = route.ownerUserId!;
-                  final session = ref.read(sessionProvider);
-                  if (session.userId == ownerId) {
-                    context.goNamed(AppRouteNames.profile);
-                  } else {
-                    unawaited(
-                      context.pushNamed(
-                        AppRouteNames.userProfile,
-                        pathParameters: {'userId': ownerId},
-                      ),
-                    );
-                  }
-                },
+    VoidCallback? onAuthorTap;
+    if (route.ownerUserId != null) {
+      onAuthorTap = () {
+        final ownerId = route.ownerUserId!;
+        final session = ref.read(sessionProvider);
+        if (session.userId == ownerId) {
+          context.goNamed(AppRouteNames.profile);
+        } else {
+          unawaited(
+            context.pushNamed(
+              AppRouteNames.userProfile,
+              pathParameters: {'userId': ownerId},
+            ),
+          );
+        }
+      };
+    }
+
+    return AnimatedBuilder(
+      animation: _galleryController,
+      builder: (context, _) => CustomScrollView(
+        key: const ValueKey('route-details-list'),
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
         ),
-        SliverToBoxAdapter(
-          child: Transform.translate(
-            offset: const Offset(0, -20),
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: AppColors.elevatedSurface,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              ),
+        slivers: [
+          RouteCollapsingHeader(
+            images: _galleryImages(config, route),
+            title: route.name,
+            isFavorite: isFavorite,
+            expansionProgress: _galleryController.value,
+            onToggleGallery: _toggleGallery,
+            heroTag: 'route-cover-${route.id}',
+            onBack: () => context.pop(),
+            onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
+            onShare: () => _showSoon('Поделиться маршрутом'),
+            onDownload: () => _showSoon('Офлайн-режим'),
+          ),
+          // Lip lives in the header; body continues the sheet without
+          // negative overlap (avoids author/photo z-fighting).
+          SliverToBoxAdapter(
+            child: ColoredBox(
+              color: AppColors.elevatedSurface,
               child: Padding(
-                padding: EdgeInsets.fromLTRB(18, 20, 18, 118 + bottomInset),
+                padding: EdgeInsets.fromLTRB(18, 8, 18, 118 + bottomInset),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _AuthorRow(
+                      name: authorName,
+                      subtitle: 'Продвинутый пешеход',
+                      avatar: AppImages.avatarProvider(
+                        config: config,
+                        avatarUrl: route.authorAvatarUrl,
+                      ),
+                      onAuthorTap: onAuthorTap,
+                      onMore: () => _showSoon('Меню маршрута'),
+                    ),
+                    const _SectionDivider(),
                     Text(
                       route.name,
                       key: const ValueKey('route-details-title'),
@@ -207,8 +260,8 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -222,19 +275,12 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen> {
           RouteCollapsingHeader(
             images: [_routeCover(config, route)],
             title: route.name,
-            authorName: route.authorLabel ?? 'КрымТрип редакция',
-            authorSubtitle: 'Продвинутый пешеход',
-            avatar: AppImages.avatarProvider(
-              config: config,
-              avatarUrl: route.authorAvatarUrl,
-            ),
             isFavorite: false,
             heroTag: 'route-cover-${route.id}',
             onBack: () => context.pop(),
             onToggleFavorite: () {},
             onShare: () {},
             onDownload: () {},
-            onAuthorTap: null,
           ),
           const SliverFillRemaining(
             hasScrollBody: false,
@@ -485,6 +531,95 @@ class _SimilarRouteCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _AuthorRow extends StatelessWidget {
+  const _AuthorRow({
+    required this.name,
+    required this.subtitle,
+    required this.avatar,
+    required this.onMore,
+    this.onAuthorTap,
+  });
+
+  final String name;
+  final String subtitle;
+  final ImageProvider avatar;
+  final VoidCallback onMore;
+  final VoidCallback? onAuthorTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onAuthorTap,
+            child: Row(
+              children: [
+                CircleAvatar(radius: 24, backgroundImage: avatar),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                          height: 1.2,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Semantics(
+          button: true,
+          label: 'Меню маршрута',
+          child: SizedBox.square(
+            dimension: 48,
+            child: Material(
+              color: AppColors.primaryInk,
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: onMore,
+                child: const Icon(
+                  Icons.more_horiz_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

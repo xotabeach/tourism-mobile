@@ -934,7 +934,7 @@ class _StatusChip extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
             height: 33,
-            width: 200,
+            constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             alignment: Alignment.center,
             color: Colors.white.withValues(alpha: 0.18),

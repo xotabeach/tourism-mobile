@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_support_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_checkout_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_screen.dart';
 
 import '../support/test_overrides.dart';
@@ -58,11 +60,19 @@ void main() {
     await tester.tap(find.byTooltip('Настройки'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Уведомления'));
+    await tester.tap(find.text('Уведомления').first);
     await tester.pumpAndSettle();
     expect(find.byType(SettingsNotificationsScreen), findsOneWidget);
     expect(find.text('Пуш-уведомления'), findsOneWidget);
+    expect(find.textContaining('Новых уведомлений'), findsOneWidget);
 
+    await tester.tap(find.text('Уведомления').last);
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsNotificationsInboxScreen), findsOneWidget);
+    expect(find.text('Мои уведомления:'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
+    await tester.pumpAndSettle();
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
     await tester.pumpAndSettle();
 
@@ -99,5 +109,11 @@ void main() {
     expect(find.byType(SettingsTravelPlusScreen), findsOneWidget);
     expect(find.text('999 ₽/год'), findsOneWidget);
     expect(find.text('99 ₽/мес'), findsOneWidget);
+
+    await tester.tap(find.text('99 ₽/мес'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsTravelPlusCheckoutScreen), findsOneWidget);
+    expect(find.text('Оформление подписки'), findsOneWidget);
+    expect(find.text('Оформить подписку'), findsOneWidget);
   });
 }

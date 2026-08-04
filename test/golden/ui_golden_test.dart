@@ -394,8 +394,8 @@ void main() {
     for (final label in [
       'Главная',
       'Маршруты',
-      'Подобрать',
-      'Карта',
+      'Создать',
+      'Мои маршруты',
       'Профиль',
     ]) {
       final size = tester.getSize(find.bySemanticsLabel(label));

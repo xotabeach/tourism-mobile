@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
+import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 
 import 'support/test_overrides.dart';
@@ -64,7 +66,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Карта'));
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
     await tester.pumpAndSettle();
 
     expect(find.text('Места Крыма'), findsOneWidget);
@@ -79,6 +81,64 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Достижения:'), findsOneWidget);
+  });
+
+  testWidgets('center screens use brand app bar without bottom scrim', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Создать'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Подобрать'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RouteMatchScreen), findsOneWidget);
+    expect(find.text('КРЫМТРИП'), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
+    expect(_scrollBrandBarOpacity(tester), 0);
+    expect(find.bySemanticsLabel('Назад'), findsNothing);
+
+    await tester.drag(
+      find.byKey(const ValueKey('route-match-params-scroll')),
+      const Offset(0, -55),
+    );
+    await tester.pump();
+    expect(_scrollBrandBarOpacity(tester), inExclusiveRange(0, 1));
+    await tester.drag(
+      find.byKey(const ValueKey('route-match-params-scroll')),
+      const Offset(0, -100),
+    );
+    await tester.pump();
+    expect(_scrollBrandBarOpacity(tester), 1);
+    expect(find.bySemanticsLabel('Назад'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Назад'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Создать'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Опубликовать'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RoutePublishScreen), findsOneWidget);
+    expect(find.text('КРЫМТРИП'), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
+    expect(_scrollBrandBarOpacity(tester), 0);
+
+    await tester.drag(
+      find.byKey(const ValueKey('route-publish-scroll')),
+      const Offset(0, -55),
+    );
+    await tester.pump();
+    expect(_scrollBrandBarOpacity(tester), inExclusiveRange(0, 1));
+    await tester.drag(
+      find.byKey(const ValueKey('route-publish-scroll')),
+      const Offset(0, -100),
+    );
+    await tester.pump();
+    expect(_scrollBrandBarOpacity(tester), 1);
+    expect(find.bySemanticsLabel('Назад'), findsOneWidget);
   });
 
   testWidgets('home search filters visible routes and clears', (tester) async {
@@ -120,7 +180,7 @@ void main() {
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel('Карта'));
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
     await tester.pumpAndSettle();
 
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
@@ -173,4 +233,10 @@ void main() {
 
     expect(find.text('КрымТрип редакция'), findsWidgets);
   });
+}
+
+double _scrollBrandBarOpacity(WidgetTester tester) {
+  return tester
+      .widget<Opacity>(find.byKey(const ValueKey('scroll-brand-bar-opacity')))
+      .opacity;
 }
