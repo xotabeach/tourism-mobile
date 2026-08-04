@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -77,6 +78,7 @@ void main() {
       ownerUserId: 'mock-user',
       visibility: 'private',
       publicationStatus: 'pending_review',
+      source: 'user_created',
     );
     const detail = RouteDetail(
       id: 'pending-route',
@@ -88,6 +90,21 @@ void main() {
       ownerUserId: 'mock-user',
       visibility: 'private',
       publicationStatus: 'pending_review',
+      source: 'user_created',
+      media: [
+        RouteDetailMedia(
+          id: 'photo-1',
+          url: AppImages.coastPineTwilight,
+          kind: 'image',
+          position: 0,
+        ),
+        RouteDetailMedia(
+          id: 'photo-2',
+          url: AppImages.capeFiolentFog,
+          kind: 'image',
+          position: 1,
+        ),
+      ],
       stops: [],
     );
     await tester.pumpWidget(
@@ -109,6 +126,12 @@ void main() {
     expect(find.byKey(const ValueKey('route-owner-status')), findsOneWidget);
     expect(find.text('На модерации'), findsOneWidget);
     expect(find.bySemanticsLabel('Добавить в избранное'), findsNothing);
+    expect(
+      tester
+          .widget<RouteCollapsingHeader>(find.byType(RouteCollapsingHeader))
+          .images,
+      hasLength(2),
+    );
   });
 
   testWidgets('route hero starts expanded and shrinks on scroll', (

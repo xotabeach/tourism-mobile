@@ -104,6 +104,31 @@ class RouteSummary {
   }
 }
 
+class RouteDetailMedia {
+  const RouteDetailMedia({
+    required this.id,
+    required this.url,
+    required this.kind,
+    required this.position,
+  });
+
+  final String id;
+  final String url;
+  final String kind;
+  final int position;
+
+  bool get isImage => kind == 'image';
+
+  factory RouteDetailMedia.fromJson(Map<String, dynamic> json) {
+    return RouteDetailMedia(
+      id: json['id'] as String,
+      url: json['url'] as String,
+      kind: json['kind'] as String,
+      position: json['position'] as int,
+    );
+  }
+}
+
 class RouteDetail extends RouteSummary {
   const RouteDetail({
     required super.id,
@@ -126,13 +151,16 @@ class RouteDetail extends RouteSummary {
     super.publicationStatus,
     required this.description,
     required this.stops,
+    this.media = const [],
   });
 
   final String? description;
   final List<RouteStop> stops;
+  final List<RouteDetailMedia> media;
 
   factory RouteDetail.fromJson(Map<String, dynamic> json) {
     final stopsJson = json['stops'] as List<dynamic>? ?? const [];
+    final mediaJson = json['media'] as List<dynamic>? ?? const [];
     return RouteDetail(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -155,6 +183,11 @@ class RouteDetail extends RouteSummary {
       description: json['description'] as String?,
       stops: stopsJson
           .map((item) => RouteStop.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      media: mediaJson
+          .map(
+            (item) => RouteDetailMedia.fromJson(item as Map<String, dynamic>),
+          )
           .toList(),
     );
   }

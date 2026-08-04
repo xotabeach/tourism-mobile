@@ -340,7 +340,18 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   }
 
   List<ImageProvider> _galleryImages(AppConfig config, RouteDetail route) {
+    final uploadedImages = route.media
+        .where((item) => item.isImage)
+        .map((item) => _routeMediaImageProvider(config, item.url))
+        .whereType<ImageProvider>()
+        .toList(growable: false);
+    if (uploadedImages.isNotEmpty) {
+      return uploadedImages;
+    }
     final cover = _routeCover(config, route);
+    if (route.source == 'user_created') {
+      return [cover];
+    }
     final rest = AppImages.routeFallbacks
         .where((asset) => asset != route.coverImageUrl)
         .map<ImageProvider>(AssetImage.new);
@@ -419,6 +430,16 @@ class _OwnerRouteStatusBanner extends StatelessWidget {
       ),
     );
   }
+}
+
+ImageProvider? _routeMediaImageProvider(AppConfig config, String value) {
+  if (AppImages.isAssetPath(value)) {
+    return AssetImage(value);
+  }
+  final resolved = AppImages.resolveMediaUrl(config, value);
+  return resolved == null
+      ? null
+      : AppImages.imageProvider(resolvedUrl: resolved);
 }
 
 ImageProvider _routeCover(AppConfig config, RouteSummary route) {
