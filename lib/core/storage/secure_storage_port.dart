@@ -15,4 +15,5 @@ abstract interface class SecureStoragePort {
 /// Well-known keys. Values are never logged.
 abstract final class SecureStorageKeys {
   static const refreshToken = 'auth.refresh_token';
+  static const appHapticsEnabled = 'settings.app_haptics_enabled';
 }

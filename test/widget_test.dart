@@ -6,6 +6,7 @@ import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 
 import 'support/test_overrides.dart';
 
@@ -81,6 +82,50 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Достижения:'), findsOneWidget);
+  });
+
+  testWidgets('home bell opens the notifications inbox', (tester) async {
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Уведомления'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SettingsNotificationsInboxScreen), findsOneWidget);
+    expect(find.text('Мои уведомления:'), findsOneWidget);
+  });
+
+  testWidgets('center screens support leading-edge back swipe', (tester) async {
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Создать'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Подобрать'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteMatchScreen), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const ValueKey('edge-back-hit-area')),
+      const Offset(120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(RouteMatchScreen), findsNothing);
+    expect(find.textContaining('Привет, Никита'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Создать'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Опубликовать'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutePublishScreen), findsOneWidget);
+
+    await tester.drag(
+      find.byKey(const ValueKey('edge-back-hit-area')),
+      const Offset(120, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutePublishScreen), findsNothing);
+    expect(find.textContaining('Привет, Никита'), findsOneWidget);
   });
 
   testWidgets('center screens use brand app bar without bottom scrim', (

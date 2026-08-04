@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -15,6 +14,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -349,7 +349,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     final width = MediaQuery.sizeOf(context).width;
     _pendingAction = action;
     _dragging = false;
-    unawaited(HapticFeedback.mediumImpact());
+    unawaited(AppHaptics.mediumImpact());
     _motionController.duration = reduceMotion
         ? AppMotion.reduced
         : AppMotion.emphasized;

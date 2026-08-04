@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -84,6 +84,7 @@ class RouteHeroCard extends ConsumerWidget {
     this.variant = RouteCardVariant.list,
     this.visualProgress = 0,
     this.authorAvatarUrl,
+    this.onFavoriteToggle,
     super.key,
   });
 
@@ -99,6 +100,10 @@ class RouteHeroCard extends ConsumerWidget {
   /// Optional author avatar (resolved https / `file://`). Falls back to the
   /// current session avatar when the route author matches the signed-in user.
   final String? authorAvatarUrl;
+
+  /// Lets list owners coordinate a favorite change with their own removal
+  /// animation. Other cards keep using [favoritesProvider] directly.
+  final Future<void> Function()? onFavoriteToggle;
 
   void _openAuthor(BuildContext context, WidgetRef ref) {
     final ownerId = route.ownerUserId;
@@ -148,6 +153,7 @@ class RouteHeroCard extends ConsumerWidget {
         visualProgress: visualProgress.clamp(0, 1),
         authorAvatar: avatar,
         onAuthorTap: canOpenAuthor ? () => _openAuthor(context, ref) : null,
+        onFavoriteToggle: onFavoriteToggle,
       ),
     );
 
@@ -177,6 +183,7 @@ class _RouteCardContent extends StatelessWidget {
     required this.visualProgress,
     required this.authorAvatar,
     this.onAuthorTap,
+    this.onFavoriteToggle,
   });
 
   final RouteSummary route;
@@ -187,6 +194,7 @@ class _RouteCardContent extends StatelessWidget {
   final double visualProgress;
   final ImageProvider authorAvatar;
   final VoidCallback? onAuthorTap;
+  final Future<void> Function()? onFavoriteToggle;
 
   @override
   Widget build(BuildContext context) {
@@ -297,7 +305,10 @@ class _RouteCardContent extends StatelessWidget {
                       const SizedBox(width: AppSpacing.xs),
                       AppFilteredOpacity(
                         opacity: actionOpacity,
-                        child: _FavoriteButton(routeId: route.id),
+                        child: _FavoriteButton(
+                          routeId: route.id,
+                          onToggle: onFavoriteToggle,
+                        ),
                       ),
                     ],
                   ),
@@ -498,9 +509,10 @@ class _DifficultyRow extends StatelessWidget {
 }
 
 class _FavoriteButton extends ConsumerStatefulWidget {
-  const _FavoriteButton({required this.routeId});
+  const _FavoriteButton({required this.routeId, this.onToggle});
 
   final String routeId;
+  final Future<void> Function()? onToggle;
 
   @override
   ConsumerState<_FavoriteButton> createState() => _FavoriteButtonState();
@@ -531,10 +543,15 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
   }
 
   Future<void> _toggle() async {
-    unawaited(HapticFeedback.selectionClick());
+    unawaited(AppHaptics.selectionClick());
     unawaited(_controller.forward(from: 0));
     try {
-      await ref.read(favoritesProvider.notifier).toggleRoute(widget.routeId);
+      final onToggle = widget.onToggle;
+      if (onToggle == null) {
+        await ref.read(favoritesProvider.notifier).toggleRoute(widget.routeId);
+      } else {
+        await onToggle();
+      }
     } on Object {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -551,6 +568,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
       ),
     );
     return Semantics(
+      key: ValueKey('favorite-toggle-${widget.routeId}'),
       button: true,
       toggled: selected,
       label: selected ? 'Удалить из избранного' : 'Добавить в избранное',

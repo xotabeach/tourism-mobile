@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -22,6 +23,7 @@ class SettingsNotificationsScreen extends ConsumerWidget {
     final session = ref.watch(sessionProvider);
     final sessionCtl = ref.read(sessionProvider.notifier);
     final unread = ref.watch(notificationsUnreadCountProvider);
+    final appHapticsEnabled = ref.watch(appHapticsEnabledProvider);
     final inboxSubtitle = unread == 0
         ? 'У вас нет новых уведомлений'
         : 'Новых уведомлений: $unread';
@@ -66,6 +68,17 @@ class SettingsNotificationsScreen extends ConsumerWidget {
           onChanged: (value) {
             unawaited(
               sessionCtl.updateNotificationPrefs(notifyHapticsEnabled: value),
+            );
+          },
+        ),
+        SettingsToggleTile(
+          title: 'Вибрация в приложении',
+          subtitle: 'При нажатиях и жестах',
+          iconAsset: AppIconography.settingsVibro,
+          value: appHapticsEnabled,
+          onChanged: (value) {
+            unawaited(
+              ref.read(appHapticsEnabledProvider.notifier).setEnabled(value),
             );
           },
         ),

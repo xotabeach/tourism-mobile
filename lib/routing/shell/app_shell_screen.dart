@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +14,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -131,7 +131,7 @@ class AppShellScreen extends ConsumerWidget {
     // Detail chrome (route/place/settings): hard-go to the branch root so a
     // second Home tap cannot leave a stuck nested stack entry.
     if (_detailNavigationIndex(context) != null) {
-      unawaited(HapticFeedback.selectionClick());
+      unawaited(AppHaptics.selectionClick());
       context.go(_branchRootPath(index));
       return;
     }
@@ -139,7 +139,7 @@ class AppShellScreen extends ConsumerWidget {
     final path = GoRouterState.of(context).uri.path;
     final scrolledDown = ref.read(tabScrolledDownProvider(index));
     if (onCurrentBranch && (scrolledDown || _isBranchRootPath(path, index))) {
-      unawaited(HapticFeedback.selectionClick());
+      unawaited(AppHaptics.selectionClick());
       ref.read(tabScrollToTopProvider(index).notifier).state++;
       return;
     }
@@ -273,7 +273,7 @@ class AppShellScreen extends ConsumerWidget {
                 compactDestinationIndex: detailNavigationIndex ?? currentIndex,
                 centerCompactMode: detailNavigationIndex == _composeNavIndex,
                 onHistoryBack: () {
-                  unawaited(HapticFeedback.selectionClick());
+                  unawaited(AppHaptics.selectionClick());
                   if (context.canPop()) {
                     context.pop();
                   }
@@ -501,7 +501,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
         : AppMotion.detailMorph;
-    unawaited(HapticFeedback.selectionClick());
+    unawaited(AppHaptics.selectionClick());
     unawaited(
       _detailExpansionController.forward().then((_) {
         if (!mounted || !widget.detailMode) {
@@ -548,7 +548,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     if (widget.detailMode || widget.historyBackMode) {
       return;
     }
-    unawaited(HapticFeedback.selectionClick());
+    unawaited(AppHaptics.selectionClick());
     final opening = _composeController.value < 0.5;
     _composeController.duration = MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
@@ -597,7 +597,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
       _scheduleAutoCollapse();
     }
     if (index != widget.currentIndex) {
-      unawaited(HapticFeedback.selectionClick());
+      unawaited(AppHaptics.selectionClick());
       _animateTo(index);
     }
     widget.onTap(index);
@@ -609,7 +609,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     final parkedAway = widget.compactDestinationIndex != widget.currentIndex;
     if (parkedAway &&
         (_compactExitArmed || _detailExpansionController.value > 0.35)) {
-      unawaited(HapticFeedback.selectionClick());
+      unawaited(AppHaptics.selectionClick());
       _animateTo(widget.compactDestinationIndex);
       widget.onTap(widget.compactDestinationIndex);
       return;

@@ -300,7 +300,9 @@ class _HomeHeader extends ConsumerWidget {
             AppFlatIconButton(
               iconAsset: AppIconography.bell,
               semanticLabel: 'Уведомления',
-              onPressed: () {},
+              onPressed: () => unawaited(
+                context.pushNamed(AppRouteNames.settingsNotificationsInbox),
+              ),
             ),
           ],
         ),

@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -12,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 
 /// Colors from Figma settings pixel spec.
 abstract final class SettingsColors {
@@ -324,7 +324,7 @@ class SettingsCircleIconButton extends StatelessWidget {
         child: InkWell(
           customBorder: const CircleBorder(),
           onTap: () {
-            unawaited(HapticFeedback.selectionClick());
+            unawaited(AppHaptics.selectionClick());
             onTap();
           },
           child: Ink(
@@ -402,7 +402,7 @@ class SettingsNavTile extends StatelessWidget {
           onTap: onTap == null
               ? null
               : () {
-                  unawaited(HapticFeedback.selectionClick());
+                  unawaited(AppHaptics.selectionClick());
                   onTap!();
                 },
           borderRadius: radius,
@@ -490,7 +490,7 @@ class SettingsToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        unawaited(HapticFeedback.selectionClick());
+        unawaited(AppHaptics.selectionClick());
         onChanged(!value);
       },
       child: AnimatedContainer(
@@ -607,7 +607,7 @@ class SettingsPrimaryButton extends StatelessWidget {
           onTap: onPressed == null
               ? null
               : () {
-                  unawaited(HapticFeedback.selectionClick());
+                  unawaited(AppHaptics.selectionClick());
                   onPressed!();
                 },
           borderRadius: BorderRadius.circular(AppRadii.capsule),
@@ -698,7 +698,7 @@ class TravelPlusBanner extends StatelessWidget {
       shadowColor: Colors.transparent,
       child: InkWell(
         onTap: () {
-          unawaited(HapticFeedback.selectionClick());
+          unawaited(AppHaptics.selectionClick());
           onTap();
         },
         borderRadius: BorderRadius.circular(AppRadii.settingsTile),

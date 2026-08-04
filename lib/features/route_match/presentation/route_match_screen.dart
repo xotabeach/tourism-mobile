@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
+import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_safety.dart';
@@ -180,11 +181,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
   }
 
   void _goBack() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/');
-    }
+    context.go('/');
   }
 
   void _selectCity(String city) {
@@ -366,7 +363,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
     double px(double value) => scale.px(value);
     final bottom = MediaQuery.paddingOf(context).bottom;
     final top = MediaQuery.paddingOf(context).top;
-    final shellNavPad = px(56 + 24) + bottom;
+    final shellNavPad = px(56 + 10) + bottom;
 
     final body = MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
@@ -430,7 +427,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
       ),
     );
 
-    return body;
+    return AppEdgeBackGesture(onBack: _goBack, child: body);
   }
 
   Widget _buildParams(RoutePx px, double bottomPad) {
@@ -439,7 +436,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
       key: const ValueKey('route-match-params-scroll'),
       controller: _paramsScroll,
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      padding: EdgeInsets.only(bottom: bottomPad + px(24)),
+      padding: EdgeInsets.only(bottom: bottomPad + px(10)),
       children: [
         _buildTopChrome(px),
         SizedBox(height: px(15)),

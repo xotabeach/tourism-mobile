@@ -64,6 +64,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SettingsNotificationsScreen), findsOneWidget);
     expect(find.text('Пуш-уведомления'), findsOneWidget);
+    expect(find.text('Вибрация в приложении'), findsOneWidget);
     expect(find.textContaining('Новых уведомлений'), findsOneWidget);
 
     await tester.tap(find.text('Уведомления').last);

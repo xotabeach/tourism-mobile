@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
+import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
+import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
@@ -77,11 +79,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
   }
 
   void _goBack() {
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      context.go('/');
-    }
+    context.go('/');
   }
 
   @override
@@ -105,7 +103,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
     final state = ref.watch(provider);
     final controller = ref.read(provider.notifier);
 
-    return AnnotatedRegion<SystemUiOverlayStyle>(
+    final content = AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark.copyWith(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark,
@@ -150,7 +148,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                                 bottom:
                                     MediaQuery.viewPaddingOf(context).bottom +
                                     (_mode == RoutePublishMode.production
-                                        ? u(82)
+                                        ? u(40)
                                         : 0),
                               ),
                               child: KeyedSubtree(
@@ -328,6 +326,9 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
         ),
       ),
     );
+    return _mode == RoutePublishMode.production
+        ? AppEdgeBackGesture(onBack: _goBack, child: content)
+        : content;
   }
 
   Future<void> _publish(RoutePublishController controller) async {
@@ -1770,7 +1771,7 @@ class TravelPaceCard extends StatelessWidget {
       label: 'Темп $title',
       child: GestureDetector(
         onTap: () {
-          unawaited(HapticFeedback.selectionClick());
+          unawaited(AppHaptics.selectionClick());
           onTap();
         },
         child: AnimatedContainer(
@@ -1871,7 +1872,7 @@ class RouteDifficultySelector extends StatelessWidget {
                   width: widths[index],
                   selected: index < value,
                   onTap: () {
-                    unawaited(HapticFeedback.selectionClick());
+                    unawaited(AppHaptics.selectionClick());
                     onChanged(index + 1);
                   },
                 ),

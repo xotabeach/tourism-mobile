@@ -216,10 +216,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 name: AppRouteNames.routePublish,
                 path: RoutePublishScreen.routePath,
-                pageBuilder: (context, state) => CupertinoPage<void>(
-                  key: state.pageKey,
-                  child: const RoutePublishScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    _appTransitionPage(state, const RoutePublishScreen()),
               ),
               // Legacy deep link used by older builds / tests.
               GoRoute(
