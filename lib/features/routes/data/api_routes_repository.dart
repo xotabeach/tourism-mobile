@@ -21,6 +21,17 @@ class ApiRoutesRepository implements RoutesRepository {
   }
 
   @override
+  Future<RouteListPage> listMyRoutes() {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/routes/mine',
+        queryParameters: {'limit': 100},
+      );
+      return RouteListPage.fromJson(response.data!);
+    });
+  }
+
+  @override
   Future<RouteDetail> getRoute(String id) {
     return guardApiCall(() async {
       final response = await _dio.get<Map<String, dynamic>>(

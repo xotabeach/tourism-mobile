@@ -4,12 +4,16 @@ abstract interface class RouteDraftRepository {
   Future<RouteDraft?> load();
 
   Future<void> save(RouteDraft draft);
+
+  Future<void> delete();
 }
 
 abstract interface class RoutePublicationRepository {
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft);
 
   Future<RoutePublicationReceipt> submit(RouteDraft draft);
+
+  Future<void> discardDraft(String routeId);
 }
 
 class RoutePublicationReceipt {

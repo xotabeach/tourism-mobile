@@ -77,7 +77,7 @@ void main() {
       tester
           .getSize(find.byKey(const ValueKey('favorite-remove-background')))
           .height,
-      greaterThan(tester.getSize(find.byType(RouteHeroCard)).height),
+      tester.getSize(find.byType(RouteHeroCard)).height,
     );
     await tester.pumpAndSettle();
 

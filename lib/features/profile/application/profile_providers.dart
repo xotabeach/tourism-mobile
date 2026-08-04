@@ -79,6 +79,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
 
   if (isOwn) {
     final own = ref.watch(profileProvider);
+    final ownRoutes = await ref.watch(routesRepositoryProvider).listMyRoutes();
     return ProfileSnapshot(
       displayName: own.displayName,
       rank: rank,
@@ -87,7 +88,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       avatarImageUrl: own.avatarImageUrl,
       coverImageUrl: own.coverImageUrl,
       achievementPages: own.achievementPages,
-      publishedRoutes: bundle.routes,
+      publishedRoutes: ownRoutes.items,
       likedByMe: false,
       travelPoints: bundle.user.travelPoints,
     );

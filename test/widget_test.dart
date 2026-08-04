@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
@@ -126,6 +127,32 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RoutePublishScreen), findsNothing);
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
+  });
+
+  testWidgets('leaving publish does not restore it from another nav tab', (
+    tester,
+  ) async {
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.bySemanticsLabel('Создать'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Опубликовать'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutePublishScreen), findsOneWidget);
+
+    await tester.tap(
+      find.bySemanticsLabel('Развернуть навигацию, выбран раздел Создать'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Главная'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RoutePublishScreen), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Мои маршруты'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MyRoutesScreen), findsOneWidget);
+    expect(find.byType(RoutePublishScreen), findsNothing);
   });
 
   testWidgets('center screens use brand app bar without bottom scrim', (

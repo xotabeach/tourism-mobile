@@ -18,6 +18,7 @@ enum RoutePublishMode { production, golden }
 class RoutePublishState {
   const RoutePublishState({
     required this.draft,
+    this.availableDraft,
     this.isHydrating = false,
     this.isPickingMedia = false,
     this.isSaving = false,
@@ -34,6 +35,7 @@ class RoutePublishState {
   });
 
   final RouteDraft draft;
+  final RouteDraft? availableDraft;
   final bool isHydrating;
   final bool isPickingMedia;
   final bool isSaving;
@@ -50,6 +52,8 @@ class RoutePublishState {
 
   RoutePublishState copyWith({
     RouteDraft? draft,
+    RouteDraft? availableDraft,
+    bool clearAvailableDraft = false,
     bool? isHydrating,
     bool? isPickingMedia,
     bool? isSaving,
@@ -73,6 +77,9 @@ class RoutePublishState {
   }) {
     return RoutePublishState(
       draft: draft ?? this.draft,
+      availableDraft: clearAvailableDraft
+          ? null
+          : availableDraft ?? this.availableDraft,
       isHydrating: isHydrating ?? this.isHydrating,
       isPickingMedia: isPickingMedia ?? this.isPickingMedia,
       isSaving: isSaving ?? this.isSaving,
@@ -152,9 +159,22 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   Future<void> _hydrate() async {
     try {
       final draft = await _drafts.load();
-      if (mounted) {
-        state = state.copyWith(draft: draft ?? state.draft, isHydrating: false);
+      if (!mounted) {
+        return;
       }
+      if (draft == null || !draft.hasMeaningfulContent) {
+        state = state.copyWith(isHydrating: false);
+        return;
+      }
+      if (draft.publicationStatus != RoutePublicationStatus.draft &&
+          draft.publicationStatus != RoutePublicationStatus.rejected) {
+        await _drafts.delete();
+        if (mounted) {
+          state = state.copyWith(isHydrating: false, clearAvailableDraft: true);
+        }
+        return;
+      }
+      state = state.copyWith(availableDraft: draft, isHydrating: false);
     } catch (_) {
       if (mounted) {
         state = state.copyWith(
@@ -162,6 +182,37 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
           message: 'Не удалось восстановить черновик',
           messageSerial: state.messageSerial + 1,
         );
+      }
+    }
+  }
+
+  void continueDraft() {
+    final draft = state.availableDraft;
+    if (draft == null) {
+      return;
+    }
+    state = state.copyWith(draft: draft, clearAvailableDraft: true);
+  }
+
+  Future<void> startNewDraft() async {
+    final saved = state.availableDraft;
+    state = state.copyWith(
+      draft: const RouteDraft(),
+      clearAvailableDraft: true,
+    );
+    try {
+      await _drafts.delete();
+    } catch (_) {
+      _message(
+        'Новый маршрут начат, но локальный черновик удалить не удалось.',
+      );
+    }
+    final serverId = saved?.serverId;
+    if (serverId != null && serverId.isNotEmpty) {
+      try {
+        await _publication.discardDraft(serverId);
+      } on AppFailure {
+        _message('Новый маршрут начат. Серверный черновик удалить не удалось.');
       }
     }
   }
@@ -399,9 +450,9 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         publicationStatus: submittedReceipt.status,
         updatedAt: submittedReceipt.updatedAt,
       );
-      await _drafts.save(prepared);
+      await _drafts.delete();
       if (mounted) {
-        state = state.copyWith(draft: prepared);
+        state = state.copyWith(draft: prepared, clearAvailableDraft: true);
         _message('Маршрут отправлен на модерацию');
       }
       return submittedReceipt.id;

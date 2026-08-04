@@ -29,6 +29,9 @@ class CachingRoutesRepository implements RoutesRepository {
   }
 
   @override
+  Future<RouteListPage> listMyRoutes() => _inner.listMyRoutes();
+
+  @override
   Future<RouteDetail> getRoute(String id) async {
     final cached = _detailCache.get(id);
     if (cached != null) return cached;

@@ -231,7 +231,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Опубликованные маршруты',
+                        isOwn ? 'Мои маршруты' : 'Опубликованные маршруты',
                         style: AppTypography.sectionTitle.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -240,7 +240,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       if (profile.publishedRoutes.isEmpty)
                         Text(
                           isOwn
-                              ? 'Пока нет опубликованных маршрутов'
+                              ? 'У вас пока нет своих маршрутов'
                               : 'У путешественника пока нет маршрутов',
                           style: AppTypography.routeMetadata,
                         ),
@@ -250,6 +250,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 if (profile.publishedRoutes.isNotEmpty)
                   _PublishedRoutesCarousel(
                     routes: profile.publishedRoutes,
+                    showStatuses: isOwn,
                     pageIndex: _publishedPage,
                     authorAvatarUrl: profile.avatarImageUrl,
                     onPageChanged: (index) {
@@ -789,12 +790,14 @@ class _PublishedRoutesCarousel extends StatelessWidget {
     required this.routes,
     required this.pageIndex,
     required this.onPageChanged,
+    required this.showStatuses,
     this.authorAvatarUrl,
   });
 
   final List<RouteSummary> routes;
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
+  final bool showStatuses;
   final String? authorAvatarUrl;
 
   @override
@@ -815,7 +818,15 @@ class _PublishedRoutesCarousel extends StatelessWidget {
                 child: RouteHeroCard(
                   route: routes[index],
                   height: 304,
-                  tags: const [],
+                  tags: showStatuses
+                      ? [?routeStatusLabel(routes[index])]
+                      : const [],
+                  interactive:
+                      !showStatuses ||
+                      routes[index].publicationStatus == null ||
+                      (routes[index].publicationStatus == 'published' &&
+                          (routes[index].visibility == null ||
+                              routes[index].visibility == 'public')),
                   authorAvatarUrl: authorAvatarUrl,
                 ),
               );

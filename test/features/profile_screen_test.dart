@@ -41,7 +41,7 @@ void main() {
     expect(find.text('Топ 1345'), findsOneWidget);
     expect(find.text('Достижения:'), findsOneWidget);
     expect(find.text('Марафонец'), findsOneWidget);
-    expect(find.text('Опубликованные маршруты'), findsOneWidget);
+    expect(find.text('Мои маршруты'), findsOneWidget);
     expect(find.text('Гора Чок-Сары-Кая'), findsOneWidget);
   });
 

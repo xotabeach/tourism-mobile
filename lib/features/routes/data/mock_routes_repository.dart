@@ -223,6 +223,19 @@ class MockRoutesRepository implements RoutesRepository {
   ];
 
   @override
+  Future<RouteListPage> listMyRoutes() async {
+    final items = _routes
+        .where((route) => route.ownerUserId != null)
+        .toList(growable: false);
+    return RouteListPage(
+      items: items,
+      total: items.length,
+      limit: 100,
+      offset: 0,
+    );
+  }
+
+  @override
   Future<RouteListPage> listRoutes({String? regionSlug}) async {
     await Future<void>.delayed(const Duration(milliseconds: 40));
     return RouteListPage(

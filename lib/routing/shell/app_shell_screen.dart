@@ -143,7 +143,10 @@ class AppShellScreen extends ConsumerWidget {
       ref.read(tabScrollToTopProvider(index).notifier).state++;
       return;
     }
-    navigationShell.goBranch(index, initialLocation: onCurrentBranch);
+    // A destination tap always means its root screen. StatefulShellRoute keeps
+    // the last nested location of every branch; restoring that location here
+    // could unexpectedly reopen `/publish` after the user had already left it.
+    context.go(_branchRootPath(index));
   }
 
   static String _branchRootPath(int index) {

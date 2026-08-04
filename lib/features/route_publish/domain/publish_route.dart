@@ -141,6 +141,16 @@ class RouteDraft {
   final int difficulty;
   final DateTime? updatedAt;
 
+  bool get hasMeaningfulContent =>
+      title.trim().isNotEmpty ||
+      description.trim().isNotEmpty ||
+      media.isNotEmpty ||
+      start != null ||
+      finish != null ||
+      stops.isNotEmpty ||
+      filters.isNotEmpty ||
+      serverId != null;
+
   static const _goldenLocation = RouteLocation(
     id: 'golden-lenin-square',
     name: 'Площадь Ленина',

@@ -9,6 +9,13 @@ final class UnavailableRoutePublicationRepository
   const UnavailableRoutePublicationRepository();
 
   @override
+  Future<void> discardDraft(String routeId) {
+    throw const UnexpectedFailure(
+      'Не удалось удалить серверный черновик. Попробуйте позже.',
+    );
+  }
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
     return _unavailable();
   }

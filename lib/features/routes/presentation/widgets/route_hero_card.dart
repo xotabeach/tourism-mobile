@@ -52,6 +52,17 @@ String transportLabel(String? mode) {
   };
 }
 
+String? routeStatusLabel(RouteSummary route) {
+  return switch (route.publicationStatus) {
+    'draft' => 'Черновик',
+    'pending_review' => 'На модерации',
+    'rejected' => 'Нужны правки',
+    'published' when route.visibility != null && route.visibility != 'public' =>
+      'Скрыт',
+    _ => null,
+  };
+}
+
 String formatDistanceKm(int? meters) {
   if (meters == null) {
     return '—';
@@ -207,6 +218,10 @@ class _RouteCardContent extends StatelessWidget {
           ];
     final actionOpacity = (1 - visualProgress * 1.35).clamp(0.0, 1.0);
     final compact = variant == RouteCardVariant.list;
+    final publiclyAvailable =
+        route.publicationStatus == null ||
+        (route.publicationStatus == 'published' &&
+            (route.visibility == null || route.visibility == 'public'));
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(AppRadii.card),
@@ -303,13 +318,14 @@ class _RouteCardContent extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),
-                      AppFilteredOpacity(
-                        opacity: actionOpacity,
-                        child: _FavoriteButton(
-                          routeId: route.id,
-                          onToggle: onFavoriteToggle,
+                      if (publiclyAvailable)
+                        AppFilteredOpacity(
+                          opacity: actionOpacity,
+                          child: _FavoriteButton(
+                            routeId: route.id,
+                            onToggle: onFavoriteToggle,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),

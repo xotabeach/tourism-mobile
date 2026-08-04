@@ -10,6 +10,13 @@ final class ApiRoutePublicationRepository
   final Dio _dio;
 
   @override
+  Future<void> discardDraft(String routeId) {
+    return guardApiCall(() async {
+      await _dio.delete<void>('/api/v1/routes/drafts/$routeId');
+    });
+  }
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -78,6 +85,9 @@ final class ApiRoutePublicationRepository
 final class InMemoryRoutePublicationRepository
     implements RoutePublicationRepository {
   const InMemoryRoutePublicationRepository();
+
+  @override
+  Future<void> discardDraft(String routeId) async {}
 
   @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async {

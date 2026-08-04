@@ -31,4 +31,7 @@ final class SecureRouteDraftRepository implements RouteDraftRepository {
   Future<void> save(RouteDraft draft) {
     return _storage.write(key: _key, value: jsonEncode(draft.toJson()));
   }
+
+  @override
+  Future<void> delete() => _storage.delete(key: _key);
 }

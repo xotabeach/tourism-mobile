@@ -328,13 +328,11 @@ class _FavoriteRouteTileState extends State<_FavoriteRouteTile> {
                           },
                           onDismissed: (_) => unawaited(widget.onRemove()),
                           child: SizedBox(
-                            height: 307,
-                            child: Center(
-                              child: RouteHeroCard(
-                                route: widget.route,
-                                height: 295,
-                                onFavoriteToggle: _animateRemove,
-                              ),
+                            height: 295,
+                            child: RouteHeroCard(
+                              route: widget.route,
+                              height: 295,
+                              onFavoriteToggle: _animateRemove,
                             ),
                           ),
                         ),
@@ -357,7 +355,7 @@ class _FavoriteRemoveBackground extends StatelessWidget {
   Widget build(BuildContext context) {
     final reveal = Curves.easeOutCubic.transform(progress.clamp(0, 1));
     return ClipRRect(
-      borderRadius: BorderRadius.circular(AppRadii.card + 6),
+      borderRadius: BorderRadius.circular(AppRadii.card),
       child: ColoredBox(
         key: const ValueKey('favorite-remove-background'),
         color: Color.lerp(

@@ -55,6 +55,10 @@ class RouteSummary {
     this.coverImageUrl,
     this.ownerUserId,
     this.authorAvatarUrl,
+    this.source,
+    this.visibility,
+    this.lifecycleStatus,
+    this.publicationStatus,
   });
 
   final String id;
@@ -71,6 +75,10 @@ class RouteSummary {
   final String? coverImageUrl;
   final String? ownerUserId;
   final String? authorAvatarUrl;
+  final String? source;
+  final String? visibility;
+  final String? lifecycleStatus;
+  final String? publicationStatus;
 
   factory RouteSummary.fromJson(Map<String, dynamic> json) {
     return RouteSummary(
@@ -88,6 +96,10 @@ class RouteSummary {
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      source: json['source'] as String?,
+      visibility: json['visibility'] as String?,
+      lifecycleStatus: json['lifecycle_status'] as String?,
+      publicationStatus: json['publication_status'] as String?,
     );
   }
 }
@@ -108,6 +120,10 @@ class RouteDetail extends RouteSummary {
     super.coverImageUrl,
     super.ownerUserId,
     super.authorAvatarUrl,
+    super.source,
+    super.visibility,
+    super.lifecycleStatus,
+    super.publicationStatus,
     required this.description,
     required this.stops,
   });
@@ -132,6 +148,10 @@ class RouteDetail extends RouteSummary {
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      source: json['source'] as String?,
+      visibility: json['visibility'] as String?,
+      lifecycleStatus: json['lifecycle_status'] as String?,
+      publicationStatus: json['publication_status'] as String?,
       description: json['description'] as String?,
       stops: stopsJson
           .map((item) => RouteStop.fromJson(item as Map<String, dynamic>))

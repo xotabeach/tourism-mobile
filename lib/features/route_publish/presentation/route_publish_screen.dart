@@ -9,6 +9,8 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
@@ -321,6 +323,15 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                     onBack: _goBack,
                   ),
                 ),
+              if (_mode == RoutePublishMode.production &&
+                  state.availableDraft != null)
+                Positioned.fill(
+                  child: _DraftRecoveryOverlay(
+                    draft: state.availableDraft!,
+                    onContinue: controller.continueDraft,
+                    onStartNew: controller.startNewDraft,
+                  ),
+                ),
             ],
           ),
         ),
@@ -335,6 +346,10 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
     FocusManager.instance.primaryFocus?.unfocus();
     final id = await controller.publish();
     if (id != null && mounted) {
+      final userId = ref.read(sessionProvider).userId;
+      if (userId != null && userId.isNotEmpty) {
+        ref.invalidate(publicProfileProvider(userId));
+      }
       context.go('/my-routes');
     }
   }
@@ -448,6 +463,182 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+class _DraftRecoveryOverlay extends StatelessWidget {
+  const _DraftRecoveryOverlay({
+    required this.draft,
+    required this.onContinue,
+    required this.onStartNew,
+  });
+
+  final RouteDraft draft;
+  final VoidCallback onContinue;
+  final Future<void> Function() onStartNew;
+
+  String get _updatedLabel {
+    final value = draft.updatedAt?.toLocal();
+    if (value == null) {
+      return 'Сохранён на этом устройстве';
+    }
+    String two(int number) => number.toString().padLeft(2, '0');
+    return 'Изменён ${two(value.day)}.${two(value.month)}.${value.year} '
+        'в ${two(value.hour)}:${two(value.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final title = draft.title.trim().isEmpty
+        ? 'Маршрут без названия'
+        : draft.title.trim();
+    return Material(
+      color: Colors.transparent,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          const ModalBarrier(color: Color(0x73000000), dismissible: false),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Semantics(
+                namesRoute: true,
+                label: 'Найден сохранённый черновик маршрута',
+                child: Container(
+                  key: const ValueKey('route-draft-choice'),
+                  constraints: const BoxConstraints(maxWidth: 390),
+                  padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                  decoration: BoxDecoration(
+                    color: PublishRouteDesignTokens.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: PublishRouteDesignTokens.border),
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: const BoxDecoration(
+                          color: PublishRouteDesignTokens.selectedLightBlue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit_note_rounded,
+                          color: PublishRouteDesignTokens.primaryBlue,
+                          size: 27,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        'У вас есть черновик',
+                        textAlign: TextAlign.center,
+                        style: PublishRouteDesignTokens.rubik(
+                          fontSize: 21,
+                          weight: FontWeight.w600,
+                          color: PublishRouteDesignTokens.dark,
+                          height: 1.15,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: PublishRouteDesignTokens.rubik(
+                          fontSize: 16,
+                          weight: FontWeight.w500,
+                          color: PublishRouteDesignTokens.dark,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _updatedLabel,
+                        textAlign: TextAlign.center,
+                        style: PublishRouteDesignTokens.rubik(
+                          fontSize: 13,
+                          weight: FontWeight.w400,
+                          color: PublishRouteDesignTokens.secondaryText,
+                          height: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _DraftChoiceButton(
+                        key: const ValueKey('route-draft-continue'),
+                        label: 'Продолжить',
+                        filled: true,
+                        onTap: onContinue,
+                      ),
+                      const SizedBox(height: 9),
+                      _DraftChoiceButton(
+                        key: const ValueKey('route-draft-start-new'),
+                        label: 'Начать заново',
+                        filled: false,
+                        onTap: () => unawaited(onStartNew()),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DraftChoiceButton extends StatelessWidget {
+  const _DraftChoiceButton({
+    required this.label,
+    required this.filled,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool filled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(26);
+    return Semantics(
+      button: true,
+      label: label,
+      child: Material(
+        color: filled
+            ? PublishRouteDesignTokens.dark
+            : PublishRouteDesignTokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: radius,
+          side: filled
+              ? BorderSide.none
+              : const BorderSide(color: PublishRouteDesignTokens.border),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 52,
+            width: double.infinity,
+            child: Center(
+              child: Text(
+                label,
+                style: PublishRouteDesignTokens.rubik(
+                  fontSize: 16,
+                  weight: FontWeight.w500,
+                  color: filled ? Colors.white : PublishRouteDesignTokens.dark,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

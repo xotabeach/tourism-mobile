@@ -154,58 +154,79 @@ void main() {
     },
   );
 
-  test(
-    'controller persists the moderation receipt after publication',
-    () async {
-      const start = RouteLocation(
-        id: 'start-id',
-        name: 'Старт',
-        subtitle: 'Крым',
-        lat: 44.5,
-        lng: 34,
+  test('controller clears the local draft after publication', () async {
+    const start = RouteLocation(
+      id: 'start-id',
+      name: 'Старт',
+      subtitle: 'Крым',
+      lat: 44.5,
+      lng: 34,
+    );
+    const finish = RouteLocation(
+      id: 'finish-id',
+      name: 'Финиш',
+      subtitle: 'Крым',
+      lat: 44.6,
+      lng: 34.1,
+    );
+    final drafts = _MemoryDraftRepository()
+      ..value = const RouteDraft(
+        title: 'Горный маршрут',
+        media: [
+          RouteMediaItem(
+            id: 'photo',
+            path: '/tmp/photo.jpg',
+            kind: RouteMediaKind.image,
+          ),
+        ],
+        start: start,
+        finish: finish,
       );
-      const finish = RouteLocation(
-        id: 'finish-id',
-        name: 'Финиш',
-        subtitle: 'Крым',
-        lat: 44.6,
-        lng: 34.1,
-      );
-      final drafts = _MemoryDraftRepository()
-        ..value = const RouteDraft(
-          title: 'Горный маршрут',
-          media: [
-            RouteMediaItem(
-              id: 'photo',
-              path: '/tmp/photo.jpg',
-              kind: RouteMediaKind.image,
-            ),
-          ],
-          start: start,
-          finish: finish,
-        );
-      final publication = _NoopPublicationRepository();
-      final controller = RoutePublishController(
-        mode: RoutePublishMode.production,
-        drafts: drafts,
-        mediaPicker: _NoopMediaPicker(),
-        publication: publication,
-      );
-      addTearDown(controller.dispose);
-      await Future<void>.delayed(Duration.zero);
+    final publication = _NoopPublicationRepository();
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      drafts: drafts,
+      mediaPicker: _NoopMediaPicker(),
+      publication: publication,
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+    controller.continueDraft();
 
-      final id = await controller.publish();
+    final id = await controller.publish();
 
-      expect(id, 'route-id');
-      expect(publication.saved, 1);
-      expect(publication.submitted, 1);
-      expect(
-        drafts.value?.publicationStatus,
-        RoutePublicationStatus.pendingReview,
+    expect(id, 'route-id');
+    expect(publication.saved, 1);
+    expect(publication.submitted, 1);
+    expect(drafts.value, isNull);
+    expect(controller.state.message, 'Маршрут отправлен на модерацию');
+  });
+
+  test('controller asks before restoring and can start over', () async {
+    final drafts = _MemoryDraftRepository()
+      ..value = const RouteDraft(
+        serverId: 'saved-route',
+        title: 'Сохранённый маршрут',
       );
-      expect(controller.state.message, 'Маршрут отправлен на модерацию');
-    },
-  );
+    final publication = _NoopPublicationRepository();
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      drafts: drafts,
+      mediaPicker: _NoopMediaPicker(),
+      publication: publication,
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.draft.title, isEmpty);
+    expect(controller.state.availableDraft?.title, 'Сохранённый маршрут');
+
+    await controller.startNewDraft();
+
+    expect(controller.state.availableDraft, isNull);
+    expect(drafts.value, isNull);
+    expect(publication.discarded, ['saved-route']);
+  });
 }
 
 Future<void> _pumpPublish(
@@ -297,6 +318,9 @@ final class _MemoryDraftRepository implements RouteDraftRepository {
 
   @override
   Future<void> save(RouteDraft draft) async => value = draft;
+
+  @override
+  Future<void> delete() async => value = null;
 }
 
 final class _NoopMediaPicker implements RouteMediaPicker {
@@ -307,6 +331,10 @@ final class _NoopMediaPicker implements RouteMediaPicker {
 final class _NoopPublicationRepository implements RoutePublicationRepository {
   int saved = 0;
   int submitted = 0;
+  final discarded = <String>[];
+
+  @override
+  Future<void> discardDraft(String routeId) async => discarded.add(routeId);
 
   @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async {
