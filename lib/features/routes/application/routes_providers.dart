@@ -28,3 +28,8 @@ final routeDetailProvider = FutureProvider.autoDispose
     .family<RouteDetail, String>((ref, id) {
       return ref.watch(routesRepositoryProvider).getRoute(id);
     });
+
+final ownRouteDetailProvider = FutureProvider.autoDispose
+    .family<RouteDetail, String>((ref, id) {
+      return ref.watch(routesRepositoryProvider).getMyRoute(id);
+    });

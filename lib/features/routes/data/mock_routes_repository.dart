@@ -254,4 +254,7 @@ class MockRoutesRepository implements RoutesRepository {
       orElse: () => throw StateError('Route not found: $id'),
     );
   }
+
+  @override
+  Future<RouteDetail> getMyRoute(String id) => getRoute(id);
 }

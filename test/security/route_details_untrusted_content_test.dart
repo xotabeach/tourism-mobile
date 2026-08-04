@@ -22,6 +22,9 @@ final _oversizedDescription = 'ЖЖЖ ' * 4000;
 
 class _HostileRoutesRepository implements RoutesRepository {
   @override
+  Future<RouteDetail> getMyRoute(String id) => getRoute(id);
+
+  @override
   Future<RouteListPage> listMyRoutes() => listRoutes();
 
   @override

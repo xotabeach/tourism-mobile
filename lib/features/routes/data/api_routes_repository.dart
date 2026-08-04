@@ -40,4 +40,14 @@ class ApiRoutesRepository implements RoutesRepository {
       return RouteDetail.fromJson(response.data!);
     });
   }
+
+  @override
+  Future<RouteDetail> getMyRoute(String id) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/routes/mine/$id',
+      );
+      return RouteDetail.fromJson(response.data!);
+    });
+  }
 }

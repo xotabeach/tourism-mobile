@@ -107,7 +107,16 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    final routeAsync = ref.watch(routeDetailProvider(widget.routeId));
+    final initial = widget.initialRoute;
+    final session = ref.watch(sessionProvider);
+    final ownerPreview =
+        initial != null &&
+        initial.ownerUserId == session.userId &&
+        (initial.publicationStatus != 'published' ||
+            initial.visibility != 'public');
+    final routeAsync = ownerPreview
+        ? ref.watch(ownRouteDetailProvider(widget.routeId))
+        : ref.watch(routeDetailProvider(widget.routeId));
 
     return Scaffold(
       backgroundColor: AppColors.elevatedSurface,
@@ -117,7 +126,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
             ? const Center(child: CircularProgressIndicator())
             : _buildInitialContent(widget.initialRoute!),
         error: (_, _) => AppAsyncErrorView(
-          onRetry: () => ref.invalidate(routeDetailProvider(widget.routeId)),
+          onRetry: () => ownerPreview
+              ? ref.invalidate(ownRouteDetailProvider(widget.routeId))
+              : ref.invalidate(routeDetailProvider(widget.routeId)),
         ),
       ),
     );
@@ -130,6 +141,11 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
       favoritesProvider.select((s) => s.routeIds.contains(route.id)),
     );
     final authorName = route.authorLabel ?? 'КрымТрип редакция';
+    final statusLabel = routeStatusLabel(route);
+    final publiclyAvailable =
+        route.publicationStatus == null ||
+        (route.publicationStatus == 'published' &&
+            (route.visibility == null || route.visibility == 'public'));
 
     VoidCallback? onAuthorTap;
     if (route.ownerUserId != null) {
@@ -167,6 +183,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
             heroTag: 'route-cover-${route.id}',
             onBack: () => context.pop(),
             onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
+            showFavorite: publiclyAvailable,
             onShare: () => _showSoon('Поделиться маршрутом'),
             onDownload: () => _showSoon('Офлайн-режим'),
           ),
@@ -190,6 +207,13 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                       onAuthorTap: onAuthorTap,
                       onMore: () => _showSoon('Меню маршрута'),
                     ),
+                    if (statusLabel != null) ...[
+                      const SizedBox(height: 12),
+                      _OwnerRouteStatusBanner(
+                        label: statusLabel,
+                        status: route.publicationStatus,
+                      ),
+                    ],
                     const _SectionDivider(),
                     Text(
                       route.name,
@@ -279,6 +303,10 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
             heroTag: 'route-cover-${route.id}',
             onBack: () => context.pop(),
             onToggleFavorite: () {},
+            showFavorite:
+                route.publicationStatus == null ||
+                (route.publicationStatus == 'published' &&
+                    (route.visibility == null || route.visibility == 'public')),
             onShare: () {},
             onDownload: () {},
           ),
@@ -317,6 +345,79 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
         .where((asset) => asset != route.coverImageUrl)
         .map<ImageProvider>(AssetImage.new);
     return [cover, ...rest];
+  }
+}
+
+class _OwnerRouteStatusBanner extends StatelessWidget {
+  const _OwnerRouteStatusBanner({required this.label, required this.status});
+
+  final String label;
+  final String? status;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, description) = switch (status) {
+      'pending_review' => (
+        Icons.schedule_rounded,
+        'Маршрут проверяет команда модерации. Пока он виден только вам.',
+      ),
+      'rejected' => (
+        Icons.info_outline_rounded,
+        'Перед публикацией маршруту нужны исправления.',
+      ),
+      'draft' => (
+        Icons.edit_note_rounded,
+        'Это сохранённый черновик, доступный только вам.',
+      ),
+      _ => (
+        Icons.visibility_off_outlined,
+        'Маршрут скрыт от других путешественников.',
+      ),
+    };
+    return Semantics(
+      label: 'Статус маршрута: $label. $description',
+      child: Container(
+        key: const ValueKey('route-owner-status'),
+        width: double.infinity,
+        padding: const EdgeInsets.all(13),
+        decoration: BoxDecoration(
+          color: AppColors.accentBlue.withValues(alpha: 0.09),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: AppColors.accentBlue.withValues(alpha: 0.24),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: AppColors.accentBlue, size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: AppTypography.chip.copyWith(
+                      color: AppColors.primaryInk,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    description,
+                    style: AppTypography.routeMetadata.copyWith(
+                      color: AppColors.secondaryInk,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

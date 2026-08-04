@@ -21,6 +21,7 @@ class RouteCollapsingHeader extends StatefulWidget {
     required this.onToggleFavorite,
     required this.onShare,
     required this.onDownload,
+    this.showFavorite = true,
     this.expansionProgress = 0,
     this.onToggleGallery,
     this.heroTag,
@@ -41,6 +42,7 @@ class RouteCollapsingHeader extends StatefulWidget {
   final VoidCallback onToggleFavorite;
   final VoidCallback onShare;
   final VoidCallback onDownload;
+  final bool showFavorite;
   final Object? heroTag;
 
   @override
@@ -64,12 +66,13 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
         context: context,
         position: RelativeRect.fromLTRB(100, top + 8, 12, 0),
         items: [
-          PopupMenuItem(
-            value: 'favorite',
-            child: Text(
-              widget.isFavorite ? 'Удалить из избранного' : 'В избранное',
+          if (widget.showFavorite)
+            PopupMenuItem(
+              value: 'favorite',
+              child: Text(
+                widget.isFavorite ? 'Удалить из избранного' : 'В избранное',
+              ),
             ),
-          ),
           const PopupMenuItem(value: 'share', child: Text('Поделиться')),
           const PopupMenuItem(value: 'download', child: Text('Скачать офлайн')),
         ],
@@ -185,16 +188,18 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
                           onPressed: widget.onBack,
                         ),
                         const Spacer(),
-                        CollapsingHeroAction(
-                          semanticLabel: widget.isFavorite
-                              ? 'Удалить из избранного'
-                              : 'Добавить в избранное',
-                          icon: widget.isFavorite
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_border_rounded,
-                          onPressed: widget.onToggleFavorite,
-                        ),
-                        const SizedBox(width: 8),
+                        if (widget.showFavorite) ...[
+                          CollapsingHeroAction(
+                            semanticLabel: widget.isFavorite
+                                ? 'Удалить из избранного'
+                                : 'Добавить в избранное',
+                            icon: widget.isFavorite
+                                ? Icons.favorite_rounded
+                                : Icons.favorite_border_rounded,
+                            onPressed: widget.onToggleFavorite,
+                          ),
+                          const SizedBox(width: 8),
+                        ],
                         CollapsingHeroAction(
                           semanticLabel: 'Поделиться',
                           icon: Icons.ios_share_rounded,

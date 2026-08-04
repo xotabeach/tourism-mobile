@@ -821,12 +821,7 @@ class _PublishedRoutesCarousel extends StatelessWidget {
                   tags: showStatuses
                       ? [?routeStatusLabel(routes[index])]
                       : const [],
-                  interactive:
-                      !showStatuses ||
-                      routes[index].publicationStatus == null ||
-                      (routes[index].publicationStatus == 'published' &&
-                          (routes[index].visibility == null ||
-                              routes[index].visibility == 'public')),
+                  interactive: true,
                   authorAvatarUrl: authorAvatarUrl,
                 ),
               );

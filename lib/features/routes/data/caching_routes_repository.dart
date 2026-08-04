@@ -39,4 +39,7 @@ class CachingRoutesRepository implements RoutesRepository {
     _detailCache.set(id, result);
     return result;
   }
+
+  @override
+  Future<RouteDetail> getMyRoute(String id) => _inner.getMyRoute(id);
 }

@@ -8,6 +8,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
+import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
@@ -64,6 +67,50 @@ bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
 }
 
 void main() {
+  testWidgets('owner can preview a route pending moderation', (tester) async {
+    const summary = RouteSummary(
+      id: 'pending-route',
+      name: 'Маршрут на проверке',
+      slug: 'pending-route',
+      shortDescription: 'Описание',
+      stopsCount: 0,
+      ownerUserId: 'mock-user',
+      visibility: 'private',
+      publicationStatus: 'pending_review',
+    );
+    const detail = RouteDetail(
+      id: 'pending-route',
+      name: 'Маршрут на проверке',
+      slug: 'pending-route',
+      shortDescription: 'Описание',
+      description: 'Полное описание маршрута',
+      stopsCount: 0,
+      ownerUserId: 'mock-user',
+      visibility: 'private',
+      publicationStatus: 'pending_review',
+      stops: [],
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...testSessionOverrides(onboardingCompleted: true),
+          ownRouteDetailProvider.overrideWith((ref, id) async => detail),
+        ],
+        child: const MaterialApp(
+          home: RouteDetailsScreen(
+            routeId: 'pending-route',
+            initialRoute: summary,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('route-owner-status')), findsOneWidget);
+    expect(find.text('На модерации'), findsOneWidget);
+    expect(find.bySemanticsLabel('Добавить в избранное'), findsNothing);
+  });
+
   testWidgets('route hero starts expanded and shrinks on scroll', (
     tester,
   ) async {
