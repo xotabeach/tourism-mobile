@@ -16,7 +16,9 @@ void main() {
     expect(clamped.endsWith('…'), isTrue);
   });
 
-  testWidgets('XSS-like payload is rendered as plain Text only', (tester) async {
+  testWidgets('XSS-like payload is rendered as plain Text only', (
+    tester,
+  ) async {
     tester.view
       ..devicePixelRatio = 1
       ..physicalSize = const Size(393, 900);

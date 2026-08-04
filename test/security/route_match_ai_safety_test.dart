@@ -6,9 +6,7 @@ void main() {
   group('route match AI safety', () {
     test('flags explicit self-harm intent', () {
       expect(
-        routeMatchLooksLikeSelfHarm(
-          'разбежавшись прыгну со скалы на закате',
-        ),
+        routeMatchLooksLikeSelfHarm('разбежавшись прыгну со скалы на закате'),
         isTrue,
       );
       expect(routeMatchLooksLikeSelfHarm('покончить с собой'), isTrue);
@@ -16,15 +14,18 @@ void main() {
     });
 
     test('allows ordinary travel wishes', () {
+      expect(routeMatchLooksLikeSelfHarm('хочу закат у моря и стейк'), isFalse);
       expect(
-        routeMatchLooksLikeSelfHarm('хочу закат у моря и стейк'),
+        routeMatchLooksLikeSelfHarm('одиночный маршрут по Крыму'),
         isFalse,
       );
-      expect(routeMatchLooksLikeSelfHarm('одиночный маршрут по Крыму'), isFalse);
     });
 
     test('crisis reply is supportive and non-vulgar', () {
-      expect(routeMatchCrisisSupportReply.toLowerCase(), isNot(contains('пиздец')));
+      expect(
+        routeMatchCrisisSupportReply.toLowerCase(),
+        isNot(contains('пиздец')),
+      );
       expect(routeMatchCrisisSupportReply, contains('экстренной'));
     });
   });
