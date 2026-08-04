@@ -61,10 +61,15 @@ void main() {
     _expectRect(tester, 'route-action-Сохранить черновик', 18, 1959, 399, 63);
     expect(tester.takeException(), isNull);
 
-    await expectLater(
-      find.byKey(const ValueKey('route-publish-viewport')),
-      matchesGoldenFile('../../golden/goldens/route_publish_434x2048.png'),
-    );
+    // Font rasterization differs between macOS (where this baseline is
+    // recorded) and the Linux GitLab runner. Keep all geometry assertions
+    // cross-platform, but compare pixels only on the baseline host.
+    if (Platform.isMacOS) {
+      await expectLater(
+        find.byKey(const ValueKey('route-publish-viewport')),
+        matchesGoldenFile('../../golden/goldens/route_publish_434x2048.png'),
+      );
+    }
   });
 
   for (final configuration in const [
