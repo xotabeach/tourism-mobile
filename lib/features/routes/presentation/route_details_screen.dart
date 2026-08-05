@@ -1432,9 +1432,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
         Scrollable.ensureVisible(
           ctx,
           alignment: 0.55,
-          duration: animate
-              ? const Duration(milliseconds: 220)
-              : Duration.zero,
+          duration: animate ? const Duration(milliseconds: 220) : Duration.zero,
           curve: Curves.easeOut,
         ),
       );

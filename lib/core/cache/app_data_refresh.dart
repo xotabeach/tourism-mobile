@@ -12,14 +12,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 
 /// Which catalog / screen data to reload after clearing the in-memory API cache.
-enum AppDataRefreshScope {
-  home,
-  routesCatalog,
-  myRoutes,
-  profile,
-  places,
-  all,
-}
+enum AppDataRefreshScope { home, routesCatalog, myRoutes, profile, places, all }
 
 /// Maps bottom-nav branch indexes to a refresh scope.
 AppDataRefreshScope appDataRefreshScopeForTab(int tabIndex) {

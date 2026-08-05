@@ -122,83 +122,83 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                 parent: AlwaysScrollableScrollPhysics(),
               ),
               slivers: [
-              SliverPadding(
-                padding: EdgeInsets.fromLTRB(16, top + 12, 16, 0),
-                sliver: SliverToBoxAdapter(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Мои маршруты:',
-                        style: AppTypography.sectionTitle.copyWith(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700,
+                SliverPadding(
+                  padding: EdgeInsets.fromLTRB(16, top + 12, 16, 0),
+                  sliver: SliverToBoxAdapter(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Мои маршруты:',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 14),
-                      AppSearchFilterRow(
-                        controller: _searchController,
-                        focusNode: _searchFocus,
-                        hintText: 'Маршрут или профиль',
-                        onSearchChanged: _onSearchChanged,
-                        onSearchClear: () {
-                          _searchDebounce?.cancel();
-                          _searchController.clear();
-                          setState(() => _query = '');
-                        },
-                        onSearchDismiss: () {
-                          _searchDebounce?.cancel();
-                          _searchController.clear();
-                          _searchFocus.unfocus();
-                          if (_query.isNotEmpty) {
+                        const SizedBox(height: 14),
+                        AppSearchFilterRow(
+                          controller: _searchController,
+                          focusNode: _searchFocus,
+                          hintText: 'Маршрут или профиль',
+                          onSearchChanged: _onSearchChanged,
+                          onSearchClear: () {
+                            _searchDebounce?.cancel();
+                            _searchController.clear();
                             setState(() => _query = '');
-                          }
-                        },
-                        onFilterTap: () {},
-                      ),
-                      if (_searchFocus.hasFocus && _query.length >= 2)
-                        UniversalSearchPanel(query: _query),
-                      const SizedBox(height: 14),
-                      _TabRow(
-                        selected: _tab,
-                        onChanged: (tab) => setState(() => _tab = tab),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  ),
-                ),
-              ),
-              if (_tab == MyRoutesTab.subscriptions)
-                ..._subscriptionSlivers(subscriptionsAsync)
-              else if (filtered.isEmpty)
-                const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(
-                    child: Text(
-                      'Пока пусто',
-                      style: AppTypography.settingsRowSubtitle,
+                          },
+                          onSearchDismiss: () {
+                            _searchDebounce?.cancel();
+                            _searchController.clear();
+                            _searchFocus.unfocus();
+                            if (_query.isNotEmpty) {
+                              setState(() => _query = '');
+                            }
+                          },
+                          onFilterTap: () {},
+                        ),
+                        if (_searchFocus.hasFocus && _query.length >= 2)
+                          UniversalSearchPanel(query: _query),
+                        const SizedBox(height: 14),
+                        _TabRow(
+                          selected: _tab,
+                          onChanged: (tab) => setState(() => _tab = tab),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ),
                   ),
-                )
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                  sliver: SliverList.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final route = filtered[index];
-                      if (_tab == MyRoutesTab.favorites) {
-                        return _FavoriteRouteTile(
-                          key: ValueKey('favorite-route-${route.id}'),
-                          route: route,
-                          onRemove: () => _removeFavorite(route),
-                        );
-                      }
-                      return RouteHeroCard(route: route, height: 295);
-                    },
-                  ),
                 ),
+                if (_tab == MyRoutesTab.subscriptions)
+                  ..._subscriptionSlivers(subscriptionsAsync)
+                else if (filtered.isEmpty)
+                  const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(
+                      child: Text(
+                        'Пока пусто',
+                        style: AppTypography.settingsRowSubtitle,
+                      ),
+                    ),
+                  )
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+                    sliver: SliverList.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) {
+                        final route = filtered[index];
+                        if (_tab == MyRoutesTab.favorites) {
+                          return _FavoriteRouteTile(
+                            key: ValueKey('favorite-route-${route.id}'),
+                            route: route,
+                            onRemove: () => _removeFavorite(route),
+                          );
+                        }
+                        return RouteHeroCard(route: route, height: 295);
+                      },
+                    ),
+                  ),
               ],
             ),
           );
