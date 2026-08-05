@@ -17,29 +17,39 @@ abstract final class AppPerf {
     return preferCheapEffects ? 0 : desired;
   }
 
-  /// Without live blur, frosted translucent fills read as washed-out discs and
-  /// clash with white glyphs. Match the solid «Пройти маршрут» / nav chrome.
+  /// White / near-white glyphs that need solid dark chrome without live blur.
+  static bool isLightGlyph(Color color) {
+    if (color.a < 0.08) return false;
+    return color.computeLuminance() >= 0.72;
+  }
+
+  /// Whether Android should replace a frosted fill with solid nav chrome.
+  ///
+  /// Only for controls whose icon/label is white (or near-white). Dark glyphs
+  /// keep the original light fill — blur is still disabled via [glassBlur].
+  static bool useDarkGlassChrome({Color? contentColor}) {
+    if (!preferCheapEffects) return false;
+    if (contentColor == null) return false;
+    return isLightGlyph(contentColor);
+  }
+
+  /// Without live blur, pale frosted discs clash with white glyphs. Match the
+  /// solid «Пройти маршрут» / nav chrome **only** when [foreground] is light.
   /// Zero alpha stays transparent so fade-out animations can still hide chrome.
-  static Color glassFill(Color requested) {
-    if (!preferCheapEffects) return requested;
+  static Color glassFill(Color requested, {Color? foreground}) {
+    if (!useDarkGlassChrome(contentColor: foreground)) return requested;
     if (requested.a <= 0) {
       return AppColors.activeNavigationFill.withValues(alpha: 0);
     }
     return AppColors.activeNavigationFill;
   }
 
-  static Color glassBorder(Color requested) {
-    if (!preferCheapEffects) return requested;
+  static Color glassBorder(Color requested, {Color? foreground}) {
+    if (!useDarkGlassChrome(contentColor: foreground)) return requested;
     if (requested.a <= 0) {
       return Colors.white.withValues(alpha: 0);
     }
     return Colors.white.withValues(alpha: 0.22);
-  }
-
-  /// Icon / label color for glass controls that fall back to [glassFill].
-  static Color glassForeground(Color requested) {
-    if (!preferCheapEffects) return requested;
-    return Colors.white;
   }
 
   /// Scale motion durations down on Android without killing the feel entirely.

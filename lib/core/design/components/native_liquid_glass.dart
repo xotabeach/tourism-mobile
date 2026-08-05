@@ -38,6 +38,7 @@ class AppAdaptiveGlassSurface extends StatelessWidget {
     this.shape = NativeLiquidGlassShape.rect,
     this.interactive = false,
     this.boxShadow = AppShadows.glass,
+    this.contentColor,
     super.key,
   });
 
@@ -52,6 +53,7 @@ class AppAdaptiveGlassSurface extends StatelessWidget {
   /// Reserved for a future native-capable glass bridge.
   final bool interactive;
   final List<BoxShadow> boxShadow;
+  final Color? contentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +68,7 @@ class AppAdaptiveGlassSurface extends StatelessWidget {
       borderColor: borderColor,
       borderWidth: borderWidth,
       boxShadow: boxShadow,
+      contentColor: contentColor,
       child: child,
     );
   }

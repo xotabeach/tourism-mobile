@@ -76,7 +76,7 @@ void main() {
     expect(find.text('Далее'), findsOneWidget);
   });
 
-  testWidgets('Android glass surface uses solid nav chrome fill', (
+  testWidgets('Android glass with white glyph uses solid nav chrome fill', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -86,6 +86,7 @@ void main() {
           home: Scaffold(
             body: AppGlassSurface(
               fillColor: Color(0x4DFFFFFF),
+              contentColor: Colors.white,
               child: SizedBox(width: 48, height: 48),
             ),
           ),
@@ -109,6 +110,47 @@ void main() {
               c.b == AppColors.activeNavigationFill.b,
         ),
         isTrue,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets('Android glass with dark glyph keeps light fill', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      const lightFill = Color(0xC7F4F4F6);
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AppGlassSurface(
+              fillColor: lightFill,
+              contentColor: AppColors.primaryInk,
+              child: SizedBox(width: 48, height: 48),
+            ),
+          ),
+        ),
+      );
+
+      final decorated = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final fills = decorated
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .map((d) => d.color)
+          .whereType<Color>()
+          .toList();
+      expect(fills.any((c) => c == lightFill), isTrue);
+      expect(
+        fills.any(
+          (c) =>
+              c.r == AppColors.activeNavigationFill.r &&
+              c.g == AppColors.activeNavigationFill.g &&
+              c.b == AppColors.activeNavigationFill.b &&
+              c.a == 1,
+        ),
+        isFalse,
       );
     } finally {
       debugDefaultTargetPlatformOverride = null;

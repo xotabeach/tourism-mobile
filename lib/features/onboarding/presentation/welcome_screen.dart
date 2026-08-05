@@ -85,6 +85,7 @@ class WelcomeScreen extends StatelessWidget {
                             blur: 18,
                             fillColor: Colors.white.withValues(alpha: 0.22),
                             borderColor: Colors.white.withValues(alpha: 0.52),
+                            contentColor: Colors.white,
                             child: Material(
                               color: Colors.transparent,
                               child: InkWell(

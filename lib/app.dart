@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -42,6 +43,21 @@ class _TourismAppState extends ConsumerState<TourismApp> {
       ..watch(routesListProvider)
       ..watch(placesListProvider)
       ..watch(topTravelersProvider);
+
+    // Register FCM token whenever an authenticated session has push enabled
+    // (cold start / login), not only when the settings toggle flips.
+    ref.listen<SessionState>(sessionProvider, (previous, next) {
+      final becameReady =
+          next.isAuthenticated &&
+          next.notifyPushEnabled &&
+          (previous == null ||
+              !previous.isAuthenticated ||
+              !previous.notifyPushEnabled ||
+              previous.userId != next.userId);
+      if (becameReady) {
+        ensurePushRegistrationForSession(ref, next);
+      }
+    });
 
     return MaterialApp.router(
       title: config.appName,

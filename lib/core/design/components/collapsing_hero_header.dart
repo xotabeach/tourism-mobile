@@ -217,6 +217,7 @@ class CollapsingHeroAction extends StatelessWidget {
           blur: 10,
           fillColor: Colors.black.withValues(alpha: 0.26),
           borderColor: Colors.white.withValues(alpha: 0.22),
+          contentColor: Colors.white,
           child: Material(
             color: Colors.transparent,
             shape: const CircleBorder(),

@@ -318,19 +318,20 @@ class SettingsCircleIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Translucent/glass discs without blur look washed-out with white icons;
-    // Android matches solid nav / «Пройти маршрут» chrome instead.
-    final solidChrome =
-        AppPerf.preferCheapEffects && (glass || background.a < 1);
-    final effectiveBackground = solidChrome
-        ? AppPerf.glassFill(background)
+    // Android uses solid nav chrome only when the glyph itself is light.
+    final darkChrome =
+        (glass || background.a < 1) &&
+        AppPerf.useDarkGlassChrome(contentColor: iconColor);
+    final effectiveBackground = darkChrome
+        ? AppPerf.glassFill(background, foreground: iconColor)
         : background;
-    final effectiveIconColor = solidChrome
-        ? AppPerf.glassForeground(iconColor)
-        : iconColor;
-    final effectiveBorderColor = solidChrome
-        ? AppPerf.glassBorder(borderColor ?? Colors.white)
+    final effectiveBorderColor = darkChrome
+        ? AppPerf.glassBorder(
+            borderColor ?? Colors.white,
+            foreground: iconColor,
+          )
         : borderColor;
-    final child = Icon(icon, size: iconSize, color: effectiveIconColor);
+    final child = Icon(icon, size: iconSize, color: iconColor);
     return SizedBox.square(
       dimension: size,
       child: Material(

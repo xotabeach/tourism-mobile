@@ -63,6 +63,7 @@ class AppGlassSurface extends StatelessWidget {
     this.borderWidth = 1,
     this.boxShadow = AppShadows.glass,
     this.showInnerHighlight = true,
+    this.contentColor,
     super.key,
   });
 
@@ -75,25 +76,31 @@ class AppGlassSurface extends StatelessWidget {
   final List<BoxShadow> boxShadow;
   final bool showInnerHighlight;
 
+  /// Icon / label color sitting on this surface. On Android (no blur), white
+  /// glyphs switch the fill to solid nav chrome; dark glyphs keep [fillColor].
+  final Color? contentColor;
+
   @override
   Widget build(BuildContext context) {
     // Android mid-range GPUs stall hard on live BackdropFilter during nav /
-    // swipe animations; use solid black chrome (same as «Пройти маршрут»)
-    // instead of a pale frosted disc that fights white icons.
+    // swipe animations. Blur is always dropped; solid black chrome is only used
+    // when the control's icon/label is white (see [contentColor]).
     final effectiveBlur = AppPerf.glassBlur(blur);
-    final solidChrome = effectiveBlur <= 0 && AppPerf.preferCheapEffects;
-    final effectiveFill = solidChrome
-        ? AppPerf.glassFill(fillColor)
-        : fillColor;
-    final effectiveBorder = solidChrome
-        ? AppPerf.glassBorder(borderColor)
-        : borderColor;
+    final darkChrome = AppPerf.useDarkGlassChrome(contentColor: contentColor);
+    final effectiveFill = AppPerf.glassFill(
+      fillColor,
+      foreground: contentColor,
+    );
+    final effectiveBorder = AppPerf.glassBorder(
+      borderColor,
+      foreground: contentColor,
+    );
     final surface = DecoratedBox(
       decoration: BoxDecoration(
         color: effectiveFill,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(color: effectiveBorder, width: borderWidth),
-        boxShadow: showInnerHighlight && !solidChrome
+        boxShadow: showInnerHighlight && !darkChrome
             ? const [
                 BoxShadow(
                   color: AppColors.glassHighlight,
@@ -137,6 +144,7 @@ class AppGlassPill extends StatelessWidget {
     this.fillColor = AppColors.glassFill,
     this.borderColor = AppColors.glassBorder,
     this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+    this.contentColor,
     super.key,
   });
 
@@ -145,6 +153,7 @@ class AppGlassPill extends StatelessWidget {
   final Color fillColor;
   final Color borderColor;
   final EdgeInsetsGeometry padding;
+  final Color? contentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -153,6 +162,7 @@ class AppGlassPill extends StatelessWidget {
       blur: blur,
       fillColor: fillColor,
       borderColor: borderColor,
+      contentColor: contentColor,
       child: Padding(padding: padding, child: child),
     );
   }
@@ -165,6 +175,7 @@ class AppGlassCircle extends StatelessWidget {
     this.blur = 18,
     this.fillColor = AppColors.glassFill,
     this.borderColor = AppColors.glassBorder,
+    this.contentColor,
     super.key,
   });
 
@@ -173,6 +184,7 @@ class AppGlassCircle extends StatelessWidget {
   final double blur;
   final Color fillColor;
   final Color borderColor;
+  final Color? contentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -183,6 +195,7 @@ class AppGlassCircle extends StatelessWidget {
         blur: blur,
         fillColor: fillColor,
         borderColor: borderColor,
+        contentColor: contentColor,
         child: Center(child: child),
       ),
     );
@@ -216,7 +229,6 @@ class AppGlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = AppPerf.glassForeground(foregroundColor);
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -230,13 +242,18 @@ class AppGlassIconButton extends StatelessWidget {
             shape: NativeLiquidGlassShape.circle,
             interactive: onPressed != null,
             fillColor: fillColor,
+            contentColor: foregroundColor,
             child: IconButton(
               onPressed: onPressed,
               icon: iconAsset == null
                   ? Icon(icon)
-                  : AppAssetIcon(iconAsset!, size: iconSize, color: fg),
+                  : AppAssetIcon(
+                      iconAsset!,
+                      size: iconSize,
+                      color: foregroundColor,
+                    ),
               iconSize: iconSize,
-              color: fg,
+              color: foregroundColor,
               padding: EdgeInsets.zero,
               constraints: BoxConstraints.tightFor(
                 width: dimension,

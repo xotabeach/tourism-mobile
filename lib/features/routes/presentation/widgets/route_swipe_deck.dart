@@ -717,6 +717,7 @@ class _SwipeOverlay extends StatelessWidget {
                   blur: 14,
                   fillColor: Colors.white.withValues(alpha: 0.20),
                   borderColor: Colors.white.withValues(alpha: 0.72),
+                  contentColor: Colors.white,
                   boxShadow: const [],
                   child: Center(
                     child: AppAssetIcon(
@@ -909,6 +910,7 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                                   : 0.46) *
                                               eased,
                                         ),
+                                        contentColor: Colors.white,
                                         borderWidth: useCupertinoGlass
                                             ? 1.2
                                             : 1,

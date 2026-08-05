@@ -379,6 +379,7 @@ class _RouteCardContent extends StatelessWidget {
                           blur: 12,
                           fillColor: Colors.white.withValues(alpha: 0.3),
                           borderColor: Colors.white.withValues(alpha: 0.34),
+                          contentColor: Colors.white,
                           child: AppAssetIcon(
                             AppIconography.arrow,
                             color: Colors.white,
@@ -409,6 +410,7 @@ class _RouteTag extends StatelessWidget {
       blur: 8,
       fillColor: Colors.black.withValues(alpha: 0.38),
       borderColor: Colors.white.withValues(alpha: 0.14),
+      contentColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 6),
       child: Text(
         label,
@@ -593,6 +595,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
         blur: 10,
         fillColor: Colors.black.withValues(alpha: 0.42),
         borderColor: Colors.white.withValues(alpha: 0.16),
+        contentColor: Colors.white,
         child: IconButton(
           onPressed: _toggle,
           padding: EdgeInsets.zero,
@@ -665,6 +668,7 @@ class BuildRouteBanner extends StatelessWidget {
                       blur: 10,
                       fillColor: Colors.black.withValues(alpha: 0.42),
                       borderColor: Colors.white.withValues(alpha: 0.82),
+                      contentColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 6,
@@ -712,6 +716,7 @@ class BuildRouteBanner extends StatelessWidget {
                           blur: 12,
                           fillColor: Colors.white.withValues(alpha: 0.34),
                           borderColor: Colors.white.withValues(alpha: 0.24),
+                          contentColor: Colors.white,
                           child: const AppAssetIcon(
                             AppIconography.arrow,
                             color: Colors.white,

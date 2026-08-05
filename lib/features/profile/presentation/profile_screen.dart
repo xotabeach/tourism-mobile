@@ -563,6 +563,7 @@ class _HeaderActionButton extends StatelessWidget {
               blur: 10,
               fillColor: fillColor,
               borderColor: Colors.white.withValues(alpha: 0.28),
+              contentColor: iconColor,
               child: Icon(icon, size: 22, color: iconColor),
             ),
           ),

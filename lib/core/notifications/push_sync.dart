@@ -11,6 +11,8 @@ import 'package:tourism_mobile/core/notifications/device_token_repository.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
+var _tokenRefreshBound = false;
+
 /// Sync FCM token with backend when the user enables push (and Firebase is configured).
 Future<void> syncPushRegistration(
   WidgetRef ref, {
@@ -24,7 +26,16 @@ Future<void> syncPushRegistration(
     return;
   }
   final repo = ref.read(deviceTokenRepositoryProvider);
+  final platform = Platform.isIOS ? 'ios' : 'android';
   if (!enabled) {
+    try {
+      final existing = await FirebaseMessaging.instance.getToken();
+      if (existing != null && existing.isNotEmpty) {
+        await repo.unregister(existing);
+      }
+    } on Object {
+      // Best-effort cleanup; local preference already flipped off.
+    }
     await AppPush.disableAutoInit();
     return;
   }
@@ -32,11 +43,27 @@ Future<void> syncPushRegistration(
   if (token == null || token.isEmpty) {
     return;
   }
-  final platform = Platform.isIOS ? 'ios' : 'android';
   await repo.register(token: token, platform: platform);
-  AppPush.onTokenRefresh.listen((next) {
-    unawaited(repo.register(token: next, platform: platform));
-  });
+  if (!_tokenRefreshBound) {
+    _tokenRefreshBound = true;
+    AppPush.onTokenRefresh.listen((next) {
+      unawaited(repo.register(token: next, platform: platform));
+    });
+  }
+}
+
+/// Call after session hydrate / login when push prefs are already on.
+///
+/// Token registration used to run only on the settings toggle, so users with
+/// the default «push on» never posted a device token after Firebase landed.
+void ensurePushRegistrationForSession(WidgetRef ref, SessionState session) {
+  if (!AppPush.isConfigured || kIsWeb) {
+    return;
+  }
+  if (!session.isAuthenticated || !session.notifyPushEnabled) {
+    return;
+  }
+  unawaited(syncPushRegistration(ref, enabled: true));
 }
 
 void handlePushOpened(GoRouter router, RemoteMessage message) {
@@ -47,6 +74,15 @@ void handlePushOpened(GoRouter router, RemoteMessage message) {
     unawaited(
       router.pushNamed(
         AppRouteNames.routeDetails,
+        pathParameters: {'id': targetId},
+      ),
+    );
+    return;
+  }
+  if (targetType == 'user' && targetId is String && targetId.isNotEmpty) {
+    unawaited(
+      router.pushNamed(
+        AppRouteNames.userProfile,
         pathParameters: {'id': targetId},
       ),
     );
