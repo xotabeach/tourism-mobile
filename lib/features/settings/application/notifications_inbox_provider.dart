@@ -14,10 +14,11 @@ final notificationsInboxProvider =
 
 final notificationsUnreadCountProvider = Provider<int>((ref) {
   final async = ref.watch(notificationsInboxProvider);
-  return async.maybeWhen(
-    data: (items) => items.where((n) => n.isUnread).length,
-    orElse: () => 0,
-  );
+  final items = async.valueOrNull;
+  if (items == null) {
+    return 0;
+  }
+  return items.where((n) => n.isUnread).length;
 });
 
 class NotificationsInboxController
@@ -38,6 +39,20 @@ class NotificationsInboxController
       final page = await ref.read(notificationsRepositoryProvider).list();
       return page.items;
     });
+  }
+
+  /// Reload inbox without flashing [AsyncLoading] (keeps badge count stable).
+  Future<void> softRefresh() async {
+    if (!ref.read(sessionProvider).isAuthenticated) {
+      state = const AsyncData([]);
+      return;
+    }
+    try {
+      final page = await ref.read(notificationsRepositoryProvider).list();
+      state = AsyncData(page.items);
+    } on Object {
+      // Keep the previous snapshot on transient failures.
+    }
   }
 
   Future<void> markAllRead() async {

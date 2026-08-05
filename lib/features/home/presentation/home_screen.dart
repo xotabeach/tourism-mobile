@@ -25,6 +25,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
@@ -330,6 +331,7 @@ class _HomeHeader extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final session = ref.watch(sessionProvider);
+    final unread = ref.watch(notificationsUnreadCountProvider);
     final avatar = AppImages.avatarProvider(
       config: config,
       avatarUrl: session.avatarUrl,
@@ -380,7 +382,10 @@ class _HomeHeader extends ConsumerWidget {
             ),
             AppFlatIconButton(
               iconAsset: AppIconography.bell,
-              semanticLabel: 'Уведомления',
+              semanticLabel: unread > 0
+                  ? 'Уведомления, $unread новых'
+                  : 'Уведомления',
+              badgeCount: unread,
               onPressed: () => unawaited(
                 context.pushNamed(AppRouteNames.settingsNotificationsInbox),
               ),

@@ -3,9 +3,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
+import 'package:tourism_mobile/features/settings/data/notifications_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 
 void main() {
+  test('profile_like kind maps from API and uses actor headline', () {
+    expect(
+      inboxNotificationKindFromApi('profile_like'),
+      InboxNotificationKind.profileLike,
+    );
+    final item = InboxNotification(
+      id: 'pl',
+      kind: InboxNotificationKind.profileLike,
+      title: 'Новая подписка',
+      body: 'Подписался на ваш профиль',
+      actorDisplayName: 'Анна',
+      targetType: 'user',
+      targetId: 'user-2',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 1),
+    );
+    expect(item.headline, 'Анна');
+  });
+
   test('clampText bounds oversized notification payloads', () {
     final oversized = 'A' * 500;
     final clamped = SettingsNotificationsInboxScreen.clampText(

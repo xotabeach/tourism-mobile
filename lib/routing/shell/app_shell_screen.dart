@@ -26,6 +26,7 @@ import 'package:tourism_mobile/features/route_match/presentation/route_match_scr
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
+import 'package:tourism_mobile/features/settings/presentation/inbox_foreground_host.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 const _appNavDestinations = [
@@ -326,6 +327,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
                 },
               ),
             ),
+          const InboxForegroundHost(),
         ],
       ),
     );

@@ -1268,6 +1268,7 @@ class _RouteReviewsSection extends ConsumerWidget {
 
     final reviewsAsync = ref.watch(routeReviewsProvider(routeId));
     final myReviewsAsync = ref.watch(myRouteReviewsProvider);
+    final selfUserId = ref.watch(sessionProvider).userId;
     final pendingMine = myReviewsAsync.maybeWhen(
       data: (items) => items
           .where((r) => r.routeId == routeId && r.status == 'pending_review')
@@ -1308,11 +1309,19 @@ class _RouteReviewsSection extends ConsumerWidget {
             _RatingRow(rating: ratingLabel, topLabel: topLabel),
             const SizedBox(height: 14),
             for (final review in pendingMine) ...[
-              _ReviewCard(review: review, pending: true),
+              _ReviewCard(
+                review: review,
+                pending: true,
+                canDelete: _canDeleteReview(review, selfUserId),
+              ),
               const SizedBox(height: 12),
             ],
             for (final review in page.items) ...[
-              _ReviewCard(review: review, pending: false),
+              _ReviewCard(
+                review: review,
+                pending: false,
+                canDelete: _canDeleteReview(review, selfUserId),
+              ),
               const SizedBox(height: 12),
             ],
             const SizedBox(height: 8),
@@ -1322,6 +1331,17 @@ class _RouteReviewsSection extends ConsumerWidget {
         );
       },
     );
+  }
+
+  static bool _canDeleteReview(RouteReview review, String? selfUserId) {
+    if (selfUserId == null || selfUserId.isEmpty) {
+      return false;
+    }
+    if (review.authorUserId != selfUserId) {
+      return false;
+    }
+    final age = DateTime.now().toUtc().difference(review.createdAt.toUtc());
+    return age <= const Duration(hours: 6);
   }
 
   static String _reviewsWord(int count) {
@@ -1575,10 +1595,15 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
 }
 
 class _ReviewCard extends ConsumerWidget {
-  const _ReviewCard({required this.review, this.pending = false});
+  const _ReviewCard({
+    required this.review,
+    this.pending = false,
+    this.canDelete = false,
+  });
 
   final RouteReview review;
   final bool pending;
+  final bool canDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1695,68 +1720,141 @@ class _ReviewCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () {
-                unawaited(
-                  showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppColors.elevatedSurface,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
+            Row(
+              children: [
+                GestureDetector(
+                  onTap: () => _showFullReview(context),
+                  child: Text(
+                    'Читать отзыв полностью',
+                    style: AppTypography.button.copyWith(
+                      fontSize: 13,
+                      color: AppColors.primaryInk,
+                    ),
+                  ),
+                ),
+                if (canDelete) ...[
+                  const Spacer(),
+                  GestureDetector(
+                    onTap: () => unawaited(_confirmDelete(context, ref)),
+                    child: Text(
+                      'Удалить',
+                      style: AppTypography.button.copyWith(
+                        fontSize: 13,
+                        color: AppColors.secondaryInk,
                       ),
                     ),
-                    builder: (context) {
-                      return Padding(
-                        padding: EdgeInsets.fromLTRB(
-                          20,
-                          20,
-                          20,
-                          24 + MediaQuery.paddingOf(context).bottom,
-                        ),
-                        child: SingleChildScrollView(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                review.authorDisplayName,
-                                style: AppTypography.settingsRowTitle,
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                review.authorRankTitle,
-                                style: AppTypography.settingsRowSubtitle,
-                              ),
-                              const SizedBox(height: 14),
-                              Text(
-                                review.body,
-                                style: const TextStyle(
-                                  fontFamily: AppFonts.rubik,
-                                  fontSize: 15,
-                                  height: 1.45,
-                                  color: AppColors.primaryInk,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
                   ),
-                );
-              },
-              child: Text(
-                'Читать отзыв полностью',
-                style: AppTypography.button.copyWith(
-                  fontSize: 13,
-                  color: AppColors.primaryInk,
-                ),
-              ),
+                ],
+              ],
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _showFullReview(BuildContext context) {
+    final media = MediaQuery.of(context);
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.elevatedSurface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          final maxHeight = media.size.height * 0.7;
+          return SizedBox(
+            width: media.size.width,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  24 + MediaQuery.paddingOf(context).bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        review.authorDisplayName,
+                        style: AppTypography.settingsRowTitle,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        review.authorRankTitle,
+                        style: AppTypography.settingsRowSubtitle,
+                      ),
+                      const SizedBox(height: 14),
+                      Text(
+                        review.body,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 15,
+                          height: 1.45,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Удалить отзыв?'),
+          content: const Text(
+            'Отзыв исчезнет из списка. Это действие нельзя отменить.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Удалить'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    try {
+      await ref
+          .read(routeReviewsRepositoryProvider)
+          .delete(routeId: review.routeId, reviewId: review.id);
+      ref.invalidate(routeReviewsProvider(review.routeId));
+      ref.invalidate(myRouteReviewsProvider);
+    } on AppFailure catch (failure) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failure.message)));
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Не удалось удалить отзыв')));
+    }
   }
 }

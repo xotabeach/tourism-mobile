@@ -69,6 +69,7 @@ abstract interface class RouteReviewsRepository {
     required String body,
     required int rating,
   });
+  Future<void> delete({required String routeId, required String reviewId});
   Future<List<RouteReview>> listMine();
 }
 
@@ -119,6 +120,13 @@ final class ApiRouteReviewsRepository implements RouteReviewsRepository {
         throw const UnexpectedFailure();
       }
       return RouteReview.fromJson(data);
+    });
+  }
+
+  @override
+  Future<void> delete({required String routeId, required String reviewId}) {
+    return guardApiCall(() async {
+      await _dio.delete<void>('/api/v1/routes/$routeId/reviews/$reviewId');
     });
   }
 
@@ -202,6 +210,12 @@ final class MockRouteReviewsRepository implements RouteReviewsRepository {
       createdAt: DateTime.now().toUtc(),
     );
   }
+
+  @override
+  Future<void> delete({
+    required String routeId,
+    required String reviewId,
+  }) async {}
 
   @override
   Future<List<RouteReview>> listMine() async => const [];

@@ -126,6 +126,15 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
         AppRouteNames.routeDetails,
         pathParameters: {'id': item.targetId!},
       );
+      return;
+    }
+    if (item.targetType == 'user' &&
+        item.targetId != null &&
+        item.targetId!.isNotEmpty) {
+      await context.pushNamed(
+        AppRouteNames.userProfile,
+        pathParameters: {'userId': item.targetId!},
+      );
     }
   }
 

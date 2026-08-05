@@ -298,6 +298,7 @@ class AppFlatIconButton extends StatelessWidget {
     this.dimension = 48,
     this.iconSize = 24,
     this.color = AppColors.primaryInk,
+    this.badgeCount = 0,
     super.key,
   });
 
@@ -308,8 +309,22 @@ class AppFlatIconButton extends StatelessWidget {
   final double iconSize;
   final Color color;
 
+  /// Unread / status count drawn top-right. Hidden when `<= 0`.
+  final int badgeCount;
+
+  static String formatBadgeCount(int count) {
+    if (count <= 0) {
+      return '';
+    }
+    if (count > 99) {
+      return '99+';
+    }
+    return '$count';
+  }
+
   @override
   Widget build(BuildContext context) {
+    final badge = formatBadgeCount(badgeCount);
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -318,16 +333,55 @@ class AppFlatIconButton extends StatelessWidget {
         message: semanticLabel,
         child: SizedBox.square(
           dimension: dimension,
-          child: Material(
-            color: AppColors.controlSurface,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onPressed,
-              child: Center(
-                child: AppAssetIcon(iconAsset, size: iconSize, color: color),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: Material(
+                  color: AppColors.controlSurface,
+                  shape: const CircleBorder(),
+                  clipBehavior: Clip.antiAlias,
+                  child: InkWell(
+                    onTap: onPressed,
+                    customBorder: const CircleBorder(),
+                    child: Center(
+                      child: AppAssetIcon(
+                        iconAsset,
+                        size: iconSize,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ),
               ),
-            ),
+              if (badge.isNotEmpty)
+                Positioned(
+                  top: 2,
+                  right: 2,
+                  child: IgnorePointer(
+                    child: Container(
+                      key: const ValueKey('app-flat-icon-badge'),
+                      constraints: const BoxConstraints(minWidth: 18),
+                      height: 18,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: const BoxDecoration(
+                        color: AppColors.error,
+                        borderRadius: BorderRadius.all(Radius.circular(9)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        badge,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       ),

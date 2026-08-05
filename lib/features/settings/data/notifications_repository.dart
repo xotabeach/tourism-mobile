@@ -12,6 +12,7 @@ enum InboxNotificationKind {
   routeRejected,
   reviewPublished,
   reviewRejected,
+  profileLike,
   unknown,
 }
 
@@ -22,6 +23,7 @@ InboxNotificationKind inboxNotificationKindFromApi(String raw) {
     'route_rejected' => InboxNotificationKind.routeRejected,
     'review_published' => InboxNotificationKind.reviewPublished,
     'review_rejected' => InboxNotificationKind.reviewRejected,
+    'profile_like' => InboxNotificationKind.profileLike,
     _ => InboxNotificationKind.unknown,
   };
 }
@@ -58,6 +60,7 @@ class InboxNotification {
   /// Primary line in the inbox tile.
   String get headline => switch (kind) {
     InboxNotificationKind.routeReview => actorName,
+    InboxNotificationKind.profileLike => actorName,
     _ => title.trim().isNotEmpty ? title : actorName,
   };
 
@@ -206,6 +209,18 @@ final class MockNotificationsRepository implements NotificationsRepository {
       targetId: 'mock-route-2',
       isUnread: false,
       createdAt: DateTime.utc(2026, 1, 1),
+    ),
+    InboxNotification(
+      id: 'n5',
+      kind: InboxNotificationKind.profileLike,
+      title: 'Новая подписка',
+      body: 'Подписался на ваш профиль',
+      actorDisplayName: 'Анна',
+      actorUserId: 'mock-user-2',
+      targetType: 'user',
+      targetId: 'mock-user-2',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 2, 18),
     ),
   ];
 
