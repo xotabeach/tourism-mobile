@@ -30,7 +30,7 @@ void main() {
     expect(firstPhoto.width, moreOrLessEquals(162, epsilon: 1));
     expect(firstPhoto.height, moreOrLessEquals(214, epsilon: 1));
     _expectRect(tester, 'route-add-media', 18, 358, 399, 89);
-    _expectRect(tester, 'route-title-field', 18, 503, 399, 37);
+    _expectRect(tester, 'route-title-field', 18, 503, 399, 41);
     final titleField = find.byKey(const ValueKey('route-title-field'));
     final titleEditable = find.descendant(
       of: titleField,
@@ -47,6 +47,14 @@ void main() {
           )
           .width,
       moreOrLessEquals(tester.getSize(titleField).width, epsilon: 2),
+    );
+    expect(
+      tester
+          .getSize(
+            find.descendant(of: titleField, matching: find.byType(TextField)),
+          )
+          .height,
+      moreOrLessEquals(tester.getSize(titleField).height, epsilon: 1),
     );
     expect(
       tester.getCenter(find.text('0/30')).dy,

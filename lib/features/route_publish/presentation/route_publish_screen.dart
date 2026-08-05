@@ -1000,7 +1000,7 @@ class RouteBasicInformationSection extends StatelessWidget {
           onChanged: onTitleChanged,
           onSubmitted: (_) => descriptionFocus.requestFocus(),
         ),
-        SizedBox(height: u(13)),
+        SizedBox(height: u(9)),
         RouteDescriptionField(
           u: u,
           controller: descriptionController,
@@ -1101,95 +1101,90 @@ class _RouteTitleFieldState extends State<RouteTitleField> {
             final preferred = u(17) + painter.width + u(11);
             final maxLeft = constraints.maxWidth - u(16) - counterPainter.width;
             final counterLeft = preferred.clamp(u(17), maxLeft);
-            return Container(
+            return SizedBox(
               key: const ValueKey('route-title-field'),
-              height: u(37),
-              decoration: BoxDecoration(
-                color: PublishRouteDesignTokens.fieldBackground,
-                borderRadius: BorderRadius.circular(u(12)),
-                border: Border.all(
-                  color: widget.error != null
-                      ? PublishRouteDesignTokens.error
-                      : widget.focusNode.hasFocus
-                      ? PublishRouteDesignTokens.primaryBlue
-                      : PublishRouteDesignTokens.border,
-                  width: u(widget.focusNode.hasFocus ? 1.25 : 1),
+              height: u(41),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: PublishRouteDesignTokens.fieldBackground,
+                  borderRadius: BorderRadius.circular(u(12)),
+                  border: Border.all(
+                    color: widget.error != null
+                        ? PublishRouteDesignTokens.error
+                        : widget.focusNode.hasFocus
+                        ? PublishRouteDesignTokens.primaryBlue
+                        : PublishRouteDesignTokens.border,
+                    width: u(widget.focusNode.hasFocus ? 1.25 : 1),
+                  ),
                 ),
-              ),
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Center(
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: TextField(
-                          controller: widget.controller,
-                          focusNode: widget.focusNode,
-                          inputFormatters: [
-                            LengthLimitingTextInputFormatter(30),
-                          ],
-                          maxLines: 1,
-                          textAlignVertical: TextAlignVertical.center,
-                          textInputAction: TextInputAction.next,
-                          onSubmitted: widget.onSubmitted,
-                          onChanged: (value) {
-                            widget.onChanged(value);
-                            setState(() {});
-                          },
-                          style: _style(
-                            u,
-                            15,
-                            FontWeight.w400,
-                            PublishRouteDesignTokens.dark,
-                            1,
-                          ),
-                          cursorHeight: u(17),
-                          decoration: InputDecoration(
-                            filled: true,
-                            fillColor: Colors.transparent,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            disabledBorder: InputBorder.none,
-                            errorBorder: InputBorder.none,
-                            focusedErrorBorder: InputBorder.none,
-                            isCollapsed: true,
-                            contentPadding: EdgeInsets.fromLTRB(
-                              u(17),
-                              0,
-                              u(64),
-                              0,
-                            ),
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        inputFormatters: [LengthLimitingTextInputFormatter(30)],
+                        maxLines: 1,
+                        textAlignVertical: TextAlignVertical.center,
+                        textInputAction: TextInputAction.next,
+                        onSubmitted: widget.onSubmitted,
+                        onChanged: (value) {
+                          widget.onChanged(value);
+                          setState(() {});
+                        },
+                        style: _style(
+                          u,
+                          15,
+                          FontWeight.w400,
+                          PublishRouteDesignTokens.dark,
+                          1,
+                        ),
+                        cursorHeight: u(18),
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: Colors.transparent,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          isCollapsed: true,
+                          contentPadding: EdgeInsets.fromLTRB(
+                            u(17),
+                            u(12),
+                            u(64),
+                            u(12),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  if (value.isEmpty)
+                    if (value.isEmpty)
+                      Positioned(
+                        left: u(17),
+                        top: 0,
+                        height: u(41),
+                        child: IgnorePointer(
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text('Название маршрута', style: textStyle),
+                          ),
+                        ),
+                      ),
                     Positioned(
-                      left: u(17),
+                      left: counterLeft,
                       top: 0,
-                      height: u(37),
-                      child: IgnorePointer(
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: Text('Название маршрута', style: textStyle),
+                      bottom: 0,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${value.characters.length}/30',
+                          style: counterStyle,
                         ),
                       ),
                     ),
-                  Positioned(
-                    left: counterLeft,
-                    top: 0,
-                    bottom: 0,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        '${value.characters.length}/30',
-                        style: counterStyle,
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
