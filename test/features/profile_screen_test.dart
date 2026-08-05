@@ -37,7 +37,7 @@ void main() {
     expect(find.byType(ProfileScreen), findsOneWidget);
     expect(find.text('Никита Можаров'), findsWidgets);
     expect(find.text('Продвинутый пешеход'), findsWidgets);
-    expect(find.text('1452 / 1800 тп'), findsOneWidget);
+    expect(find.text('12500 / 25000 тп'), findsOneWidget);
     expect(find.text('Топ 1345'), findsOneWidget);
     expect(find.text('Достижения:'), findsOneWidget);
     expect(find.text('Марафонец'), findsOneWidget);
