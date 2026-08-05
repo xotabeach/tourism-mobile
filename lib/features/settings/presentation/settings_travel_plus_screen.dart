@@ -62,31 +62,31 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                     subtitle:
                         'В бесплатной версии доступно всего 5 подборов в неделю',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const _BenefitCard(
                     title: 'Искусственный интеллект',
                     subtitle:
                         'Возможность пользоваться специально обученным ИИ для подбора маршрутов',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const _BenefitCard(
                     title: 'Отсутствие рекламы',
                     subtitle:
                         'С подпиской будут отсутствовать рекламные баннеры и видео',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const _BenefitCard(
                     title: 'Больше функций при поиске',
                     subtitle:
                         'Открывается доступ к более точным фильтрам при подборе маршрутов',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const _BenefitCard(
                     title: 'Больше ТревелПоинтов',
                     subtitle:
                         'С подпиской за пройденный маршрут или лайк пользователь получает больше ТП',
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   const _BenefitCard(
                     title: 'Эксклюзивные маршруты',
                     subtitle:
@@ -123,12 +123,12 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
                   const _FreeMonthBanner(),
-                  const SizedBox(height: 25),
+                  const SizedBox(height: 16),
                   SettingsNavTile(
+                    key: const ValueKey('travel-plus-support'),
                     title: 'Поддержка и обратная связь',
                     subtitle: 'Поможем с любым вопросом',
                     iconAsset: AppIconography.settingsSupport,
-                    dense: true,
                     onTap: () =>
                         context.pushNamed(AppRouteNames.settingsSupport),
                   ),
@@ -518,7 +518,7 @@ class _BenefitCard extends StatelessWidget {
       ),
       child: SizedBox(
         key: ValueKey('travel-plus-benefit-$title'),
-        height: 60,
+        height: 64,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(

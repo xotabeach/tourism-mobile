@@ -155,8 +155,8 @@ class _SettingsTravelPlusCheckoutScreenState
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 5,
+                                horizontal: 18,
+                                vertical: 8,
                               ),
                               child: Row(
                                 children: [
@@ -212,7 +212,12 @@ class _SettingsTravelPlusCheckoutScreenState
                               color: SettingsColors.hairline,
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(14, 8, 14, 9),
+                              padding: const EdgeInsets.fromLTRB(
+                                18,
+                                10,
+                                18,
+                                12,
+                              ),
                               child: Column(
                                 children: [
                                   _CheckoutLabeledField(

@@ -39,7 +39,7 @@ void main() {
         of: card,
         matching: find.byIcon(Icons.check_rounded),
       );
-      expect(tester.getSize(card).height, 60);
+      expect(tester.getSize(card).height, 64);
       expect(
         tester.getCenter(check).dy,
         moreOrLessEquals(tester.getCenter(card).dy, epsilon: 0.5),
@@ -50,6 +50,10 @@ void main() {
           .getSize(find.byKey(const ValueKey('travel-plus-free-month-banner')))
           .height,
       61,
+    );
+    expect(
+      tester.getSize(find.byKey(const ValueKey('travel-plus-support'))).height,
+      64,
     );
     for (final period in ['ГОД', 'МЕСЯЦ']) {
       expect(
@@ -85,7 +89,7 @@ void main() {
       const ValueKey('travel-plus-checkout-submit'),
     );
     expect(tester.getSize(submitButton).height, 52);
-    expect(tester.getBottomLeft(submitButton).dy, lessThanOrEqualTo(1010));
+    expect(tester.getBottomLeft(submitButton).dy, lessThanOrEqualTo(1024));
 
     await expectLater(
       find.byKey(_surfaceKey),
