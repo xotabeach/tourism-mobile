@@ -29,20 +29,26 @@ void main() {
     });
 
     const payload = '<script>alert(1)</script>';
-    final controller = NotificationsInboxController(const [
+    final seed = [
       InboxNotification(
         id: 'xss',
-        actorName: payload,
+        kind: InboxNotificationKind.routeReview,
+        title: 'Новый отзыв',
         body: 'javascript:alert(1)',
-        kind: InboxNotificationKind.commentLiked,
+        actorDisplayName: payload,
+        targetType: 'route',
+        targetId: 'route-1',
         isUnread: true,
+        createdAt: DateTime.utc(2026, 1, 1),
       ),
-    ]);
+    ];
 
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
-          notificationsInboxProvider.overrideWith((ref) => controller),
+          notificationsInboxProvider.overrideWith(
+            () => _SeedInboxController(seed),
+          ),
         ],
         child: const MaterialApp(home: SettingsNotificationsInboxScreen()),
       ),
@@ -53,4 +59,13 @@ void main() {
     expect(find.text('javascript:alert(1)'), findsOneWidget);
     expect(find.byType(Text), findsWidgets);
   });
+}
+
+class _SeedInboxController extends NotificationsInboxController {
+  _SeedInboxController(this._seed);
+
+  final List<InboxNotification> _seed;
+
+  @override
+  Future<List<InboxNotification>> build() async => _seed;
 }

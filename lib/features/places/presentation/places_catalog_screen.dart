@@ -86,7 +86,10 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   }
 
   void _dismissSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
     _searchFocus.unfocus();
+    _applySearch('');
   }
 
   void _retry() {

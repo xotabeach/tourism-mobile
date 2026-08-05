@@ -1,9 +1,17 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/core/notifications/app_push.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  AppPerf.configureImageCache();
+  if (AppPush.isConfigured) {
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    await AppPush.bootstrap();
+  }
   runApp(const ProviderScope(child: TourismApp()));
 }

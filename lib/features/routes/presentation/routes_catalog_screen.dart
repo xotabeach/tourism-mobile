@@ -68,7 +68,12 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   }
 
   void _dismissSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
     _searchFocus.unfocus();
+    if (_searchQuery.isNotEmpty) {
+      setState(() => _searchQuery = '');
+    }
   }
 
   List<RouteSummary> _visibleRoutes(List<RouteSummary> items) {

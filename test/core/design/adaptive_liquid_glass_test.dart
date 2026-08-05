@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
@@ -72,5 +74,44 @@ void main() {
 
     expect(find.byType(FilledButton), findsOneWidget);
     expect(find.text('Далее'), findsOneWidget);
+  });
+
+  testWidgets('Android glass surface uses solid nav chrome fill', (
+    tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    try {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: AppGlassSurface(
+              fillColor: Color(0x4DFFFFFF),
+              child: SizedBox(width: 48, height: 48),
+            ),
+          ),
+        ),
+      );
+
+      final decorated = tester.widgetList<DecoratedBox>(
+        find.byType(DecoratedBox),
+      );
+      final fills = decorated
+          .map((box) => box.decoration)
+          .whereType<BoxDecoration>()
+          .map((d) => d.color)
+          .whereType<Color>()
+          .toList();
+      expect(
+        fills.any(
+          (c) =>
+              c.r == AppColors.activeNavigationFill.r &&
+              c.g == AppColors.activeNavigationFill.g &&
+              c.b == AppColors.activeNavigationFill.b,
+        ),
+        isTrue,
+      );
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
   });
 }

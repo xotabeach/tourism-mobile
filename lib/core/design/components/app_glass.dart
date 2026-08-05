@@ -7,6 +7,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
 
 /// Compositor-safe alpha for subtrees that contain backdrop filters.
 class AppFilteredOpacity extends StatelessWidget {
@@ -76,12 +77,23 @@ class AppGlassSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Android mid-range GPUs stall hard on live BackdropFilter during nav /
+    // swipe animations; use solid black chrome (same as «Пройти маршрут»)
+    // instead of a pale frosted disc that fights white icons.
+    final effectiveBlur = AppPerf.glassBlur(blur);
+    final solidChrome = effectiveBlur <= 0 && AppPerf.preferCheapEffects;
+    final effectiveFill = solidChrome
+        ? AppPerf.glassFill(fillColor)
+        : fillColor;
+    final effectiveBorder = solidChrome
+        ? AppPerf.glassBorder(borderColor)
+        : borderColor;
     final surface = DecoratedBox(
       decoration: BoxDecoration(
-        color: fillColor,
+        color: effectiveFill,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: borderColor, width: borderWidth),
-        boxShadow: showInnerHighlight
+        border: Border.all(color: effectiveBorder, width: borderWidth),
+        boxShadow: showInnerHighlight && !solidChrome
             ? const [
                 BoxShadow(
                   color: AppColors.glassHighlight,
@@ -103,10 +115,13 @@ class AppGlassSurface extends StatelessWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(borderRadius),
-          child: blur <= 0
+          child: effectiveBlur <= 0
               ? surface
               : BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+                  filter: ImageFilter.blur(
+                    sigmaX: effectiveBlur,
+                    sigmaY: effectiveBlur,
+                  ),
                   child: surface,
                 ),
         ),
@@ -201,6 +216,7 @@ class AppGlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fg = AppPerf.glassForeground(foregroundColor);
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -221,10 +237,10 @@ class AppGlassIconButton extends StatelessWidget {
                   : AppAssetIcon(
                       iconAsset!,
                       size: iconSize,
-                      color: foregroundColor,
+                      color: fg,
                     ),
               iconSize: iconSize,
-              color: foregroundColor,
+              color: fg,
               padding: EdgeInsets.zero,
               constraints: BoxConstraints.tightFor(
                 width: dimension,

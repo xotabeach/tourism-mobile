@@ -111,13 +111,13 @@ class UniversalSearchPanel extends ConsumerWidget {
 
 void _openResult(BuildContext context, String location, {Object? extra}) {
   // Navigate first — unfocusing before push used to dispose this panel and
-  // cancel the route change when results were focus-gated on Home.
+  // cancel the route change when results were focus-gated on Home. Clear on
+  // the next frame so the leaving screen resets without aborting navigation.
   final navigator = GoRouter.of(context);
-  unawaited(
-    navigator.push(location, extra: extra).whenComplete(() {
-      FocusManager.instance.primaryFocus?.unfocus();
-    }),
-  );
+  unawaited(navigator.push(location, extra: extra));
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    FocusManager.instance.primaryFocus?.unfocus();
+  });
 }
 
 class DiscoveryProfileCard extends ConsumerWidget {

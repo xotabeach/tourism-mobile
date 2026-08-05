@@ -570,8 +570,9 @@ class _RankCard extends StatelessWidget {
         boxShadow: AppShadows.tile,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Row(
               children: [
@@ -587,7 +588,7 @@ class _RankCard extends StatelessWidget {
                   child: Text(
                     rank.title,
                     textAlign: TextAlign.right,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.greeting.copyWith(
                       fontSize: 17,
@@ -597,9 +598,9 @@ class _RankCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             const Divider(height: 1, thickness: 1, color: Color(0xFFE8E8E8)),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(

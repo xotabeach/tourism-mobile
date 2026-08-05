@@ -138,7 +138,14 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                           _searchController.clear();
                           setState(() => _query = '');
                         },
-                        onSearchDismiss: _searchFocus.unfocus,
+                        onSearchDismiss: () {
+                          _searchDebounce?.cancel();
+                          _searchController.clear();
+                          _searchFocus.unfocus();
+                          if (_query.isNotEmpty) {
+                            setState(() => _query = '');
+                          }
+                        },
                         onFilterTap: () {},
                       ),
                       if (_searchFocus.hasFocus && _query.length >= 2)

@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
 
 /// Colors from Figma settings pixel spec.
 abstract final class SettingsColors {
@@ -316,7 +317,20 @@ class SettingsCircleIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final child = Icon(icon, size: iconSize, color: iconColor);
+    // Translucent/glass discs without blur look washed-out with white icons;
+    // Android matches solid nav / «Пройти маршрут» chrome instead.
+    final solidChrome =
+        AppPerf.preferCheapEffects && (glass || background.a < 1);
+    final effectiveBackground = solidChrome
+        ? AppPerf.glassFill(background)
+        : background;
+    final effectiveIconColor = solidChrome
+        ? AppPerf.glassForeground(iconColor)
+        : iconColor;
+    final effectiveBorderColor = solidChrome
+        ? AppPerf.glassBorder(borderColor ?? Colors.white)
+        : borderColor;
+    final child = Icon(icon, size: iconSize, color: effectiveIconColor);
     return SizedBox.square(
       dimension: size,
       child: Material(
@@ -330,11 +344,12 @@ class SettingsCircleIconButton extends StatelessWidget {
           child: Ink(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: background,
-              border: glass || borderColor != null
+              color: effectiveBackground,
+              border: glass || effectiveBorderColor != null
                   ? Border.all(
                       color:
-                          borderColor ?? Colors.white.withValues(alpha: 0.75),
+                          effectiveBorderColor ??
+                          Colors.white.withValues(alpha: 0.75),
                       width: borderWidth,
                     )
                   : null,
@@ -940,8 +955,10 @@ class _StatusChip extends StatelessWidget {
           filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
           child: Container(
             height: 33,
-            constraints: const BoxConstraints(minWidth: 160, maxWidth: 240),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            // Slightly tighter than the original 160×16 so Android Rubik
+            // metrics (often wider than iOS) do not stretch the capsule.
+            constraints: const BoxConstraints(minWidth: 148, maxWidth: 220),
+            padding: const EdgeInsets.symmetric(horizontal: 13),
             alignment: Alignment.center,
             color: Colors.white.withValues(alpha: 0.18),
             child: Text(
@@ -952,6 +969,7 @@ class _StatusChip extends StatelessWidget {
                 fontFamily: AppFonts.rubik,
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
                 color: Colors.white,
                 height: 1.2,
               ),

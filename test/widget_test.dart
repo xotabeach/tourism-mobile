@@ -280,6 +280,31 @@ void main() {
     expect(find.byType(DiscoveryRouteCard), findsWidgets);
   });
 
+  testWidgets('home search resets when dismissed', (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1600);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Никита');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.byType(UniversalSearchPanel), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Очистить поиск'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(UniversalSearchPanel), findsNothing);
+    expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '');
+  });
+
   testWidgets('my routes subscriptions use discovery profile cards', (
     tester,
   ) async {

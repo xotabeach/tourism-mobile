@@ -15,8 +15,8 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/theme/app_images.dart';
-import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -118,7 +118,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _dismissSearch() {
+    _searchDebounce?.cancel();
+    _searchController.clear();
     _searchFocus.unfocus();
+    if (_searchQuery.isNotEmpty) {
+      setState(() => _searchQuery = '');
+    }
   }
 
   void _toggleAllRoutes() {
@@ -132,7 +137,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     List<RouteSummary> routes,
   ) {
     final pending = routes
-        .take(3)
+        .take(AppPerf.preferCheapEffects ? 5 : 7)
         .where((route) => _scheduledCoverWarmups.add(route.id))
         .toList(growable: false);
     if (pending.isEmpty) return;

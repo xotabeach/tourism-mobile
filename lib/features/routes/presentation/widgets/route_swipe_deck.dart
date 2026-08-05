@@ -15,6 +15,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -272,7 +273,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     _settleKind = _DeckSettleKind.coachDismiss;
     _settleController.duration = reduceMotion
         ? AppMotion.reduced
-        : const Duration(milliseconds: 340);
+        : AppPerf.motion(const Duration(milliseconds: 340));
     if (reduceMotion) {
       setState(() => _settleController.value = 1);
       return;
@@ -333,7 +334,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     _dragging = false;
     _motionController.duration = reduceMotion
         ? AppMotion.reduced
-        : const Duration(milliseconds: 340);
+        : AppPerf.motion(const Duration(milliseconds: 340));
     _offsetAnimation = Tween<Offset>(begin: _dragOffset, end: Offset.zero)
         .animate(
           CurvedAnimation(
@@ -352,7 +353,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     unawaited(AppHaptics.mediumImpact());
     _motionController.duration = reduceMotion
         ? AppMotion.reduced
-        : AppMotion.emphasized;
+        : AppPerf.motion(AppMotion.emphasized);
     _offsetAnimation =
         Tween<Offset>(
           begin: _dragOffset,
@@ -692,63 +693,68 @@ class _SwipeOverlay extends StatelessWidget {
         ? AppColors.positiveSwipeTint
         : AppColors.negativeSwipeTint;
 
+    final blurSigma = AppPerf.glassBlur(4.5 * opacity);
+    final overlay = DecoratedBox(
+      decoration: BoxDecoration(
+        color: tint.withValues(alpha: 0.72 * opacity),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.8 * opacity),
+        ),
+      ),
+      child: Center(
+        child: Opacity(
+          opacity: opacity,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox.square(
+                key: const ValueKey('swipe-action-indicator'),
+                dimension: 52,
+                child: AppGlassSurface(
+                  borderRadius: AppRadii.circle,
+                  blur: 14,
+                  fillColor: Colors.white.withValues(alpha: 0.20),
+                  borderColor: Colors.white.withValues(alpha: 0.72),
+                  boxShadow: const [],
+                  child: Center(
+                    child: AppAssetIcon(
+                      favorite
+                          ? AppIconography.heart
+                          : AppIconography.sendToEnd,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                favorite ? 'В избранное' : 'В конец',
+                style: AppTypography.coach.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     return IgnorePointer(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadii.card),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: 4.5 * opacity,
-            sigmaY: 4.5 * opacity,
-          ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.72 * opacity),
-              borderRadius: BorderRadius.circular(AppRadii.card),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.8 * opacity),
-              ),
-            ),
-            child: Center(
-              child: Opacity(
-                opacity: opacity,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox.square(
-                      key: const ValueKey('swipe-action-indicator'),
-                      dimension: 52,
-                      child: AppGlassSurface(
-                        borderRadius: AppRadii.circle,
-                        blur: 14,
-                        fillColor: Colors.white.withValues(alpha: 0.20),
-                        borderColor: Colors.white.withValues(alpha: 0.72),
-                        boxShadow: const [],
-                        child: Center(
-                          child: AppAssetIcon(
-                            favorite
-                                ? AppIconography.heart
-                                : AppIconography.sendToEnd,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      favorite ? 'В избранное' : 'В конец',
-                      style: AppTypography.coach.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w500,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
+        child: blurSigma <= 0
+            ? overlay
+            : BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: blurSigma,
+                  sigmaY: blurSigma,
                 ),
+                child: overlay,
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -817,168 +823,174 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
               final contentScale = reduceMotion ? 1.0 : 0.96 + eased * 0.04;
               final translateY = reduceMotion ? 0.0 : 12 * (1 - eased);
 
-              return BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: 5.5 * eased,
-                  sigmaY: 5.5 * eased,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryInk.withValues(alpha: 0.72 * eased),
-                    borderRadius: BorderRadius.circular(AppRadii.card),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.22 * eased),
-                    ),
+              final coachBlur = AppPerf.glassBlur(5.5 * eased);
+              final coachSurface = DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.primaryInk.withValues(alpha: 0.72 * eased),
+                  borderRadius: BorderRadius.circular(AppRadii.card),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.22 * eased),
                   ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Transform.translate(
-                      offset: Offset(0, translateY),
-                      child: Transform.scale(
-                        scale: contentScale,
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            return SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(
-                                22,
-                                24,
-                                22,
-                                20,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: math.max(
-                                    0,
-                                    constraints.maxHeight - 44,
-                                  ),
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: Transform.translate(
+                    offset: Offset(0, translateY),
+                    child: Transform.scale(
+                      scale: contentScale,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(
+                              22,
+                              24,
+                              22,
+                              20,
+                            ),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: math.max(
+                                  0,
+                                  constraints.maxHeight - 44,
                                 ),
-                                child: Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Opacity(
-                                        opacity: eased,
-                                        child: const Column(
-                                          children: [
-                                            _CoachGesture(
-                                              kind: _CoachGestureKind.right,
-                                              text:
-                                                  'Свайп вправо добавляет маршрут в «Избранное»',
-                                            ),
-                                            SizedBox(height: 8),
-                                            _DashedArrow(
-                                              direction: AxisDirection.right,
-                                            ),
-                                            SizedBox(height: 10),
-                                            _CoachGesture(
-                                              kind: _CoachGestureKind.left,
-                                              text:
-                                                  'Свайп влево отправляет маршрут в конец списка',
-                                            ),
-                                            SizedBox(height: 8),
-                                            _DashedArrow(
-                                              direction: AxisDirection.left,
-                                            ),
-                                            SizedBox(height: 10),
-                                            _CoachGesture(
-                                              kind: _CoachGestureKind.tap,
-                                              text:
-                                                  'Кликните на карточку, чтобы узнать подробнее',
-                                            ),
-                                          ],
-                                        ),
+                              ),
+                              child: Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Opacity(
+                                      opacity: eased,
+                                      child: const Column(
+                                        children: [
+                                          _CoachGesture(
+                                            kind: _CoachGestureKind.right,
+                                            text:
+                                                'Свайп вправо добавляет маршрут в «Избранное»',
+                                          ),
+                                          SizedBox(height: 8),
+                                          _DashedArrow(
+                                            direction: AxisDirection.right,
+                                          ),
+                                          SizedBox(height: 10),
+                                          _CoachGesture(
+                                            kind: _CoachGestureKind.left,
+                                            text:
+                                                'Свайп влево отправляет маршрут в конец списка',
+                                          ),
+                                          SizedBox(height: 8),
+                                          _DashedArrow(
+                                            direction: AxisDirection.left,
+                                          ),
+                                          SizedBox(height: 10),
+                                          _CoachGesture(
+                                            kind: _CoachGestureKind.tap,
+                                            text:
+                                                'Кликните на карточку, чтобы узнать подробнее',
+                                          ),
+                                        ],
                                       ),
-                                      const SizedBox(height: 22),
-                                      SizedBox(
-                                        width: 244,
-                                        height: 62,
-                                        child: AppGlassSurface(
-                                          key: const ValueKey(
-                                            'route-swipe-coach-cta-glass',
-                                          ),
-                                          borderRadius: AppRadii.capsule,
-                                          blur: useCupertinoGlass
-                                              ? 18 * eased
-                                              : 0,
-                                          fillColor: Colors.white.withValues(
-                                            alpha:
-                                                (useCupertinoGlass
-                                                    ? 0.38
-                                                    : 0.24) *
-                                                eased,
-                                          ),
-                                          borderColor: Colors.white.withValues(
-                                            alpha:
-                                                (useCupertinoGlass
-                                                    ? 0.88
-                                                    : 0.46) *
-                                                eased,
-                                          ),
-                                          borderWidth: useCupertinoGlass
-                                              ? 1.2
-                                              : 1,
-                                          boxShadow: useCupertinoGlass
-                                              ? [
-                                                  BoxShadow(
-                                                    color:
-                                                        const Color(
-                                                          0x30000000,
-                                                        ).withValues(
-                                                          alpha: 0.22 * eased,
-                                                        ),
-                                                    blurRadius: 18,
-                                                    offset: const Offset(0, 8),
-                                                  ),
-                                                  BoxShadow(
-                                                    color:
-                                                        const Color(
-                                                          0x66FFFFFF,
-                                                        ).withValues(
-                                                          alpha: 0.45 * eased,
-                                                        ),
-                                                    blurRadius: 14,
-                                                    offset: const Offset(0, -3),
-                                                  ),
-                                                ]
-                                              : AppShadows.glass,
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            child: InkWell(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                    AppRadii.capsule,
-                                                  ),
-                                              onTap: _dismiss,
-                                              child: Center(
-                                                child: Opacity(
-                                                  opacity: eased,
-                                                  child: Text(
-                                                    'Хорошо',
-                                                    style: AppTypography.button
-                                                        .copyWith(
-                                                          color: Colors.white,
-                                                          fontSize: 16,
-                                                          fontWeight:
-                                                              FontWeight.w400,
-                                                        ),
-                                                  ),
+                                    ),
+                                    const SizedBox(height: 22),
+                                    SizedBox(
+                                      width: 244,
+                                      height: 62,
+                                      child: AppGlassSurface(
+                                        key: const ValueKey(
+                                          'route-swipe-coach-cta-glass',
+                                        ),
+                                        borderRadius: AppRadii.capsule,
+                                        blur: useCupertinoGlass
+                                            ? 18 * eased
+                                            : 0,
+                                        fillColor: Colors.white.withValues(
+                                          alpha:
+                                              (useCupertinoGlass
+                                                  ? 0.38
+                                                  : 0.24) *
+                                              eased,
+                                        ),
+                                        borderColor: Colors.white.withValues(
+                                          alpha:
+                                              (useCupertinoGlass
+                                                  ? 0.88
+                                                  : 0.46) *
+                                              eased,
+                                        ),
+                                        borderWidth: useCupertinoGlass
+                                            ? 1.2
+                                            : 1,
+                                        boxShadow: useCupertinoGlass
+                                            ? [
+                                                BoxShadow(
+                                                  color:
+                                                      const Color(
+                                                        0x30000000,
+                                                      ).withValues(
+                                                        alpha: 0.22 * eased,
+                                                      ),
+                                                  blurRadius: 18,
+                                                  offset: const Offset(0, 8),
+                                                ),
+                                                BoxShadow(
+                                                  color:
+                                                      const Color(
+                                                        0x66FFFFFF,
+                                                      ).withValues(
+                                                        alpha: 0.45 * eased,
+                                                      ),
+                                                  blurRadius: 14,
+                                                  offset: const Offset(0, -3),
+                                                ),
+                                              ]
+                                            : AppShadows.glass,
+                                        child: Material(
+                                          color: Colors.transparent,
+                                          child: InkWell(
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                                  AppRadii.capsule,
+                                                ),
+                                            onTap: _dismiss,
+                                            child: Center(
+                                              child: Opacity(
+                                                opacity: eased,
+                                                child: Text(
+                                                  'Хорошо',
+                                                  style: AppTypography.button
+                                                      .copyWith(
+                                                        color: Colors.white,
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w400,
+                                                      ),
                                                 ),
                                               ),
                                             ),
                                           ),
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            ),
+                          );
+                        },
                       ),
                     ),
                   ),
                 ),
+              );
+
+              if (coachBlur <= 0) {
+                return coachSurface;
+              }
+              return BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: coachBlur,
+                  sigmaY: coachBlur,
+                ),
+                child: coachSurface,
               );
             },
           ),

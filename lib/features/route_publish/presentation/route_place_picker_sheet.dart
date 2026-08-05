@@ -55,7 +55,7 @@ class _RoutePlacePickerSheetState
       screenHeight * .72,
     );
     return Padding(
-      padding: EdgeInsets.fromLTRB(18, 16, 18, 18 + bottom),
+      padding: EdgeInsets.fromLTRB(12, 16, 12, 18 + bottom),
       child: SizedBox(
         height: sheetHeight,
         child: Column(
@@ -72,17 +72,17 @@ class _RoutePlacePickerSheetState
             ),
             const SizedBox(height: 14),
             Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 14),
+              width: double.infinity,
+              height: 48,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: PublishRouteDesignTokens.fieldBackground,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: PublishRouteDesignTokens.border),
               ),
               child: Row(
                 children: [
                   const Icon(Icons.search_rounded, size: 20),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: TextField(
                       controller: _controller,
@@ -95,7 +95,18 @@ class _RoutePlacePickerSheetState
                         color: PublishRouteDesignTokens.dark,
                       ),
                       cursorColor: PublishRouteDesignTokens.primaryBlue,
-                      decoration: InputDecoration.collapsed(
+                      // Theme merges focusedOutline onto collapsed decorations;
+                      // pin every border to none so the input itself is outline-free.
+                      decoration: InputDecoration(
+                        isCollapsed: true,
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        errorBorder: InputBorder.none,
+                        focusedErrorBorder: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
                         hintText: 'Поиск по названию или адресу',
                         hintStyle: PublishRouteDesignTokens.rubik(
                           fontSize: 15,

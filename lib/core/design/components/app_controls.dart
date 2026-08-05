@@ -142,6 +142,12 @@ class _ActiveSearchFieldState extends State<_ActiveSearchField> {
   }
 
   void _onFocusChanged() {
+    // Leaving search (tap outside, nav away, close) always resets the query so
+    // panels do not linger across screens/tabs.
+    if (!_focusNode.hasFocus) {
+      _resetQuery();
+      widget.onSearchDismiss?.call();
+    }
     if (mounted) {
       setState(() {});
     }
@@ -153,21 +159,29 @@ class _ActiveSearchFieldState extends State<_ActiveSearchField> {
     }
   }
 
+  void _resetQuery() {
+    if (widget.controller.text.isEmpty) {
+      return;
+    }
+    widget.controller.clear();
+    if (widget.onSearchClear != null) {
+      widget.onSearchClear!();
+    } else {
+      widget.onSearchChanged?.call('');
+    }
+  }
+
   void _dismissFocus() {
-    _focusNode.unfocus();
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+      return;
+    }
+    _resetQuery();
     widget.onSearchDismiss?.call();
   }
 
   void _dismissOrClear() {
-    final hadText = widget.controller.text.isNotEmpty;
-    if (hadText) {
-      widget.controller.clear();
-      if (widget.onSearchClear != null) {
-        widget.onSearchClear!();
-      } else {
-        widget.onSearchChanged?.call('');
-      }
-    }
+    _resetQuery();
     _dismissFocus();
   }
 

@@ -87,7 +87,13 @@ class _RouteMatchResultsScreenState
                           _searchController.clear();
                           setState(() => _query = '');
                         },
-                        onSearchDismiss: _searchFocus.unfocus,
+                        onSearchDismiss: () {
+                          _searchController.clear();
+                          _searchFocus.unfocus();
+                          if (_query.isNotEmpty) {
+                            setState(() => _query = '');
+                          }
+                        },
                         onFilterTap: () {},
                       ),
                       const SizedBox(height: 18),

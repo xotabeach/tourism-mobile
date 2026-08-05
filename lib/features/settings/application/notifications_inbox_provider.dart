@@ -1,111 +1,66 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-enum InboxNotificationKind { commentLiked, profileLiked, routeComment }
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/settings/data/notifications_repository.dart';
 
-class InboxNotification {
-  const InboxNotification({
-    required this.id,
-    required this.actorName,
-    required this.body,
-    required this.kind,
-    required this.isUnread,
-  });
-
-  final String id;
-  final String actorName;
-  final String body;
-  final InboxNotificationKind kind;
-  final bool isUnread;
-
-  InboxNotification copyWith({bool? isUnread}) {
-    return InboxNotification(
-      id: id,
-      actorName: actorName,
-      body: body,
-      kind: kind,
-      isUnread: isUnread ?? this.isUnread,
-    );
-  }
-}
-
-class NotificationsInboxController
-    extends StateNotifier<List<InboxNotification>> {
-  NotificationsInboxController([List<InboxNotification>? seed])
-    : super(List<InboxNotification>.unmodifiable(seed ?? _seed));
-
-  static const _seed = <InboxNotification>[
-    InboxNotification(
-      id: 'n1',
-      actorName: 'Никита',
-      body: 'Оценил ваш комментарий',
-      kind: InboxNotificationKind.commentLiked,
-      isUnread: true,
-    ),
-    InboxNotification(
-      id: 'n2',
-      actorName: 'Никита',
-      body: 'Оценил ваш профиль',
-      kind: InboxNotificationKind.profileLiked,
-      isUnread: true,
-    ),
-    InboxNotification(
-      id: 'n3',
-      actorName: 'Никита',
-      body:
-          'Оставил свой комментарий под вашим маршрутом “Крымская классика под ва…”',
-      kind: InboxNotificationKind.routeComment,
-      isUnread: false,
-    ),
-    InboxNotification(
-      id: 'n4',
-      actorName: 'Никита',
-      body:
-          'Оставил свой комментарий под вашим маршрутом “Крымская классика под ва…”',
-      kind: InboxNotificationKind.routeComment,
-      isUnread: false,
-    ),
-    InboxNotification(
-      id: 'n5',
-      actorName: 'Никита',
-      body:
-          'Оставил свой комментарий под вашим маршрутом “Крымская классика под ва…”',
-      kind: InboxNotificationKind.routeComment,
-      isUnread: false,
-    ),
-    InboxNotification(
-      id: 'n6',
-      actorName: 'Никита',
-      body:
-          'Оставил свой комментарий под вашим маршрутом “Крымская классика под ва…”',
-      kind: InboxNotificationKind.routeComment,
-      isUnread: false,
-    ),
-  ];
-
-  int get unreadCount => state.where((n) => n.isUnread).length;
-
-  void markAllRead() {
-    state = [
-      for (final n in state) n.isUnread ? n.copyWith(isUnread: false) : n,
-    ];
-  }
-
-  void markRead(String id) {
-    state = [
-      for (final n in state)
-        if (n.id == id) n.copyWith(isUnread: false) else n,
-    ];
-  }
-}
+export 'package:tourism_mobile/features/settings/data/notifications_repository.dart'
+    show InboxNotification, InboxNotificationKind;
 
 final notificationsInboxProvider =
-    StateNotifierProvider<
-      NotificationsInboxController,
-      List<InboxNotification>
-    >((ref) {
-      return NotificationsInboxController();
-    });
+    AsyncNotifierProvider<NotificationsInboxController, List<InboxNotification>>(
+      NotificationsInboxController.new,
+    );
 
 final notificationsUnreadCountProvider = Provider<int>((ref) {
-  return ref.watch(notificationsInboxProvider).where((n) => n.isUnread).length;
+  final async = ref.watch(notificationsInboxProvider);
+  return async.maybeWhen(
+    data: (items) => items.where((n) => n.isUnread).length,
+    orElse: () => 0,
+  );
 });
+
+class NotificationsInboxController
+    extends AsyncNotifier<List<InboxNotification>> {
+  @override
+  Future<List<InboxNotification>> build() async {
+    final session = ref.watch(sessionProvider);
+    if (!session.isAuthenticated) {
+      return const [];
+    }
+    final page = await ref.watch(notificationsRepositoryProvider).list();
+    return page.items;
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final page = await ref.read(notificationsRepositoryProvider).list();
+      return page.items;
+    });
+  }
+
+  Future<void> markAllRead() async {
+    final current = state.valueOrNull ?? const <InboxNotification>[];
+    state = AsyncData([
+      for (final item in current) item.copyWith(isUnread: false),
+    ]);
+    try {
+      await ref.read(notificationsRepositoryProvider).markAllRead();
+    } on Object {
+      await refresh();
+    }
+  }
+
+  Future<void> markRead(String id) async {
+    final current = state.valueOrNull ?? const <InboxNotification>[];
+    state = AsyncData([
+      for (final item in current)
+        if (item.id == id) item.copyWith(isUnread: false) else item,
+    ]);
+    try {
+      await ref.read(notificationsRepositoryProvider).markRead(id);
+    } on Object {
+      await refresh();
+    }
+  }
+}

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -10,8 +11,9 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
-/// Mock inbox: new / read sections. Server feed lands with notifications API.
+/// Server-backed inbox (in-app). System push (FCM) is deferred.
 class SettingsNotificationsInboxScreen extends ConsumerWidget {
   const SettingsNotificationsInboxScreen({super.key});
 
@@ -20,52 +22,109 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(notificationsInboxProvider);
-    final unread = items.where((n) => n.isUnread).toList();
-    final read = items.where((n) => !n.isUnread).toList();
+    final async = ref.watch(notificationsInboxProvider);
 
     return SettingsScaffold(
       title: 'Мои уведомления:',
       showSave: true,
       onSave: () {
-        ref.read(notificationsInboxProvider.notifier).markAllRead();
+        unawaited(ref.read(notificationsInboxProvider.notifier).markAllRead());
       },
       spaceChildren: false,
       children: [
-        if (unread.isNotEmpty) ...[
-          Text(
-            'Новые уведомления:',
-            style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+        async.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
           ),
-          const SizedBox(height: 12),
-          for (var i = 0; i < unread.length; i++) ...[
-            if (i > 0) const SizedBox(height: SettingsMetrics.rowGap),
-            _InboxTile(
-              item: unread[i],
-              onTap: () => ref
-                  .read(notificationsInboxProvider.notifier)
-                  .markRead(unread[i].id),
-            ),
-          ],
-          const SizedBox(height: 18),
-          const SettingsHairline(),
-          const SizedBox(height: 18),
-        ],
-        Text(
-          'Прочитанные:',
-          style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+          error: (_, _) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Не удалось загрузить уведомления',
+                style: AppTypography.settingsRowSubtitle,
+              ),
+              TextButton(
+                onPressed: () =>
+                    ref.read(notificationsInboxProvider.notifier).refresh(),
+                child: const Text('Повторить'),
+              ),
+            ],
+          ),
+          data: (items) {
+            final unread = items.where((n) => n.isUnread).toList();
+            final read = items.where((n) => !n.isUnread).toList();
+            if (items.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text(
+                  'У вас нет новых уведомлений',
+                  style: AppTypography.settingsRowSubtitle,
+                ),
+              );
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (unread.isNotEmpty) ...[
+                  Text(
+                    'Новые уведомления:',
+                    style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+                  ),
+                  const SizedBox(height: 12),
+                  for (var i = 0; i < unread.length; i++) ...[
+                    if (i > 0) const SizedBox(height: SettingsMetrics.rowGap),
+                    _InboxTile(
+                      item: unread[i],
+                      onTap: () => _openNotification(context, ref, unread[i]),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  const SettingsHairline(),
+                  const SizedBox(height: 18),
+                ],
+                Text(
+                  'Прочитанные:',
+                  style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+                ),
+                const SizedBox(height: 12),
+                if (read.isEmpty)
+                  const Text(
+                    'Пока пусто',
+                    style: AppTypography.settingsRowSubtitle,
+                  )
+                else
+                  for (var i = 0; i < read.length; i++) ...[
+                    if (i > 0) const SizedBox(height: SettingsMetrics.rowGap),
+                    _InboxTile(
+                      item: read[i],
+                      onTap: () => _openNotification(context, ref, read[i]),
+                    ),
+                  ],
+                const SizedBox(height: 120),
+              ],
+            );
+          },
         ),
-        const SizedBox(height: 12),
-        if (read.isEmpty)
-          const Text('Пока пусто', style: AppTypography.settingsRowSubtitle)
-        else
-          for (var i = 0; i < read.length; i++) ...[
-            if (i > 0) const SizedBox(height: SettingsMetrics.rowGap),
-            _InboxTile(item: read[i]),
-          ],
-        const SizedBox(height: 120),
       ],
     );
+  }
+
+  static Future<void> _openNotification(
+    BuildContext context,
+    WidgetRef ref,
+    InboxNotification item,
+  ) async {
+    unawaited(AppHaptics.selectionClick());
+    unawaited(ref.read(notificationsInboxProvider.notifier).markRead(item.id));
+    if (item.targetType == 'route' &&
+        item.targetId != null &&
+        item.targetId!.isNotEmpty) {
+      await context.pushNamed(
+        AppRouteNames.routeDetails,
+        pathParameters: {'id': item.targetId!},
+      );
+    }
   }
 
   static String clampText(String value, int max) {
@@ -109,7 +168,6 @@ class _InboxTile extends StatelessWidget {
           onTap: onTap == null
               ? null
               : () {
-                  unawaited(AppHaptics.selectionClick());
                   onTap!();
                 },
           borderRadius: radius,

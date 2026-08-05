@@ -492,12 +492,15 @@ class CitySearchField extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: px(48),
+          height: px(56),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: RouteBuilderDesignTokens.fieldBackground,
               borderRadius: radius,
-              border: Border.all(color: borderColor, width: px(1)),
+              border: Border.all(
+                color: hasError ? borderColor : Colors.transparent,
+                width: px(1),
+              ),
             ),
             child: Row(
               children: [
@@ -522,9 +525,18 @@ class CitySearchField extends StatelessWidget {
                       height: 1.1,
                     ),
                     cursorColor: RouteBuilderDesignTokens.primaryBlue,
-                    // Collapsed avoids theme InputDecoration fill/borders that
-                    // painted a second surface inside the grey field shell.
-                    decoration: InputDecoration.collapsed(
+                    // Theme merges focusedOutline onto collapsed decorations;
+                    // keep the TextField itself borderless inside the shell.
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      filled: false,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      disabledBorder: InputBorder.none,
+                      errorBorder: InputBorder.none,
+                      focusedErrorBorder: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
                       hintText: 'Выберите стартовый город',
                       hintStyle: RouteBuilderDesignTokens.rubik(
                         fontSize: px(14),

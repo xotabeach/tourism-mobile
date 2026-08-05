@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "254312974108",
+    "project_id": "crimeatrip-41d24",
+    "storage_bucket": "crimeatrip-41d24.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:254312974108:android:bd0ac3821923c58dab5cd9",
+        "android_client_info": {
+          "package_name": "com.crimeatravel.tourism_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBNdFA5WSqgM1xQt2pdUIS-hDRvoMGWJuE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

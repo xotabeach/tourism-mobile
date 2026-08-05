@@ -15,6 +15,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -463,14 +464,14 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     _targetIndex = index;
     _positionController.duration = MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
-        : AppMotion.droplet;
+        : AppPerf.motion(AppMotion.droplet);
     unawaited(_positionController.forward(from: 0));
   }
 
   void _animateDetailPresence(double target) {
     _detailPresenceController.duration = MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
-        : AppMotion.detailMorph;
+        : AppPerf.motion(AppMotion.detailMorph);
     unawaited(
       _detailPresenceController.animateTo(
         target,
@@ -489,7 +490,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     _detailExpansionController.duration =
         MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
-        : AppMotion.detailMorph;
+        : AppPerf.motion(AppMotion.detailMorph);
     unawaited(AppHaptics.selectionClick());
     unawaited(
       _detailExpansionController.forward().then((_) {
@@ -514,7 +515,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     _detailExpansionController.duration =
         MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
-        : AppMotion.detailMorph;
+        : AppPerf.motion(AppMotion.detailMorph);
     unawaited(_detailExpansionController.reverse());
   }
 
@@ -527,7 +528,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         0,
         duration: MediaQuery.disableAnimationsOf(context)
             ? AppMotion.reduced
-            : AppMotion.composeClose,
+            : AppPerf.motion(AppMotion.composeClose),
         curve: Curves.linear,
       ),
     );
@@ -541,10 +542,10 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     final opening = _composeController.value < 0.5;
     _composeController.duration = MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
-        : AppMotion.composeMorph;
+        : AppPerf.motion(AppMotion.composeMorph);
     _composeController.reverseDuration = MediaQuery.disableAnimationsOf(context)
         ? AppMotion.reduced
-        : AppMotion.composeClose;
+        : AppPerf.motion(AppMotion.composeClose);
     unawaited(
       _composeController.animateTo(
         opening ? 1 : 0,
