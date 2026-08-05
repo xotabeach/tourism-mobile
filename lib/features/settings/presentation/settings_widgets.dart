@@ -588,16 +588,18 @@ class SettingsPrimaryButton extends StatelessWidget {
     super.key,
     required this.label,
     required this.onPressed,
+    this.height = 56,
   });
 
   final String label;
   final VoidCallback? onPressed;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 56,
+      height: height,
       child: Material(
         color: onPressed == null
             ? AppColors.settingsInk.withValues(alpha: 0.45)

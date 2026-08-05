@@ -56,29 +56,41 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 9),
                   const _BenefitCard(
                     title: 'Неограниченный подбор',
                     subtitle:
                         'В бесплатной версии доступно всего 5 подборов в неделю',
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
+                  const _BenefitCard(
+                    title: 'Искусственный интеллект',
+                    subtitle:
+                        'Возможность пользоваться специально обученным ИИ для подбора маршрутов',
+                  ),
+                  const SizedBox(height: 12),
                   const _BenefitCard(
                     title: 'Отсутствие рекламы',
                     subtitle:
                         'С подпиской будут отсутствовать рекламные баннеры и видео',
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   const _BenefitCard(
                     title: 'Больше функций при поиске',
                     subtitle:
                         'Открывается доступ к более точным фильтрам при подборе маршрутов',
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 12),
                   const _BenefitCard(
-                    title: 'Подбор с ИИ',
+                    title: 'Больше ТревелПоинтов',
                     subtitle:
-                        'Чат-ассистент поможет собрать маршрут под ваши задачи',
+                        'С подпиской за пройденный маршрут или лайк пользователь получает больше ТП',
+                  ),
+                  const SizedBox(height: 12),
+                  const _BenefitCard(
+                    title: 'Эксклюзивные маршруты',
+                    subtitle:
+                        'Авторские подборки от тревел-блогеров и локальных экспертов',
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -110,20 +122,17 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  const _FreeMonthBanner(),
+                  const SizedBox(height: 25),
                   SettingsNavTile(
-                    title: 'О сервисе',
-                    subtitle: 'Вся важная документация',
-                    iconAsset: AppIconography.settingsAbout,
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Документация появится позже'),
-                        ),
-                      );
-                    },
+                    title: 'Поддержка и обратная связь',
+                    subtitle: 'Поможем с любым вопросом',
+                    iconAsset: AppIconography.settingsSupport,
+                    dense: true,
+                    onTap: () =>
+                        context.pushNamed(AppRouteNames.settingsSupport),
                   ),
-                  // Bottom CTA lives in the shell nav («Продолжить»).
-                  const SizedBox(height: 140),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
@@ -506,38 +515,41 @@ class _BenefitCard extends StatelessWidget {
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 30,
+              height: 30,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(color: SettingsColors.link, width: 2),
               ),
               child: const Icon(
                 Icons.check_rounded,
-                size: 18,
+                size: 17,
                 color: SettingsColors.link,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: AppTypography.settingsRowTitle,
+                    style: AppTypography.settingsRowTitle.copyWith(height: 1.2),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: AppTypography.settingsRowSubtitle,
+                    style: AppTypography.settingsRowSubtitle.copyWith(
+                      fontSize: 11,
+                      height: 1.2,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -546,6 +558,50 @@ class _BenefitCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FreeMonthBanner extends StatelessWidget {
+  const _FreeMonthBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEAF4FF),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.discount_outlined,
+            color: SettingsColors.link,
+            size: 28,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Первый месяц бесплатно',
+                  style: AppTypography.settingsRowTitle,
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Оплата 99 ₽ начнет списываться только со второго месяца пользования подпиской',
+                  style: AppTypography.settingsRowSubtitle.copyWith(
+                    fontSize: 11.5,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -574,7 +630,7 @@ class _PlanCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
-          height: 72,
+          height: 64,
           width: double.infinity,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),

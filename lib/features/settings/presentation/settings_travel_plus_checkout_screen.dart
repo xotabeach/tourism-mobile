@@ -77,7 +77,6 @@ class _SettingsTravelPlusCheckoutScreenState
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
     final priceMain = _yearly ? '999 ₽/год' : '99 ₽/мес';
-    final priceAlt = _yearly ? '83,25 ₽/мес' : '1 188 ₽/год';
     final dueTodayLabel = _yearly ? '999 ₽' : '99 ₽';
 
     return ColoredBox(
@@ -95,42 +94,45 @@ class _SettingsTravelPlusCheckoutScreenState
               child: const SizedBox(height: 36),
             ),
             Transform.translate(
-              offset: const Offset(0, -14),
+              offset: const Offset(0, -4),
               child: Container(
-                decoration: const BoxDecoration(
-                  color: AppColors.elevatedSurface,
-                  borderRadius: BorderRadius.vertical(
-                    top: Radius.circular(AppRadii.settingsTile),
-                  ),
-                ),
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 40),
+                color: AppColors.pageSurface,
+                padding: const EdgeInsets.fromLTRB(15, 0, 15, 40),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Выберите тариф:',
-                      style: AppTypography.settingsRowTitle.copyWith(
-                        fontSize: 15,
+                    SettingsFormCard(
+                      padding: const EdgeInsets.fromLTRB(14, 16, 14, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Выберите тариф:',
+                            style: AppTypography.settingsRowTitle.copyWith(
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _CheckoutPlanCard(
+                            period: 'ГОД',
+                            price: '999 ₽/год',
+                            note: '83,25 ₽/мес',
+                            selected: _yearly,
+                            badge: 'Выгода 17%',
+                            onTap: () => setState(() => _yearly = true),
+                          ),
+                          const SizedBox(height: 10),
+                          _CheckoutPlanCard(
+                            period: 'МЕСЯЦ',
+                            price: '99 ₽/мес',
+                            note: '1 188 ₽/год',
+                            selected: !_yearly,
+                            onTap: () => setState(() => _yearly = false),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    _CheckoutPlanCard(
-                      period: 'ГОД',
-                      price: '999 ₽/год',
-                      note: '83,25 ₽/мес',
-                      selected: _yearly,
-                      badge: 'Выгода 17%',
-                      onTap: () => setState(() => _yearly = true),
-                    ),
                     const SizedBox(height: 10),
-                    _CheckoutPlanCard(
-                      period: 'МЕСЯЦ',
-                      price: '99 ₽/мес',
-                      note: '1 188 ₽/год',
-                      selected: !_yearly,
-                      onTap: () => setState(() => _yearly = false),
-                    ),
-                    const SizedBox(height: 18),
                     Text(
                       'Способ оплаты:',
                       style: AppTypography.settingsRowTitle.copyWith(
@@ -151,23 +153,41 @@ class _SettingsTravelPlusCheckoutScreenState
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 14,
+                                horizontal: 10,
+                                vertical: 5,
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
-                                    Icons.credit_card_rounded,
-                                    color: SettingsColors.accentIcon,
-                                    size: 22,
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFEAF4FF),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Icons.credit_card_rounded,
+                                      color: SettingsColors.accentIcon,
+                                      size: 26,
+                                    ),
                                   ),
-                                  const SizedBox(width: 10),
+                                  const SizedBox(width: 13),
                                   Expanded(
-                                    child: Text(
-                                      'Способ оплаты $_maskedLast4',
-                                      style: AppTypography.settingsRowTitle,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Способ оплаты',
+                                          style: AppTypography.settingsRowTitle,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          _maskedLast4,
+                                          style:
+                                              AppTypography.settingsRowSubtitle,
+                                        ),
+                                      ],
                                     ),
                                   ),
                                   Icon(
@@ -187,17 +207,12 @@ class _SettingsTravelPlusCheckoutScreenState
                               color: SettingsColors.hairline,
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(
-                                14,
-                                12,
-                                14,
-                                14,
-                              ),
+                              padding: const EdgeInsets.fromLTRB(10, 8, 10, 9),
                               child: Column(
                                 children: [
-                                  SettingsTextField(
+                                  _CheckoutLabeledField(
+                                    label: 'Способ оплаты',
                                     controller: _cardNumber,
-                                    hintText: 'Номер карты',
                                     keyboardType: TextInputType.number,
                                     maxLength: 23,
                                     textInputAction: TextInputAction.next,
@@ -207,9 +222,9 @@ class _SettingsTravelPlusCheckoutScreenState
                                   Row(
                                     children: [
                                       Expanded(
-                                        child: SettingsTextField(
+                                        child: _CheckoutLabeledField(
+                                          label: 'Месяц/Год',
                                           controller: _expiry,
-                                          hintText: 'ММ/ГГ',
                                           keyboardType: TextInputType.datetime,
                                           maxLength: 5,
                                           textInputAction: TextInputAction.next,
@@ -217,9 +232,9 @@ class _SettingsTravelPlusCheckoutScreenState
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
-                                        child: SettingsTextField(
+                                        child: _CheckoutLabeledField(
+                                          label: 'CVC/CVV',
                                           controller: _cvc,
-                                          hintText: 'CVC',
                                           keyboardType: TextInputType.number,
                                           maxLength: 4,
                                           textInputAction: TextInputAction.done,
@@ -242,69 +257,59 @@ class _SettingsTravelPlusCheckoutScreenState
                       ),
                     ),
                     const SizedBox(height: 10),
-                    SettingsFormCard(
-                      child: Column(
+                    const Divider(height: 1, color: SettingsColors.hairline),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      child: _TotalRow(label: 'Тариф', value: priceMain),
+                    ),
+                    const Divider(height: 1, color: SettingsColors.hairline),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
                         children: [
-                          _TotalRow(label: 'Тариф', value: priceMain),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              const Expanded(
-                                child: Text(
-                                  'К оплате сегодня',
-                                  style: AppTypography.settingsRowTitle,
-                                ),
-                              ),
-                              Text(
-                                dueTodayLabel,
-                                style: AppTypography.settingsRowSubtitle
-                                    .copyWith(
-                                      decoration: TextDecoration.lineThrough,
-                                    ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '0 ₽',
-                                style: AppTypography.settingsRowTitle.copyWith(
-                                  color: SettingsColors.link,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Align(
-                            alignment: Alignment.centerLeft,
+                          const Expanded(
                             child: Text(
-                              priceAlt,
-                              style: AppTypography.settingsRowSubtitle.copyWith(
-                                fontSize: 11,
-                              ),
+                              'К оплате сегодня:',
+                              style: AppTypography.settingsRowTitle,
+                            ),
+                          ),
+                          Text(
+                            dueTodayLabel,
+                            style: AppTypography.settingsRowSubtitle.copyWith(
+                              decoration: TextDecoration.lineThrough,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '0 ₽',
+                            style: AppTypography.settingsRowTitle.copyWith(
+                              color: SettingsColors.link,
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 9),
                     _CheckoutInfoBanner(
-                      icon: Icons.percent_rounded,
-                      text:
-                          'Первый месяц бесплатно. Оплата $dueTodayLabel начнет '
-                          'списываться только со второго месяца пользования '
-                          'подпиской',
+                      icon: Icons.discount_outlined,
+                      title: 'Первый месяц бесплатно',
+                      subtitle:
+                          'Оплата $dueTodayLabel начнет списываться только со второго месяца пользования подпиской',
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 8),
                     const _CheckoutInfoBanner(
-                      icon: Icons.error_outline_rounded,
-                      text:
-                          'Автопродление. Отменить автопродление можно в '
-                          'настройках подписки в любой момент',
+                      icon: Icons.shield_outlined,
+                      title: 'Автопродление',
+                      subtitle:
+                          'Отменить автопродление можно в настройках подписки в любой момент',
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 14),
                     SettingsPrimaryButton(
                       label: 'Оформить подписку',
+                      height: 52,
                       onPressed: _submit,
                     ),
-                    const SizedBox(height: 120),
+                    const SizedBox(height: 92),
                   ],
                 ),
               ),
@@ -359,95 +364,114 @@ class _CheckoutPlanCard extends StatelessWidget {
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              if (badge != null)
-                Positioned(
-                  top: 10,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2EAF6E),
-                      borderRadius: BorderRadius.circular(AppRadii.capsule),
-                    ),
-                    child: Text(
-                      badge!,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            period,
-                            style: TextStyle(
-                              fontFamily: AppFonts.rubik,
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.settingsInk.withValues(
-                                alpha: 0.22,
+          child: SizedBox(
+            height: 66,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(
+                              period,
+                              style: AppTypography.settingsRowTitle.copyWith(
+                                fontSize: 16,
+                                color: selected
+                                    ? SettingsColors.link
+                                    : AppColors.settingsInk,
                               ),
                             ),
+                            if (badge != null) ...[
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFE9F9EF),
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadii.capsule,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    badge!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontFamily: AppFonts.rubik,
+                                      fontSize: 9.5,
+                                      color: Color(0xFF2EAF6E),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Полный доступ ко всем преимуществам подписки',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.settingsRowSubtitle.copyWith(
+                            fontSize: 10.5,
+                            height: 1.15,
                           ),
-                          const SizedBox(height: 4),
-                          Text(price, style: AppTypography.settingsRowTitle),
-                          const SizedBox(height: 2),
-                          Text(note, style: AppTypography.settingsRowSubtitle),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Полный доступ ко всем преимуществам подписки',
-                            style: AppTypography.settingsRowSubtitle.copyWith(
-                              fontSize: 11,
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 10),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: selected
-                            ? SettingsColors.link
-                            : Colors.transparent,
-                        border: Border.all(
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        price,
+                        style: AppTypography.settingsRowTitle.copyWith(
                           color: selected
                               ? SettingsColors.link
-                              : const Color(0xFFC5C5C5),
-                          width: 2,
+                              : AppColors.settingsInk,
                         ),
                       ),
-                      child: selected
-                          ? const Icon(
-                              Icons.check_rounded,
-                              size: 18,
-                              color: Colors.white,
-                            )
-                          : null,
+                      const SizedBox(height: 2),
+                      Text(note, style: AppTypography.settingsRowSubtitle),
+                    ],
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: selected
+                          ? SettingsColors.link
+                          : Colors.transparent,
+                      border: Border.all(
+                        color: selected
+                            ? SettingsColors.link
+                            : const Color(0xFFC5C5C5),
+                        width: selected ? 0 : 1,
+                      ),
                     ),
-                  ],
-                ),
+                    child: selected
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -472,11 +496,69 @@ class _TotalRow extends StatelessWidget {
   }
 }
 
+class _CheckoutLabeledField extends StatelessWidget {
+  const _CheckoutLabeledField({
+    required this.label,
+    required this.controller,
+    this.keyboardType,
+    this.maxLength,
+    this.textInputAction,
+    this.onSubmitted,
+  });
+
+  final String label;
+  final TextEditingController controller;
+  final TextInputType? keyboardType;
+  final int? maxLength;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: AppTypography.settingsRowSubtitle),
+        TextField(
+          controller: controller,
+          keyboardType: keyboardType,
+          maxLength: maxLength,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
+          style: AppTypography.settingsRowTitle.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+          ),
+          decoration: const InputDecoration(
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(vertical: 7),
+            counterText: '',
+            border: UnderlineInputBorder(
+              borderSide: BorderSide(color: SettingsColors.hairline),
+            ),
+            enabledBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: SettingsColors.hairline),
+            ),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: SettingsColors.link, width: 1.5),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _CheckoutInfoBanner extends StatelessWidget {
-  const _CheckoutInfoBanner({required this.icon, required this.text});
+  const _CheckoutInfoBanner({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   final IconData icon;
-  final String text;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -486,20 +568,26 @@ class _CheckoutInfoBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 20, color: SettingsColors.link),
+            Icon(icon, size: 28, color: SettingsColors.link),
             const SizedBox(width: 10),
             Expanded(
-              child: Text(
-                text,
-                style: AppTypography.settingsRowSubtitle.copyWith(
-                  fontSize: 12,
-                  height: 1.35,
-                  color: AppColors.settingsInk,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTypography.settingsRowTitle),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: AppTypography.settingsRowSubtitle.copyWith(
+                      fontSize: 11.5,
+                      height: 1.2,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

@@ -110,11 +110,18 @@ void main() {
     expect(find.byType(SettingsTravelPlusScreen), findsOneWidget);
     expect(find.text('999 ₽/год'), findsOneWidget);
     expect(find.text('99 ₽/мес'), findsOneWidget);
+    expect(find.text('Продолжить'), findsNothing);
+    expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
+    expect(find.text('Первый месяц бесплатно'), findsWidgets);
+    expect(find.text('Поддержка и обратная связь'), findsOneWidget);
 
     await tester.tap(find.text('99 ₽/мес'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsTravelPlusCheckoutScreen), findsOneWidget);
     expect(find.text('Оформление подписки'), findsOneWidget);
     expect(find.text('Оформить подписку'), findsOneWidget);
+    expect(find.text('Месяц/Год'), findsOneWidget);
+    expect(find.text('CVC/CVV'), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
   });
 }

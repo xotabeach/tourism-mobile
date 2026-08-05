@@ -23,7 +23,6 @@ import 'package:tourism_mobile/features/route_match/presentation/route_match_scr
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
-import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 const _appNavDestinations = [
@@ -191,12 +190,6 @@ class AppShellScreen extends ConsumerWidget {
       );
   }
 
-  void _continueTravelPlus(BuildContext context) {
-    unawaited(
-      context.push('/profile/settings/travel-plus/checkout?yearly=true'),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
@@ -209,23 +202,10 @@ class AppShellScreen extends ConsumerWidget {
     final scrolledDown = ref.watch(tabScrolledDownProvider(currentIndex));
     // Route + place details share the Home-parked compact chrome and CTA.
     final showRouteAction = detailNavigationIndex == 0;
-    // CTA only on inactive Travel+ paywall (not checkout / active management).
-    final travelPlusActive = ref.watch(
-      settingsPreferencesProvider.select((p) => p.travelPlusActive),
-    );
-    final onTravelPlusPaywall =
-        detailNavigationIndex == 4 &&
-        path.contains('/travel-plus') &&
-        !path.contains('/checkout') &&
-        !travelPlusActive;
-    final showTravelPlusAction = onTravelPlusPaywall;
-    final detailActionLabel = showTravelPlusAction
-        ? 'Продолжить'
-        : 'Пройти маршрут';
+    final onTravelPlus = path.contains('/travel-plus');
+    const detailActionLabel = 'Пройти маршрут';
     final VoidCallback? detailAction = showRouteAction
         ? () => _startRoute(context)
-        : showTravelPlusAction
-        ? () => _continueTravelPlus(context)
         : null;
 
     return Scaffold(
@@ -236,7 +216,9 @@ class AppShellScreen extends ConsumerWidget {
           navigationShell,
           // Center-root screens keep the compact nav without the detail-page
           // readability scrim. Their own content already reserves nav space.
-          if (showDetailsChrome && detailNavigationIndex != _composeNavIndex)
+          if (showDetailsChrome &&
+              detailNavigationIndex != _composeNavIndex &&
+              !onTravelPlus)
             Positioned(
               key: const ValueKey('app-shell-bottom-scrim'),
               left: 0,
