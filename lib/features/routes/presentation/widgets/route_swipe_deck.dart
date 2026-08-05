@@ -422,7 +422,8 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
         // Preserve the original 2:3 composition on compact screens, then use
         // part of the extra vertical room on tall phones. Capping at 1.72×
         // keeps portraits and controls from looking unnaturally stretched.
-        final adaptiveGrowth = math.max(0.0, maxUsableHeight - baseHeight) * .62;
+        final adaptiveGrowth =
+            math.max(0.0, maxUsableHeight - baseHeight) * .62;
         final cardHeight = math.min(
           maxUsableHeight,
           math.min(cardWidth * 1.72, baseHeight + adaptiveGrowth),
@@ -749,10 +750,7 @@ class _SwipeOverlay extends StatelessWidget {
         child: blurSigma <= 0
             ? overlay
             : BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: blurSigma,
-                  sigmaY: blurSigma,
-                ),
+                filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
                 child: overlay,
               ),
       ),
@@ -841,12 +839,7 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                       child: LayoutBuilder(
                         builder: (context, constraints) {
                           return SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(
-                              22,
-                              24,
-                              22,
-                              20,
-                            ),
+                            padding: const EdgeInsets.fromLTRB(22, 24, 22, 20),
                             child: ConstrainedBox(
                               constraints: BoxConstraints(
                                 minHeight: math.max(
@@ -922,20 +915,16 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                         boxShadow: useCupertinoGlass
                                             ? [
                                                 BoxShadow(
-                                                  color:
-                                                      const Color(
-                                                        0x30000000,
-                                                      ).withValues(
+                                                  color: const Color(0x30000000)
+                                                      .withValues(
                                                         alpha: 0.22 * eased,
                                                       ),
                                                   blurRadius: 18,
                                                   offset: const Offset(0, 8),
                                                 ),
                                                 BoxShadow(
-                                                  color:
-                                                      const Color(
-                                                        0x66FFFFFF,
-                                                      ).withValues(
+                                                  color: const Color(0x66FFFFFF)
+                                                      .withValues(
                                                         alpha: 0.45 * eased,
                                                       ),
                                                   blurRadius: 14,
@@ -946,10 +935,9 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                         child: Material(
                                           color: Colors.transparent,
                                           child: InkWell(
-                                            borderRadius:
-                                                BorderRadius.circular(
-                                                  AppRadii.capsule,
-                                                ),
+                                            borderRadius: BorderRadius.circular(
+                                              AppRadii.capsule,
+                                            ),
                                             onTap: _dismiss,
                                             child: Center(
                                               child: Opacity(
@@ -986,10 +974,7 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                 return coachSurface;
               }
               return BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: coachBlur,
-                  sigmaY: coachBlur,
-                ),
+                filter: ImageFilter.blur(sigmaX: coachBlur, sigmaY: coachBlur),
                 child: coachSurface,
               );
             },

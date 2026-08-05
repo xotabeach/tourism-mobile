@@ -234,11 +234,7 @@ class AppGlassIconButton extends StatelessWidget {
               onPressed: onPressed,
               icon: iconAsset == null
                   ? Icon(icon)
-                  : AppAssetIcon(
-                      iconAsset!,
-                      size: iconSize,
-                      color: fg,
-                    ),
+                  : AppAssetIcon(iconAsset!, size: iconSize, color: fg),
               iconSize: iconSize,
               color: fg,
               padding: EdgeInsets.zero,

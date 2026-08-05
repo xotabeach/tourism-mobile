@@ -302,7 +302,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(UniversalSearchPanel), findsNothing);
-    expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '');
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      '',
+    );
   });
 
   testWidgets('my routes subscriptions use discovery profile cards', (

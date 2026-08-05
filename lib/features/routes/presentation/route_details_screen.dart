@@ -1241,9 +1241,7 @@ class _RouteReviewsSection extends ConsumerWidget {
     final myReviewsAsync = ref.watch(myRouteReviewsProvider);
     final pendingMine = myReviewsAsync.maybeWhen(
       data: (items) => items
-          .where(
-            (r) => r.routeId == routeId && r.status == 'pending_review',
-          )
+          .where((r) => r.routeId == routeId && r.status == 'pending_review')
           .toList(),
       orElse: () => const <RouteReview>[],
     );

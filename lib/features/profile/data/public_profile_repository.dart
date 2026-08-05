@@ -38,8 +38,7 @@ class PublicUserProfile {
       rankSlug: json['rank_slug'] as String? ?? 'novice',
       rankTitle: json['rank_title'] as String? ?? 'Новичок',
       nextRankPoints: (json['next_rank_points'] as num?)?.toInt() ?? 1000,
-      leaderboardPlace:
-          (json['leaderboard_place'] as num?)?.toInt() ?? 0,
+      leaderboardPlace: (json['leaderboard_place'] as num?)?.toInt() ?? 0,
       likedByMe: json['liked_by_me'] as bool? ?? false,
     );
   }
@@ -56,10 +55,7 @@ abstract class PublicProfileRepository {
   Future<PublicProfileBundle> fetch(String userId);
   Future<List<PublicUserProfile>> search(String query, {int limit = 8});
   Future<List<PublicUserProfile>> subscriptions({int limit = 50});
-  Future<List<PublicUserProfile>> leaderboard({
-    int limit = 50,
-    int offset = 0,
-  });
+  Future<List<PublicUserProfile>> leaderboard({int limit = 50, int offset = 0});
   Future<void> like(String userId);
   Future<void> unlike(String userId);
 }

@@ -7,9 +7,10 @@ export 'package:tourism_mobile/features/settings/data/notifications_repository.d
     show InboxNotification, InboxNotificationKind;
 
 final notificationsInboxProvider =
-    AsyncNotifierProvider<NotificationsInboxController, List<InboxNotification>>(
-      NotificationsInboxController.new,
-    );
+    AsyncNotifierProvider<
+      NotificationsInboxController,
+      List<InboxNotification>
+    >(NotificationsInboxController.new);
 
 final notificationsUnreadCountProvider = Provider<int>((ref) {
   final async = ref.watch(notificationsInboxProvider);

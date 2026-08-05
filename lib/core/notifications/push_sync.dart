@@ -12,7 +12,10 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Sync FCM token with backend when the user enables push (and Firebase is configured).
-Future<void> syncPushRegistration(WidgetRef ref, {required bool enabled}) async {
+Future<void> syncPushRegistration(
+  WidgetRef ref, {
+  required bool enabled,
+}) async {
   if (!AppPush.isConfigured || kIsWeb) {
     return;
   }

@@ -72,10 +72,7 @@ class InboxNotification {
 }
 
 class NotificationsPage {
-  const NotificationsPage({
-    required this.items,
-    required this.unreadCount,
-  });
+  const NotificationsPage({required this.items, required this.unreadCount});
 
   final List<InboxNotification> items;
   final int unreadCount;
@@ -134,7 +131,9 @@ final class ApiNotificationsRepository implements NotificationsRepository {
   @override
   Future<void> markAllRead() {
     return guardApiCall(() async {
-      await _dio.post<Map<String, dynamic>>('/api/v1/me/notifications/read-all');
+      await _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/notifications/read-all',
+      );
     });
   }
 }
@@ -145,8 +144,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       id: 'n3',
       kind: InboxNotificationKind.routeReview,
       title: 'Новый отзыв',
-      body:
-          'Оставил свой комментарий под вашим маршрутом «Крымская классика»',
+      body: 'Оставил свой комментарий под вашим маршрутом «Крымская классика»',
       actorDisplayName: 'Никита',
       targetType: 'route',
       targetId: 'mock-route',
@@ -157,8 +155,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       id: 'n4',
       kind: InboxNotificationKind.routeReview,
       title: 'Новый отзыв',
-      body:
-          'Оставил свой комментарий под вашим маршрутом «Крымская классика»',
+      body: 'Оставил свой комментарий под вашим маршрутом «Крымская классика»',
       actorDisplayName: 'Никита',
       targetType: 'route',
       targetId: 'mock-route',

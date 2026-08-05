@@ -55,8 +55,6 @@ abstract final class AppPerf {
     // Keep more decoded covers warm across tab switches; still bounded for
     // 6–8 GB mid-range devices.
     cache.maximumSize = preferCheapEffects ? 120 : 160;
-    cache.maximumSizeBytes = preferCheapEffects
-        ? 120 << 20
-        : 160 << 20;
+    cache.maximumSizeBytes = preferCheapEffects ? 120 << 20 : 160 << 20;
   }
 }

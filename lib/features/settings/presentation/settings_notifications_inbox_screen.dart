@@ -69,7 +69,9 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
                 if (unread.isNotEmpty) ...[
                   Text(
                     'Новые уведомления:',
-                    style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+                    style: AppTypography.settingsRowTitle.copyWith(
+                      fontSize: 15,
+                    ),
                   ),
                   const SizedBox(height: 12),
                   for (var i = 0; i < unread.length; i++) ...[

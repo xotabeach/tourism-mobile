@@ -38,7 +38,10 @@ final class ApiDeviceTokenRepository implements DeviceTokenRepository {
 
 final class NoopDeviceTokenRepository implements DeviceTokenRepository {
   @override
-  Future<void> register({required String token, required String platform}) async {}
+  Future<void> register({
+    required String token,
+    required String platform,
+  }) async {}
 
   @override
   Future<void> unregister(String token) async {}
