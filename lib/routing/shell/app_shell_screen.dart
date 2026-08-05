@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
@@ -81,10 +82,47 @@ final _appFloatingNavKey = GlobalKey<_AppFloatingNavBarState>(
   debugLabel: 'app-floating-navigation',
 );
 
-class AppShellScreen extends ConsumerWidget {
+class AppShellScreen extends ConsumerStatefulWidget {
   const AppShellScreen({required this.navigationShell, super.key});
 
   final StatefulNavigationShell navigationShell;
+
+  @override
+  ConsumerState<AppShellScreen> createState() => _AppShellScreenState();
+}
+
+class _AppShellScreenState extends ConsumerState<AppShellScreen>
+    with WidgetsBindingObserver {
+  late int _lastTabIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastTabIndex = widget.navigationShell.currentIndex;
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) {
+      return;
+    }
+    softRefreshAppData(ref);
+  }
+
+  void _softRefreshCurrentTab(int index) {
+    // Compose tab has no catalog payload; skip noisy all-scope refresh.
+    if (index == _composeNavIndex) {
+      return;
+    }
+    softRefreshAppData(ref, scope: appDataRefreshScopeForTab(index));
+  }
 
   int? _detailNavigationIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.path;
@@ -124,7 +162,7 @@ class AppShellScreen extends ConsumerWidget {
     return viewedId.isNotEmpty && viewedId != selfId;
   }
 
-  void _onDestinationSelected(BuildContext context, WidgetRef ref, int index) {
+  void _onDestinationSelected(BuildContext context, int index) {
     // Center "+" opens compose actions; it is not a tab destination by itself.
     if (index == _composeNavIndex) {
       return;
@@ -136,7 +174,7 @@ class AppShellScreen extends ConsumerWidget {
       context.go(_branchRootPath(index));
       return;
     }
-    final onCurrentBranch = index == navigationShell.currentIndex;
+    final onCurrentBranch = index == widget.navigationShell.currentIndex;
     final path = GoRouterState.of(context).uri.path;
     final scrolledDown = ref.read(tabScrolledDownProvider(index));
     if (onCurrentBranch && (scrolledDown || _isBranchRootPath(path, index))) {
@@ -147,6 +185,7 @@ class AppShellScreen extends ConsumerWidget {
     // A destination tap always means its root screen. StatefulShellRoute keeps
     // the last nested location of every branch; restoring that location here
     // could unexpectedly reopen `/publish` after the user had already left it.
+    // Soft-refresh runs when [currentIndex] changes (see build).
     context.go(_branchRootPath(index));
   }
 
@@ -193,7 +232,7 @@ class AppShellScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final path = GoRouterState.of(context).uri.path;
     final aiChatActive = ref.watch(routeMatchAiModeProvider);
@@ -203,7 +242,16 @@ class AppShellScreen extends ConsumerWidget {
     final detailNavigationIndex = _detailNavigationIndex(context);
     final guestProfile = _isGuestProfilePath(context, ref);
     final showDetailsChrome = detailNavigationIndex != null && !hideFloatingNav;
-    final currentIndex = navigationShell.currentIndex;
+    final currentIndex = widget.navigationShell.currentIndex;
+    if (currentIndex != _lastTabIndex) {
+      _lastTabIndex = currentIndex;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        _softRefreshCurrentTab(currentIndex);
+      });
+    }
     final scrolledDown = ref.watch(tabScrolledDownProvider(currentIndex));
     // Route + place details share the Home-parked compact chrome and CTA.
     final showRouteAction = detailNavigationIndex == 0;
@@ -218,7 +266,7 @@ class AppShellScreen extends ConsumerWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          navigationShell,
+          widget.navigationShell,
           // Center-root screens keep the compact nav without the detail-page
           // readability scrim. Their own content already reserves nav space.
           if (showDetailsChrome &&
@@ -255,7 +303,7 @@ class AppShellScreen extends ConsumerWidget {
               child: AppFloatingNavBar(
                 key: _appFloatingNavKey,
                 currentIndex: currentIndex,
-                onTap: (index) => _onDestinationSelected(context, ref, index),
+                onTap: (index) => _onDestinationSelected(context, index),
                 detailMode: showDetailsChrome,
                 // Guest profile keeps the full nav; Home slot becomes history back.
                 historyBackMode: guestProfile,
@@ -274,7 +322,7 @@ class AppShellScreen extends ConsumerWidget {
                   unawaited(context.push('/publish'));
                 },
                 onMatchRoute: () {
-                  navigationShell.goBranch(2, initialLocation: true);
+                  widget.navigationShell.goBranch(2, initialLocation: true);
                 },
               ),
             ),

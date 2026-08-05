@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -95,6 +96,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     return ColoredBox(
       color: AppColors.pageSurface,
       child: routesAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Не удалось загрузить: $error')),
@@ -110,10 +113,15 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
             MyRoutesTab.subscriptions => const <RouteSummary>[],
           });
 
-          return CustomScrollView(
-            controller: _scrollController,
-            physics: const BouncingScrollPhysics(),
-            slivers: [
+          return RefreshIndicator(
+            onRefresh: () =>
+                refreshAppData(ref, scope: AppDataRefreshScope.myRoutes),
+            child: CustomScrollView(
+              controller: _scrollController,
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              slivers: [
               SliverPadding(
                 padding: EdgeInsets.fromLTRB(16, top + 12, 16, 0),
                 sliver: SliverToBoxAdapter(
@@ -191,7 +199,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                     },
                   ),
                 ),
-            ],
+              ],
+            ),
           );
         },
       ),

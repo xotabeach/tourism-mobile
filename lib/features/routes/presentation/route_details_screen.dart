@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -169,119 +170,127 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
 
     return AnimatedBuilder(
       animation: _galleryController,
-      builder: (context, _) => CustomScrollView(
-        key: const ValueKey('route-details-list'),
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          RouteCollapsingHeader(
-            images: _galleryImages(config, route),
-            title: route.name,
-            isFavorite: isFavorite,
-            expansionProgress: _galleryController.value,
-            onToggleGallery: _toggleGallery,
-            heroTag: 'route-cover-${route.id}',
-            onBack: () => context.pop(),
-            onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
-            showFavorite: publiclyAvailable,
-            onShare: () => _showSoon('Поделиться маршрутом'),
-            onDownload: () => _showSoon('Офлайн-режим'),
+      builder: (context, _) => GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: CustomScrollView(
+          key: const ValueKey('route-details-list'),
+          controller: _scrollController,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-          // Lip lives in the header; body continues the sheet without
-          // negative overlap (avoids author/photo z-fighting).
-          SliverToBoxAdapter(
-            child: ColoredBox(
-              color: AppColors.elevatedSurface,
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(18, 8, 18, 118 + bottomInset),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _AuthorRow(
-                      name: authorName,
-                      subtitle: 'Продвинутый пешеход',
-                      avatar: AppImages.avatarProvider(
-                        config: config,
-                        avatarUrl: route.authorAvatarUrl,
+          slivers: [
+            RouteCollapsingHeader(
+              images: _galleryImages(config, route),
+              title: route.name,
+              isFavorite: isFavorite,
+              expansionProgress: _galleryController.value,
+              onToggleGallery: _toggleGallery,
+              heroTag: 'route-cover-${route.id}',
+              onBack: () => context.pop(),
+              onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
+              showFavorite: publiclyAvailable,
+              onShare: () => _showSoon('Поделиться маршрутом'),
+              onDownload: () => _showSoon('Офлайн-режим'),
+            ),
+            // Lip lives in the header; body continues the sheet without
+            // negative overlap (avoids author/photo z-fighting).
+            SliverToBoxAdapter(
+              child: ColoredBox(
+                color: AppColors.elevatedSurface,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(18, 8, 18, 118 + bottomInset),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _AuthorRow(
+                        name: authorName,
+                        subtitle: 'Продвинутый пешеход',
+                        avatar: AppImages.avatarProvider(
+                          config: config,
+                          avatarUrl: route.authorAvatarUrl,
+                        ),
+                        onAuthorTap: onAuthorTap,
+                        onMore: () => _showSoon('Меню маршрута'),
                       ),
-                      onAuthorTap: onAuthorTap,
-                      onMore: () => _showSoon('Меню маршрута'),
-                    ),
-                    if (statusLabel != null) ...[
-                      const SizedBox(height: 12),
-                      _OwnerRouteStatusBanner(
-                        label: statusLabel,
-                        status: route.publicationStatus,
-                      ),
-                    ],
-                    const _SectionDivider(),
-                    Text(
-                      route.name,
-                      key: const ValueKey('route-details-title'),
-                      style: AppTypography.routeTitle.copyWith(
-                        fontSize: 24,
-                        height: 1.14,
-                        color: AppColors.primaryInk,
-                      ),
-                    ),
-                    if (route.description != null) ...[
-                      const SizedBox(height: 12),
+                      if (statusLabel != null) ...[
+                        const SizedBox(height: 12),
+                        _OwnerRouteStatusBanner(
+                          label: statusLabel,
+                          status: route.publicationStatus,
+                        ),
+                      ],
+                      const _SectionDivider(),
                       Text(
-                        route.description!,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w400,
-                          height: 1.42,
-                          color: AppColors.secondaryInk,
+                        route.name,
+                        key: const ValueKey('route-details-title'),
+                        style: AppTypography.routeTitle.copyWith(
+                          fontSize: 24,
+                          height: 1.14,
+                          color: AppColors.primaryInk,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 18),
-                    _AudioGuideCard(
-                      title: route.name,
-                      author: authorName,
-                      image: _routeCover(config, route),
-                      onPlay: () => _showSoon('Аудиогид'),
-                    ),
-                    const SizedBox(height: 16),
-                    const _RouteTagsRow(
-                      tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
-                    ),
-                    const SizedBox(height: 16),
-                    _RouteFacts(route: route),
-                    const _SectionDivider(),
-                    const _SectionTitle('Карта маршрута:'),
-                    const SizedBox(height: 14),
-                    RouteMapPreview(
-                      stops: route.stops,
-                      selectedIndex: _selectedStop,
-                      onPinTap: _selectStop,
-                    ),
-                    const SizedBox(height: 24),
-                    const _SectionTitle('Остановки:'),
-                    const SizedBox(height: 6),
-                    for (var index = 0; index < route.stops.length; index++)
-                      _StopRow(
-                        stop: route.stops[index],
-                        selected: _selectedStop == index,
-                        showDivider: index != route.stops.length - 1,
-                        onNumberTap: () => _selectStop(index),
-                        onOpen: () => _openPlace(route.stops[index]),
+                      if (route.description != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          route.description!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: AppFonts.rubik,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w400,
+                            height: 1.42,
+                            color: AppColors.secondaryInk,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 18),
+                      _AudioGuideCard(
+                        title: route.name,
+                        author: authorName,
+                        image: _routeCover(config, route),
+                        onPlay: () => _showSoon('Аудиогид'),
                       ),
-                    _SimilarRoutesSection(currentRouteId: route.id),
-                    const SizedBox(height: 22),
-                    _RouteReviewsSection(routeId: route.id),
-                  ],
+                      const SizedBox(height: 16),
+                      const _RouteTagsRow(
+                        tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                      ),
+                      const SizedBox(height: 16),
+                      _RouteFacts(route: route),
+                      const _SectionDivider(),
+                      const _SectionTitle('Карта маршрута:'),
+                      const SizedBox(height: 14),
+                      RouteMapPreview(
+                        stops: route.stops,
+                        selectedIndex: _selectedStop,
+                        onPinTap: _selectStop,
+                      ),
+                      const SizedBox(height: 24),
+                      const _SectionTitle('Остановки:'),
+                      const SizedBox(height: 6),
+                      for (var index = 0; index < route.stops.length; index++)
+                        _StopRow(
+                          stop: route.stops[index],
+                          selected: _selectedStop == index,
+                          showDivider: index != route.stops.length - 1,
+                          onNumberTap: () => _selectStop(index),
+                          onOpen: () => _openPlace(route.stops[index]),
+                        ),
+                      _SimilarRoutesSection(currentRouteId: route.id),
+                      const SizedBox(height: 22),
+                      _RouteReviewsSection(
+                        routeId: route.id,
+                        allowComposer: publiclyAvailable,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1231,12 +1240,32 @@ class _RatingRow extends StatelessWidget {
 }
 
 class _RouteReviewsSection extends ConsumerWidget {
-  const _RouteReviewsSection({required this.routeId});
+  const _RouteReviewsSection({
+    required this.routeId,
+    required this.allowComposer,
+  });
 
   final String routeId;
+  final bool allowComposer;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!allowComposer) {
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 24),
+        child: Text(
+          'Отзывы можно оставлять только к опубликованным маршрутам',
+          key: ValueKey('reviews-unpublished-hint'),
+          style: TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 14,
+            height: 1.35,
+            color: AppColors.secondaryInk,
+          ),
+        ),
+      );
+    }
+
     final reviewsAsync = ref.watch(routeReviewsProvider(routeId));
     final myReviewsAsync = ref.watch(myRouteReviewsProvider);
     final pendingMine = myReviewsAsync.maybeWhen(
@@ -1317,15 +1346,99 @@ class _ReviewComposer extends ConsumerStatefulWidget {
   ConsumerState<_ReviewComposer> createState() => _ReviewComposerState();
 }
 
-class _ReviewComposerState extends ConsumerState<_ReviewComposer> {
+class _ReviewComposerState extends ConsumerState<_ReviewComposer>
+    with WidgetsBindingObserver {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
+  final _composerKey = GlobalKey();
   var _rating = 5;
   var _sending = false;
+  var _lastViewInset = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _focusNode.addListener(_onComposerFocusChange);
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _focusNode.removeListener(_onComposerFocusChange);
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onComposerFocusChange() {
+    if (!_focusNode.hasFocus) {
+      return;
+    }
+    _ensureComposerVisible(animate: true);
+    _ensureComposerVisibleSoon();
+  }
+
+  double _keyboardInset() {
+    final view = View.of(context);
+    return MediaQueryData.fromView(view).viewInsets.bottom;
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!mounted) {
+      return;
+    }
+    final inset = _keyboardInset();
+    final opened = inset > _lastViewInset + 1;
+    _lastViewInset = inset;
+    if (opened || (inset > 0 && _focusNode.hasFocus)) {
+      _ensureComposerVisible(animate: false);
+      if (opened) {
+        _ensureComposerVisibleSoon();
+      }
+    }
+  }
+
+  void _ensureComposerVisibleSoon() {
+    for (final delay in const [
+      Duration(milliseconds: 50),
+      Duration(milliseconds: 160),
+      Duration(milliseconds: 320),
+    ]) {
+      Future<void>.delayed(delay, () {
+        if (!mounted || !_focusNode.hasFocus) {
+          return;
+        }
+        _ensureComposerVisible(animate: false);
+      });
+    }
+  }
+
+  void _ensureComposerVisible({required bool animate}) {
+    final targetContext = _composerKey.currentContext;
+    if (targetContext == null) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_focusNode.hasFocus) {
+        return;
+      }
+      final ctx = _composerKey.currentContext;
+      if (ctx == null) {
+        return;
+      }
+      unawaited(
+        Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.55,
+          duration: animate
+              ? const Duration(milliseconds: 220)
+              : Duration.zero,
+          curve: Curves.easeOut,
+        ),
+      );
+    });
   }
 
   Future<void> _submit() async {
@@ -1353,6 +1466,13 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Отзыв отправлен на модерацию')),
       );
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } on Object {
       if (!mounted) {
         return;
@@ -1370,6 +1490,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer> {
   @override
   Widget build(BuildContext context) {
     return Container(
+      key: _composerKey,
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(16),
@@ -1413,6 +1534,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer> {
           const SizedBox(height: 8),
           TextField(
             controller: _controller,
+            focusNode: _focusNode,
             minLines: 3,
             maxLines: 6,
             maxLength: 2000,

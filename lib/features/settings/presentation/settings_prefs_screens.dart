@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tourism_mobile/core/cache/api_cache.dart';
+import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
-import 'package:tourism_mobile/features/places/application/places_providers.dart';
-import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -147,9 +145,7 @@ class SettingsOfflineScreen extends ConsumerWidget {
     WidgetRef ref,
     SettingsController controller,
   ) {
-    ref.read(apiCacheRegistryProvider).invalidateAll();
-    ref.invalidate(placesListProvider);
-    ref.invalidate(routesListProvider);
+    softRefreshAppData(ref);
     controller.clearCacheLabel();
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()

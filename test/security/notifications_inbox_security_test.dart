@@ -59,6 +59,48 @@ void main() {
     expect(find.text('javascript:alert(1)'), findsOneWidget);
     expect(find.byType(Text), findsWidgets);
   });
+
+  testWidgets('moderation kinds render title as headline without actor', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 900);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    final seed = [
+      InboxNotification(
+        id: 'mod',
+        kind: InboxNotificationKind.routePublished,
+        title: 'Маршрут опубликован',
+        body: 'Ваш маршрут «XSS<script>» прошёл модерацию',
+        targetType: 'route',
+        targetId: 'route-1',
+        isUnread: true,
+        createdAt: DateTime.utc(2026, 1, 1),
+      ),
+    ];
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          notificationsInboxProvider.overrideWith(
+            () => _SeedInboxController(seed),
+          ),
+        ],
+        child: const MaterialApp(home: SettingsNotificationsInboxScreen()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Маршрут опубликован'), findsOneWidget);
+    expect(find.textContaining('XSS<script>'), findsOneWidget);
+    expect(find.text('Путешественник'), findsNothing);
+  });
 }
 
 class _SeedInboxController extends NotificationsInboxController {

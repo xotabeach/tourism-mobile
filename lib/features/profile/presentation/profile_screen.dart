@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -91,10 +92,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (viewingOther) {
       final asyncProfile = ref.watch(publicProfileProvider(widget.userId!));
       return asyncProfile.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
         data: (profile) => _buildBody(
           profile: profile,
           topInset: MediaQuery.paddingOf(context).top,
           isOwn: false,
+          onRefresh: () => refreshAppData(
+            ref,
+            scope: AppDataRefreshScope.profile,
+            profileUserId: widget.userId,
+          ),
         ),
         loading: () => const ColoredBox(
           color: AppColors.pageSurface,
@@ -139,7 +147,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (sessionUserId != null && sessionUserId.isNotEmpty) {
       effective = ref
           .watch(publicProfileProvider(sessionUserId))
-          .maybeWhen(data: (value) => value, orElse: () => profile);
+          .when(
+            skipLoadingOnReload: true,
+            skipLoadingOnRefresh: true,
+            data: (value) => value,
+            loading: () => profile,
+            error: (_, _) => profile,
+          );
     } else {
       effective = profile;
     }
@@ -147,6 +161,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       profile: effective,
       topInset: MediaQuery.paddingOf(context).top,
       isOwn: true,
+      onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.profile),
     );
   }
 
@@ -154,6 +169,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required ProfileSnapshot profile,
     required double topInset,
     required bool isOwn,
+    Future<void> Function()? onRefresh,
   }) {
     // Same chrome for own and other profiles. Permissions only gate edit
     // entry points (settings); rank/achievements stay visible (mock until
@@ -175,93 +191,96 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return ColoredBox(
       color: AppColors.pageSurface,
-      child: CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          _ProfileCollapsingHeader(
-            profile: profile,
-            topInset: topInset,
-            onMore: onMore,
-            onLike: onLike,
-            likedByMe: profile.likedByMe,
+      child: RefreshIndicator(
+        onRefresh: onRefresh ?? () async {},
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
           ),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    AppSpacing.page,
-                    AppSpacing.xl,
-                    AppSpacing.page,
-                    0,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Достижения:',
-                        style: AppTypography.sectionTitle.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
-                  ),
-                ),
-                _AchievementsCarousel(
-                  pages: profile.achievementPages,
-                  pageIndex: _achievementPage,
-                  onPageChanged: (index) {
-                    setState(() => _achievementPage = index);
-                  },
-                  onAchievementTap: (achievement) {
-                    _snack(achievement.title);
-                  },
-                ),
-                const SizedBox(height: AppSpacing.xl),
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpacing.page,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        isOwn ? 'Мои маршруты' : 'Опубликованные маршруты',
-                        style: AppTypography.sectionTitle.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (profile.publishedRoutes.isEmpty)
+          slivers: [
+            _ProfileCollapsingHeader(
+              profile: profile,
+              topInset: topInset,
+              onMore: onMore,
+              onLike: onLike,
+              likedByMe: profile.likedByMe,
+            ),
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      AppSpacing.xl,
+                      AppSpacing.page,
+                      0,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          isOwn
-                              ? 'У вас пока нет своих маршрутов'
-                              : 'У путешественника пока нет маршрутов',
-                          style: AppTypography.routeMetadata,
+                          'Достижения:',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                    ],
+                        const SizedBox(height: AppSpacing.sm),
+                      ],
+                    ),
                   ),
-                ),
-                if (profile.publishedRoutes.isNotEmpty)
-                  _PublishedRoutesCarousel(
-                    routes: profile.publishedRoutes,
-                    showStatuses: isOwn,
-                    pageIndex: _publishedPage,
-                    authorAvatarUrl: profile.avatarImageUrl,
+                  _AchievementsCarousel(
+                    pages: profile.achievementPages,
+                    pageIndex: _achievementPage,
                     onPageChanged: (index) {
-                      setState(() => _publishedPage = index);
+                      setState(() => _achievementPage = index);
+                    },
+                    onAchievementTap: (achievement) {
+                      _snack(achievement.title);
                     },
                   ),
-                const SizedBox(height: AppSpacing.shellBottomContent),
-              ],
+                  const SizedBox(height: AppSpacing.xl),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppSpacing.page,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isOwn ? 'Мои маршруты' : 'Опубликованные маршруты',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        if (profile.publishedRoutes.isEmpty)
+                          Text(
+                            isOwn
+                                ? 'У вас пока нет своих маршрутов'
+                                : 'У путешественника пока нет маршрутов',
+                            style: AppTypography.routeMetadata,
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (profile.publishedRoutes.isNotEmpty)
+                    _PublishedRoutesCarousel(
+                      routes: profile.publishedRoutes,
+                      showStatuses: isOwn,
+                      pageIndex: _publishedPage,
+                      authorAvatarUrl: profile.avatarImageUrl,
+                      onPageChanged: (index) {
+                        setState(() => _publishedPage = index);
+                      },
+                    ),
+                  const SizedBox(height: AppSpacing.shellBottomContent),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

@@ -26,6 +26,43 @@ void main() {
     );
   });
 
+  test('API envelope message is surfaced without leaking paths', () async {
+    final options = RequestOptions(path: '/api/v1/routes/secret-id/reviews');
+
+    await expectLater(
+      guardApiCall<void>(
+        () => throw DioException(
+          requestOptions: options,
+          response: Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 409,
+            data: const {
+              'error': {
+                'code': 'route_not_published',
+                'message':
+                    'Нельзя оставлять отзывы на неопубликованные маршруты',
+              },
+            },
+          ),
+          type: DioExceptionType.badResponse,
+        ),
+      ),
+      throwsA(
+        isA<UnexpectedFailure>()
+            .having(
+              (failure) => failure.message,
+              'api message',
+              'Нельзя оставлять отзывы на неопубликованные маршруты',
+            )
+            .having(
+              (failure) => failure.toString(),
+              'safe message',
+              isNot(contains('secret-id')),
+            ),
+      ),
+    );
+  });
+
   test('transport details map to a generic network failure', () async {
     const secretUrl = 'https://secret.internal.example/token';
 

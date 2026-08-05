@@ -147,7 +147,7 @@ class _InboxTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = SettingsNotificationsInboxScreen.clampText(
-      item.actorName,
+      item.headline,
       SettingsNotificationsInboxScreen.maxNameChars,
     );
     final body = SettingsNotificationsInboxScreen.clampText(

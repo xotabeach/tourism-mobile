@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/cache/api_cache.dart';
+import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
@@ -92,12 +94,18 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
     _applySearch('');
   }
 
-  void _retry() {
+  Future<void> _refresh() async {
     if (_searchQuery.isEmpty) {
-      ref.invalidate(placesListProvider);
-    } else {
-      ref.invalidate(placesSearchProvider(_searchQuery));
+      await refreshAppData(ref, scope: AppDataRefreshScope.places);
+      return;
     }
+    ref.read(apiCacheRegistryProvider).invalidateAll();
+    ref.invalidate(placesSearchProvider(_searchQuery));
+    await ref.read(placesSearchProvider(_searchQuery).future);
+  }
+
+  void _retry() {
+    unawaited(_refresh());
   }
 
   @override
@@ -133,92 +141,99 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
       color: AppColors.mist,
       child: SafeArea(
         bottom: false,
-        child: CustomScrollView(
-          controller: _scrollController,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Места Крыма',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                    const SizedBox(height: 12),
-                    AppSearchFilterRow(
-                      controller: _searchController,
-                      focusNode: _searchFocus,
-                      hintText: 'Искать места',
-                      onSearchChanged: _scheduleSearch,
-                      onSearchSubmitted: _applySearch,
-                      onSearchClear: _clearSearch,
-                      onSearchDismiss: _dismissSearch,
-                      onFilterTap: () {},
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 40,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _chips.length,
-                        separatorBuilder: (_, _) => const SizedBox(width: 8),
-                        itemBuilder: (context, index) {
-                          final chip = _chips[index];
-                          final selected = chip == _selectedChip;
-                          return FilterChip(
-                            selected: selected,
-                            showCheckmark: false,
-                            label: Text(
-                              chip,
-                              style: TextStyle(
-                                color: selected ? Colors.white : AppColors.ink,
-                              ),
-                            ),
-                            onSelected: (_) =>
-                                setState(() => _selectedChip = chip),
-                          );
-                        },
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            slivers: [
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Места Крыма',
+                        style: Theme.of(context).textTheme.headlineSmall,
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 12),
+                      AppSearchFilterRow(
+                        controller: _searchController,
+                        focusNode: _searchFocus,
+                        hintText: 'Искать места',
+                        onSearchChanged: _scheduleSearch,
+                        onSearchSubmitted: _applySearch,
+                        onSearchClear: _clearSearch,
+                        onSearchDismiss: _dismissSearch,
+                        onFilterTap: () {},
+                      ),
+                      const SizedBox(height: 14),
+                      SizedBox(
+                        height: 40,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _chips.length,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final chip = _chips[index];
+                            final selected = chip == _selectedChip;
+                            return FilterChip(
+                              selected: selected,
+                              showCheckmark: false,
+                              label: Text(
+                                chip,
+                                style: TextStyle(
+                                  color: selected
+                                      ? Colors.white
+                                      : AppColors.ink,
+                                ),
+                              ),
+                              onSelected: (_) =>
+                                  setState(() => _selectedChip = chip),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            placesAsync.when(
-              data: (page) {
-                final items = _filtered(page.items);
-                if (items.isEmpty) {
-                  return const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: Text('Места не найдены')),
+              placesAsync.when(
+                skipLoadingOnReload: true,
+                skipLoadingOnRefresh: true,
+                data: (page) {
+                  final items = _filtered(page.items);
+                  if (items.isEmpty) {
+                    return const SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(child: Text('Места не найдены')),
+                    );
+                  }
+                  return SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+                    sliver: SliverList.separated(
+                      itemCount: items.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 14),
+                      itemBuilder: (context, index) {
+                        return _PlaceCatalogCard(place: items[index]);
+                      },
+                    ),
                   );
-                }
-                return SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
-                  sliver: SliverList.separated(
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (context, index) {
-                      return _PlaceCatalogCard(place: items[index]);
-                    },
-                  ),
-                );
-              },
-              loading: () => const SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(child: CircularProgressIndicator()),
+                },
+                loading: () => const SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+                error: (_, _) => SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: AppAsyncErrorView(onRetry: _retry),
+                ),
               ),
-              error: (_, _) => SliverFillRemaining(
-                hasScrollBody: false,
-                child: AppAsyncErrorView(onRetry: _retry),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -35,6 +35,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ProfileScreen), findsOneWidget);
+    expect(find.byType(RefreshIndicator), findsOneWidget);
     expect(find.text('Никита Можаров'), findsWidgets);
     expect(find.text('Продвинутый пешеход'), findsWidgets);
     expect(find.text('12500 / 25000 тп'), findsOneWidget);

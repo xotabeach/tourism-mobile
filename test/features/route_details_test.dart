@@ -127,6 +127,11 @@ void main() {
     expect(find.text('На модерации'), findsOneWidget);
     expect(find.bySemanticsLabel('Добавить в избранное'), findsNothing);
     expect(
+      find.byKey(const ValueKey('reviews-unpublished-hint')),
+      findsOneWidget,
+    );
+    expect(find.text('Ваш отзыв'), findsNothing);
+    expect(
       tester
           .widget<RouteCollapsingHeader>(find.byType(RouteCollapsingHeader))
           .images,

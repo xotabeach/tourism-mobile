@@ -6,7 +6,25 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/core/network/api_guard.dart';
 
-enum InboxNotificationKind { routeReview, unknown }
+enum InboxNotificationKind {
+  routeReview,
+  routePublished,
+  routeRejected,
+  reviewPublished,
+  reviewRejected,
+  unknown,
+}
+
+InboxNotificationKind inboxNotificationKindFromApi(String raw) {
+  return switch (raw) {
+    'route_review' => InboxNotificationKind.routeReview,
+    'route_published' => InboxNotificationKind.routePublished,
+    'route_rejected' => InboxNotificationKind.routeRejected,
+    'review_published' => InboxNotificationKind.reviewPublished,
+    'review_rejected' => InboxNotificationKind.reviewRejected,
+    _ => InboxNotificationKind.unknown,
+  };
+}
 
 class InboxNotification {
   const InboxNotification({
@@ -37,6 +55,12 @@ class InboxNotification {
       ? actorDisplayName!
       : 'Путешественник';
 
+  /// Primary line in the inbox tile.
+  String get headline => switch (kind) {
+    InboxNotificationKind.routeReview => actorName,
+    _ => title.trim().isNotEmpty ? title : actorName,
+  };
+
   InboxNotification copyWith({bool? isUnread}) {
     return InboxNotification(
       id: id,
@@ -56,9 +80,7 @@ class InboxNotification {
     final kindRaw = json['kind'] as String? ?? '';
     return InboxNotification(
       id: json['id'] as String,
-      kind: kindRaw == 'route_review'
-          ? InboxNotificationKind.routeReview
-          : InboxNotificationKind.unknown,
+      kind: inboxNotificationKindFromApi(kindRaw),
       title: json['title'] as String? ?? '',
       body: json['body'] as String? ?? '',
       actorUserId: json['actor_user_id'] as String?,
@@ -141,6 +163,28 @@ final class ApiNotificationsRepository implements NotificationsRepository {
 final class MockNotificationsRepository implements NotificationsRepository {
   var _items = <InboxNotification>[
     InboxNotification(
+      id: 'n1',
+      kind: InboxNotificationKind.routePublished,
+      title: 'Маршрут опубликован',
+      body:
+          'Ваш маршрут «Крымская классика» прошёл модерацию и доступен '
+          'путешественникам',
+      targetType: 'route',
+      targetId: 'mock-route',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 3),
+    ),
+    InboxNotification(
+      id: 'n2',
+      kind: InboxNotificationKind.reviewPublished,
+      title: 'Отзыв опубликован',
+      body: 'Ваш отзыв к маршруту «Крымская классика» прошёл модерацию',
+      targetType: 'route',
+      targetId: 'mock-route',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 2, 12),
+    ),
+    InboxNotification(
       id: 'n3',
       kind: InboxNotificationKind.routeReview,
       title: 'Новый отзыв',
@@ -153,12 +197,13 @@ final class MockNotificationsRepository implements NotificationsRepository {
     ),
     InboxNotification(
       id: 'n4',
-      kind: InboxNotificationKind.routeReview,
-      title: 'Новый отзыв',
-      body: 'Оставил свой комментарий под вашим маршрутом «Крымская классика»',
-      actorDisplayName: 'Никита',
+      kind: InboxNotificationKind.routeRejected,
+      title: 'Маршрут на доработке',
+      body:
+          'Маршрут «Черновик у моря» вернули на доработку. '
+          'Исправьте замечания и отправьте снова',
       targetType: 'route',
-      targetId: 'mock-route',
+      targetId: 'mock-route-2',
       isUnread: false,
       createdAt: DateTime.utc(2026, 1, 1),
     ),

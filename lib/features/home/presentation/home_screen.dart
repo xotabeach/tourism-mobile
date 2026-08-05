@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -201,67 +202,75 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         fit: StackFit.expand,
         children: [
           routesAsync.when(
+            skipLoadingOnReload: true,
+            skipLoadingOnRefresh: true,
             data: (page) {
               final items = _filtered(page.items);
               final visibleItems = _showAllRoutes
                   ? items
                   : items.take(7).toList(growable: false);
               _warmRouteCovers(context, config, visibleItems);
-              return ListView.builder(
-                controller: _scrollController,
-                physics: const BouncingScrollPhysics(
-                  parent: AlwaysScrollableScrollPhysics(),
-                ),
-                padding: EdgeInsets.fromLTRB(
-                  AppSpacing.page,
-                  topInset + AppSpacing.lg,
-                  AppSpacing.page,
-                  AppSpacing.shellBottomContent,
-                ),
-                itemCount: 1 + (items.isEmpty ? 1 : visibleItems.length),
-                itemBuilder: (context, index) {
-                  if (index == 0) {
-                    return _HomeHeader(
-                      name: name,
-                      selectedChip: _selectedChip,
-                      chips: _chips,
-                      searchController: _searchController,
-                      searchFocus: _searchFocus,
-                      searchQuery: _searchQuery,
-                      onSearchChanged: _onSearchChanged,
-                      onSearchClear: _clearSearch,
-                      onSearchDismiss: _dismissSearch,
-                      onChipSelected: (chip) {
-                        _dismissSearch();
-                        setState(() => _selectedChip = chip);
-                      },
-                      showAllRoutes: _showAllRoutes,
-                      onToggleAllRoutes: _toggleAllRoutes,
+              return RefreshIndicator(
+                onRefresh: () =>
+                    refreshAppData(ref, scope: AppDataRefreshScope.home),
+                child: ListView.builder(
+                  controller: _scrollController,
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  padding: EdgeInsets.fromLTRB(
+                    AppSpacing.page,
+                    topInset + AppSpacing.lg,
+                    AppSpacing.page,
+                    AppSpacing.shellBottomContent,
+                  ),
+                  itemCount: 1 + (items.isEmpty ? 1 : visibleItems.length),
+                  itemBuilder: (context, index) {
+                    if (index == 0) {
+                      return _HomeHeader(
+                        name: name,
+                        selectedChip: _selectedChip,
+                        chips: _chips,
+                        searchController: _searchController,
+                        searchFocus: _searchFocus,
+                        searchQuery: _searchQuery,
+                        onSearchChanged: _onSearchChanged,
+                        onSearchClear: _clearSearch,
+                        onSearchDismiss: _dismissSearch,
+                        onChipSelected: (chip) {
+                          _dismissSearch();
+                          setState(() => _selectedChip = chip);
+                        },
+                        showAllRoutes: _showAllRoutes,
+                        onToggleAllRoutes: _toggleAllRoutes,
+                      );
+                    }
+                    if (items.isEmpty) {
+                      return const Padding(
+                        padding: EdgeInsets.only(top: 32),
+                        child: Center(child: Text('Маршруты не найдены')),
+                      );
+                    }
+                    final route = visibleItems[index - 1];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: RouteHeroCard(
+                        route: route,
+                        height: 304,
+                        tags: index == 1
+                            ? const ['Горы', 'С детьми', 'Пешком']
+                            : const [],
+                      ),
                     );
-                  }
-                  if (items.isEmpty) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 32),
-                      child: Center(child: Text('Маршруты не найдены')),
-                    );
-                  }
-                  final route = visibleItems[index - 1];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 16),
-                    child: RouteHeroCard(
-                      route: route,
-                      height: 304,
-                      tags: index == 1
-                          ? const ['Горы', 'С детьми', 'Пешком']
-                          : const [],
-                    ),
-                  );
-                },
+                  },
+                ),
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, _) => AppAsyncErrorView(
-              onRetry: () => ref.invalidate(homeRoutesProvider),
+              onRetry: () => unawaited(
+                refreshAppData(ref, scope: AppDataRefreshScope.home),
+              ),
             ),
           ),
           Positioned(
