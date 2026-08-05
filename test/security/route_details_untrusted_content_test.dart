@@ -28,7 +28,11 @@ class _HostileRoutesRepository implements RoutesRepository {
   Future<RouteListPage> listMyRoutes() => listRoutes();
 
   @override
-  Future<RouteListPage> listRoutes({String? regionSlug}) async {
+  Future<RouteListPage> listRoutes({
+    String? regionSlug,
+    int limit = 50,
+    RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
+  }) async {
     return RouteListPage(
       items: [
         RouteSummary(

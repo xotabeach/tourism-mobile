@@ -10,11 +10,19 @@ class ApiRoutesRepository implements RoutesRepository {
   final Dio _dio;
 
   @override
-  Future<RouteListPage> listRoutes({String? regionSlug}) {
+  Future<RouteListPage> listRoutes({
+    String? regionSlug,
+    int limit = 50,
+    RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
+  }) {
     return guardApiCall(() async {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/v1/routes',
-        queryParameters: {'region_slug': ?regionSlug, 'limit': 50},
+        queryParameters: {
+          'region_slug': ?regionSlug,
+          'limit': limit,
+          'sort': sort.apiValue,
+        },
       );
       return RouteListPage.fromJson(response.data!);
     });

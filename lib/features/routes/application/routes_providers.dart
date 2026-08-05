@@ -24,6 +24,18 @@ final routesListProvider = FutureProvider<RouteListPage>((ref) {
   return ref.watch(routesRepositoryProvider).listRoutes(regionSlug: 'crimea');
 });
 
+/// Public, moderation-approved routes ordered by favorites and then freshness.
+/// Kept separate from the swipe catalog so the home feed can warm independently.
+final homeRoutesProvider = FutureProvider<RouteListPage>((ref) {
+  return ref
+      .watch(routesRepositoryProvider)
+      .listRoutes(
+        regionSlug: 'crimea',
+        limit: 100,
+        sort: RouteCatalogSort.popular,
+      );
+});
+
 final routeDetailProvider = FutureProvider.autoDispose
     .family<RouteDetail, String>((ref, id) {
       return ref.watch(routesRepositoryProvider).getRoute(id);

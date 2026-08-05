@@ -19,11 +19,19 @@ class CachingRoutesRepository implements RoutesRepository {
   final ApiCache<String, RouteDetail> _detailCache;
 
   @override
-  Future<RouteListPage> listRoutes({String? regionSlug}) async {
-    final key = regionSlug ?? '';
+  Future<RouteListPage> listRoutes({
+    String? regionSlug,
+    int limit = 50,
+    RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
+  }) async {
+    final key = '${regionSlug ?? ''}|$limit|${sort.apiValue}';
     final cached = _listCache.get(key);
     if (cached != null) return cached;
-    final result = await _inner.listRoutes(regionSlug: regionSlug);
+    final result = await _inner.listRoutes(
+      regionSlug: regionSlug,
+      limit: limit,
+      sort: sort,
+    );
     _listCache.set(key, result);
     return result;
   }

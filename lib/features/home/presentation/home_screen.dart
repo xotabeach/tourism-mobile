@@ -41,6 +41,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   var _selectedChip = 'Все';
   var _searchQuery = '';
   var _showPinnedBrand = false;
+  var _showAllRoutes = false;
+  final _scheduledCoverWarmups = <String>{};
 
   void _onScroll() {
     if (!_scrollController.hasClients) {
@@ -105,6 +107,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _searchFocus.unfocus();
   }
 
+  void _toggleAllRoutes() {
+    _dismissSearch();
+    setState(() => _showAllRoutes = !_showAllRoutes);
+  }
+
+  void _warmRouteCovers(
+    BuildContext context,
+    AppConfig config,
+    List<RouteSummary> routes,
+  ) {
+    final pending = routes
+        .take(3)
+        .where((route) => _scheduledCoverWarmups.add(route.id))
+        .toList(growable: false);
+    if (pending.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final route in pending) {
+        unawaited(
+          precacheImage(
+            AppImages.routeCoverProvider(
+              config: config,
+              coverImageUrl: route.coverImageUrl,
+              fallbackSeed: route.slug,
+              cacheWidth: 1080,
+            ),
+            context,
+          ).catchError((_) {}),
+        );
+      }
+    });
+  }
+
   @override
   void dispose() {
     _scrollController
@@ -130,7 +165,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     });
     final session = ref.watch(sessionProvider);
-    final routesAsync = ref.watch(routesListProvider);
+    final routesAsync = ref.watch(homeRoutesProvider);
+    final config = ref.watch(appConfigProvider);
     final name = (session.displayName?.trim().isNotEmpty ?? false)
         ? session.displayName!.trim()
         : 'путник';
@@ -144,6 +180,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           routesAsync.when(
             data: (page) {
               final items = _filtered(page.items);
+              final visibleItems = _showAllRoutes
+                  ? items
+                  : items.take(7).toList(growable: false);
+              _warmRouteCovers(context, config, visibleItems);
               return ListView.builder(
                 controller: _scrollController,
                 physics: const BouncingScrollPhysics(
@@ -155,7 +195,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   AppSpacing.page,
                   AppSpacing.shellBottomContent,
                 ),
-                itemCount: 1 + (items.isEmpty ? 1 : items.length),
+                itemCount: 1 + (items.isEmpty ? 1 : visibleItems.length),
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return _HomeHeader(
@@ -171,6 +211,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         _dismissSearch();
                         setState(() => _selectedChip = chip);
                       },
+                      showAllRoutes: _showAllRoutes,
+                      onToggleAllRoutes: _toggleAllRoutes,
                     );
                   }
                   if (items.isEmpty) {
@@ -179,7 +221,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       child: Center(child: Text('Маршруты не найдены')),
                     );
                   }
-                  final route = items[index - 1];
+                  final route = visibleItems[index - 1];
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: RouteHeroCard(
@@ -195,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             },
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (_, _) => AppAsyncErrorView(
-              onRetry: () => ref.invalidate(routesListProvider),
+              onRetry: () => ref.invalidate(homeRoutesProvider),
             ),
           ),
           Positioned(
@@ -233,6 +275,8 @@ class _HomeHeader extends ConsumerWidget {
     required this.onSearchClear,
     required this.onSearchDismiss,
     required this.onChipSelected,
+    required this.showAllRoutes,
+    required this.onToggleAllRoutes,
   });
 
   final String name;
@@ -244,6 +288,8 @@ class _HomeHeader extends ConsumerWidget {
   final VoidCallback onSearchClear;
   final VoidCallback onSearchDismiss;
   final ValueChanged<String> onChipSelected;
+  final bool showAllRoutes;
+  final VoidCallback onToggleAllRoutes;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -338,10 +384,15 @@ class _HomeHeader extends ConsumerWidget {
               child: Text('Маршруты', style: AppTypography.sectionTitle),
             ),
             GestureDetector(
-              onTap: () => context.goNamed(AppRouteNames.routes),
-              child: const Text(
-                'Листать все',
-                style: AppTypography.sectionAction,
+              behavior: HitTestBehavior.opaque,
+              onTap: onToggleAllRoutes,
+              child: AnimatedSwitcher(
+                duration: AppMotion.fast,
+                child: Text(
+                  showAllRoutes ? 'Свернуть' : 'Листать все',
+                  key: ValueKey(showAllRoutes),
+                  style: AppTypography.sectionAction,
+                ),
               ),
             ),
           ],

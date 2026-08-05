@@ -236,12 +236,21 @@ class MockRoutesRepository implements RoutesRepository {
   }
 
   @override
-  Future<RouteListPage> listRoutes({String? regionSlug}) async {
+  Future<RouteListPage> listRoutes({
+    String? regionSlug,
+    int limit = 50,
+    RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 40));
+    final items = switch (sort) {
+      RouteCatalogSort.defaultOrder => _routes,
+      RouteCatalogSort.popular => _routes,
+      RouteCatalogSort.recent => _routes.reversed.toList(growable: false),
+    };
     return RouteListPage(
-      items: _routes,
+      items: items.take(limit).toList(growable: false),
       total: _routes.length,
-      limit: 20,
+      limit: limit,
       offset: 0,
     );
   }

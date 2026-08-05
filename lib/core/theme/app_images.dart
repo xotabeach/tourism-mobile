@@ -83,6 +83,25 @@ abstract final class AppImages {
     return AssetImage(assetFallback);
   }
 
+  /// A size-bounded route cover provider suitable for preloading. Decoding a
+  /// phone-sized card from a multi-megapixel upload wastes memory and causes
+  /// visible raster-thread stalls on mid-range Android GPUs.
+  static ImageProvider routeCoverProvider({
+    required AppConfig config,
+    required String? coverImageUrl,
+    required String fallbackSeed,
+    required int cacheWidth,
+  }) {
+    final fallback = routeFallbackAsset(fallbackSeed);
+    final base = isAssetPath(coverImageUrl)
+        ? AssetImage(coverImageUrl!) as ImageProvider
+        : imageProvider(
+            resolvedUrl: resolveMediaUrl(config, coverImageUrl),
+            assetFallback: fallback,
+          );
+    return ResizeImage.resizeIfNeeded(cacheWidth, null, base);
+  }
+
   /// Resolves session/API avatar refs (including local `file://` previews).
   static ImageProvider avatarProvider({
     required AppConfig config,
@@ -121,17 +140,36 @@ abstract final class AppImages {
       return Image.asset(coverImageUrl!, fit: fit, alignment: alignment);
     }
     final networkUrl = resolveMediaUrl(config, coverImageUrl);
-    if (networkUrl != null) {
-      return CachedNetworkImage(
-        imageUrl: networkUrl,
-        fit: fit,
-        alignment: alignment is Alignment ? alignment : Alignment.center,
-        errorWidget: (_, _, _) =>
-            Image.asset(fallback, fit: fit, alignment: alignment),
-        placeholder: (_, _) =>
-            Image.asset(fallback, fit: fit, alignment: alignment),
-      );
+    if (networkUrl == null) {
+      return Image.asset(fallback, fit: fit, alignment: alignment);
     }
-    return Image.asset(fallback, fit: fit, alignment: alignment);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final cacheWidth = constraints.maxWidth.isFinite
+            ? (constraints.maxWidth * pixelRatio).ceil().clamp(1, 2048)
+            : null;
+        final cacheHeight = constraints.maxHeight.isFinite
+            ? (constraints.maxHeight * pixelRatio).ceil().clamp(1, 2048)
+            : null;
+        Widget fallbackImage() => Image.asset(
+          fallback,
+          fit: fit,
+          alignment: alignment,
+          cacheWidth: cacheWidth,
+          cacheHeight: cacheHeight,
+        );
+
+        return CachedNetworkImage(
+          imageUrl: networkUrl,
+          fit: fit,
+          alignment: alignment is Alignment ? alignment : Alignment.center,
+          memCacheWidth: cacheWidth,
+          memCacheHeight: cacheHeight,
+          errorWidget: (_, _, _) => fallbackImage(),
+          placeholder: (_, _) => fallbackImage(),
+        );
+      },
+    );
   }
 }

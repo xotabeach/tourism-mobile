@@ -6,18 +6,29 @@ import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
+import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 
 import 'support/test_overrides.dart';
 
-List<Override> _testOverrides({bool onboardingCompleted = false}) {
-  return testSessionOverrides(onboardingCompleted: onboardingCompleted);
+List<Override> _testOverrides({
+  bool onboardingCompleted = false,
+  List<Override> additional = const [],
+}) {
+  return [
+    ...testSessionOverrides(onboardingCompleted: onboardingCompleted),
+    ...additional,
+  ];
 }
 
-ProviderScope appWithCompletedOnboarding() {
+ProviderScope appWithCompletedOnboarding({
+  List<Override> overrides = const [],
+}) {
   return ProviderScope(
-    overrides: _testOverrides(onboardingCompleted: true),
+    overrides: _testOverrides(onboardingCompleted: true, additional: overrides),
     child: const TourismApp(),
   );
 }
@@ -240,6 +251,57 @@ void main() {
 
     expect(find.text('Классика Южного берега'), findsOneWidget);
     expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+  });
+
+  testWidgets('home shows seven featured routes and expands in place', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 5000);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+    final routes = List.generate(
+      9,
+      (index) => RouteSummary(
+        id: 'featured-$index',
+        name: 'Популярный маршрут $index',
+        slug: 'featured-$index',
+        shortDescription: 'Море и горы',
+        stopsCount: 2,
+        publicationStatus: 'published',
+        visibility: 'public',
+      ),
+    );
+
+    await tester.pumpWidget(
+      appWithCompletedOnboarding(
+        overrides: [
+          homeRoutesProvider.overrideWith(
+            (ref) async => RouteListPage(
+              items: routes,
+              total: routes.length,
+              limit: 100,
+              offset: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RouteHeroCard), findsNWidgets(7));
+    expect(find.text('Популярный маршрут 7'), findsNothing);
+
+    await tester.tap(find.text('Листать все'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RouteHeroCard), findsNWidgets(9));
+    expect(find.text('Популярный маршрут 8'), findsOneWidget);
+    expect(find.text('Свернуть'), findsOneWidget);
   });
 
   testWidgets('places search queries matching places and clears', (

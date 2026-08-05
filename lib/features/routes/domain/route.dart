@@ -39,6 +39,16 @@ class RouteStop {
   }
 }
 
+enum RouteCatalogSort {
+  defaultOrder('default'),
+  popular('popular'),
+  recent('recent');
+
+  const RouteCatalogSort(this.apiValue);
+
+  final String apiValue;
+}
+
 class RouteSummary {
   const RouteSummary({
     required this.id,
