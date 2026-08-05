@@ -394,14 +394,16 @@ class _SubscriptionMetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final row = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+    final row = SizedBox(
+      key: ValueKey('travel-plus-meta-$title'),
+      height: 58,
       child: Row(
         children: [
           Icon(icon, size: 22, color: SettingsColors.accentIcon),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: AppTypography.settingsRowTitle),
@@ -514,49 +516,56 @@ class _BenefitCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: SettingsColors.link, width: 2),
+      child: SizedBox(
+        key: ValueKey('travel-plus-benefit-$title'),
+        height: 60,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: SettingsColors.link, width: 2),
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 17,
+                  color: SettingsColors.link,
+                ),
               ),
-              child: const Icon(
-                Icons.check_rounded,
-                size: 17,
-                color: SettingsColors.link,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTypography.settingsRowTitle.copyWith(height: 1.2),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: AppTypography.settingsRowSubtitle.copyWith(
-                      fontSize: 11,
-                      height: 1.2,
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.settingsRowTitle.copyWith(
+                        height: 1.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      style: AppTypography.settingsRowSubtitle.copyWith(
+                        fontSize: 11,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -569,7 +578,9 @@ class _FreeMonthBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+      key: const ValueKey('travel-plus-free-month-banner'),
+      height: 61,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: const Color(0xFFEAF4FF),
         borderRadius: BorderRadius.circular(16),
@@ -584,6 +595,7 @@ class _FreeMonthBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
@@ -597,6 +609,8 @@ class _FreeMonthBanner extends StatelessWidget {
                     fontSize: 11.5,
                     height: 1.2,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -630,6 +644,7 @@ class _PlanCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Ink(
+          key: ValueKey('travel-plus-plan-$period'),
           height: 64,
           width: double.infinity,
           decoration: BoxDecoration(

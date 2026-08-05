@@ -589,11 +589,13 @@ class SettingsPrimaryButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.height = 56,
+    this.textStyle,
   });
 
   final String label;
   final VoidCallback? onPressed;
   final double height;
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -613,7 +615,9 @@ class SettingsPrimaryButton extends StatelessWidget {
                   onPressed!();
                 },
           borderRadius: BorderRadius.circular(AppRadii.capsule),
-          child: Center(child: Text(label, style: AppTypography.settingsCta)),
+          child: Center(
+            child: Text(label, style: textStyle ?? AppTypography.settingsCta),
+          ),
         ),
       ),
     );
