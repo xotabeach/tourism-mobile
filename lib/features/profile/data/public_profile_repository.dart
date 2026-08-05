@@ -41,6 +41,8 @@ class PublicProfileBundle {
 
 abstract class PublicProfileRepository {
   Future<PublicProfileBundle> fetch(String userId);
+  Future<List<PublicUserProfile>> search(String query, {int limit = 8});
+  Future<List<PublicUserProfile>> subscriptions({int limit = 50});
   Future<void> like(String userId);
   Future<void> unlike(String userId);
 }
@@ -65,6 +67,38 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
         user: PublicUserProfile.fromJson(userResponse.data!),
         routes: page.items,
       );
+    });
+  }
+
+  @override
+  Future<List<PublicUserProfile>> search(String query, {int limit = 8}) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/users/search',
+        queryParameters: {'q': query, 'limit': limit},
+      );
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return items
+          .map(
+            (item) => PublicUserProfile.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false);
+    });
+  }
+
+  @override
+  Future<List<PublicUserProfile>> subscriptions({int limit = 50}) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/users/subscriptions',
+        queryParameters: {'limit': limit},
+      );
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return items
+          .map(
+            (item) => PublicUserProfile.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false);
     });
   }
 

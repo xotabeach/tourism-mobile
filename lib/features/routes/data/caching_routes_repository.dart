@@ -21,14 +21,16 @@ class CachingRoutesRepository implements RoutesRepository {
   @override
   Future<RouteListPage> listRoutes({
     String? regionSlug,
+    String? query,
     int limit = 50,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) async {
-    final key = '${regionSlug ?? ''}|$limit|${sort.apiValue}';
+    final key = '${regionSlug ?? ''}|${query ?? ''}|$limit|${sort.apiValue}';
     final cached = _listCache.get(key);
     if (cached != null) return cached;
     final result = await _inner.listRoutes(
       regionSlug: regionSlug,
+      query: query,
       limit: limit,
       sort: sort,
     );

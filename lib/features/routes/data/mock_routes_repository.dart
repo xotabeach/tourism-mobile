@@ -238,6 +238,7 @@ class MockRoutesRepository implements RoutesRepository {
   @override
   Future<RouteListPage> listRoutes({
     String? regionSlug,
+    String? query,
     int limit = 50,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) async {
@@ -247,9 +248,24 @@ class MockRoutesRepository implements RoutesRepository {
       RouteCatalogSort.popular => _routes,
       RouteCatalogSort.recent => _routes.reversed.toList(growable: false),
     };
+    final normalized = query?.trim().toLowerCase() ?? '';
+    final filtered = normalized.isEmpty
+        ? items
+        : items
+              .where(
+                (route) =>
+                    route.name.toLowerCase().contains(normalized) ||
+                    (route.shortDescription?.toLowerCase().contains(
+                          normalized,
+                        ) ??
+                        false) ||
+                    (route.authorLabel?.toLowerCase().contains(normalized) ??
+                        false),
+              )
+              .toList(growable: false);
     return RouteListPage(
-      items: items.take(limit).toList(growable: false),
-      total: _routes.length,
+      items: filtered.take(limit).toList(growable: false),
+      total: filtered.length,
       limit: limit,
       offset: 0,
     );

@@ -12,6 +12,7 @@ class ApiRoutesRepository implements RoutesRepository {
   @override
   Future<RouteListPage> listRoutes({
     String? regionSlug,
+    String? query,
     int limit = 50,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) {
@@ -20,6 +21,7 @@ class ApiRoutesRepository implements RoutesRepository {
         '/api/v1/routes',
         queryParameters: {
           'region_slug': ?regionSlug,
+          'q': ?query,
           'limit': limit,
           'sort': sort.apiValue,
         },

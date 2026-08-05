@@ -12,6 +12,7 @@ import 'package:tourism_mobile/features/routes/application/route_catalog_filter.
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
+import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 
 class RoutesCatalogScreen extends ConsumerStatefulWidget {
   const RoutesCatalogScreen({super.key});
@@ -24,24 +25,44 @@ class RoutesCatalogScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
+  static const _searchDelay = Duration(milliseconds: 280);
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'routes-search');
   var _selectedChip = 'Все';
   var _showCoach = true;
   var _searchQuery = '';
+  Timer? _searchDebounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(_onSearchFocusChanged);
+  }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
-    _searchFocus.dispose();
+    _searchFocus
+      ..removeListener(_onSearchFocusChanged)
+      ..dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
-    setState(() => _searchQuery = value.trim().toLowerCase());
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(_searchDelay, () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
+  void _onSearchFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   void _clearSearch() {
+    _searchDebounce?.cancel();
     _searchController.clear();
     setState(() => _searchQuery = '');
   }
@@ -125,6 +146,8 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                   onSearchDismiss: _dismissSearch,
                   onFilterTap: () => unawaited(_openFilters()),
                 ),
+                if (_searchFocus.hasFocus && _searchQuery.length >= 2)
+                  UniversalSearchPanel(query: _searchQuery),
                 const SizedBox(height: AppSpacing.md),
                 AppFilterChipBar(
                   labels: routeCatalogFilters,

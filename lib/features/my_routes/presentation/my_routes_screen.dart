@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
@@ -11,9 +12,13 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
+import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
 enum MyRoutesTab { favorites, subscriptions, history }
@@ -34,13 +39,35 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'my-routes-search');
   final _scrollController = ScrollController();
+  Timer? _searchDebounce;
   MyRoutesTab _tab = MyRoutesTab.favorites;
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      setState(() => _query = value.trim());
+    });
+  }
+
+  @override
   void dispose() {
+    _searchDebounce?.cancel();
     _searchController.dispose();
-    _searchFocus.dispose();
+    _searchFocus
+      ..removeListener(_onSearchFocusChanged)
+      ..dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -63,6 +90,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     final top = MediaQuery.paddingOf(context).top;
     final favorites = ref.watch(favoritesProvider);
     final routesAsync = ref.watch(routesListProvider);
+    final subscriptionsAsync = ref.watch(profileSubscriptionsProvider);
 
     return ColoredBox(
       color: AppColors.pageSurface,
@@ -104,15 +132,17 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                         controller: _searchController,
                         focusNode: _searchFocus,
                         hintText: 'Маршрут или профиль',
-                        onSearchChanged: (value) =>
-                            setState(() => _query = value.trim()),
+                        onSearchChanged: _onSearchChanged,
                         onSearchClear: () {
+                          _searchDebounce?.cancel();
                           _searchController.clear();
                           setState(() => _query = '');
                         },
                         onSearchDismiss: _searchFocus.unfocus,
                         onFilterTap: () {},
                       ),
+                      if (_searchFocus.hasFocus && _query.length >= 2)
+                        UniversalSearchPanel(query: _query),
                       const SizedBox(height: 14),
                       _TabRow(
                         selected: _tab,
@@ -124,17 +154,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                 ),
               ),
               if (_tab == MyRoutesTab.subscriptions)
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                  sliver: SliverList.separated(
-                    itemCount: _mockSubscriptions.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final item = _mockSubscriptions[index];
-                      return _SubscriptionTile(item: item);
-                    },
-                  ),
-                )
+                ..._subscriptionSlivers(subscriptionsAsync)
               else if (filtered.isEmpty)
                 const SliverFillRemaining(
                   hasScrollBody: false,
@@ -150,9 +170,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
                   sliver: SliverList.separated(
                     itemCount: filtered.length,
-                    separatorBuilder: (_, _) => SizedBox(
-                      height: _tab == MyRoutesTab.favorites ? 4 : 16,
-                    ),
+                    separatorBuilder: (_, _) => const SizedBox(height: 16),
                     itemBuilder: (context, index) {
                       final route = filtered[index];
                       if (_tab == MyRoutesTab.favorites) {
@@ -170,6 +188,76 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
           );
         },
       ),
+    );
+  }
+
+  List<Widget> _subscriptionSlivers(
+    AsyncValue<List<PublicUserProfile>> subscriptions,
+  ) {
+    return subscriptions.when(
+      loading: () => const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
+      error: (error, _) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: Text('Не удалось загрузить подписки: $error')),
+        ),
+      ],
+      data: (items) {
+        final query = _query.toLowerCase();
+        final filtered = query.isEmpty
+            ? items
+            : items
+                  .where(
+                    (item) => item.displayName.toLowerCase().contains(query),
+                  )
+                  .toList(growable: false);
+        if (filtered.isEmpty) {
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  'Пока пусто',
+                  style: AppTypography.settingsRowSubtitle,
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+            sliver: SliverList.separated(
+              itemCount: filtered.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final item = filtered[index];
+                return DiscoveryProfileCard(
+                  profile: item,
+                  height: 88,
+                  onTap: () {
+                    if (item.id == 'mock-user') {
+                      context.goNamed(AppRouteNames.profile);
+                      return;
+                    }
+                    unawaited(
+                      context.pushNamed(
+                        AppRouteNames.userProfile,
+                        pathParameters: {'userId': item.id},
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ];
+      },
     );
   }
 
@@ -471,86 +559,6 @@ class _TabChip extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _SubscriptionItem {
-  const _SubscriptionItem({
-    required this.name,
-    required this.rank,
-    required this.routesLabel,
-  });
-
-  final String name;
-  final String rank;
-  final String routesLabel;
-}
-
-const _mockSubscriptions = [
-  _SubscriptionItem(
-    name: 'Никита',
-    rank: 'Продвинутый пешеход',
-    routesLabel: '12 маршрутов',
-  ),
-  _SubscriptionItem(
-    name: 'Мария',
-    rank: 'Исследователь',
-    routesLabel: '8 маршрутов',
-  ),
-  _SubscriptionItem(name: 'Артём', rank: 'Новичок', routesLabel: '3 маршрута'),
-];
-
-class _SubscriptionTile extends StatelessWidget {
-  const _SubscriptionTile({required this.item});
-
-  final _SubscriptionItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final initial = item.name.isEmpty ? '?' : item.name[0];
-    return Container(
-      height: 88,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.settingsTile),
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 28,
-            backgroundColor: AppColors.controlSurface,
-            child: Text(
-              initial,
-              style: AppTypography.sectionTitle.copyWith(fontSize: 18),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(item.name, style: AppTypography.settingsRowTitle),
-                const SizedBox(height: 2),
-                Text(item.rank, style: AppTypography.settingsRowSubtitle),
-                Text(
-                  item.routesLabel,
-                  style: AppTypography.settingsRowSubtitle.copyWith(
-                    color: AppColors.accentBlue,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Icon(
-            Icons.chevron_right_rounded,
-            color: AppColors.secondaryInk,
-          ),
-        ],
       ),
     );
   }

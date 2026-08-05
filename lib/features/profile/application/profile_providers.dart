@@ -35,6 +35,35 @@ final profileProvider = Provider<ProfileSnapshot>((ref) {
   );
 });
 
+final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
+  ref,
+) async {
+  final config = ref.watch(appConfigProvider);
+  if (config.useMockData) {
+    return const [
+      PublicUserProfile(
+        id: 'mock-user',
+        displayName: 'Никита Можаров',
+        avatarUrl: AppImages.travelerPortrait,
+        coverUrl: AppImages.welcomeSunset,
+        travelPoints: 12500,
+      ),
+      PublicUserProfile(
+        id: 'mock-maria',
+        displayName: 'Мария Крымская',
+        avatarUrl: AppImages.travelerPortrait,
+        travelPoints: 8480,
+      ),
+      PublicUserProfile(
+        id: 'mock-artem',
+        displayName: 'Артём Ветров',
+        travelPoints: 740,
+      ),
+    ];
+  }
+  return ref.watch(publicProfileRepositoryProvider).subscriptions();
+});
+
 ProfileRank _rankWithPoints(int travelPoints) {
   const base = MockProfile.rank;
   return ProfileRank(
@@ -129,6 +158,7 @@ class ProfileLikeController extends AsyncNotifier<void> {
         await repo.like(userId);
       }
       ref.invalidate(publicProfileProvider(userId));
+      ref.invalidate(profileSubscriptionsProvider);
     });
   }
 }

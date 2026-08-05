@@ -10,6 +10,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
+import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 
 import 'support/test_overrides.dart';
@@ -241,16 +242,57 @@ void main() {
     expect(find.text('Наследие Бахчисарая'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField), 'Бахчисар');
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
     expect(find.text('Классика Южного берега'), findsNothing);
-    expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+    expect(find.text('Наследие Бахчисарая'), findsWidgets);
 
     await tester.tap(find.byTooltip('Очистить поиск'));
     await tester.pump();
 
     expect(find.text('Классика Южного берега'), findsOneWidget);
     expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+  });
+
+  testWidgets('home search expands with route and profile results', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1600);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Никита');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(UniversalSearchPanel), findsOneWidget);
+    expect(find.text('Никита Можаров'), findsOneWidget);
+    expect(find.byType(DiscoveryProfileCard), findsOneWidget);
+    expect(find.byType(DiscoveryRouteCard), findsWidgets);
+  });
+
+  testWidgets('my routes subscriptions use discovery profile cards', (
+    tester,
+  ) async {
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Мои маршруты'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Подписки'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DiscoveryProfileCard), findsNWidgets(3));
+    expect(find.text('Никита Можаров'), findsOneWidget);
+    expect(find.text('Продвинутый пешеход'), findsOneWidget);
   });
 
   testWidgets('home shows seven featured routes and expands in place', (
@@ -361,6 +403,14 @@ void main() {
 
     expect(find.byType(RouteSwipeDeck), findsOneWidget);
     expect(find.text('Классика Южного берега'), findsWidgets);
+
+    await tester.enterText(find.byType(TextField), 'Никита');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+    expect(find.byType(UniversalSearchPanel), findsOneWidget);
+    expect(find.text('Никита Можаров'), findsOneWidget);
+    await tester.tap(find.byTooltip('Очистить поиск'));
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('Классика Южного берега').first);
     await tester.pumpAndSettle();

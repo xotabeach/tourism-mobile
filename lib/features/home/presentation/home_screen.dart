@@ -20,6 +20,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
@@ -38,6 +39,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'home-search');
   final _scrollController = ScrollController();
+  Timer? _searchDebounce;
   var _selectedChip = 'Все';
   var _searchQuery = '';
   var _showPinnedBrand = false;
@@ -60,6 +62,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _searchFocus.addListener(_onSearchFocusChanged);
   }
 
   List<RouteSummary> _filtered(List<RouteSummary> items) {
@@ -95,10 +98,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _onSearchChanged(String value) {
-    setState(() => _searchQuery = value.trim().toLowerCase());
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
+      if (!mounted) return;
+      setState(() => _searchQuery = value.trim().toLowerCase());
+    });
+  }
+
+  void _onSearchFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   void _clearSearch() {
+    _searchDebounce?.cancel();
     _searchController.clear();
     setState(() => _searchQuery = '');
   }
@@ -142,11 +154,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
     _searchController.dispose();
-    _searchFocus.dispose();
+    _searchFocus
+      ..removeListener(_onSearchFocusChanged)
+      ..dispose();
     super.dispose();
   }
 
@@ -204,6 +219,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       chips: _chips,
                       searchController: _searchController,
                       searchFocus: _searchFocus,
+                      searchQuery: _searchQuery,
                       onSearchChanged: _onSearchChanged,
                       onSearchClear: _clearSearch,
                       onSearchDismiss: _dismissSearch,
@@ -271,6 +287,7 @@ class _HomeHeader extends ConsumerWidget {
     required this.chips,
     required this.searchController,
     required this.searchFocus,
+    required this.searchQuery,
     required this.onSearchChanged,
     required this.onSearchClear,
     required this.onSearchDismiss,
@@ -284,6 +301,7 @@ class _HomeHeader extends ConsumerWidget {
   final List<String> chips;
   final TextEditingController searchController;
   final FocusNode searchFocus;
+  final String searchQuery;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchClear;
   final VoidCallback onSearchDismiss;
@@ -361,6 +379,8 @@ class _HomeHeader extends ConsumerWidget {
           onSearchDismiss: onSearchDismiss,
           onFilterTap: () => context.pushNamed(AppRouteNames.places),
         ),
+        if (searchFocus.hasFocus && searchQuery.length >= 2)
+          UniversalSearchPanel(query: searchQuery),
         const SizedBox(height: AppSpacing.xl),
         const BuildRouteBanner(),
         const SizedBox(height: 25),
