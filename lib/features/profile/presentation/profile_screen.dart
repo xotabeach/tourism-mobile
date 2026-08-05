@@ -558,8 +558,9 @@ class _RankCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Max rank uses nextRankPoints == 0; treat as complete.
     final progress = rank.nextRankPoints <= 0
-        ? 0.0
+        ? 1.0
         : (rank.progressPoints / rank.nextRankPoints).clamp(0.0, 1.0);
 
     return DecoratedBox(
@@ -581,12 +582,12 @@ class _RankCard extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                const Spacer(),
-                Flexible(
+                const SizedBox(width: 12),
+                Expanded(
                   child: Text(
                     rank.title,
                     textAlign: TextAlign.right,
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: AppTypography.greeting.copyWith(
                       fontSize: 17,
@@ -619,7 +620,9 @@ class _RankCard extends StatelessWidget {
                           ),
                           Center(
                             child: Text(
-                              '${rank.progressPoints} / ${rank.nextRankPoints} тп',
+                              rank.nextRankPoints <= 0
+                                  ? '${rank.progressPoints} тп'
+                                  : '${rank.progressPoints} / ${rank.nextRankPoints} тп',
                               style: AppTypography.chip.copyWith(
                                 fontSize: 13,
                                 color: progress > 0.45

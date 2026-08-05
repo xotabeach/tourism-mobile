@@ -17,6 +17,8 @@ import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -379,20 +381,34 @@ class _HomeHeader extends ConsumerWidget {
           onSearchDismiss: onSearchDismiss,
           onFilterTap: () => context.pushNamed(AppRouteNames.places),
         ),
-        if (searchFocus.hasFocus && searchQuery.length >= 2)
+        // Keep results mounted while the query is active so a result tap can
+        // navigate before focus loss removes the panel from the tree.
+        if (searchQuery.trim().runes.length >= 2)
           UniversalSearchPanel(query: searchQuery),
         const SizedBox(height: AppSpacing.xl),
         const BuildRouteBanner(),
         const SizedBox(height: 25),
-        const Row(
+        Row(
           children: [
-            Expanded(
+            const Expanded(
               child: Text(
                 'Топ путешественников',
                 style: AppTypography.sectionTitle,
               ),
             ),
-            Text('Весь топ', style: AppTypography.sectionAction),
+            Semantics(
+              button: true,
+              label: 'Весь топ путешественников',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () =>
+                    context.pushNamed(AppRouteNames.travelersLeaderboard),
+                child: const Text(
+                  'Весь топ',
+                  style: AppTypography.sectionAction,
+                ),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -429,67 +445,151 @@ class _HomeHeader extends ConsumerWidget {
   }
 }
 
-class _TopTravelersRow extends StatelessWidget {
+class _TopTravelersRow extends ConsumerWidget {
   const _TopTravelersRow();
 
-  static const _travelers = [
-    ('ТОП 1', '12 500 тп', Color(0xFFFFD400)),
-    ('ТОП 2', '10 480 тп', Color(0xFFCFCFCF)),
-    ('ТОП 3', '8 120 тп', Color(0xFFFFB35C)),
+  static const _podiumColors = [
+    Color(0xFFFFD400),
+    Color(0xFFCFCFCF),
+    Color(0xFFFFB35C),
   ];
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (var i = 0; i < _travelers.length; i++) ...[
-          if (i > 0) const SizedBox(width: 10),
-          Expanded(
-            child: Container(
-              height: 116,
-              padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadii.tile),
-                boxShadow: AppShadows.tile,
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncTop = ref.watch(topTravelersProvider);
+    final config = ref.watch(appConfigProvider);
+    return asyncTop.when(
+      loading: () => const SizedBox(
+        height: 116,
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      error: (_, _) => const SizedBox(
+        height: 116,
+        child: Center(child: Text('Не удалось загрузить топ')),
+      ),
+      data: (travelers) {
+        final items = travelers.take(3).toList(growable: false);
+        if (items.isEmpty) {
+          return const SizedBox(
+            height: 116,
+            child: Center(child: Text('Пока нет путешественников')),
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(
+                child: _TopTravelerCard(
+                  traveler: items[i],
+                  place: items[i].leaderboardPlace > 0
+                      ? items[i].leaderboardPlace
+                      : i + 1,
+                  ringColor:
+                      _podiumColors[i.clamp(0, _podiumColors.length - 1)],
+                  avatar: AppImages.imageProvider(
+                    resolvedUrl: AppImages.resolveMediaUrl(
+                      config,
+                      items[i].avatarUrl,
+                    ),
+                    assetFallback: AppImages.travelerPortrait,
+                  ),
+                ),
               ),
-              child: Column(
-                children: [
-                  Container(
-                    width: 54,
-                    height: 54,
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: _travelers[i].$3, width: 2),
-                    ),
-                    child: const CircleAvatar(
-                      backgroundImage: AssetImage(AppImages.travelerPortrait),
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    _travelers[i].$1,
-                    style: AppTypography.chip.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    _travelers[i].$2,
-                    style: AppTypography.routeMetadata.copyWith(
-                      color: AppColors.secondaryInk,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ],
+            ],
+          ],
+        );
+      },
     );
   }
+}
+
+class _TopTravelerCard extends StatelessWidget {
+  const _TopTravelerCard({
+    required this.traveler,
+    required this.place,
+    required this.ringColor,
+    required this.avatar,
+  });
+
+  final PublicUserProfile traveler;
+  final int place;
+  final Color ringColor;
+  final ImageProvider avatar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: '${traveler.displayName}, место $place',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.tile),
+          onTap: () => unawaited(
+            context.pushNamed(
+              AppRouteNames.userProfile,
+              pathParameters: {'userId': traveler.id},
+            ),
+          ),
+          child: Ink(
+            height: 116,
+            padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppRadii.tile),
+              boxShadow: AppShadows.tile,
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 54,
+                  height: 54,
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: ringColor, width: 2),
+                  ),
+                  child: CircleAvatar(
+                    backgroundColor: AppColors.mistDark,
+                    backgroundImage: avatar,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'ТОП $place',
+                  style: AppTypography.chip.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  _formatTravelPoints(traveler.travelPoints),
+                  style: AppTypography.routeMetadata.copyWith(
+                    color: AppColors.secondaryInk,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+String _formatTravelPoints(int points) {
+  final raw = points.toString();
+  final buffer = StringBuffer();
+  for (var i = 0; i < raw.length; i++) {
+    final fromEnd = raw.length - i;
+    buffer.write(raw[i]);
+    if (fromEnd > 1 && fromEnd % 3 == 1) {
+      buffer.write(' ');
+    }
+  }
+  return '$buffer тп';
 }

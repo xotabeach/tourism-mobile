@@ -9,10 +9,10 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/search/application/universal_search_provider.dart';
-import 'package:tourism_mobile/routing/app_router.dart';
 
 class UniversalSearchPanel extends ConsumerWidget {
   const UniversalSearchPanel({required this.query, super.key});
@@ -65,33 +65,40 @@ class UniversalSearchPanel extends ConsumerWidget {
                 for (final route in items.routes)
                   DiscoveryRouteCard(
                     route: route,
-                    onTap: () => unawaited(
-                      context.pushNamed(
-                        AppRouteNames.routeDetails,
-                        pathParameters: {'id': route.id},
-                        extra: route,
-                      ),
+                    onTap: () => _openResult(
+                      context,
+                      '/routes/${route.id}',
+                      extra: route,
                     ),
                   ),
                 for (final profile in items.profiles)
                   DiscoveryProfileCard(
                     profile: profile,
-                    onTap: () => unawaited(
-                      context.pushNamed(
-                        AppRouteNames.userProfile,
-                        pathParameters: {'userId': profile.id},
-                      ),
-                    ),
+                    onTap: () =>
+                        _openResult(context, '/profile/users/${profile.id}'),
+                  ),
+                for (final place in items.places)
+                  DiscoveryPlaceCard(
+                    place: place,
+                    onTap: () => _openResult(context, '/places/${place.id}'),
                   ),
               ];
               return ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 304),
-                child: ListView.separated(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.all(8),
-                  itemCount: children.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (_, index) => children[index],
+                child: NotificationListener<ScrollNotification>(
+                  // Keep parent home ListView from stealing vertical drags.
+                  onNotification: (_) => true,
+                  child: ListView.separated(
+                    primary: false,
+                    physics: const ClampingScrollPhysics(),
+                    keyboardDismissBehavior:
+                        ScrollViewKeyboardDismissBehavior.onDrag,
+                    shrinkWrap: true,
+                    padding: const EdgeInsets.all(8),
+                    itemCount: children.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 8),
+                    itemBuilder: (_, index) => children[index],
+                  ),
                 ),
               );
             },
@@ -100,6 +107,17 @@ class UniversalSearchPanel extends ConsumerWidget {
       ),
     );
   }
+}
+
+void _openResult(BuildContext context, String location, {Object? extra}) {
+  // Navigate first — unfocusing before push used to dispose this panel and
+  // cancel the route change when results were focus-gated on Home.
+  final navigator = GoRouter.of(context);
+  unawaited(
+    navigator.push(location, extra: extra).whenComplete(() {
+      FocusManager.instance.primaryFocus?.unfocus();
+    }),
+  );
 }
 
 class DiscoveryProfileCard extends ConsumerWidget {
@@ -132,7 +150,7 @@ class DiscoveryProfileCard extends ConsumerWidget {
         ),
       ),
       title: profile.displayName,
-      subtitle: _rankLabel(profile.travelPoints),
+      subtitle: profile.rankTitle,
     );
   }
 }
@@ -164,6 +182,39 @@ class DiscoveryRouteCard extends ConsumerWidget {
       ),
       title: route.name,
       subtitle: route.authorLabel ?? 'Маршрут Крыма',
+    );
+  }
+}
+
+class DiscoveryPlaceCard extends StatelessWidget {
+  const DiscoveryPlaceCard({
+    required this.place,
+    required this.onTap,
+    this.height = 88,
+    super.key,
+  });
+
+  final PlaceSummary place;
+  final VoidCallback onTap;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final category = place.categories.isEmpty
+        ? 'Достопримечательность'
+        : place.categories.first.name;
+    return _DiscoveryCardShell(
+      height: height,
+      background: const ColoredBox(color: AppColors.controlSurface),
+      hasImage: false,
+      onTap: onTap,
+      leading: const CircleAvatar(
+        radius: 32,
+        backgroundColor: AppColors.elevatedSurface,
+        child: Icon(Icons.place_outlined, color: AppColors.accentBlue),
+      ),
+      title: place.name,
+      subtitle: category,
     );
   }
 }
@@ -305,11 +356,4 @@ ImageProvider _mediaProvider(
     resolvedUrl: AppImages.resolveMediaUrl(config, value),
     assetFallback: fallback,
   );
-}
-
-String _rankLabel(int points) {
-  if (points >= 10000) return 'Продвинутый пешеход';
-  if (points >= 5000) return 'Исследователь';
-  if (points >= 1000) return 'Путешественник';
-  return 'Новичок';
 }

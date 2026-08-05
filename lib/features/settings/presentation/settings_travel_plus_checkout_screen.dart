@@ -329,7 +329,7 @@ class _SettingsTravelPlusCheckoutScreenState
                       ),
                       onPressed: _submit,
                     ),
-                    const SizedBox(height: 92),
+                    const SizedBox(height: 64),
                   ],
                 ),
               ),

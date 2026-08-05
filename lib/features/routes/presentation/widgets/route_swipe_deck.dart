@@ -416,9 +416,16 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     return LayoutBuilder(
       builder: (context, constraints) {
         final cardWidth = constraints.maxWidth - AppSpacing.page * 2;
-        final desiredHeight = cardWidth * 1.5;
+        final baseHeight = cardWidth * 1.5;
         final maxUsableHeight = math.max(320.0, constraints.maxHeight - 104);
-        final cardHeight = math.min(desiredHeight, maxUsableHeight);
+        // Preserve the original 2:3 composition on compact screens, then use
+        // part of the extra vertical room on tall phones. Capping at 1.72×
+        // keeps portraits and controls from looking unnaturally stretched.
+        final adaptiveGrowth = math.max(0.0, maxUsableHeight - baseHeight) * .62;
+        final cardHeight = math.min(
+          maxUsableHeight,
+          math.min(cardWidth * 1.72, baseHeight + adaptiveGrowth),
+        );
 
         return AnimatedBuilder(
           animation: _deckAnimation,

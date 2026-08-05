@@ -5,8 +5,8 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 abstract final class MockProfile {
   static const rank = ProfileRank(
     title: 'Продвинутый пешеход',
-    progressPoints: 1452,
-    nextRankPoints: 1800,
+    progressPoints: 12500,
+    nextRankPoints: 25000,
     leaderboardPlace: 1345,
   );
 

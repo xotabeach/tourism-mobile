@@ -522,12 +522,9 @@ class CitySearchField extends StatelessWidget {
                       height: 1.1,
                     ),
                     cursorColor: RouteBuilderDesignTokens.primaryBlue,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      contentPadding: EdgeInsets.zero,
+                    // Collapsed avoids theme InputDecoration fill/borders that
+                    // painted a second surface inside the grey field shell.
+                    decoration: InputDecoration.collapsed(
                       hintText: 'Выберите стартовый город',
                       hintStyle: RouteBuilderDesignTokens.rubik(
                         fontSize: px(14),
@@ -1763,7 +1760,6 @@ class RouteAiChatView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final itemCount = 2 + messages.length + (typing ? 1 : 0);
     return Column(
       children: [
@@ -1819,20 +1815,19 @@ class RouteAiChatView extends StatelessWidget {
             ),
           ),
         ),
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            px(16),
-            px(8),
-            px(16),
-            math.max(px(12), bottomInset) + keyboard,
-          ),
-          child: ChatComposer(
-            px: px,
-            controller: composerController,
-            focusNode: composerFocus,
-            canSend: canSend && !typing,
-            onChanged: onChanged,
-            onSend: onSend,
+        SafeArea(
+          top: false,
+          minimum: EdgeInsets.only(bottom: bottomInset),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(px(16), px(8), px(16), 0),
+            child: ChatComposer(
+              px: px,
+              controller: composerController,
+              focusNode: composerFocus,
+              canSend: canSend && !typing,
+              onChanged: onChanged,
+              onSend: onSend,
+            ),
           ),
         ),
       ],

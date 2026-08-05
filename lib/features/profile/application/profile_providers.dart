@@ -64,13 +64,56 @@ final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
   return ref.watch(publicProfileRepositoryProvider).subscriptions();
 });
 
-ProfileRank _rankWithPoints(int travelPoints) {
-  const base = MockProfile.rank;
+const _mockLeaderboard = [
+  PublicUserProfile(
+    id: 'mock-user',
+    displayName: 'Никита Можаров',
+    avatarUrl: AppImages.travelerPortrait,
+    coverUrl: AppImages.welcomeSunset,
+    travelPoints: 12500,
+    rankSlug: 'advanced_hiker',
+    rankTitle: 'Продвинутый пешеход',
+    nextRankPoints: 25000,
+    leaderboardPlace: 1,
+  ),
+  PublicUserProfile(
+    id: 'mock-maria',
+    displayName: 'Мария Крымская',
+    avatarUrl: AppImages.travelerPortrait,
+    travelPoints: 8480,
+    rankSlug: 'explorer',
+    rankTitle: 'Исследователь',
+    nextRankPoints: 10000,
+    leaderboardPlace: 2,
+  ),
+  PublicUserProfile(
+    id: 'mock-artem',
+    displayName: 'Артём Ветров',
+    travelPoints: 740,
+    leaderboardPlace: 3,
+  ),
+];
+
+final topTravelersProvider = FutureProvider<List<PublicUserProfile>>((ref) {
+  final config = ref.watch(appConfigProvider);
+  if (config.useMockData) return Future.value(_mockLeaderboard);
+  return ref.watch(publicProfileRepositoryProvider).leaderboard(limit: 3);
+});
+
+final travelersLeaderboardProvider = FutureProvider<List<PublicUserProfile>>((
+  ref,
+) {
+  final config = ref.watch(appConfigProvider);
+  if (config.useMockData) return Future.value(_mockLeaderboard);
+  return ref.watch(publicProfileRepositoryProvider).leaderboard(limit: 100);
+});
+
+ProfileRank _rankFromUser(PublicUserProfile user) {
   return ProfileRank(
-    title: base.title,
-    progressPoints: travelPoints,
-    nextRankPoints: base.nextRankPoints,
-    leaderboardPlace: base.leaderboardPlace,
+    title: user.rankTitle,
+    progressPoints: user.travelPoints,
+    nextRankPoints: user.nextRankPoints,
+    leaderboardPlace: user.leaderboardPlace,
   );
 }
 
@@ -104,7 +147,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
 
   final bundle = await ref.watch(publicProfileRepositoryProvider).fetch(userId);
   String? resolve(String? raw) => AppImages.resolveMediaUrl(config, raw);
-  final rank = _rankWithPoints(bundle.user.travelPoints);
+  final rank = _rankFromUser(bundle.user);
 
   if (isOwn) {
     final own = ref.watch(profileProvider);

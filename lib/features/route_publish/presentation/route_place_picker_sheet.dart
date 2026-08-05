@@ -79,26 +79,33 @@ class _RoutePlacePickerSheetState
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: PublishRouteDesignTokens.border),
               ),
-              child: TextField(
-                controller: _controller,
-                autofocus: true,
-                onChanged: (value) => setState(() => _query = value.trim()),
-                style: PublishRouteDesignTokens.rubik(
-                  fontSize: 15,
-                  weight: FontWeight.w400,
-                  color: PublishRouteDesignTokens.dark,
-                ),
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Поиск по названию или адресу',
-                  hintStyle: PublishRouteDesignTokens.rubik(
-                    fontSize: 15,
-                    weight: FontWeight.w400,
-                    color: PublishRouteDesignTokens.secondaryText,
+              child: Row(
+                children: [
+                  const Icon(Icons.search_rounded, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      onChanged: (value) =>
+                          setState(() => _query = value.trim()),
+                      style: PublishRouteDesignTokens.rubik(
+                        fontSize: 15,
+                        weight: FontWeight.w400,
+                        color: PublishRouteDesignTokens.dark,
+                      ),
+                      cursorColor: PublishRouteDesignTokens.primaryBlue,
+                      decoration: InputDecoration.collapsed(
+                        hintText: 'Поиск по названию или адресу',
+                        hintStyle: PublishRouteDesignTokens.rubik(
+                          fontSize: 15,
+                          weight: FontWeight.w400,
+                          color: PublishRouteDesignTokens.secondaryText,
+                        ),
+                      ),
+                    ),
                   ),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  prefixIconConstraints: const BoxConstraints(minWidth: 30),
-                ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
@@ -141,6 +148,9 @@ class _RoutePlacePickerSheetState
                 data: (page) => _mapMode
                     ? _PlacesMap(places: page.items, onSelected: _select)
                     : ListView.builder(
+                        primary: false,
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
                         itemCount: page.items.length,
                         itemBuilder: (context, index) {
                           final place = page.items[index];

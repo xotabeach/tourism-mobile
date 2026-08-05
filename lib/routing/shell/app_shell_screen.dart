@@ -19,6 +19,7 @@ import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
@@ -194,7 +195,10 @@ class AppShellScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     final path = GoRouterState.of(context).uri.path;
-    final hideFloatingNav = path == '/profile/settings/support/chat';
+    final aiChatActive = ref.watch(routeMatchAiModeProvider);
+    final hideFloatingNav =
+        path == '/profile/settings/support/chat' ||
+        (path == RouteMatchScreen.routePath && aiChatActive);
     final detailNavigationIndex = _detailNavigationIndex(context);
     final guestProfile = _isGuestProfilePath(context, ref);
     final showDetailsChrome = detailNavigationIndex != null && !hideFloatingNav;

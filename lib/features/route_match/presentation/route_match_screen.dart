@@ -33,7 +33,8 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
   ConsumerState<RouteMatchScreen> createState() => _RouteMatchScreenState();
 }
 
-class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
+class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
+    with WidgetsBindingObserver {
   late RouteMatchMode _mode;
   String? _city;
   RouteTripType? _tripType = RouteTripType.romance;
@@ -57,6 +58,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
   bool _composerDirty = false;
   int _aiAttemptsLeft = 3;
   double _appBarProgress = 0;
+  double _lastViewInset = 0;
 
   late List<RouteChatMessage> _messages;
 
@@ -89,6 +91,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _aiFocus.addListener(_onAiFocusChanged);
     _paramsScroll.addListener(_syncAppBarFromActiveScroll);
     _aiScroll.addListener(_syncAppBarFromActiveScroll);
     _mode = widget.initialMode;
@@ -136,10 +140,13 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _cityController.dispose();
     _cityFocus.dispose();
     _aiController.dispose();
-    _aiFocus.dispose();
+    _aiFocus
+      ..removeListener(_onAiFocusChanged)
+      ..dispose();
     _paramsScroll
       ..removeListener(_syncAppBarFromActiveScroll)
       ..dispose();
@@ -147,6 +154,41 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
       ..removeListener(_syncAppBarFromActiveScroll)
       ..dispose();
     super.dispose();
+  }
+
+  void _onAiFocusChanged() {
+    if (!_aiFocus.hasFocus) return;
+    _scrollAiToEnd();
+    _scrollAiToEndDuringKeyboardAnimation();
+  }
+
+  double _keyboardInset() {
+    return MediaQueryData.fromView(View.of(context)).viewInsets.bottom;
+  }
+
+  @override
+  void didChangeMetrics() {
+    if (!mounted || _mode != RouteMatchMode.ai) return;
+    final inset = _keyboardInset();
+    final opened = inset > _lastViewInset + 1;
+    _lastViewInset = inset;
+    if (opened || (inset > 0 && _aiFocus.hasFocus)) {
+      _scrollAiToEnd();
+      if (opened) _scrollAiToEndDuringKeyboardAnimation();
+    }
+  }
+
+  void _scrollAiToEndDuringKeyboardAnimation() {
+    for (final delay in const [
+      Duration(milliseconds: 50),
+      Duration(milliseconds: 160),
+      Duration(milliseconds: 320),
+    ]) {
+      Future<void>.delayed(delay, () {
+        if (!mounted || !_aiFocus.hasFocus) return;
+        _scrollAiToEnd(animate: false);
+      });
+    }
   }
 
   void _syncAiModeProvider() {
@@ -334,14 +376,19 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
     _scrollAiToEnd();
   }
 
-  void _scrollAiToEnd() {
+  void _scrollAiToEnd({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_aiScroll.hasClients) {
         return;
       }
+      final target = _aiScroll.position.maxScrollExtent;
+      if (!animate) {
+        _aiScroll.jumpTo(target);
+        return;
+      }
       unawaited(
         _aiScroll.animateTo(
-          _aiScroll.position.maxScrollExtent,
+          target,
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOut,
         ),
@@ -405,7 +452,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen> {
                             onSend: () {
                               unawaited(_sendAiMessage());
                             },
-                            bottomInset: shellNavPad,
+                            bottomInset: px(8),
                           )
                         : _buildParams(px, shellNavPad),
                   ),

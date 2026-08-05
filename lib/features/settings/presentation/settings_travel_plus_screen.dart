@@ -132,7 +132,7 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                     onTap: () =>
                         context.pushNamed(AppRouteNames.settingsSupport),
                   ),
-                  const SizedBox(height: 100),
+                  const SizedBox(height: 72),
                 ],
               ),
             ),
@@ -282,7 +282,7 @@ class _TravelPlusActiveBody extends ConsumerWidget {
                   SettingsChatCta(
                     onTap: () => context.pushNamed(AppRouteNames.settingsChat),
                   ),
-                  const SizedBox(height: 140),
+                  const SizedBox(height: 104),
                 ],
               ),
             ),

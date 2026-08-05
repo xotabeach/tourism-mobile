@@ -10,6 +10,10 @@ class PublicUserProfile {
     this.avatarUrl,
     this.coverUrl,
     this.travelPoints = 0,
+    this.rankSlug = 'novice',
+    this.rankTitle = 'Новичок',
+    this.nextRankPoints = 1000,
+    this.leaderboardPlace = 0,
     this.likedByMe = false,
   });
 
@@ -18,6 +22,10 @@ class PublicUserProfile {
   final String? avatarUrl;
   final String? coverUrl;
   final int travelPoints;
+  final String rankSlug;
+  final String rankTitle;
+  final int nextRankPoints;
+  final int leaderboardPlace;
   final bool likedByMe;
 
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
@@ -27,6 +35,11 @@ class PublicUserProfile {
       avatarUrl: json['avatar_url'] as String?,
       coverUrl: json['cover_url'] as String?,
       travelPoints: (json['travel_points'] as num?)?.toInt() ?? 0,
+      rankSlug: json['rank_slug'] as String? ?? 'novice',
+      rankTitle: json['rank_title'] as String? ?? 'Новичок',
+      nextRankPoints: (json['next_rank_points'] as num?)?.toInt() ?? 1000,
+      leaderboardPlace:
+          (json['leaderboard_place'] as num?)?.toInt() ?? 0,
       likedByMe: json['liked_by_me'] as bool? ?? false,
     );
   }
@@ -43,6 +56,10 @@ abstract class PublicProfileRepository {
   Future<PublicProfileBundle> fetch(String userId);
   Future<List<PublicUserProfile>> search(String query, {int limit = 8});
   Future<List<PublicUserProfile>> subscriptions({int limit = 50});
+  Future<List<PublicUserProfile>> leaderboard({
+    int limit = 50,
+    int offset = 0,
+  });
   Future<void> like(String userId);
   Future<void> unlike(String userId);
 }
@@ -92,6 +109,25 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/v1/users/subscriptions',
         queryParameters: {'limit': limit},
+      );
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return items
+          .map(
+            (item) => PublicUserProfile.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false);
+    });
+  }
+
+  @override
+  Future<List<PublicUserProfile>> leaderboard({
+    int limit = 50,
+    int offset = 0,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/users/leaderboard',
+        queryParameters: {'limit': limit, 'offset': offset},
       );
       final items = response.data?['items'] as List<dynamic>? ?? const [];
       return items
