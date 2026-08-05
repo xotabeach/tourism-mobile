@@ -205,6 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           routesAsync.when(
             skipLoadingOnReload: true,
             skipLoadingOnRefresh: true,
+            skipError: true,
             data: (page) {
               final items = _filtered(page.items);
               final visibleItems = _showAllRoutes
@@ -479,6 +480,9 @@ class _TopTravelersRow extends ConsumerWidget {
     final asyncTop = ref.watch(topTravelersProvider);
     final config = ref.watch(appConfigProvider);
     return asyncTop.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
       loading: () => const SizedBox(
         height: 116,
         child: Center(child: CircularProgressIndicator(strokeWidth: 2)),

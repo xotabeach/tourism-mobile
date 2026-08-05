@@ -26,6 +26,7 @@ import 'package:tourism_mobile/features/route_match/presentation/route_match_scr
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/presentation/inbox_foreground_host.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
@@ -114,7 +115,14 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     if (state != AppLifecycleState.resumed || !mounted) {
       return;
     }
-    softRefreshAppData(ref);
+    // Keep current UI; refresh only the active tab (+ inbox) in the background.
+    softRefreshAppData(
+      ref,
+      scope: appDataRefreshScopeForTab(widget.navigationShell.currentIndex),
+    );
+    if (ref.read(sessionProvider).isAuthenticated) {
+      unawaited(ref.read(notificationsInboxProvider.notifier).softRefresh());
+    }
   }
 
   void _softRefreshCurrentTab(int index) {

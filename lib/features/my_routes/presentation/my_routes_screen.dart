@@ -98,6 +98,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       child: routesAsync.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
+        skipError: true,
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
             Center(child: Text('Не удалось загрузить: $error')),
@@ -211,6 +212,9 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     AsyncValue<List<PublicUserProfile>> subscriptions,
   ) {
     return subscriptions.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
       loading: () => const [
         SliverFillRemaining(
           hasScrollBody: false,

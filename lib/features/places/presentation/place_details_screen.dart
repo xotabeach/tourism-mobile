@@ -40,6 +40,9 @@ class PlaceDetailsScreen extends ConsumerWidget {
 
     return Scaffold(
       body: placeAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        skipError: true,
         data: (place) {
           final isFavorite = ref.watch(
             favoritesProvider.select((s) => s.placeIds.contains(place.id)),

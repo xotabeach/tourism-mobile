@@ -31,6 +31,9 @@ class TravelersLeaderboardScreen extends ConsumerWidget {
       subtitle: 'Рейтинг по очкам Travel Points',
       children: [
         asyncBoard.when(
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
+          skipError: true,
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 48),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),

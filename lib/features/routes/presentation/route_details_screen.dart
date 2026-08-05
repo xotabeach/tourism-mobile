@@ -124,6 +124,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     return Scaffold(
       backgroundColor: AppColors.elevatedSurface,
       body: routeAsync.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        skipError: true,
         data: _buildContent,
         loading: () => widget.initialRoute == null
             ? const Center(child: CircularProgressIndicator())
@@ -1269,7 +1272,7 @@ class _RouteReviewsSection extends ConsumerWidget {
     final reviewsAsync = ref.watch(routeReviewsProvider(routeId));
     final myReviewsAsync = ref.watch(myRouteReviewsProvider);
     final selfUserId = ref.watch(sessionProvider).userId;
-    final pendingMine = myReviewsAsync.maybeWhen(
+    final pendingCandidates = myReviewsAsync.maybeWhen(
       data: (items) => items
           .where((r) => r.routeId == routeId && r.status == 'pending_review')
           .toList(),
@@ -1277,6 +1280,9 @@ class _RouteReviewsSection extends ConsumerWidget {
     );
 
     return reviewsAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
       loading: () => const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(child: CircularProgressIndicator()),
@@ -1289,7 +1295,10 @@ class _RouteReviewsSection extends ConsumerWidget {
             style: TextStyle(color: AppColors.secondaryInk),
           ),
           TextButton(
-            onPressed: () => ref.invalidate(routeReviewsProvider(routeId)),
+            onPressed: () {
+              ref.invalidate(routeReviewsProvider(routeId));
+              ref.invalidate(myRouteReviewsProvider);
+            },
             child: const Text('Повторить'),
           ),
           const SizedBox(height: 12),
@@ -1297,6 +1306,12 @@ class _RouteReviewsSection extends ConsumerWidget {
         ],
       ),
       data: (page) {
+        // Drop stale pending cards once the same review is already published
+        // (my-reviews cache can lag behind moderation approve).
+        final pendingMine = pendingReviewsNotYetPublished(
+          pending: pendingCandidates,
+          published: page.items,
+        );
         final ratingLabel = page.averageRating == null
             ? '—'
             : page.averageRating!.toStringAsFixed(1).replaceAll('.', ',');
@@ -1351,10 +1366,26 @@ class _RouteReviewsSection extends ConsumerWidget {
       return 'отзыв';
     }
     if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-      return 'отзыва';
+      return 'отзывы';
     }
     return 'отзывов';
   }
+}
+
+/// Pending cards that are not already present in the published list (by id).
+@visibleForTesting
+List<RouteReview> pendingReviewsNotYetPublished({
+  required List<RouteReview> pending,
+  required List<RouteReview> published,
+}) {
+  if (pending.isEmpty) {
+    return const [];
+  }
+  final publishedIds = {for (final review in published) review.id};
+  return [
+    for (final review in pending)
+      if (!publishedIds.contains(review.id)) review,
+  ];
 }
 
 class _ReviewComposer extends ConsumerStatefulWidget {
@@ -1482,7 +1513,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Отзыв отправлен на модерацию')),
+        const SnackBar(content: Text('Отзыв отправлен на модерацию как новый')),
       );
     } on AppFailure catch (error) {
       if (!mounted) {
@@ -1754,55 +1785,69 @@ class _ReviewCard extends ConsumerWidget {
   }
 
   void _showFullReview(BuildContext context) {
-    final media = MediaQuery.of(context);
     unawaited(
       showModalBottomSheet<void>(
         context: context,
         isScrollControlled: true,
+        useSafeArea: true,
         backgroundColor: AppColors.elevatedSurface,
         shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
         builder: (context) {
-          final maxHeight = media.size.height * 0.7;
+          final height = MediaQuery.sizeOf(context).height;
           return SizedBox(
-            width: media.size.width,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: maxHeight),
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  20,
-                  20,
-                  24 + MediaQuery.paddingOf(context).bottom,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        review.authorDisplayName,
-                        style: AppTypography.settingsRowTitle,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        review.authorRankTitle,
-                        style: AppTypography.settingsRowSubtitle,
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        review.body,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 15,
-                          height: 1.45,
-                          color: AppColors.primaryInk,
-                        ),
-                      ),
-                    ],
+            height: height * 0.72,
+            width: double.infinity,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 10),
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD0D0D4),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
                 ),
-              ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.fromLTRB(
+                      20,
+                      16,
+                      20,
+                      24 + MediaQuery.paddingOf(context).bottom,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          review.authorDisplayName,
+                          style: AppTypography.settingsRowTitle,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          review.authorRankTitle,
+                          style: AppTypography.settingsRowSubtitle,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          review.body,
+                          style: const TextStyle(
+                            fontFamily: AppFonts.rubik,
+                            fontSize: 15,
+                            height: 1.45,
+                            color: AppColors.primaryInk,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
           );
         },

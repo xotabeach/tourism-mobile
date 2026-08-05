@@ -3,11 +3,40 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/features/routes/data/route_reviews_repository.dart';
+import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/settings/data/notifications_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/inbox_foreground_host.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 
 void main() {
+  test('pendingReviewsNotYetPublished drops ids already published', () {
+    RouteReview review(String id, {required String status}) {
+      return RouteReview(
+        id: id,
+        routeId: 'r1',
+        authorUserId: 'u1',
+        authorDisplayName: 'A',
+        authorRankTitle: 'Новичок',
+        body: 'text',
+        rating: 5,
+        status: status,
+        createdAt: DateTime.utc(2026, 1, 1),
+      );
+    }
+
+    final pending = [
+      review('same', status: 'pending_review'),
+      review('only-pending', status: 'pending_review'),
+    ];
+    final published = [review('same', status: 'published')];
+    final filtered = pendingReviewsNotYetPublished(
+      pending: pending,
+      published: published,
+    );
+    expect(filtered.map((e) => e.id), ['only-pending']);
+  });
+
   test('formatBadgeCount hides zero and caps at 99+', () {
     expect(AppFlatIconButton.formatBadgeCount(0), '');
     expect(AppFlatIconButton.formatBadgeCount(3), '3');

@@ -168,6 +168,9 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
           const SizedBox(height: AppSpacing.lg),
           Expanded(
             child: routesAsync.when(
+              skipLoadingOnReload: true,
+              skipLoadingOnRefresh: true,
+              skipError: true,
               data: (page) {
                 final visibleRoutes = _visibleRoutes(page.items);
                 if (visibleRoutes.isEmpty) {

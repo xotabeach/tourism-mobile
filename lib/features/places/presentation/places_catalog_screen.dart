@@ -204,6 +204,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
               placesAsync.when(
                 skipLoadingOnReload: true,
                 skipLoadingOnRefresh: true,
+                skipError: true,
                 data: (page) {
                   final items = _filtered(page.items);
                   if (items.isEmpty) {

@@ -94,6 +94,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       return asyncProfile.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
+        skipError: true,
         data: (profile) => _buildBody(
           profile: profile,
           topInset: MediaQuery.paddingOf(context).top,
@@ -150,6 +151,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           .when(
             skipLoadingOnReload: true,
             skipLoadingOnRefresh: true,
+            skipError: true,
             data: (value) => value,
             loading: () => profile,
             error: (_, _) => profile,

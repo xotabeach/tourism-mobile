@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -33,6 +34,9 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
       spaceChildren: false,
       children: [
         async.when(
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
+          skipError: true,
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
             child: Center(child: CircularProgressIndicator()),
@@ -122,6 +126,9 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
     if (item.targetType == 'route' &&
         item.targetId != null &&
         item.targetId!.isNotEmpty) {
+      // Moderation may have just flipped pending → published; drop stale mine.
+      ref.invalidate(myRouteReviewsProvider);
+      ref.invalidate(routeReviewsProvider(item.targetId!));
       await context.pushNamed(
         AppRouteNames.routeDetails,
         pathParameters: {'id': item.targetId!},
