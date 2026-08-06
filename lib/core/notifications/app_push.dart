@@ -57,8 +57,8 @@ abstract final class AppPush {
       return null;
     }
     try {
-      final settings =
-          await FirebaseMessaging.instance.getNotificationSettings();
+      final settings = await FirebaseMessaging.instance
+          .getNotificationSettings();
       return settings.authorizationStatus;
     } on Object {
       return null;
