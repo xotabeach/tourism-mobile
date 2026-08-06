@@ -18,6 +18,9 @@ abstract final class AppPush {
 
   static bool get isConfigured => DefaultFirebaseOptions.configured;
 
+  /// True after [bootstrap] completed on a configured mobile platform.
+  static bool get isReady => isConfigured && _started;
+
   static bool _started = false;
   static void Function(RemoteMessage message)? onOpened;
 
@@ -53,7 +56,7 @@ abstract final class AppPush {
 
   /// Current OS authorization, or `null` if Firebase is not ready / unavailable.
   static Future<AuthorizationStatus?> authorizationStatus() async {
-    if (!isConfigured || kIsWeb) {
+    if (!isReady || kIsWeb) {
       return null;
     }
     try {
@@ -67,33 +70,37 @@ abstract final class AppPush {
 
   /// Ask OS permission (iOS / Android 13+) and return the FCM token when ready.
   static Future<String?> enableAndGetToken() async {
-    if (!isConfigured) {
+    if (!isReady) {
       return null;
     }
-    await FirebaseMessaging.instance.setAutoInitEnabled(true);
+    try {
+      await FirebaseMessaging.instance.setAutoInitEnabled(true);
 
-    final settings = await FirebaseMessaging.instance.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-    if (!isOsPushAuthorized(settings.authorizationStatus)) {
-      return null;
-    }
-
-    if (Platform.isIOS) {
-      // APNs token must exist before getToken on Apple platforms.
-      for (var i = 0; i < 10; i++) {
-        final apns = await FirebaseMessaging.instance.getAPNSToken();
-        if (apns != null) {
-          break;
-        }
-        await Future<void>.delayed(const Duration(milliseconds: 250));
+      final settings = await FirebaseMessaging.instance.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+      if (!isOsPushAuthorized(settings.authorizationStatus)) {
+        return null;
       }
-    }
 
-    return FirebaseMessaging.instance.getToken();
+      if (Platform.isIOS) {
+        // APNs token must exist before getToken on Apple platforms.
+        for (var i = 0; i < 10; i++) {
+          final apns = await FirebaseMessaging.instance.getAPNSToken();
+          if (apns != null) {
+            break;
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 250));
+        }
+      }
+
+      return FirebaseMessaging.instance.getToken();
+    } on Object {
+      return null;
+    }
   }
 
   /// Opens the OS screen where the user can allow notifications for this app.
@@ -108,14 +115,22 @@ abstract final class AppPush {
     }
   }
 
-  static Stream<String> get onTokenRefresh =>
-      FirebaseMessaging.instance.onTokenRefresh;
+  static Stream<String> get onTokenRefresh {
+    if (!isReady) {
+      return const Stream<String>.empty();
+    }
+    return FirebaseMessaging.instance.onTokenRefresh;
+  }
 
   static Future<void> disableAutoInit() async {
-    if (!isConfigured) {
+    if (!isReady) {
       return;
     }
-    await FirebaseMessaging.instance.setAutoInitEnabled(false);
+    try {
+      await FirebaseMessaging.instance.setAutoInitEnabled(false);
+    } on Object {
+      // Firebase not available (tests / partial init).
+    }
   }
 }
 

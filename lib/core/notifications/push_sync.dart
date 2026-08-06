@@ -25,6 +25,10 @@ Future<bool> syncPushRegistration(
   if (!AppPush.isConfigured || kIsWeb) {
     return enabled;
   }
+  if (!AppPush.isReady) {
+    // Firebase not bootstrapped yet (widget tests / early frame).
+    return false;
+  }
   final session = ref.read(sessionProvider);
   if (!session.isAuthenticated) {
     return false;
@@ -62,7 +66,7 @@ Future<bool> syncPushRegistration(
 /// Token registration used to run only on the settings toggle, so users with
 /// the default «push on» never posted a device token after Firebase landed.
 void ensurePushRegistrationForSession(WidgetRef ref, SessionState session) {
-  if (!AppPush.isConfigured || kIsWeb) {
+  if (!AppPush.isReady || kIsWeb) {
     return;
   }
   if (!session.isAuthenticated || !session.notifyPushEnabled) {

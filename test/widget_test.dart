@@ -101,7 +101,7 @@ void main() {
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.bySemanticsLabel('Уведомления'));
+    await tester.tap(find.bySemanticsLabel(RegExp(r'^Уведомления')));
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsNotificationsInboxScreen), findsOneWidget);
