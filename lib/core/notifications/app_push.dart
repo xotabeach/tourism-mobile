@@ -4,12 +4,18 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
+import 'package:tourism_mobile/core/notifications/push_permission.dart';
 import 'package:tourism_mobile/firebase_options.dart';
 
 /// FCM bootstrap. Safe no-op until [DefaultFirebaseOptions.configured] is true
 /// (after `flutterfire configure` + platform config files).
 abstract final class AppPush {
+  static const MethodChannel _settingsChannel = MethodChannel(
+    'com.crimeatravel.tourism_mobile/settings',
+  );
+
   static bool get isConfigured => DefaultFirebaseOptions.configured;
 
   static bool _started = false;
@@ -45,6 +51,20 @@ abstract final class AppPush {
     }
   }
 
+  /// Current OS authorization, or `null` if Firebase is not ready / unavailable.
+  static Future<AuthorizationStatus?> authorizationStatus() async {
+    if (!isConfigured || kIsWeb) {
+      return null;
+    }
+    try {
+      final settings =
+          await FirebaseMessaging.instance.getNotificationSettings();
+      return settings.authorizationStatus;
+    } on Object {
+      return null;
+    }
+  }
+
   /// Ask OS permission (iOS / Android 13+) and return the FCM token when ready.
   static Future<String?> enableAndGetToken() async {
     if (!isConfigured) {
@@ -58,7 +78,7 @@ abstract final class AppPush {
       sound: true,
       provisional: false,
     );
-    if (settings.authorizationStatus == AuthorizationStatus.denied) {
+    if (!isOsPushAuthorized(settings.authorizationStatus)) {
       return null;
     }
 
@@ -74,6 +94,18 @@ abstract final class AppPush {
     }
 
     return FirebaseMessaging.instance.getToken();
+  }
+
+  /// Opens the OS screen where the user can allow notifications for this app.
+  static Future<void> openSystemNotificationSettings() async {
+    if (kIsWeb) {
+      return;
+    }
+    try {
+      await _settingsChannel.invokeMethod<void>('openNotificationSettings');
+    } on Object {
+      // Missing platform handler (tests) — ignore.
+    }
   }
 
   static Stream<String> get onTokenRefresh =>

@@ -14,16 +14,20 @@ import 'package:tourism_mobile/routing/app_router.dart';
 var _tokenRefreshBound = false;
 
 /// Sync FCM token with backend when the user enables push (and Firebase is configured).
-Future<void> syncPushRegistration(
+///
+/// Returns `true` when push is considered active after the call (token registered
+/// on enable, or successfully disabled). Returns `false` when enable failed
+/// (typically OS permission denied).
+Future<bool> syncPushRegistration(
   WidgetRef ref, {
   required bool enabled,
 }) async {
   if (!AppPush.isConfigured || kIsWeb) {
-    return;
+    return enabled;
   }
   final session = ref.read(sessionProvider);
   if (!session.isAuthenticated) {
-    return;
+    return false;
   }
   final repo = ref.read(deviceTokenRepositoryProvider);
   final platform = Platform.isIOS ? 'ios' : 'android';
@@ -37,11 +41,11 @@ Future<void> syncPushRegistration(
       // Best-effort cleanup; local preference already flipped off.
     }
     await AppPush.disableAutoInit();
-    return;
+    return true;
   }
   final token = await AppPush.enableAndGetToken();
   if (token == null || token.isEmpty) {
-    return;
+    return false;
   }
   await repo.register(token: token, platform: platform);
   if (!_tokenRefreshBound) {
@@ -50,6 +54,7 @@ Future<void> syncPushRegistration(
       unawaited(repo.register(token: next, platform: platform));
     });
   }
+  return true;
 }
 
 /// Call after session hydrate / login when push prefs are already on.
