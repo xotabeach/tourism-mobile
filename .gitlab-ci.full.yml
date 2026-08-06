@@ -1,0 +1,174 @@
+# Full DevSecOps pipeline (style/tests/scanners + optional signed APK).
+# Not used by default during active development — see `.gitlab-ci.yml` (lean).
+# Enable: set GitLab CI/CD variable CI_PIPELINE_MODE=full (project or group).
+# Docs: tourism-platform/docs/ci-and-runners.md
+
+stages:
+  - code-style
+  - run-tests
+  - build
+  - mirror
+
+# Pinned so formatter/analyzer behaviour cannot drift away from local machines.
+# Cirrus publishes minor.0 tags (latest available: 3.44.0); local SDK may be a
+# later 3.44.x patch — bump only when a matching image exists on GHCR.
+# Cirrus Flutter images include Android SDK / cmdline-tools for APK builds.
+.flutter-image: &flutter-image ghcr.io/cirruslabs/flutter:3.44.0
+
+.pub-cache: &pub-cache
+  cache:
+    key:
+      files:
+        - pubspec.lock
+    paths:
+      - .pub-cache
+      - .dart_tool
+
+variables:
+  PUB_CACHE: "$CI_PROJECT_DIR/.pub-cache"
+
+mobile-code-style:
+  stage: code-style
+  image: *flutter-image
+  <<: *pub-cache
+  script:
+    - flutter pub get --enforce-lockfile
+    - dart format --set-exit-if-changed lib test
+    - flutter analyze --fatal-infos
+
+mobile-run-tests:
+  stage: run-tests
+  image: *flutter-image
+  <<: *pub-cache
+  script:
+    - flutter pub get --enforce-lockfile
+    # Pixel goldens are macOS-only (see test/golden/ui_golden_test.dart); this
+    # runs the host-independent checks. Goldens are gated by the pre-push hook.
+    - flutter test
+  allow_failure: false
+
+mobile-gitleaks:
+  stage: run-tests
+  image:
+    name: zricethezav/gitleaks:v8.24.2
+    entrypoint: [""]
+  script:
+    - gitleaks detect --source . --verbose --redact --exit-code 1
+  allow_failure: false
+
+mobile-semgrep:
+  stage: run-tests
+  image:
+    name: semgrep/semgrep:1.110.0
+    entrypoint: [""]
+  script:
+    # No official p/flutter pack yet; OWASP + secrets cover shared surfaces.
+    # ERROR severity only. Waivers: tourism-platform/docs/security/exceptions/
+    - |
+      set -e
+      attempt=1
+      while [ "$attempt" -le 3 ]; do
+        if semgrep scan \
+          --config p/owasp-top-ten \
+          --config p/secrets \
+          --severity ERROR \
+          --error \
+          --metrics=off \
+          --disable-version-check \
+          --exclude=test \
+          --exclude=.dart_tool; then
+          exit 0
+        fi
+        echo "semgrep attempt ${attempt}/3 failed; retrying..."
+        attempt=$((attempt + 1))
+        sleep $((attempt * 5))
+      done
+      exit 1
+  allow_failure: false
+
+# Known-vuln scan of Dart lockfile (OSS; no paid GitLab Dependency Scanning).
+mobile-osv:
+  stage: run-tests
+  image:
+    name: ghcr.io/google/osv-scanner:v1.9.2
+    entrypoint: [""]
+  script:
+    # Binary lives at /osv-scanner in this image (not on PATH).
+    - /osv-scanner --lockfile=pubspec.lock --format=table
+  allow_failure: false
+
+# Signed test APK → GitLab Job Artifact (download from pipeline UI).
+# Requires CI variables (masked / protected as appropriate):
+#   ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD,
+#   ANDROID_STORE_PASSWORD, MOBILE_TEST_API_BASE_URL
+mobile-apk-test:
+  stage: build
+  image: *flutter-image
+  <<: *pub-cache
+  needs:
+    - mobile-code-style
+    - mobile-run-tests
+    - mobile-gitleaks
+    - mobile-semgrep
+    - mobile-osv
+  script:
+    - |
+      if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] \
+        || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_STORE_PASSWORD:-}" ] \
+        || [ -z "${MOBILE_TEST_API_BASE_URL:-}" ]; then
+        echo "Signing / API CI variables missing — cannot build signed APK."
+        echo "Set ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD,"
+        echo "ANDROID_STORE_PASSWORD, MOBILE_TEST_API_BASE_URL on the GitLab project."
+        exit 1
+      fi
+    - bash scripts/ci-prepare-android-signing.sh
+    - >
+      ./scripts/build-signed-apk.sh
+      --env test
+      --data-source api
+      --api-url "${MOBILE_TEST_API_BASE_URL}"
+    - test -f dist/CrimeaTrip-test-api.apk
+    # Do not leave keystore/passwords in the workspace artifacts tree.
+    - rm -f android/key.properties android/ci-upload.jks
+  artifacts:
+    name: "crimeatrip-apk-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/CrimeaTrip-test-api.apk
+    expire_in: 14 days
+    when: on_success
+  rules:
+    - if: >-
+        $CI_COMMIT_BRANCH == "main"
+        && $ANDROID_KEYSTORE_BASE64
+        && $ANDROID_KEY_ALIAS
+        && $ANDROID_KEY_PASSWORD
+        && $ANDROID_STORE_PASSWORD
+        && $MOBILE_TEST_API_BASE_URL
+    - if: >-
+        $CI_COMMIT_BRANCH == "gamma"
+        && $ANDROID_KEYSTORE_BASE64
+        && $ANDROID_KEY_ALIAS
+        && $ANDROID_KEY_PASSWORD
+        && $ANDROID_STORE_PASSWORD
+        && $MOBILE_TEST_API_BASE_URL
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "gamma"'
+      when: manual
+      allow_failure: true
+
+# Public GitHub showcase mirror. GitLab remains source of truth.
+github-mirror:
+  stage: mirror
+  image: alpine:3.21
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - bash scripts/ci-mirror-to-github.sh
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "gamma" && $GITHUB_MIRROR_TOKEN'
+    - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_MIRROR_TOKEN'
+  needs:
+    - mobile-code-style
+    - mobile-run-tests
+    - mobile-gitleaks
+    - mobile-semgrep
+    - mobile-osv

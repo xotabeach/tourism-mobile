@@ -1,0 +1,17 @@
+# Gitleaks allowlist for intentional client-side Firebase config.
+# These are public mobile SDK keys (restricted by package name / SHA-1 in
+# Firebase console). Real secrets must never be committed — see
+# tourism-platform/docs/security/secrets-management.md.
+
+title = "tourism-mobile"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Firebase client config (public by design)"
+paths = [
+  '''android/app/google-services\.json''',
+  '''lib/firebase_options\.dart''',
+  '''ios/Runner/GoogleService-Info\.plist''',
+]
