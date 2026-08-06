@@ -40,8 +40,9 @@ ci-lean-notice:
   stage: lean
   image: alpine:3.21
   script:
-    - echo "Lean CI — Flutter style/tests run locally (./scripts/validate.sh)."
-    - echo "Signed APK: run job mobile-apk-test manually, or set CI_PIPELINE_MODE=full."
+    # Quote whole lines: YAML treats unquoted `key: value` as a mapping.
+    - 'echo "Lean CI — Flutter style/tests run locally (./scripts/validate.sh)."'
+    - 'echo "Signed APK: run job mobile-apk-test manually, or set CI_PIPELINE_MODE=full."'
   rules:
     - if: '$CI_PIPELINE_MODE == "full"'
       when: never
