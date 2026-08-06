@@ -52,6 +52,10 @@ Release без `APP_ENV` автоматически выбирает `production
 ./scripts/build-signed-apk.sh --install
 ```
 
+CI (`main`/`gamma`): job `mobile-apk-test` кладёт
+`dist/CrimeaTrip-test-api.apk` в GitLab Job Artifacts (нужны CI variables
+keystore + `MOBILE_TEST_API_BASE_URL`; см. §6.0.1 в шпаргалке ниже).
+
 Полная шпаргалка по iOS/Android сборкам, `dart-define`, signed APK/AAB и
 установке на устройство:
 [mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md)
