@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 
 /// Результат подбора маршрута (UI + данные из каталога как mock).
 class RouteMatchResultsScreen extends ConsumerStatefulWidget {
@@ -22,14 +25,40 @@ class RouteMatchResultsScreen extends ConsumerStatefulWidget {
 class _RouteMatchResultsScreenState
     extends ConsumerState<RouteMatchResultsScreen> {
   final _searchController = TextEditingController();
-  final _searchFocus = FocusNode(debugLabel: 'match-results-search');
-  String _query = '';
+  final _searchFocus = FocusNode(debugLabel: 'match-search');
+  Timer? _searchDebounce;
+  var _searchQuery = '';
+  var _searchFocused = false;
+
+  bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocus.addListener(() {
+      if (mounted) {
+        setState(() => _searchFocused = _searchFocus.hasFocus);
+      }
+    });
+  }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _searchDebounce?.cancel();
     _searchFocus.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      final query = value.trim();
+      setState(() => _searchQuery = query);
+    });
   }
 
   @override
@@ -44,10 +73,7 @@ class _RouteMatchResultsScreenState
         error: (error, _) => Center(child: Text('$error')),
         data: (page) {
           final routes = page.items;
-          final q = _query.toLowerCase();
-          final filtered = q.isEmpty
-              ? routes
-              : routes.where((r) => r.name.toLowerCase().contains(q)).toList();
+          final filtered = routes;
           final ideal = filtered.take(3).toList();
           final close = filtered.skip(3).take(3).toList();
 
@@ -78,66 +104,79 @@ class _RouteMatchResultsScreenState
                       ),
                       const SizedBox(height: 8),
                       AppSearchFilterRow(
+                        hintText: 'Место или маршрут из подборки',
                         controller: _searchController,
                         focusNode: _searchFocus,
-                        hintText: 'Место или маршрут из подборки',
-                        onSearchChanged: (value) =>
-                            setState(() => _query = value.trim()),
+                        onSearchChanged: _onSearchChanged,
                         onSearchClear: () {
-                          _searchController.clear();
-                          setState(() => _query = '');
-                        },
-                        onSearchDismiss: () {
-                          _searchController.clear();
-                          _searchFocus.unfocus();
-                          if (_query.isNotEmpty) {
-                            setState(() => _query = '');
-                          }
+                          _searchDebounce?.cancel();
+                          setState(() => _searchQuery = '');
                         },
                         onFilterTap: () {},
                       ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Идеально для вас:',
-                        style: AppTypography.sectionTitle.copyWith(
-                          fontSize: 17,
+                      if (!_searchActive) ...[
+                        const SizedBox(height: 18),
+                        Text(
+                          'Идеально для вас:',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontSize: 17,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 12),
+                        const SizedBox(height: 12),
+                      ],
                     ],
                   ),
                 ),
               ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverList.separated(
-                  itemCount: ideal.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) =>
-                      RouteHeroCard(route: ideal[index], height: 295),
-                ),
-              ),
-              if (close.isNotEmpty) ...[
+              if (_searchActive)
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
                   sliver: SliverToBoxAdapter(
-                    child: Text(
-                      'Близки к вашему идеалу:',
-                      style: AppTypography.sectionTitle.copyWith(fontSize: 17),
+                    child: InPlaceSearchBody(
+                      query: _searchQuery,
+                      scope: SearchScope.routes,
+                      localRoutes: filtered,
+                      onQueryFromHistory: (value) {
+                        _searchController.text = value;
+                        _onSearchChanged(value);
+                      },
                     ),
                   ),
-                ),
+                )
+              else ...[
                 SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   sliver: SliverList.separated(
-                    itemCount: close.length,
+                    itemCount: ideal.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 16),
                     itemBuilder: (context, index) =>
-                        RouteHeroCard(route: close[index], height: 295),
+                        RouteHeroCard(route: ideal[index], height: 295),
                   ),
                 ),
-              ] else
-                const SliverToBoxAdapter(child: SizedBox(height: 120)),
+                if (close.isNotEmpty) ...[
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                    sliver: SliverToBoxAdapter(
+                      child: Text(
+                        'Близки к вашему идеалу:',
+                        style: AppTypography.sectionTitle.copyWith(
+                          fontSize: 17,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                    sliver: SliverList.separated(
+                      itemCount: close.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 16),
+                      itemBuilder: (context, index) =>
+                          RouteHeroCard(route: close[index], height: 295),
+                    ),
+                  ),
+                ] else
+                  const SliverToBoxAdapter(child: SizedBox(height: 120)),
+              ],
             ],
           );
         },

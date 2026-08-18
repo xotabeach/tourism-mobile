@@ -137,8 +137,8 @@ class DiscoveryProfileCard extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     return _DiscoveryCardShell(
       height: height,
-      background: _mediaBackground(config, profile.coverUrl),
-      hasImage: profile.coverUrl != null && profile.coverUrl!.isNotEmpty,
+      background: _profileCoverBackground(config, profile),
+      hasImage: true,
       onTap: onTap,
       leading: CircleAvatar(
         radius: 32,
@@ -336,13 +336,22 @@ class _DiscoveryCardShell extends StatelessWidget {
   }
 }
 
-Widget _mediaBackground(AppConfig config, String? value) {
-  if (value == null || value.isEmpty) {
-    return const ColoredBox(color: AppColors.controlSurface);
+Widget _profileCoverBackground(AppConfig config, PublicUserProfile profile) {
+  final fallback = AppImages.routeFallbackAsset(profile.id);
+  if (profile.coverUrl == null || profile.coverUrl!.isEmpty) {
+    return Image.asset(fallback, fit: BoxFit.cover);
   }
   return Image(
-    image: _mediaProvider(config, value, fallback: AppImages.coastalBayHills),
+    image: _mediaProvider(config, profile.coverUrl, fallback: fallback),
     fit: BoxFit.cover,
+  );
+}
+
+Widget _mediaBackground(AppConfig config, String? value) {
+  return AppImages.coverImage(
+    config: config,
+    coverImageUrl: value,
+    fallbackSeed: value ?? '',
   );
 }
 

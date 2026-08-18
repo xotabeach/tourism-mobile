@@ -92,8 +92,12 @@ void handlePushOpened(GoRouter router, RemoteMessage message) {
     unawaited(
       router.pushNamed(
         AppRouteNames.userProfile,
-        pathParameters: {'id': targetId},
+        pathParameters: {'userId': targetId},
       ),
     );
+    return;
+  }
+  if (targetType == 'achievement') {
+    unawaited(router.pushNamed(AppRouteNames.achievements));
   }
 }

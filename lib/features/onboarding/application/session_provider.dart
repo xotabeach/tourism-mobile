@@ -89,6 +89,7 @@ class SessionController extends StateNotifier<SessionState> {
   final bool useMockData;
   final void Function()? onSessionCleared;
   Future<String?>? _refreshInFlight;
+  Future<void>? _otpRequestInFlight;
 
   void saveIdentity({required String displayName, required String phone}) {
     state = state.copyWith(
@@ -98,6 +99,22 @@ class SessionController extends StateNotifier<SessionState> {
   }
 
   Future<void> requestOtp() async {
+    final existing = _otpRequestInFlight;
+    if (existing != null) {
+      return existing;
+    }
+    final future = _requestOtpInternal();
+    _otpRequestInFlight = future;
+    try {
+      await future;
+    } finally {
+      if (identical(_otpRequestInFlight, future)) {
+        _otpRequestInFlight = null;
+      }
+    }
+  }
+
+  Future<void> _requestOtpInternal() async {
     final name = state.displayName?.trim();
     final phone = state.phone?.trim();
     if (name == null || name.isEmpty || phone == null || phone.isEmpty) {

@@ -30,6 +30,7 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
   final _focusNode = FocusNode();
   var _privacyAccepted = false;
   var _personalDataAccepted = false;
+  var _submitting = false;
 
   @override
   void initState() {
@@ -119,9 +120,10 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
   }
 
   Future<void> _startJourney() async {
-    if (!_canSubmit) {
+    if (!_canSubmit || _submitting) {
       return;
     }
+    setState(() => _submitting = true);
     try {
       await ref
           .read(sessionProvider.notifier)
@@ -141,6 +143,10 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Не удалось подтвердить код.')),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
     }
   }
 
@@ -230,7 +236,7 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
               const SizedBox(height: 26),
               AppAdaptivePrimaryButton(
                 label: 'Начать путешествие',
-                onPressed: _canSubmit ? _startJourney : null,
+                onPressed: _canSubmit && !_submitting ? _startJourney : null,
               ),
             ],
           ),

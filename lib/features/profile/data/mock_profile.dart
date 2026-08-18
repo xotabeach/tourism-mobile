@@ -26,6 +26,7 @@ abstract final class MockProfile {
         id: 'ach-berlin',
         title: 'Ура Советам',
         description: 'Дойти пешком до Берлина',
+        isUnlocked: false,
       ),
     ],
     [
@@ -43,6 +44,7 @@ abstract final class MockProfile {
         id: 'ach-caves',
         title: 'Подземный гость',
         description: 'Посетить пещерный город',
+        isUnlocked: false,
       ),
     ],
     [
@@ -60,6 +62,7 @@ abstract final class MockProfile {
         id: 'ach-group',
         title: 'Компания',
         description: 'Пройти маршрут с друзьями',
+        isUnlocked: false,
       ),
     ],
     [
@@ -77,6 +80,7 @@ abstract final class MockProfile {
         id: 'ach-guide',
         title: 'Свой гид',
         description: 'Прослушать 5 аудиогидов',
+        isUnlocked: false,
       ),
     ],
     [
@@ -94,6 +98,7 @@ abstract final class MockProfile {
         id: 'ach-review',
         title: 'Отзывчивый',
         description: 'Оставить 5 отзывов',
+        isUnlocked: false,
       ),
     ],
   ];

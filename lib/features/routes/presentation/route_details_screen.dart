@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +8,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
+import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -357,14 +357,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     if (uploadedImages.isNotEmpty) {
       return uploadedImages;
     }
-    final cover = _routeCover(config, route);
-    if (route.source == 'user_created') {
-      return [cover];
-    }
-    final rest = AppImages.routeFallbacks
-        .where((asset) => asset != route.coverImageUrl)
-        .map<ImageProvider>(AssetImage.new);
-    return [cover, ...rest];
+    return [_routeCover(config, route)];
   }
 }
 
@@ -459,7 +452,7 @@ ImageProvider _routeCover(AppConfig config, RouteSummary route) {
   if (url != null) {
     return AppImages.imageProvider(resolvedUrl: url);
   }
-  return AssetImage(AppImages.routeFallbackAsset(route.slug));
+  return AppImages.grayCoverProvider;
 }
 
 /// Other routes of the region, shown right before the reviews.
@@ -1242,7 +1235,7 @@ class _RatingRow extends StatelessWidget {
   }
 }
 
-class _RouteReviewsSection extends ConsumerWidget {
+class _RouteReviewsSection extends ConsumerStatefulWidget {
   const _RouteReviewsSection({
     required this.routeId,
     required this.allowComposer,
@@ -1252,8 +1245,25 @@ class _RouteReviewsSection extends ConsumerWidget {
   final bool allowComposer;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!allowComposer) {
+  ConsumerState<_RouteReviewsSection> createState() =>
+      _RouteReviewsSectionState();
+}
+
+enum _ReviewListFilter { all, newest, oldest, withPhoto }
+
+class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
+  final _composerFocus = FocusNode();
+  var _filter = _ReviewListFilter.all;
+
+  @override
+  void dispose() {
+    _composerFocus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.allowComposer) {
       return const Padding(
         padding: EdgeInsets.only(bottom: 24),
         child: Text(
@@ -1269,12 +1279,14 @@ class _RouteReviewsSection extends ConsumerWidget {
       );
     }
 
-    final reviewsAsync = ref.watch(routeReviewsProvider(routeId));
+    final reviewsAsync = ref.watch(routeReviewsProvider(widget.routeId));
     final myReviewsAsync = ref.watch(myRouteReviewsProvider);
     final selfUserId = ref.watch(sessionProvider).userId;
     final pendingCandidates = myReviewsAsync.maybeWhen(
       data: (items) => items
-          .where((r) => r.routeId == routeId && r.status == 'pending_review')
+          .where(
+            (r) => r.routeId == widget.routeId && r.status == 'pending_review',
+          )
           .toList(),
       orElse: () => const <RouteReview>[],
     );
@@ -1296,22 +1308,21 @@ class _RouteReviewsSection extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              ref.invalidate(routeReviewsProvider(routeId));
+              ref.invalidate(routeReviewsProvider(widget.routeId));
               ref.invalidate(myRouteReviewsProvider);
             },
             child: const Text('Повторить'),
           ),
           const SizedBox(height: 12),
-          _ReviewComposer(routeId: routeId),
+          _ReviewComposer(routeId: widget.routeId, focusNode: _composerFocus),
         ],
       ),
       data: (page) {
-        // Drop stale pending cards once the same review is already published
-        // (my-reviews cache can lag behind moderation approve).
         final pendingMine = pendingReviewsNotYetPublished(
           pending: pendingCandidates,
           published: page.items,
         );
+        final visible = _applyFilter(page.items);
         final ratingLabel = page.averageRating == null
             ? '—'
             : page.averageRating!.toStringAsFixed(1).replaceAll('.', ',');
@@ -1323,29 +1334,68 @@ class _RouteReviewsSection extends ConsumerWidget {
           children: [
             _RatingRow(rating: ratingLabel, topLabel: topLabel),
             const SizedBox(height: 14),
+            _ReviewComposer(routeId: widget.routeId, focusNode: _composerFocus),
+            const SizedBox(height: 14),
+            AppFilterChipBar(
+              labels: const ['Все', 'Новые', 'Старые', 'С фото'],
+              selected: switch (_filter) {
+                _ReviewListFilter.all => 'Все',
+                _ReviewListFilter.newest => 'Новые',
+                _ReviewListFilter.oldest => 'Старые',
+                _ReviewListFilter.withPhoto => 'С фото',
+              },
+              onSelected: (label) {
+                setState(() {
+                  _filter = switch (label) {
+                    'Новые' => _ReviewListFilter.newest,
+                    'Старые' => _ReviewListFilter.oldest,
+                    'С фото' => _ReviewListFilter.withPhoto,
+                    _ => _ReviewListFilter.all,
+                  };
+                });
+              },
+            ),
+            const SizedBox(height: 14),
             for (final review in pendingMine) ...[
               _ReviewCard(
                 review: review,
                 pending: true,
                 canDelete: _canDeleteReview(review, selfUserId),
+                onReply: _focusComposer,
               ),
               const SizedBox(height: 12),
             ],
-            for (final review in page.items) ...[
+            for (final review in visible) ...[
               _ReviewCard(
                 review: review,
                 pending: false,
                 canDelete: _canDeleteReview(review, selfUserId),
+                onReply: _focusComposer,
               ),
               const SizedBox(height: 12),
             ],
-            const SizedBox(height: 8),
-            _ReviewComposer(routeId: routeId),
             const SizedBox(height: 24),
           ],
         );
       },
     );
+  }
+
+  void _focusComposer() {
+    _composerFocus.requestFocus();
+  }
+
+  List<RouteReview> _applyFilter(List<RouteReview> items) {
+    switch (_filter) {
+      case _ReviewListFilter.all:
+        return items;
+      case _ReviewListFilter.newest:
+        return [...items]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case _ReviewListFilter.oldest:
+        return [...items]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      case _ReviewListFilter.withPhoto:
+        return const [];
+    }
   }
 
   static bool _canDeleteReview(RouteReview review, String? selfUserId) {
@@ -1389,9 +1439,10 @@ List<RouteReview> pendingReviewsNotYetPublished({
 }
 
 class _ReviewComposer extends ConsumerStatefulWidget {
-  const _ReviewComposer({required this.routeId});
+  const _ReviewComposer({required this.routeId, required this.focusNode});
 
   final String routeId;
+  final FocusNode focusNode;
 
   @override
   ConsumerState<_ReviewComposer> createState() => _ReviewComposerState();
@@ -1400,30 +1451,31 @@ class _ReviewComposer extends ConsumerStatefulWidget {
 class _ReviewComposerState extends ConsumerState<_ReviewComposer>
     with WidgetsBindingObserver {
   final _controller = TextEditingController();
-  final _focusNode = FocusNode();
   final _composerKey = GlobalKey();
   var _rating = 5;
   var _sending = false;
   var _lastViewInset = 0.0;
 
+  static const _maxChars = 500;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _focusNode.addListener(_onComposerFocusChange);
+    widget.focusNode.addListener(_onComposerFocusChange);
+    _controller.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _focusNode.removeListener(_onComposerFocusChange);
-    _focusNode.dispose();
+    widget.focusNode.removeListener(_onComposerFocusChange);
     _controller.dispose();
     super.dispose();
   }
 
   void _onComposerFocusChange() {
-    if (!_focusNode.hasFocus) {
+    if (!widget.focusNode.hasFocus) {
       return;
     }
     _ensureComposerVisible(animate: true);
@@ -1443,7 +1495,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
     final inset = _keyboardInset();
     final opened = inset > _lastViewInset + 1;
     _lastViewInset = inset;
-    if (opened || (inset > 0 && _focusNode.hasFocus)) {
+    if (opened || (inset > 0 && widget.focusNode.hasFocus)) {
       _ensureComposerVisible(animate: false);
       if (opened) {
         _ensureComposerVisibleSoon();
@@ -1458,7 +1510,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
       Duration(milliseconds: 320),
     ]) {
       Future<void>.delayed(delay, () {
-        if (!mounted || !_focusNode.hasFocus) {
+        if (!mounted || !widget.focusNode.hasFocus) {
           return;
         }
         _ensureComposerVisible(animate: false);
@@ -1472,7 +1524,7 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_focusNode.hasFocus) {
+      if (!mounted || !widget.focusNode.hasFocus) {
         return;
       }
       final ctx = _composerKey.currentContext;
@@ -1538,55 +1590,67 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
 
   @override
   Widget build(BuildContext context) {
+    final used = _controller.text.characters.length;
     return Container(
       key: _composerKey,
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEDEDEE)),
       ),
-      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Ваш отзыв',
-            style: TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryInk,
-            ),
-          ),
-          const SizedBox(height: 10),
           Row(
             children: [
-              for (var index = 1; index <= 5; index++)
-                IconButton(
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints.tightFor(
-                    width: 32,
-                    height: 32,
-                  ),
-                  onPressed: () => setState(() => _rating = index),
-                  icon: Icon(
-                    index <= _rating
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    color: AppColors.rating,
-                    size: 26,
+              const Expanded(
+                child: Text(
+                  'Ваш отзыв:',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryInk,
                   ),
                 ),
+              ),
+              for (var index = 1; index <= 5; index++)
+                GestureDetector(
+                  onTap: () => setState(() => _rating = index),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 1),
+                    child: Icon(
+                      index <= _rating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      color: AppColors.rating,
+                      size: 22,
+                    ),
+                  ),
+                ),
+              IconButton(
+                tooltip: 'Очистить',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
+                  _controller.clear();
+                  setState(() => _rating = 5);
+                },
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: AppColors.secondaryInk,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           TextField(
             controller: _controller,
-            focusNode: _focusNode,
-            minLines: 3,
+            focusNode: widget.focusNode,
+            minLines: 4,
             maxLines: 6,
-            maxLength: 2000,
+            maxLength: _maxChars,
             style: const TextStyle(
               fontFamily: AppFonts.rubik,
               fontSize: 14,
@@ -1601,21 +1665,40 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
                 color: AppColors.secondaryInk,
               ),
               filled: true,
-              fillColor: const Color(0xFFF4F4F6),
+              fillColor: const Color(0xFFF0F0F0),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 borderSide: BorderSide.none,
               ),
               counterText: '',
-              contentPadding: const EdgeInsets.all(12),
+              contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '$used/$_maxChars',
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 12,
+                color: AppColors.secondaryInk,
+              ),
             ),
           ),
           const SizedBox(height: 10),
           SizedBox(
             width: double.infinity,
             height: 48,
-            child: FilledButton(
+            child: OutlinedButton(
               onPressed: _sending ? null : _submit,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryInk,
+                side: const BorderSide(color: AppColors.primaryInk),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
               child: Text(_sending ? 'Отправка…' : 'Отправить'),
             ),
           ),
@@ -1628,18 +1711,20 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
 class _ReviewCard extends ConsumerWidget {
   const _ReviewCard({
     required this.review,
+    required this.onReply,
     this.pending = false,
     this.canDelete = false,
   });
 
   final RouteReview review;
+  final VoidCallback onReply;
   final bool pending;
   final bool canDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final score = review.rating.toStringAsFixed(1).replaceAll('.', ',');
+    final score = '${review.rating}';
     final avatar = AppImages.resolveMediaUrl(config, review.authorAvatarUrl);
     return Opacity(
       opacity: pending ? 0.72 : 1,
@@ -1753,10 +1838,25 @@ class _ReviewCard extends ConsumerWidget {
             const SizedBox(height: 10),
             Row(
               children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showFullReview(context),
+                    child: Text(
+                      'Читать отзыв полностью',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.button.copyWith(
+                        fontSize: 13,
+                        color: AppColors.primaryInk,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 GestureDetector(
-                  onTap: () => _showFullReview(context),
+                  onTap: onReply,
                   child: Text(
-                    'Читать отзыв полностью',
+                    'Ответить',
                     style: AppTypography.button.copyWith(
                       fontSize: 13,
                       color: AppColors.primaryInk,
@@ -1764,7 +1864,7 @@ class _ReviewCard extends ConsumerWidget {
                   ),
                 ),
                 if (canDelete) ...[
-                  const Spacer(),
+                  const SizedBox(width: 14),
                   GestureDetector(
                     onTap: () => unawaited(_confirmDelete(context, ref)),
                     child: Text(

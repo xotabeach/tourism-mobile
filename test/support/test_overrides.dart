@@ -5,6 +5,7 @@ import 'package:tourism_mobile/core/storage/memory_secure_storage.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/auth/data/auth_repository_impl.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/search/application/search_history_provider.dart';
 
 const testAppConfig = AppConfig(
   environment: AppEnvironment.local,
@@ -37,5 +38,6 @@ List<Override> testSessionOverrides({
         ),
       ),
     ),
+    searchHistoryStoreProvider.overrideWithValue(MemorySearchHistoryStore()),
   ];
 }

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -19,6 +20,84 @@ abstract final class AppImages {
     coastalBayHills,
     welcomeSunset,
   ];
+
+  static const coverPlaceholderColor = Color(0xFFE7E7E7);
+
+  /// 1×1 gray PNG so [Image] / [DecorationImage] can reserve space without a
+  /// bundled photo flash while network covers load or when media is missing.
+  static final grayCoverProvider = MemoryImage(
+    Uint8List.fromList(const [
+      0x89,
+      0x50,
+      0x4E,
+      0x47,
+      0x0D,
+      0x0A,
+      0x1A,
+      0x0A,
+      0x00,
+      0x00,
+      0x00,
+      0x0D,
+      0x49,
+      0x48,
+      0x44,
+      0x52,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
+      0x08,
+      0x02,
+      0x00,
+      0x00,
+      0x00,
+      0x90,
+      0x77,
+      0x53,
+      0xDE,
+      0x00,
+      0x00,
+      0x00,
+      0x0C,
+      0x49,
+      0x44,
+      0x41,
+      0x54,
+      0x78,
+      0x9C,
+      0x63,
+      0x78,
+      0xFE,
+      0xFC,
+      0x39,
+      0x00,
+      0x05,
+      0x6E,
+      0x02,
+      0xB6,
+      0xC5,
+      0xB5,
+      0xCE,
+      0xBB,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x49,
+      0x45,
+      0x4E,
+      0x44,
+      0xAE,
+      0x42,
+      0x60,
+      0x82,
+    ]),
+  );
 
   static bool isAssetPath(String? pathOrUrl) {
     if (pathOrUrl == null || pathOrUrl.isEmpty) {
@@ -86,20 +165,28 @@ abstract final class AppImages {
   /// A size-bounded route cover provider suitable for preloading. Decoding a
   /// phone-sized card from a multi-megapixel upload wastes memory and causes
   /// visible raster-thread stalls on mid-range Android GPUs.
-  static ImageProvider routeCoverProvider({
+  static ImageProvider? routeCoverProvider({
     required AppConfig config,
     required String? coverImageUrl,
     required String fallbackSeed,
     required int cacheWidth,
   }) {
-    final fallback = routeFallbackAsset(fallbackSeed);
-    final base = isAssetPath(coverImageUrl)
-        ? AssetImage(coverImageUrl!) as ImageProvider
-        : imageProvider(
-            resolvedUrl: resolveMediaUrl(config, coverImageUrl),
-            assetFallback: fallback,
-          );
-    return ResizeImage.resizeIfNeeded(cacheWidth, null, base);
+    if (isAssetPath(coverImageUrl)) {
+      return ResizeImage.resizeIfNeeded(
+        cacheWidth,
+        null,
+        AssetImage(coverImageUrl!),
+      );
+    }
+    final resolved = resolveMediaUrl(config, coverImageUrl);
+    if (resolved == null) {
+      return null;
+    }
+    return ResizeImage.resizeIfNeeded(
+      cacheWidth,
+      null,
+      CachedNetworkImageProvider(resolved),
+    );
   }
 
   /// Resolves session/API avatar refs (including local `file://` previews).
@@ -127,7 +214,8 @@ abstract final class AppImages {
     };
   }
 
-  /// Cover for mock (asset path) or API media; falls back to [routeFallbackAsset].
+  /// Cover for API media. Missing/loading/error frames are a flat gray fill
+  /// (no bundled photo flash). Local `assets/` paths still render immediately.
   static Widget coverImage({
     required AppConfig config,
     required String? coverImageUrl,
@@ -135,13 +223,13 @@ abstract final class AppImages {
     BoxFit fit = BoxFit.cover,
     AlignmentGeometry alignment = Alignment.center,
   }) {
-    final fallback = routeFallbackAsset(fallbackSeed);
+    const loadingFill = coverPlaceholderColor;
     if (isAssetPath(coverImageUrl)) {
       return Image.asset(coverImageUrl!, fit: fit, alignment: alignment);
     }
     final networkUrl = resolveMediaUrl(config, coverImageUrl);
     if (networkUrl == null) {
-      return Image.asset(fallback, fit: fit, alignment: alignment);
+      return const ColoredBox(color: loadingFill);
     }
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -152,13 +240,6 @@ abstract final class AppImages {
         final cacheHeight = constraints.maxHeight.isFinite
             ? (constraints.maxHeight * pixelRatio).ceil().clamp(1, 2048)
             : null;
-        Widget fallbackImage() => Image.asset(
-          fallback,
-          fit: fit,
-          alignment: alignment,
-          cacheWidth: cacheWidth,
-          cacheHeight: cacheHeight,
-        );
 
         return CachedNetworkImage(
           imageUrl: networkUrl,
@@ -166,8 +247,8 @@ abstract final class AppImages {
           alignment: alignment is Alignment ? alignment : Alignment.center,
           memCacheWidth: cacheWidth,
           memCacheHeight: cacheHeight,
-          errorWidget: (_, _, _) => fallbackImage(),
-          placeholder: (_, _) => fallbackImage(),
+          errorWidget: (_, _, _) => const ColoredBox(color: loadingFill),
+          placeholder: (_, _) => const ColoredBox(color: loadingFill),
         );
       },
     );

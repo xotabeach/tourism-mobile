@@ -120,6 +120,18 @@ final travelersLeaderboardProvider = FutureProvider<List<PublicUserProfile>>((
   return ref.watch(publicProfileRepositoryProvider).leaderboard(limit: 100);
 });
 
+final userAchievementsProvider =
+    FutureProvider.family<List<ProfileAchievement>, String>((
+      ref,
+      userId,
+    ) async {
+      final config = ref.watch(appConfigProvider);
+      if (config.useMockData) {
+        return [for (final page in MockProfile.achievementPages) ...page];
+      }
+      return ref.watch(publicProfileRepositoryProvider).achievements(userId);
+    });
+
 ProfileRank _rankFromUser(PublicUserProfile user) {
   return ProfileRank(
     title: user.rankTitle,
@@ -158,8 +170,10 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
   }
 
   final bundle = await ref.watch(publicProfileRepositoryProvider).fetch(userId);
+  final achievements = await ref.watch(userAchievementsProvider(userId).future);
   String? resolve(String? raw) => AppImages.resolveMediaUrl(config, raw);
   final rank = _rankFromUser(bundle.user);
+  final achievementPages = pageUnlockedAchievements(achievements);
 
   if (isOwn) {
     final own = ref.watch(profileProvider);
@@ -171,10 +185,12 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       avatarImageAsset: own.avatarImageAsset,
       avatarImageUrl: own.avatarImageUrl,
       coverImageUrl: own.coverImageUrl,
-      achievementPages: own.achievementPages,
+      achievementPages: achievementPages,
       publishedRoutes: ownRoutes.items,
       likedByMe: false,
       travelPoints: bundle.user.travelPoints,
+      followersCount: bundle.user.followersCount,
+      followingCount: bundle.user.followingCount,
     );
   }
 
@@ -185,10 +201,12 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     avatarImageAsset: AppImages.travelerPortrait,
     avatarImageUrl: resolve(bundle.user.avatarUrl),
     coverImageUrl: resolve(bundle.user.coverUrl),
-    achievementPages: MockProfile.achievementPages,
+    achievementPages: achievementPages,
     publishedRoutes: bundle.routes,
     likedByMe: bundle.user.likedByMe,
     travelPoints: bundle.user.travelPoints,
+    followersCount: bundle.user.followersCount,
+    followingCount: bundle.user.followingCount,
   );
 });
 
@@ -213,6 +231,10 @@ class ProfileLikeController extends AsyncNotifier<void> {
         await repo.like(userId);
       }
       ref.invalidate(publicProfileProvider(userId));
+      final selfId = ref.read(sessionProvider).userId;
+      if (selfId != null && selfId.isNotEmpty && selfId != userId) {
+        ref.invalidate(publicProfileProvider(selfId));
+      }
       ref.invalidate(profileSubscriptionsProvider);
     });
   }

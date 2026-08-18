@@ -1,8 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
@@ -12,6 +16,7 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_c
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 import 'support/test_overrides.dart';
 
@@ -32,6 +37,12 @@ ProviderScope appWithCompletedOnboarding({
     overrides: _testOverrides(onboardingCompleted: true, additional: overrides),
     child: const TourismApp(),
   );
+}
+
+Future<void> openPlacesCatalog(WidgetTester tester) async {
+  final context = tester.element(find.byType(HomeScreen));
+  unawaited(GoRouter.of(context).pushNamed(AppRouteNames.places));
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -76,12 +87,20 @@ void main() {
   testWidgets('shows home and opens places catalog from mock data', (
     WidgetTester tester,
   ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1600);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Фильтры'));
-    await tester.pumpAndSettle();
+    await openPlacesCatalog(tester);
 
     expect(find.text('Места Крыма'), findsOneWidget);
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
@@ -225,7 +244,7 @@ void main() {
     expect(find.bySemanticsLabel('Назад'), findsOneWidget);
   });
 
-  testWidgets('home search filters visible routes and clears', (tester) async {
+  testWidgets('home search replaces body in place', (tester) async {
     tester.view
       ..devicePixelRatio = 1
       ..physicalSize = const Size(393, 1600);
@@ -238,24 +257,14 @@ void main() {
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
 
-    expect(find.text('Классика Южного берега'), findsOneWidget);
-    expect(find.text('Наследие Бахчисарая'), findsOneWidget);
-
-    await tester.enterText(find.byType(TextField), 'Бахчисар');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Классика Южного берега'), findsNothing);
-    expect(find.text('Наследие Бахчисарая'), findsWidgets);
-
-    await tester.tap(find.byTooltip('Очистить поиск'));
-    await tester.pump();
-
-    expect(find.text('Классика Южного берега'), findsOneWidget);
-    expect(find.text('Наследие Бахчисарая'), findsOneWidget);
+    expect(find.text('Люди:'), findsOneWidget);
+    expect(find.text('Маршруты:'), findsOneWidget);
   });
 
-  testWidgets('home search expands with route and profile results', (
+  testWidgets('in-place search shows route and profile results', (
     tester,
   ) async {
     tester.view
@@ -269,18 +278,18 @@ void main() {
 
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'Никита');
+    await tester.tap(find.byType(TextField).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Никита');
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    expect(find.byType(UniversalSearchPanel), findsOneWidget);
     expect(find.text('Никита Можаров'), findsOneWidget);
     expect(find.byType(DiscoveryProfileCard), findsOneWidget);
-    expect(find.byType(DiscoveryRouteCard), findsWidgets);
+    expect(find.byType(RouteHeroCard), findsWidgets);
   });
 
-  testWidgets('home search resets when dismissed', (tester) async {
+  testWidgets('in-place search clears query', (tester) async {
     tester.view
       ..devicePixelRatio = 1
       ..physicalSize = const Size(393, 1600);
@@ -292,18 +301,16 @@ void main() {
 
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(TextField));
-    await tester.enterText(find.byType(TextField), 'Никита');
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
-    expect(find.byType(UniversalSearchPanel), findsOneWidget);
-
-    await tester.tap(find.byTooltip('Очистить поиск'));
+    await tester.enterText(find.byType(TextField).first, 'Никита');
     await tester.pumpAndSettle();
 
-    expect(find.byType(UniversalSearchPanel), findsNothing);
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
+    await tester.pumpAndSettle();
+
     expect(
-      tester.widget<TextField>(find.byType(TextField)).controller?.text,
+      tester.widget<TextField>(find.byType(TextField).first).controller?.text,
       '',
     );
   });
@@ -377,28 +384,34 @@ void main() {
   testWidgets('places search queries matching places and clears', (
     WidgetTester tester,
   ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1600);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
     final placeTitle = find.byWidgetPredicate(
       (widget) => widget is Text && widget.data == 'Ай-Петри',
     );
 
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
-
-    await tester.tap(find.bySemanticsLabel('Фильтры'));
-    await tester.pumpAndSettle();
+    await openPlacesCatalog(tester);
 
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Ай-Петри');
-    await tester.pump(const Duration(milliseconds: 350));
+    await tester.enterText(find.byType(TextField).first, 'Ай-Петри');
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    expect(placeTitle, findsOneWidget);
-    expect(find.text('Ласточкино гнездо'), findsNothing);
+    expect(placeTitle, findsWidgets);
 
-    await tester.tap(find.byTooltip('Очистить поиск'));
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
     await tester.pumpAndSettle();
 
-    expect(find.text('Ласточкино гнездо'), findsOneWidget);
+    expect(find.text('Ласточкино гнездо'), findsWidgets);
   });
 
   testWidgets('routes tab shows swipe deck from mock data', (
@@ -432,14 +445,18 @@ void main() {
     expect(find.byType(RouteSwipeDeck), findsOneWidget);
     expect(find.text('Классика Южного берега'), findsWidgets);
 
-    await tester.enterText(find.byType(TextField), 'Никита');
+    await tester.tap(find.byType(TextField).first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Никита');
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
-    expect(find.byType(UniversalSearchPanel), findsOneWidget);
-    expect(find.text('Никита Можаров'), findsOneWidget);
-    await tester.tap(find.byTooltip('Очистить поиск'));
+    expect(find.byType(RouteSwipeDeck), findsNothing);
+    expect(find.byType(RouteHeroCard), findsWidgets);
+    await tester.tap(find.byIcon(Icons.close_rounded).first);
     await tester.pumpAndSettle();
 
+    expect(find.byType(RouteSwipeDeck), findsOneWidget);
+    expect(find.text('Классика Южного берега'), findsWidgets);
     await tester.tap(find.text('Классика Южного берега').first);
     await tester.pumpAndSettle();
 

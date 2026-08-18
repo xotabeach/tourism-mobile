@@ -24,6 +24,17 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_c
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
+String compactCount(int value) {
+  if (value >= 1000) {
+    final thousands = value / 1000;
+    final text = thousands == thousands.roundToDouble()
+        ? thousands.toStringAsFixed(0)
+        : thousands.toStringAsFixed(1);
+    return '$text тыс.';
+  }
+  return '$value';
+}
+
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key, this.userId});
 
@@ -219,8 +230,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       AppSpacing.page,
                       0,
                     ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text(
                           'Достижения:',
@@ -228,12 +240,39 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: AppSpacing.sm),
+                        Semantics(
+                          button: true,
+                          label: 'Все достижения',
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(AppRadii.chip),
+                            onTap: () =>
+                                context.pushNamed(AppRouteNames.achievements),
+                            child: const Padding(
+                              padding: EdgeInsets.fromLTRB(10, 6, 2, 6),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    'Все',
+                                    style: AppTypography.sectionAction,
+                                  ),
+                                  SizedBox(width: 2),
+                                  Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 20,
+                                    color: AppColors.secondaryInk,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
                   _AchievementsCarousel(
-                    pages: profile.achievementPages,
+                    pages: pageUnlockedAchievements([
+                      for (final page in profile.achievementPages) ...page,
+                    ]),
                     pageIndex: _achievementPage,
                     onPageChanged: (index) {
                       setState(() => _achievementPage = index);
@@ -277,6 +316,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         setState(() => _publishedPage = index);
                       },
                     ),
+                  const SizedBox(height: AppSpacing.xl),
                   const SizedBox(height: AppSpacing.shellBottomContent),
                 ],
               ),
@@ -300,7 +340,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
   /// Match pre-sliver `_ProfileHeader`: cover was `topInset + 190`, identity
   /// sat at `bottom: 44`, and the rank card overlapped the cover by 28px.
   static const double coverBody = 190;
-  static const double rankCardHeight = 124;
+  static const double rankCardHeight = 188;
   static const double rankOverlap = 28;
 
   /// Gap between the identity row bottom and the rank-card top (44 - 28).
@@ -315,14 +355,16 @@ class _ProfileCollapsingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cover = AppImages.imageProvider(
-      resolvedUrl: profile.coverImageUrl,
-      assetFallback: profile.coverImageAsset,
-    );
-    final avatar = AppImages.imageProvider(
-      resolvedUrl: profile.avatarImageUrl,
-      assetFallback: profile.avatarImageAsset,
-    );
+    final avatarAsset = AssetImage(profile.avatarImageAsset);
+    final avatarNetwork =
+        profile.avatarImageUrl != null &&
+            profile.avatarImageUrl!.isNotEmpty &&
+            !AppImages.isAssetPath(profile.avatarImageUrl)
+        ? AppImages.imageProvider(
+            resolvedUrl: profile.avatarImageUrl,
+            assetFallback: profile.avatarImageAsset,
+          )
+        : null;
     final coverHeight = topInset + coverBody;
     final expandedHeight = coverHeight + rankCardHeight - rankOverlap;
 
@@ -346,7 +388,18 @@ class _ProfileCollapsingHeader extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image(image: cover, fit: BoxFit.cover),
+                Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
+                if (profile.coverImageUrl != null &&
+                    profile.coverImageUrl!.isNotEmpty)
+                  Image(
+                    image: AppImages.imageProvider(
+                      resolvedUrl: profile.coverImageUrl,
+                      assetFallback: profile.coverImageAsset,
+                    ),
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, _, _) =>
+                        Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
+                  ),
                 const DecoratedBox(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
@@ -439,7 +492,8 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                           ),
                           child: CircleAvatar(
                             radius: 32,
-                            backgroundImage: avatar,
+                            backgroundImage: avatarAsset,
+                            foregroundImage: avatarNetwork,
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -483,7 +537,11 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                     right: AppSpacing.page,
                     bottom: 0,
                     height: rankCardHeight,
-                    child: _RankCard(rank: profile.rank),
+                    child: _RankCard(
+                      rank: profile.rank,
+                      followersCount: profile.followersCount,
+                      followingCount: profile.followingCount,
+                    ),
                   ),
                 ],
               ),
@@ -499,7 +557,11 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
-                        CircleAvatar(radius: 16, backgroundImage: avatar),
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundImage: avatarAsset,
+                          foregroundImage: avatarNetwork,
+                        ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
@@ -574,13 +636,18 @@ class _HeaderActionButton extends StatelessWidget {
 }
 
 class _RankCard extends StatelessWidget {
-  const _RankCard({required this.rank});
+  const _RankCard({
+    required this.rank,
+    required this.followersCount,
+    required this.followingCount,
+  });
 
   final ProfileRank rank;
+  final int followersCount;
+  final int followingCount;
 
   @override
   Widget build(BuildContext context) {
-    // Max rank uses nextRankPoints == 0; treat as complete.
     final progress = rank.nextRankPoints <= 0
         ? 1.0
         : (rank.progressPoints / rank.nextRankPoints).clamp(0.0, 1.0);
@@ -592,10 +659,30 @@ class _RankCard extends StatelessWidget {
         boxShadow: AppShadows.tile,
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 14, 18, 12),
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _FollowStatBox(
+                    icon: Icons.person_outline_rounded,
+                    value: compactCount(followersCount),
+                    label: 'Подписчиков',
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _FollowStatBox(
+                    icon: Icons.favorite_border_rounded,
+                    value: compactCount(followingCount),
+                    label: 'Подписок',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
             Row(
               children: [
                 Text(
@@ -620,9 +707,9 @@ class _RankCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             const Divider(height: 1, thickness: 1, color: Color(0xFFE8E8E8)),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
@@ -682,6 +769,60 @@ class _RankCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _FollowStatBox extends StatelessWidget {
+  const _FollowStatBox({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final IconData icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.hairline),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 22, color: AppColors.secondaryInk),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.greeting.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.greetingSubtitle.copyWith(
+                    fontSize: 12,
+                    color: AppColors.secondaryInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -747,16 +888,19 @@ class _AchievementTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final unlocked = achievement.isUnlocked;
     return SizedBox(
       width: double.infinity,
       child: AppPressableScale(
         borderRadius: AppRadii.card,
-        onTap: onTap,
+        onTap: unlocked ? onTap : null,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.elevatedSurface,
+            color: unlocked
+                ? AppColors.elevatedSurface
+                : const Color(0x59E7E7E7),
             borderRadius: BorderRadius.circular(AppRadii.card),
-            boxShadow: AppShadows.tile,
+            boxShadow: unlocked ? AppShadows.tile : null,
           ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 12, 10, 12),
@@ -765,8 +909,10 @@ class _AchievementTile extends StatelessWidget {
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accentBlue,
+                  decoration: BoxDecoration(
+                    color: unlocked
+                        ? AppColors.accentBlue
+                        : const Color(0xFFCFCFD2),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -782,7 +928,9 @@ class _AchievementTile extends StatelessWidget {
                         style: AppTypography.chip.copyWith(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.primaryInk,
+                          color: unlocked
+                              ? AppColors.primaryInk
+                              : AppColors.secondaryInk,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -849,6 +997,9 @@ class _PublishedRoutesCarousel extends StatelessWidget {
                       : const [],
                   interactive: true,
                   authorAvatarUrl: authorAvatarUrl,
+                  onEdit: showStatuses
+                      ? () => context.pushNamed(AppRouteNames.routePublish)
+                      : null,
                 ),
               );
             },

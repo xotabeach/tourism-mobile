@@ -96,6 +96,7 @@ class RouteHeroCard extends ConsumerWidget {
     this.visualProgress = 0,
     this.authorAvatarUrl,
     this.onFavoriteToggle,
+    this.onEdit,
     super.key,
   });
 
@@ -115,6 +116,9 @@ class RouteHeroCard extends ConsumerWidget {
   /// Lets list owners coordinate a favorite change with their own removal
   /// animation. Other cards keep using [favoritesProvider] directly.
   final Future<void> Function()? onFavoriteToggle;
+
+  /// Optional edit control for the owner's published-route carousel.
+  final VoidCallback? onEdit;
 
   void _openAuthor(BuildContext context, WidgetRef ref) {
     final ownerId = route.ownerUserId;
@@ -165,6 +169,7 @@ class RouteHeroCard extends ConsumerWidget {
         authorAvatar: avatar,
         onAuthorTap: canOpenAuthor ? () => _openAuthor(context, ref) : null,
         onFavoriteToggle: onFavoriteToggle,
+        onEdit: onEdit,
       ),
     );
 
@@ -195,6 +200,7 @@ class _RouteCardContent extends StatelessWidget {
     required this.authorAvatar,
     this.onAuthorTap,
     this.onFavoriteToggle,
+    this.onEdit,
   });
 
   final RouteSummary route;
@@ -206,6 +212,7 @@ class _RouteCardContent extends StatelessWidget {
   final ImageProvider authorAvatar;
   final VoidCallback? onAuthorTap;
   final Future<void> Function()? onFavoriteToggle;
+  final VoidCallback? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -318,6 +325,13 @@ class _RouteCardContent extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: AppSpacing.xs),
+                      if (onEdit != null)
+                        AppFilteredOpacity(
+                          opacity: actionOpacity,
+                          child: _EditRouteButton(onTap: onEdit!),
+                        ),
+                      if (onEdit != null && publiclyAvailable)
+                        const SizedBox(width: 8),
                       if (publiclyAvailable)
                         AppFilteredOpacity(
                           opacity: actionOpacity,
@@ -329,17 +343,18 @@ class _RouteCardContent extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  AppFilteredOpacity(
-                    opacity: actionOpacity,
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: [
-                        for (final tag in chipTags.take(3))
-                          _RouteTag(label: tag),
-                      ],
+                  if (height >= 260)
+                    AppFilteredOpacity(
+                      opacity: actionOpacity,
+                      child: Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          for (final tag in chipTags.take(3))
+                            _RouteTag(label: tag),
+                        ],
+                      ),
                     ),
-                  ),
                   const Spacer(),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -352,7 +367,7 @@ class _RouteCardContent extends StatelessWidget {
                             const SizedBox(height: AppSpacing.xs),
                             Text(
                               route.name,
-                              maxLines: 2,
+                              maxLines: height >= 260 ? 2 : 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTypography.routeTitle.copyWith(
                                 color: Colors.white,
@@ -521,6 +536,32 @@ class _DifficultyRow extends StatelessWidget {
                   : Colors.white.withValues(alpha: 0.6),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _EditRouteButton extends StatelessWidget {
+  const _EditRouteButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Редактировать маршрут',
+      child: AppGlassCircle(
+        dimension: 44,
+        blur: 10,
+        fillColor: Colors.black.withValues(alpha: 0.42),
+        borderColor: Colors.white.withValues(alpha: 0.16),
+        contentColor: Colors.white,
+        child: IconButton(
+          onPressed: onTap,
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
+        ),
       ),
     );
   }

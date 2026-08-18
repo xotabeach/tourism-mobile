@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
@@ -167,7 +168,7 @@ class PlaceDetailsScreen extends ConsumerWidget {
   }
 }
 
-class _PlaceCollapsingHeader extends StatelessWidget {
+class _PlaceCollapsingHeader extends ConsumerWidget {
   const _PlaceCollapsingHeader({
     required this.place,
     required this.isFavorite,
@@ -209,9 +210,9 @@ class _PlaceCollapsingHeader extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final topInset = MediaQuery.paddingOf(context).top;
-    final heroAsset = AppImages.placeCoverAsset(place.slug);
+    final config = ref.watch(appConfigProvider);
 
     return CollapsingHeroSliver(
       expandedHeight: expandedHeight,
@@ -219,7 +220,11 @@ class _PlaceCollapsingHeader extends StatelessWidget {
       background: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(heroAsset, fit: BoxFit.cover),
+          AppImages.coverImage(
+            config: config,
+            coverImageUrl: place.coverImageUrl,
+            fallbackSeed: place.slug,
+          ),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(

@@ -26,6 +26,24 @@ void main() {
     expect(item.headline, 'Анна');
   });
 
+  test('achievement_unlocked maps from API and uses title headline', () {
+    expect(
+      inboxNotificationKindFromApi('achievement_unlocked'),
+      InboxNotificationKind.achievementUnlocked,
+    );
+    final item = InboxNotification(
+      id: 'ach',
+      kind: InboxNotificationKind.achievementUnlocked,
+      title: 'Новое достижение',
+      body: 'Получено достижение «Марафонец»',
+      targetType: 'achievement',
+      targetId: 'ach-1',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 1),
+    );
+    expect(item.headline, 'Новое достижение');
+  });
+
   test('clampText bounds oversized notification payloads', () {
     final oversized = 'A' * 500;
     final clamped = SettingsNotificationsInboxScreen.clampText(

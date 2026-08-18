@@ -6,11 +6,16 @@ class ProfileAchievement {
     required this.id,
     required this.title,
     required this.description,
+    this.isUnlocked = true,
   });
 
   final String id;
   final String title;
   final String description;
+
+  /// Whether the traveler has earned this badge. Defaults to unlocked so
+  /// existing call sites keep showing the full colorful set.
+  final bool isUnlocked;
 }
 
 class ProfileRank {
@@ -39,6 +44,8 @@ class ProfileSnapshot {
     this.coverImageUrl,
     this.likedByMe = false,
     this.travelPoints,
+    this.followersCount = 0,
+    this.followingCount = 0,
   });
 
   final String displayName;
@@ -51,9 +58,31 @@ class ProfileSnapshot {
   final List<RouteSummary> publishedRoutes;
   final bool likedByMe;
   final int? travelPoints;
+  final int followersCount;
+  final int followingCount;
 
   String get firstName {
     final parts = displayName.trim().split(RegExp(r'\s+'));
     return parts.isEmpty ? 'Путник' : parts.first;
   }
+}
+
+List<List<ProfileAchievement>> pageUnlockedAchievements(
+  List<ProfileAchievement> items, {
+  int pageSize = 3,
+}) {
+  final unlocked = [
+    for (final item in items)
+      if (item.isUnlocked) item,
+  ];
+  if (unlocked.isEmpty) {
+    return const [];
+  }
+  return [
+    for (var i = 0; i < unlocked.length; i += pageSize)
+      unlocked.sublist(
+        i,
+        i + pageSize > unlocked.length ? unlocked.length : i + pageSize,
+      ),
+  ];
 }

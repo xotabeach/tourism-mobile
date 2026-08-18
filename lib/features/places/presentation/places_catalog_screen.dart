@@ -6,7 +6,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
@@ -14,6 +16,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
@@ -29,14 +32,32 @@ class PlacesCatalogScreen extends ConsumerStatefulWidget {
 
 class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   static const _chips = ['Все', 'Природа', 'Смотровые', 'История', 'Платно'];
-  static const _searchDelay = Duration(milliseconds: 300);
-
+  final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'places-search');
-  final _scrollController = ScrollController();
   Timer? _searchDebounce;
   var _selectedChip = 'Все';
   var _searchQuery = '';
+  var _searchFocused = false;
+  String? _filterDifficulty;
+  bool? _paidOnly;
+
+  Future<void> _openFilters() async {
+    final applied = await showModalBottomSheet<_PlaceFilters>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _PlaceFiltersSheet(
+        initialDifficulty: _filterDifficulty,
+        initialPaidOnly: _paidOnly,
+      ),
+    );
+    if (applied == null || !mounted) return;
+    setState(() {
+      _filterDifficulty = applied.difficulty;
+      _paidOnly = applied.paidOnly;
+    });
+  }
 
   void _onScroll() {
     if (!_scrollController.hasClients) {
@@ -49,59 +70,54 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    _searchFocus.addListener(() {
+      if (mounted) {
+        setState(() => _searchFocused = _searchFocus.hasFocus);
+      }
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      final query = value.trim();
+      setState(() => _searchQuery = query);
+    });
   }
 
   List<PlaceSummary> _filtered(List<PlaceSummary> items) {
-    if (_selectedChip == 'Все') {
-      return items;
-    }
+    var result = items;
     if (_selectedChip == 'Платно') {
-      return items.where((place) => place.isPaid).toList();
+      result = result.where((place) => place.isPaid).toList();
+    } else if (_selectedChip != 'Все') {
+      final needle = _selectedChip.toLowerCase();
+      result = result
+          .where(
+            (place) => place.categories.any(
+              (category) => category.name.toLowerCase().contains(needle),
+            ),
+          )
+          .toList();
     }
-    final needle = _selectedChip.toLowerCase();
-    return items
-        .where(
-          (place) => place.categories.any(
-            (category) => category.name.toLowerCase().contains(needle),
-          ),
-        )
-        .toList();
-  }
-
-  void _scheduleSearch(String value) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(_searchDelay, () => _applySearch(value));
-  }
-
-  void _applySearch(String value) {
-    _searchDebounce?.cancel();
-    final query = value.trim();
-    if (!mounted || query == _searchQuery) {
-      return;
+    if (_filterDifficulty != null) {
+      result = result
+          .where((place) => place.difficulty == _filterDifficulty)
+          .toList();
     }
-    setState(() => _searchQuery = query);
-  }
-
-  void _clearSearch() {
-    _searchController.clear();
-    _applySearch('');
-  }
-
-  void _dismissSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    _searchFocus.unfocus();
-    _applySearch('');
+    if (_paidOnly == true) {
+      result = result.where((place) => place.isPaid).toList();
+    } else if (_paidOnly == false) {
+      result = result.where((place) => !place.isPaid).toList();
+    }
+    return result;
   }
 
   Future<void> _refresh() async {
-    if (_searchQuery.isEmpty) {
-      await refreshAppData(ref, scope: AppDataRefreshScope.places);
-      return;
-    }
     ref.read(apiCacheRegistryProvider).invalidateAll();
-    ref.invalidate(placesSearchProvider(_searchQuery));
-    await ref.read(placesSearchProvider(_searchQuery).future);
+    await refreshAppData(ref, scope: AppDataRefreshScope.places);
   }
 
   void _retry() {
@@ -114,8 +130,8 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
-    _searchController.dispose();
     _searchFocus.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -133,9 +149,7 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
         ),
       );
     });
-    final placesAsync = _searchQuery.isEmpty
-        ? ref.watch(placesListProvider)
-        : ref.watch(placesSearchProvider(_searchQuery));
+    final placesAsync = ref.watch(placesListProvider);
 
     return ColoredBox(
       color: AppColors.mist,
@@ -161,78 +175,98 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                       ),
                       const SizedBox(height: 12),
                       AppSearchFilterRow(
+                        hintText: 'Искать места',
                         controller: _searchController,
                         focusNode: _searchFocus,
-                        hintText: 'Искать места',
-                        onSearchChanged: _scheduleSearch,
-                        onSearchSubmitted: _applySearch,
-                        onSearchClear: _clearSearch,
-                        onSearchDismiss: _dismissSearch,
-                        onFilterTap: () {},
+                        onSearchChanged: _onSearchChanged,
+                        onSearchClear: () {
+                          _searchDebounce?.cancel();
+                          setState(() => _searchQuery = '');
+                        },
+                        onFilterTap: () => unawaited(_openFilters()),
+                        filterApplied:
+                            _filterDifficulty != null || _paidOnly != null,
                       ),
                       const SizedBox(height: 14),
-                      SizedBox(
-                        height: 40,
-                        child: ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: _chips.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 8),
-                          itemBuilder: (context, index) {
-                            final chip = _chips[index];
-                            final selected = chip == _selectedChip;
-                            return FilterChip(
-                              selected: selected,
-                              showCheckmark: false,
-                              label: Text(
-                                chip,
-                                style: TextStyle(
-                                  color: selected
-                                      ? Colors.white
-                                      : AppColors.ink,
+                      if (!(_searchFocused || _searchQuery.isNotEmpty))
+                        SizedBox(
+                          height: 40,
+                          child: ListView.separated(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _chips.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(width: 8),
+                            itemBuilder: (context, index) {
+                              final chip = _chips[index];
+                              final selected = chip == _selectedChip;
+                              return FilterChip(
+                                selected: selected,
+                                showCheckmark: false,
+                                label: Text(
+                                  chip,
+                                  style: TextStyle(
+                                    color: selected
+                                        ? Colors.white
+                                        : AppColors.ink,
+                                  ),
                                 ),
-                              ),
-                              onSelected: (_) =>
-                                  setState(() => _selectedChip = chip),
-                            );
-                          },
+                                onSelected: (_) =>
+                                    setState(() => _selectedChip = chip),
+                              );
+                            },
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
               ),
-              placesAsync.when(
-                skipLoadingOnReload: true,
-                skipLoadingOnRefresh: true,
-                skipError: true,
-                data: (page) {
-                  final items = _filtered(page.items);
-                  if (items.isEmpty) {
-                    return const SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(child: Text('Места не найдены')),
-                    );
-                  }
-                  return SliverPadding(
+              if (_searchFocused || _searchQuery.isNotEmpty)
+                SliverToBoxAdapter(
+                  child: Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
-                    sliver: SliverList.separated(
-                      itemCount: items.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 14),
-                      itemBuilder: (context, index) {
-                        return _PlaceCatalogCard(place: items[index]);
+                    child: InPlaceSearchBody(
+                      query: _searchQuery,
+                      scope: SearchScope.places,
+                      onQueryFromHistory: (value) {
+                        _searchController.text = value;
+                        _onSearchChanged(value);
                       },
                     ),
-                  );
-                },
-                loading: () => const SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: Center(child: CircularProgressIndicator()),
+                  ),
+                )
+              else
+                placesAsync.when(
+                  skipLoadingOnReload: true,
+                  skipLoadingOnRefresh: true,
+                  skipError: true,
+                  data: (page) {
+                    final items = _filtered(page.items);
+                    if (items.isEmpty) {
+                      return const SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(child: Text('Места не найдены')),
+                      );
+                    }
+                    return SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 96),
+                      sliver: SliverList.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 14),
+                        itemBuilder: (context, index) {
+                          return _PlaceCatalogCard(place: items[index]);
+                        },
+                      ),
+                    );
+                  },
+                  loading: () => const SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                  error: (_, _) => SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: AppAsyncErrorView(onRetry: _retry),
+                  ),
                 ),
-                error: (_, _) => SliverFillRemaining(
-                  hasScrollBody: false,
-                  child: AppAsyncErrorView(onRetry: _retry),
-                ),
-              ),
             ],
           ),
         ),
@@ -241,13 +275,14 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
   }
 }
 
-class _PlaceCatalogCard extends StatelessWidget {
+class _PlaceCatalogCard extends ConsumerWidget {
   const _PlaceCatalogCard({required this.place});
 
   final PlaceSummary place;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
     final categories = place.categories.map((category) => category.name);
 
     return Material(
@@ -269,11 +304,14 @@ class _PlaceCatalogCard extends StatelessWidget {
                 borderRadius: const BorderRadius.horizontal(
                   left: Radius.circular(24),
                 ),
-                child: Image.asset(
-                  AppImages.placeCoverAsset(place.slug),
+                child: SizedBox(
                   width: 116,
                   height: 142,
-                  fit: BoxFit.cover,
+                  child: AppImages.coverImage(
+                    config: config,
+                    coverImageUrl: place.coverImageUrl,
+                    fallbackSeed: place.slug,
+                  ),
                 ),
               ),
               Expanded(
@@ -347,6 +385,185 @@ class _SoftPill extends StatelessWidget {
             color: AppColors.ink,
             fontSize: 12,
             fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Result of the place filters bottom sheet.
+class _PlaceFilters {
+  const _PlaceFilters({this.difficulty, this.paidOnly});
+
+  final String? difficulty;
+  final bool? paidOnly;
+}
+
+/// Filter bottom sheet: difficulty section + paid section + apply button.
+class _PlaceFiltersSheet extends StatefulWidget {
+  const _PlaceFiltersSheet({this.initialDifficulty, this.initialPaidOnly});
+
+  final String? initialDifficulty;
+  final bool? initialPaidOnly;
+
+  @override
+  State<_PlaceFiltersSheet> createState() => _PlaceFiltersSheetState();
+}
+
+class _PlaceFiltersSheetState extends State<_PlaceFiltersSheet> {
+  static const _difficulties = <(String, String)>[
+    ('easy', 'Лёгкая'),
+    ('moderate', 'Средняя'),
+    ('hard', 'Сложная'),
+  ];
+
+  String? _difficulty;
+  bool? _paidOnly;
+
+  @override
+  void initState() {
+    super.initState();
+    _difficulty = widget.initialDifficulty;
+    _paidOnly = widget.initialPaidOnly;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.paddingOf(context).bottom;
+    return SafeArea(
+      top: false,
+      child: Material(
+        color: AppColors.elevatedSurface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(20, 8, 20, bottom + 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.controlSurface,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Фильтры:',
+                style: AppTypography.sectionTitle.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 18),
+              const Text('Сложность', style: AppTypography.settingsRowTitle),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _FilterChoiceChip(
+                    label: 'Любая',
+                    selected: _difficulty == null,
+                    onTap: () => setState(() => _difficulty = null),
+                  ),
+                  for (final (code, name) in _difficulties)
+                    _FilterChoiceChip(
+                      label: name,
+                      selected: _difficulty == code,
+                      onTap: () => setState(() => _difficulty = code),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              const Text('Вход', style: AppTypography.settingsRowTitle),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _FilterChoiceChip(
+                    label: 'Любой',
+                    selected: _paidOnly == null,
+                    onTap: () => setState(() => _paidOnly = null),
+                  ),
+                  _FilterChoiceChip(
+                    label: 'Бесплатно',
+                    selected: _paidOnly == false,
+                    onTap: () => setState(() => _paidOnly = false),
+                  ),
+                  _FilterChoiceChip(
+                    label: 'Платно',
+                    selected: _paidOnly == true,
+                    onTap: () => setState(() => _paidOnly = true),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+              SizedBox(
+                height: 48,
+                child: FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.primaryInk,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(
+                    _PlaceFilters(difficulty: _difficulty, paidOnly: _paidOnly),
+                  ),
+                  child: const Text(
+                    'Показать места',
+                    style: TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FilterChoiceChip extends StatelessWidget {
+  const _FilterChoiceChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? AppColors.accentBlue : AppColors.controlSurface,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : AppColors.ink,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),

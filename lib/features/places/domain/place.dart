@@ -32,6 +32,7 @@ class PlaceSummary {
     required this.categories,
     this.difficulty,
     this.isPaid = false,
+    this.coverImageUrl,
   });
 
   final String id;
@@ -42,6 +43,7 @@ class PlaceSummary {
   final double lng;
   final String? difficulty;
   final bool isPaid;
+  final String? coverImageUrl;
   final List<PlaceCategory> categories;
 
   factory PlaceSummary.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,7 @@ class PlaceSummary {
       lng: (json['lng'] as num).toDouble(),
       difficulty: json['difficulty'] as String?,
       isPaid: json['is_paid'] as bool? ?? false,
+      coverImageUrl: json['cover_image_url'] as String?,
       categories: categoriesJson
           .map((item) => PlaceCategory.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -73,6 +76,7 @@ class PlaceDetail extends PlaceSummary {
     required super.categories,
     super.difficulty,
     super.isPaid,
+    super.coverImageUrl,
     required this.description,
     required this.address,
     required this.seasonality,
@@ -96,6 +100,7 @@ class PlaceDetail extends PlaceSummary {
       categories: summary.categories,
       difficulty: summary.difficulty,
       isPaid: summary.isPaid,
+      coverImageUrl: summary.coverImageUrl,
       description: json['description'] as String?,
       address: json['address'] as String?,
       seasonality: (json['seasonality'] as List<dynamic>? ?? const [])

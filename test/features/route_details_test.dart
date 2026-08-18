@@ -203,7 +203,8 @@ void main() {
     await tester.drag(pageView, const Offset(-280, 0));
     await tester.pumpAndSettle();
 
-    expect(controller.page ?? 0, greaterThan(0.5));
+    // Catalog covers are a single photo (no bundled mock gallery extras).
+    expect(controller.page ?? 0, closeTo(0, 0.05));
   });
 
   testWidgets('scrolling keeps the hero collapsed until scrolled back', (

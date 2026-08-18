@@ -25,6 +25,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
   final _nameController = TextEditingController();
   late final TextEditingController _phoneController;
   final _formKey = GlobalKey<FormState>();
+  var _submitting = false;
 
   @override
   void initState() {
@@ -41,10 +42,14 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
     super.dispose();
   }
 
-  void _continue() async {
+  Future<void> _continue() async {
+    if (_submitting) {
+      return;
+    }
     if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
+    setState(() => _submitting = true);
     ref
         .read(sessionProvider.notifier)
         .saveIdentity(
@@ -66,6 +71,10 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
           content: Text('Не удалось отправить код. Попробуйте ещё раз.'),
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
     }
   }
 
@@ -133,7 +142,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                 const SizedBox(height: 28),
                 AppAdaptivePrimaryButton(
                   label: 'Продолжить',
-                  onPressed: _continue,
+                  onPressed: _submitting ? null : _continue,
                 ),
                 const Spacer(),
               ],

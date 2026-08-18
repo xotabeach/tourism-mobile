@@ -13,18 +13,21 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
+import 'package:tourism_mobile/features/places/application/places_providers.dart';
+import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
-enum MyRoutesTab { favorites, subscriptions, history }
+enum MyRoutesTab { favorites, history, places, subscriptions }
 
-/// 4-й раздел nav bar: избранное / подписки / история.
+/// 4-й раздел nav bar: избранное / история / места / подписки.
 class MyRoutesScreen extends ConsumerStatefulWidget {
   const MyRoutesScreen({super.key});
 
@@ -37,40 +40,44 @@ class MyRoutesScreen extends ConsumerStatefulWidget {
 class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   static const _branchIndex = 3;
 
+  final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'my-routes-search');
-  final _scrollController = ScrollController();
   Timer? _searchDebounce;
   MyRoutesTab _tab = MyRoutesTab.favorites;
-  String _query = '';
+  var _searchQuery = '';
+  var _searchFocused = false;
+
+  bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
-    _searchFocus.addListener(_onSearchFocusChanged);
-  }
-
-  void _onSearchFocusChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _onSearchChanged(String value) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted) return;
-      setState(() => _query = value.trim());
+    _searchFocus.addListener(() {
+      if (mounted) {
+        setState(() => _searchFocused = _searchFocus.hasFocus);
+      }
     });
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
+    _searchFocus.dispose();
     _searchController.dispose();
-    _searchFocus
-      ..removeListener(_onSearchFocusChanged)
-      ..dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      final query = value.trim();
+      setState(() => _searchQuery = query);
+    });
   }
 
   @override
@@ -92,6 +99,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     final favorites = ref.watch(favoritesProvider);
     final routesAsync = ref.watch(routesListProvider);
     final subscriptionsAsync = ref.watch(profileSubscriptionsProvider);
+    final placesAsync = ref.watch(placesListProvider);
 
     return ColoredBox(
       color: AppColors.pageSurface,
@@ -108,11 +116,17 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
               .where((r) => favorites.routeIds.contains(r.id))
               .toList();
           final historyRoutes = routes.take(6).toList();
-          final filtered = _filterRoutes(switch (_tab) {
+          final favoritePlaces =
+              placesAsync.valueOrNull?.items
+                  .where((p) => favorites.placeIds.contains(p.id))
+                  .toList() ??
+              const <PlaceSummary>[];
+          final filtered = switch (_tab) {
             MyRoutesTab.favorites => favoriteRoutes,
             MyRoutesTab.history => historyRoutes,
+            MyRoutesTab.places => const <RouteSummary>[],
             MyRoutesTab.subscriptions => const <RouteSummary>[],
-          });
+          };
 
           return RefreshIndicator(
             onRefresh: () =>
@@ -138,27 +152,16 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                         ),
                         const SizedBox(height: 14),
                         AppSearchFilterRow(
+                          hintText: 'Маршрут или профиль',
                           controller: _searchController,
                           focusNode: _searchFocus,
-                          hintText: 'Маршрут или профиль',
                           onSearchChanged: _onSearchChanged,
                           onSearchClear: () {
                             _searchDebounce?.cancel();
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                          onSearchDismiss: () {
-                            _searchDebounce?.cancel();
-                            _searchController.clear();
-                            _searchFocus.unfocus();
-                            if (_query.isNotEmpty) {
-                              setState(() => _query = '');
-                            }
+                            setState(() => _searchQuery = '');
                           },
                           onFilterTap: () {},
                         ),
-                        if (_searchFocus.hasFocus && _query.length >= 2)
-                          UniversalSearchPanel(query: _query),
                         const SizedBox(height: 14),
                         _TabRow(
                           selected: _tab,
@@ -169,8 +172,42 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                     ),
                   ),
                 ),
-                if (_tab == MyRoutesTab.subscriptions)
+                if (_searchActive)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+                    sliver: SliverToBoxAdapter(
+                      child: InPlaceSearchBody(
+                        query: _searchQuery,
+                        scope: switch (_tab) {
+                          MyRoutesTab.subscriptions => SearchScope.profiles,
+                          MyRoutesTab.places => SearchScope.places,
+                          MyRoutesTab.favorites ||
+                          MyRoutesTab.history => SearchScope.routes,
+                        },
+                        localRoutes: switch (_tab) {
+                          MyRoutesTab.favorites => favoriteRoutes,
+                          MyRoutesTab.history => historyRoutes,
+                          MyRoutesTab.places ||
+                          MyRoutesTab.subscriptions => null,
+                        },
+                        localPlaces: _tab == MyRoutesTab.places
+                            ? favoritePlaces
+                            : null,
+                        localProfiles: _tab == MyRoutesTab.subscriptions
+                            ? (subscriptionsAsync.valueOrNull ??
+                                  const <PublicUserProfile>[])
+                            : null,
+                        onQueryFromHistory: (value) {
+                          _searchController.text = value;
+                          _onSearchChanged(value);
+                        },
+                      ),
+                    ),
+                  )
+                else if (_tab == MyRoutesTab.subscriptions)
                   ..._subscriptionSlivers(subscriptionsAsync)
+                else if (_tab == MyRoutesTab.places)
+                  ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
                 else if (filtered.isEmpty)
                   const SliverFillRemaining(
                     hasScrollBody: false,
@@ -228,15 +265,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
         ),
       ],
       data: (items) {
-        final query = _query.toLowerCase();
-        final filtered = query.isEmpty
-            ? items
-            : items
-                  .where(
-                    (item) => item.displayName.toLowerCase().contains(query),
-                  )
-                  .toList(growable: false);
-        if (filtered.isEmpty) {
+        if (items.isEmpty) {
           return const [
             SliverFillRemaining(
               hasScrollBody: false,
@@ -253,10 +282,10 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
           SliverPadding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
             sliver: SliverList.separated(
-              itemCount: filtered.length,
+              itemCount: items.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-                final item = filtered[index];
+                final item = items[index];
                 return DiscoveryProfileCard(
                   profile: item,
                   height: 88,
@@ -281,18 +310,65 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     );
   }
 
-  List<RouteSummary> _filterRoutes(List<RouteSummary> source) {
-    if (_query.isEmpty) {
-      return source;
-    }
-    final q = _query.toLowerCase();
-    return source
-        .where(
-          (r) =>
-              r.name.toLowerCase().contains(q) ||
-              (r.authorLabel?.toLowerCase().contains(q) ?? false),
-        )
-        .toList();
+  List<Widget> _placesSlivers(
+    AsyncValue<PlaceListPage> placesAsync, {
+    required List<PlaceSummary> favoritePlaces,
+  }) {
+    return placesAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      loading: () => const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      ],
+      error: (error, _) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(child: Text('Не удалось загрузить места: $error')),
+        ),
+      ],
+      data: (_) {
+        if (favoritePlaces.isEmpty) {
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  'Пока пусто',
+                  style: AppTypography.settingsRowSubtitle,
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+            sliver: SliverList.separated(
+              itemCount: favoritePlaces.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final place = favoritePlaces[index];
+                return DiscoveryPlaceCard(
+                  key: ValueKey('favorite-place-${place.id}'),
+                  place: place,
+                  height: 88,
+                  onTap: () => unawaited(
+                    context.pushNamed(
+                      AppRouteNames.placeDetails,
+                      pathParameters: {'id': place.id},
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ];
+      },
+    );
   }
 
   Future<void> _removeFavorite(RouteSummary route) async {
@@ -523,22 +599,49 @@ class _TabRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    const firstRow = [MyRoutesTab.favorites, MyRoutesTab.subscriptions];
+    const secondRow = [MyRoutesTab.places, MyRoutesTab.history];
+    return Column(
       children: [
-        for (final tab in MyRoutesTab.values) ...[
-          if (tab != MyRoutesTab.values.first) const SizedBox(width: 8),
-          Expanded(
-            child: _TabChip(
-              label: switch (tab) {
-                MyRoutesTab.favorites => 'Избранное',
-                MyRoutesTab.subscriptions => 'Подписки',
-                MyRoutesTab.history => 'История',
-              },
-              selected: selected == tab,
-              onTap: () => onChanged(tab),
-            ),
-          ),
-        ],
+        Row(
+          children: [
+            for (final tab in firstRow) ...[
+              if (tab != firstRow.first) const SizedBox(width: 8),
+              Expanded(
+                child: _TabChip(
+                  label: switch (tab) {
+                    MyRoutesTab.favorites => 'Избранное',
+                    MyRoutesTab.history => 'История',
+                    MyRoutesTab.places => 'Места',
+                    MyRoutesTab.subscriptions => 'Подписки',
+                  },
+                  selected: selected == tab,
+                  onTap: () => onChanged(tab),
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            for (final tab in secondRow) ...[
+              if (tab != secondRow.first) const SizedBox(width: 8),
+              Expanded(
+                child: _TabChip(
+                  label: switch (tab) {
+                    MyRoutesTab.favorites => 'Избранное',
+                    MyRoutesTab.history => 'История',
+                    MyRoutesTab.places => 'Места',
+                    MyRoutesTab.subscriptions => 'Подписки',
+                  },
+                  selected: selected == tab,
+                  onTap: () => onChanged(tab),
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
   }

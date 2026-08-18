@@ -13,6 +13,7 @@ enum InboxNotificationKind {
   reviewPublished,
   reviewRejected,
   profileLike,
+  achievementUnlocked,
   unknown,
 }
 
@@ -24,6 +25,7 @@ InboxNotificationKind inboxNotificationKindFromApi(String raw) {
     'review_published' => InboxNotificationKind.reviewPublished,
     'review_rejected' => InboxNotificationKind.reviewRejected,
     'profile_like' => InboxNotificationKind.profileLike,
+    'achievement_unlocked' => InboxNotificationKind.achievementUnlocked,
     _ => InboxNotificationKind.unknown,
   };
 }
@@ -61,6 +63,8 @@ class InboxNotification {
   String get headline => switch (kind) {
     InboxNotificationKind.routeReview => actorName,
     InboxNotificationKind.profileLike => actorName,
+    InboxNotificationKind.achievementUnlocked =>
+      title.trim().isNotEmpty ? title : 'Новое достижение',
     _ => title.trim().isNotEmpty ? title : actorName,
   };
 
@@ -221,6 +225,16 @@ final class MockNotificationsRepository implements NotificationsRepository {
       targetId: 'mock-user-2',
       isUnread: true,
       createdAt: DateTime.utc(2026, 1, 2, 18),
+    ),
+    InboxNotification(
+      id: 'n6',
+      kind: InboxNotificationKind.achievementUnlocked,
+      title: 'Новое достижение',
+      body: 'Получено достижение «Марафонец»',
+      targetType: 'achievement',
+      targetId: 'ach-marathoner',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 3, 9),
     ),
   ];
 

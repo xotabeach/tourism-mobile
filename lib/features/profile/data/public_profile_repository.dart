@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import 'package:tourism_mobile/core/network/api_guard.dart';
+import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 class PublicUserProfile {
@@ -15,6 +16,8 @@ class PublicUserProfile {
     this.nextRankPoints = 1000,
     this.leaderboardPlace = 0,
     this.likedByMe = false,
+    this.followersCount = 0,
+    this.followingCount = 0,
   });
 
   final String id;
@@ -27,6 +30,8 @@ class PublicUserProfile {
   final int nextRankPoints;
   final int leaderboardPlace;
   final bool likedByMe;
+  final int followersCount;
+  final int followingCount;
 
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
     return PublicUserProfile(
@@ -40,6 +45,8 @@ class PublicUserProfile {
       nextRankPoints: (json['next_rank_points'] as num?)?.toInt() ?? 1000,
       leaderboardPlace: (json['leaderboard_place'] as num?)?.toInt() ?? 0,
       likedByMe: json['liked_by_me'] as bool? ?? false,
+      followersCount: _nonNegativeCount(json['followers_count']),
+      followingCount: _nonNegativeCount(json['following_count']),
     );
   }
 }
@@ -56,6 +63,7 @@ abstract class PublicProfileRepository {
   Future<List<PublicUserProfile>> search(String query, {int limit = 8});
   Future<List<PublicUserProfile>> subscriptions({int limit = 50});
   Future<List<PublicUserProfile>> leaderboard({int limit = 50, int offset = 0});
+  Future<List<ProfileAchievement>> achievements(String userId);
   Future<void> like(String userId);
   Future<void> unlike(String userId);
 }
@@ -135,6 +143,26 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
   }
 
   @override
+  Future<List<ProfileAchievement>> achievements(String userId) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/users/$userId/achievements',
+      );
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return [
+        for (final item in items)
+          if (item is Map<String, dynamic>)
+            ProfileAchievement(
+              id: item['id'] as String? ?? '',
+              title: _boundedText(item['title'], 120),
+              description: _boundedText(item['description'], 240),
+              isUnlocked: item['is_unlocked'] as bool? ?? false,
+            ),
+      ].where((item) => item.id.isNotEmpty && item.title.isNotEmpty).toList();
+    });
+  }
+
+  @override
   Future<void> like(String userId) {
     return guardApiCall(() async {
       await _dio.put<void>('/api/v1/users/$userId/like');
@@ -147,4 +175,23 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
       await _dio.delete<void>('/api/v1/users/$userId/like');
     });
   }
+}
+
+String _boundedText(Object? value, int maxChars) {
+  final text = (value as String? ?? '').trim();
+  if (text.length <= maxChars) {
+    return text;
+  }
+  return text.substring(0, maxChars);
+}
+
+int _nonNegativeCount(Object? value) {
+  final n = value is num ? value.toInt() : 0;
+  if (n < 0) {
+    return 0;
+  }
+  if (n > 1000000000) {
+    return 1000000000;
+  }
+  return n;
 }

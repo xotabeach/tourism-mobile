@@ -142,6 +142,11 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
         AppRouteNames.userProfile,
         pathParameters: {'userId': item.targetId!},
       );
+      return;
+    }
+    if (item.kind == InboxNotificationKind.achievementUnlocked ||
+        item.targetType == 'achievement') {
+      await context.pushNamed(AppRouteNames.achievements);
     }
   }
 

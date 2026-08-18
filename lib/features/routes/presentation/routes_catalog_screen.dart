@@ -12,7 +12,7 @@ import 'package:tourism_mobile/features/routes/application/route_catalog_filter.
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
-import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
+import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 
 class RoutesCatalogScreen extends ConsumerStatefulWidget {
   const RoutesCatalogScreen({super.key});
@@ -25,69 +25,45 @@ class RoutesCatalogScreen extends ConsumerStatefulWidget {
 }
 
 class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
-  static const _searchDelay = Duration(milliseconds: 280);
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'routes-search');
+  Timer? _searchDebounce;
   var _selectedChip = 'Все';
   var _showCoach = true;
   var _searchQuery = '';
-  Timer? _searchDebounce;
+  var _searchFocused = false;
 
   @override
   void initState() {
     super.initState();
-    _searchFocus.addListener(_onSearchFocusChanged);
+    _searchFocus.addListener(() {
+      if (mounted) {
+        setState(() => _searchFocused = _searchFocus.hasFocus);
+      }
+    });
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchController.dispose();
-    _searchFocus
-      ..removeListener(_onSearchFocusChanged)
-      ..dispose();
+    _searchFocus.dispose();
     super.dispose();
   }
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
-    _searchDebounce = Timer(_searchDelay, () {
-      if (!mounted) return;
-      setState(() => _searchQuery = value.trim().toLowerCase());
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      final query = value.trim();
+      setState(() => _searchQuery = query);
     });
   }
 
-  void _onSearchFocusChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _clearSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    setState(() => _searchQuery = '');
-  }
-
-  void _dismissSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    _searchFocus.unfocus();
-    if (_searchQuery.isNotEmpty) {
-      setState(() => _searchQuery = '');
-    }
-  }
-
   List<RouteSummary> _visibleRoutes(List<RouteSummary> items) {
-    final filtered = filterRouteCatalog(items, _selectedChip);
-    if (_searchQuery.isEmpty) {
-      return filtered;
-    }
-    return filtered
-        .where((route) {
-          final searchable = '${route.name} ${route.shortDescription ?? ''}'
-              .toLowerCase();
-          return searchable.contains(_searchQuery);
-        })
-        .toList(growable: false);
+    return filterRouteCatalog(items, _selectedChip);
   }
 
   Future<void> _openFilters() async {
@@ -146,48 +122,69 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                 AppSearchFilterRow(
                   controller: _searchController,
                   focusNode: _searchFocus,
+                  hintText: 'Искать маршруты',
                   onSearchChanged: _onSearchChanged,
-                  onSearchClear: _clearSearch,
-                  onSearchDismiss: _dismissSearch,
-                  onFilterTap: () => unawaited(_openFilters()),
-                ),
-                if (_searchFocus.hasFocus && _searchQuery.length >= 2)
-                  UniversalSearchPanel(query: _searchQuery),
-                const SizedBox(height: AppSpacing.md),
-                AppFilterChipBar(
-                  labels: routeCatalogFilters,
-                  selected: _selectedChip,
-                  onSelected: (chip) {
-                    _dismissSearch();
-                    setState(() => _selectedChip = chip);
+                  onSearchClear: () {
+                    _searchDebounce?.cancel();
+                    setState(() => _searchQuery = '');
                   },
+                  onFilterTap: () => unawaited(_openFilters()),
+                  filterApplied: _selectedChip != 'Все',
                 ),
+                const SizedBox(height: AppSpacing.md),
+                if (!(_searchFocused || _searchQuery.isNotEmpty))
+                  AppFilterChipBar(
+                    labels: routeCatalogFilters,
+                    selected: _selectedChip,
+                    onSelected: (chip) {
+                      setState(() => _selectedChip = chip);
+                    },
+                  ),
               ],
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
           Expanded(
-            child: routesAsync.when(
-              skipLoadingOnReload: true,
-              skipLoadingOnRefresh: true,
-              skipError: true,
-              data: (page) {
-                final visibleRoutes = _visibleRoutes(page.items);
-                if (visibleRoutes.isEmpty) {
-                  return const Center(child: Text('Маршруты не найдены'));
-                }
-                return RouteSwipeDeck(
-                  routes: visibleRoutes,
-                  onSwipe: _handleSwipe,
-                  showCoach: _showCoach,
-                  onCoachDismiss: () => setState(() => _showCoach = false),
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, _) => AppAsyncErrorView(
-                onRetry: () => ref.invalidate(routesListProvider),
-              ),
-            ),
+            child: (_searchFocused || _searchQuery.isNotEmpty)
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      0,
+                      AppSpacing.page,
+                      96,
+                    ),
+                    child: InPlaceSearchBody(
+                      query: _searchQuery,
+                      scope: SearchScope.routes,
+                      onQueryFromHistory: (value) {
+                        _searchController.text = value;
+                        _onSearchChanged(value);
+                      },
+                    ),
+                  )
+                : routesAsync.when(
+                    skipLoadingOnReload: true,
+                    skipLoadingOnRefresh: true,
+                    skipError: true,
+                    data: (page) {
+                      final visibleRoutes = _visibleRoutes(page.items);
+                      if (visibleRoutes.isEmpty) {
+                        return const Center(child: Text('Маршруты не найдены'));
+                      }
+                      return RouteSwipeDeck(
+                        routes: visibleRoutes,
+                        onSwipe: _handleSwipe,
+                        showCoach: _showCoach,
+                        onCoachDismiss: () =>
+                            setState(() => _showCoach = false),
+                      );
+                    },
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (_, _) => AppAsyncErrorView(
+                      onRetry: () => ref.invalidate(routesListProvider),
+                    ),
+                  ),
           ),
         ],
       ),

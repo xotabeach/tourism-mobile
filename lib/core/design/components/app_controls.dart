@@ -17,6 +17,8 @@ class AppSearchFilterRow extends StatelessWidget {
     this.onSearchSubmitted,
     this.onSearchClear,
     this.onSearchDismiss,
+    this.resetOnUnfocus = false,
+    this.filterApplied = false,
     this.hintText = 'Искать маршруты и места',
     super.key,
   }) : assert(onSearchTap != null || onSearchChanged != null);
@@ -29,6 +31,8 @@ class AppSearchFilterRow extends StatelessWidget {
   final ValueChanged<String>? onSearchSubmitted;
   final VoidCallback? onSearchClear;
   final VoidCallback? onSearchDismiss;
+  final bool resetOnUnfocus;
+  final bool filterApplied;
   final String hintText;
 
   @override
@@ -50,6 +54,7 @@ class AppSearchFilterRow extends StatelessWidget {
             onSearchSubmitted: onSearchSubmitted,
             onSearchClear: onSearchClear,
             onSearchDismiss: onSearchDismiss,
+            resetOnUnfocus: resetOnUnfocus,
           );
 
     return SizedBox(
@@ -69,6 +74,7 @@ class AppSearchFilterRow extends StatelessWidget {
             iconAsset: AppIconography.filter,
             semanticLabel: 'Фильтры',
             onPressed: onFilterTap,
+            iconOverride: filterApplied ? Icons.check_rounded : null,
           ),
         ],
       ),
@@ -85,6 +91,7 @@ class _ActiveSearchField extends StatefulWidget {
     this.onSearchSubmitted,
     this.onSearchClear,
     this.onSearchDismiss,
+    this.resetOnUnfocus = false,
   });
 
   final TextEditingController controller;
@@ -94,6 +101,7 @@ class _ActiveSearchField extends StatefulWidget {
   final ValueChanged<String>? onSearchSubmitted;
   final VoidCallback? onSearchClear;
   final VoidCallback? onSearchDismiss;
+  final bool resetOnUnfocus;
 
   @override
   State<_ActiveSearchField> createState() => _ActiveSearchFieldState();
@@ -142,10 +150,10 @@ class _ActiveSearchFieldState extends State<_ActiveSearchField> {
   }
 
   void _onFocusChanged() {
-    // Leaving search (tap outside, nav away, close) always resets the query so
-    // panels do not linger across screens/tabs.
     if (!_focusNode.hasFocus) {
-      _resetQuery();
+      if (widget.resetOnUnfocus) {
+        _resetQuery();
+      }
       widget.onSearchDismiss?.call();
     }
     if (mounted) {
@@ -176,8 +184,10 @@ class _ActiveSearchFieldState extends State<_ActiveSearchField> {
       _focusNode.unfocus();
       return;
     }
-    _resetQuery();
-    widget.onSearchDismiss?.call();
+    if (widget.resetOnUnfocus) {
+      _resetQuery();
+      widget.onSearchDismiss?.call();
+    }
   }
 
   void _dismissOrClear() {
@@ -299,6 +309,7 @@ class AppFlatIconButton extends StatelessWidget {
     this.iconSize = 24,
     this.color = AppColors.primaryInk,
     this.badgeCount = 0,
+    this.iconOverride,
     super.key,
   });
 
@@ -311,6 +322,7 @@ class AppFlatIconButton extends StatelessWidget {
 
   /// Unread / status count drawn top-right. Hidden when `<= 0`.
   final int badgeCount;
+  final IconData? iconOverride;
 
   static String formatBadgeCount(int count) {
     if (count <= 0) {
@@ -345,11 +357,13 @@ class AppFlatIconButton extends StatelessWidget {
                     onTap: onPressed,
                     customBorder: const CircleBorder(),
                     child: Center(
-                      child: AppAssetIcon(
-                        iconAsset,
-                        size: iconSize,
-                        color: color,
-                      ),
+                      child: iconOverride != null
+                          ? Icon(iconOverride, size: iconSize, color: color)
+                          : AppAssetIcon(
+                              iconAsset,
+                              size: iconSize,
+                              color: color,
+                            ),
                     ),
                   ),
                 ),

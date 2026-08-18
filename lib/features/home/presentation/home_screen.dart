@@ -24,7 +24,8 @@ import 'package:tourism_mobile/features/profile/data/public_profile_repository.d
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
-import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
+import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
+import 'package:tourism_mobile/features/search/presentation/search_filters_sheet.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
@@ -41,14 +42,16 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
   static const _pinnedBarThreshold = 48.0;
+  final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'home-search');
-  final _scrollController = ScrollController();
   Timer? _searchDebounce;
   var _selectedChip = 'Все';
-  var _searchQuery = '';
   var _showPinnedBrand = false;
   var _showAllRoutes = false;
+  var _searchQuery = '';
+  var _searchFocused = false;
+  SearchFilters _searchFilters = const SearchFilters();
   final _scheduledCoverWarmups = <String>{};
 
   void _onScroll() {
@@ -68,6 +71,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _searchFocus.addListener(_onSearchFocusChanged);
+  }
+
+  void _onSearchFocusChanged() {
+    if (mounted) {
+      setState(() => _searchFocused = _searchFocus.hasFocus);
+    }
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      final query = value.trim();
+      setState(() => _searchQuery = query);
+    });
+  }
+
+  void _applyHistoryQuery(String value) {
+    _searchDebounce?.cancel();
+    _searchController
+      ..text = value
+      ..selection = TextSelection.fromPosition(
+        TextPosition(offset: value.length),
+      );
+    setState(() => _searchQuery = value.trim());
+  }
+
+  Future<void> _openFilters() async {
+    final applied = await showSearchFiltersSheet(
+      context,
+      initial: _searchFilters,
+    );
+    if (applied == null || !mounted) {
+      return;
+    }
+    setState(() => _searchFilters = applied);
   }
 
   List<RouteSummary> _filtered(List<RouteSummary> items) {
@@ -97,40 +138,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               haystack.contains('сосны'),
         _ => true,
       };
-      return matchesChip &&
-          (_searchQuery.isEmpty || haystack.contains(_searchQuery));
+      return matchesChip;
     }).toList();
   }
 
-  void _onSearchChanged(String value) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 280), () {
-      if (!mounted) return;
-      setState(() => _searchQuery = value.trim().toLowerCase());
-    });
-  }
-
-  void _onSearchFocusChanged() {
-    if (mounted) setState(() {});
-  }
-
-  void _clearSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    setState(() => _searchQuery = '');
-  }
-
-  void _dismissSearch() {
-    _searchDebounce?.cancel();
-    _searchController.clear();
-    _searchFocus.unfocus();
-    if (_searchQuery.isNotEmpty) {
-      setState(() => _searchQuery = '');
-    }
-  }
-
   void _toggleAllRoutes() {
-    _dismissSearch();
     setState(() => _showAllRoutes = !_showAllRoutes);
   }
 
@@ -147,17 +159,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       for (final route in pending) {
-        unawaited(
-          precacheImage(
-            AppImages.routeCoverProvider(
-              config: config,
-              coverImageUrl: route.coverImageUrl,
-              fallbackSeed: route.slug,
-              cacheWidth: 1080,
-            ),
-            context,
-          ).catchError((_) {}),
+        final provider = AppImages.routeCoverProvider(
+          config: config,
+          coverImageUrl: route.coverImageUrl,
+          fallbackSeed: route.slug,
+          cacheWidth: 1080,
         );
+        if (provider == null) {
+          continue;
+        }
+        unawaited(precacheImage(provider, context).catchError((_) {}));
       }
     });
   }
@@ -168,10 +179,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
-    _searchController.dispose();
     _searchFocus
       ..removeListener(_onSearchFocusChanged)
       ..dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -212,6 +223,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? items
                   : items.take(7).toList(growable: false);
               _warmRouteCovers(context, config, visibleItems);
+              final searchActive = _searchFocused || _searchQuery.isNotEmpty;
               return RefreshIndicator(
                 onRefresh: () =>
                     refreshAppData(ref, scope: AppDataRefreshScope.home),
@@ -226,25 +238,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     AppSpacing.page,
                     AppSpacing.shellBottomContent,
                   ),
-                  itemCount: 1 + (items.isEmpty ? 1 : visibleItems.length),
+                  itemCount: searchActive
+                      ? 2
+                      : 1 + (items.isEmpty ? 1 : visibleItems.length),
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return _HomeHeader(
                         name: name,
                         selectedChip: _selectedChip,
                         chips: _chips,
-                        searchController: _searchController,
-                        searchFocus: _searchFocus,
-                        searchQuery: _searchQuery,
-                        onSearchChanged: _onSearchChanged,
-                        onSearchClear: _clearSearch,
-                        onSearchDismiss: _dismissSearch,
                         onChipSelected: (chip) {
-                          _dismissSearch();
                           setState(() => _selectedChip = chip);
                         },
                         showAllRoutes: _showAllRoutes,
                         onToggleAllRoutes: _toggleAllRoutes,
+                        searchController: _searchController,
+                        searchFocus: _searchFocus,
+                        searchActive: searchActive,
+                        filterApplied: _searchFilters.isActive,
+                        onSearchChanged: _onSearchChanged,
+                        onSearchClear: () {
+                          _searchDebounce?.cancel();
+                          setState(() => _searchQuery = '');
+                        },
+                        onFilterTap: () => unawaited(_openFilters()),
+                      );
+                    }
+                    if (searchActive) {
+                      return InPlaceSearchBody(
+                        query: _searchQuery,
+                        filters: _searchFilters,
+                        onQueryFromHistory: _applyHistoryQuery,
                       );
                     }
                     if (items.isEmpty) {
@@ -304,29 +328,31 @@ class _HomeHeader extends ConsumerWidget {
     required this.name,
     required this.selectedChip,
     required this.chips,
-    required this.searchController,
-    required this.searchFocus,
-    required this.searchQuery,
-    required this.onSearchChanged,
-    required this.onSearchClear,
-    required this.onSearchDismiss,
     required this.onChipSelected,
     required this.showAllRoutes,
     required this.onToggleAllRoutes,
+    required this.searchController,
+    required this.searchFocus,
+    required this.searchActive,
+    required this.filterApplied,
+    required this.onSearchChanged,
+    required this.onSearchClear,
+    required this.onFilterTap,
   });
 
   final String name;
   final String selectedChip;
   final List<String> chips;
-  final TextEditingController searchController;
-  final FocusNode searchFocus;
-  final String searchQuery;
-  final ValueChanged<String> onSearchChanged;
-  final VoidCallback onSearchClear;
-  final VoidCallback onSearchDismiss;
   final ValueChanged<String> onChipSelected;
   final bool showAllRoutes;
   final VoidCallback onToggleAllRoutes;
+  final TextEditingController searchController;
+  final FocusNode searchFocus;
+  final bool searchActive;
+  final bool filterApplied;
+  final ValueChanged<String> onSearchChanged;
+  final VoidCallback onSearchClear;
+  final VoidCallback onFilterTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -395,72 +421,73 @@ class _HomeHeader extends ConsumerWidget {
         ),
         const SizedBox(height: AppSpacing.xl),
         AppSearchFilterRow(
+          hintText: 'Искать маршруты и места',
           controller: searchController,
           focusNode: searchFocus,
+          filterApplied: filterApplied,
           onSearchChanged: onSearchChanged,
           onSearchClear: onSearchClear,
-          onSearchDismiss: onSearchDismiss,
-          onFilterTap: () => context.pushNamed(AppRouteNames.places),
+          onFilterTap: onFilterTap,
         ),
-        // Keep results mounted while the query is active so a result tap can
-        // navigate before focus loss removes the panel from the tree.
-        if (searchQuery.trim().runes.length >= 2)
-          UniversalSearchPanel(query: searchQuery),
-        const SizedBox(height: AppSpacing.xl),
-        const BuildRouteBanner(),
-        const SizedBox(height: 25),
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Топ путешественников',
-                style: AppTypography.sectionTitle,
-              ),
-            ),
-            Semantics(
-              button: true,
-              label: 'Весь топ путешественников',
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () =>
-                    context.pushNamed(AppRouteNames.travelersLeaderboard),
-                child: const Text(
-                  'Весь топ',
-                  style: AppTypography.sectionAction,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        const _TopTravelersRow(),
-        const SizedBox(height: 30),
-        Row(
-          children: [
-            const Expanded(
-              child: Text('Маршруты', style: AppTypography.sectionTitle),
-            ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onToggleAllRoutes,
-              child: AnimatedSwitcher(
-                duration: AppMotion.fast,
+        if (searchActive)
+          const SizedBox(height: 18)
+        else ...[
+          const SizedBox(height: AppSpacing.xl),
+          const BuildRouteBanner(),
+          const SizedBox(height: 25),
+          Row(
+            children: [
+              const Expanded(
                 child: Text(
-                  showAllRoutes ? 'Свернуть' : 'Листать все',
-                  key: ValueKey(showAllRoutes),
-                  style: AppTypography.sectionAction,
+                  'Топ путешественников',
+                  style: AppTypography.sectionTitle,
                 ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 17),
-        AppFilterChipBar(
-          labels: chips,
-          selected: selectedChip,
-          onSelected: onChipSelected,
-        ),
-        const SizedBox(height: 14),
+              Semantics(
+                button: true,
+                label: 'Весь топ путешественников',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () =>
+                      context.pushNamed(AppRouteNames.travelersLeaderboard),
+                  child: const Text(
+                    'Весь топ',
+                    style: AppTypography.sectionAction,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const _TopTravelersRow(),
+          const SizedBox(height: 30),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('Маршруты', style: AppTypography.sectionTitle),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onToggleAllRoutes,
+                child: AnimatedSwitcher(
+                  duration: AppMotion.fast,
+                  child: Text(
+                    showAllRoutes ? 'Свернуть' : 'Листать все',
+                    key: ValueKey(showAllRoutes),
+                    style: AppTypography.sectionAction,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 17),
+          AppFilterChipBar(
+            labels: chips,
+            selected: selectedChip,
+            onSelected: onChipSelected,
+          ),
+          const SizedBox(height: 14),
+        ],
       ],
     );
   }

@@ -12,6 +12,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/onboarding/presentation/welcome_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/places/presentation/places_catalog_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/achievements_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/travelers_leaderboard_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_results_screen.dart';
@@ -20,6 +21,7 @@ import 'package:tourism_mobile/features/route_publish/presentation/route_publish
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
+import 'package:tourism_mobile/features/search/presentation/search_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
@@ -47,6 +49,7 @@ abstract final class AppRouteNames {
   static const routePublish = 'route-publish';
   static const myRoutes = 'my-routes';
   static const profile = 'profile';
+  static const achievements = 'achievements';
   static const userProfile = 'user-profile';
   static const travelersLeaderboard = 'travelers-leaderboard';
   static const settings = 'settings';
@@ -67,6 +70,7 @@ abstract final class AppRouteNames {
   static const settingsThanks = 'settings-thanks';
   static const settingsTravelPlus = 'settings-travel-plus';
   static const settingsTravelPlusCheckout = 'settings-travel-plus-checkout';
+  static const search = 'search';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -119,6 +123,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AuthOtpScreen.routePath,
         pageBuilder: (context, state) =>
             _appTransitionPage(state, const AuthOtpScreen()),
+      ),
+      GoRoute(
+        name: AppRouteNames.search,
+        path: SearchScreen.routePath,
+        pageBuilder: (context, state) =>
+            _appTransitionPage(state, const SearchScreen()),
       ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -265,6 +275,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         child: ProfileScreen(userId: userId),
                       );
                     },
+                  ),
+                  GoRoute(
+                    name: AppRouteNames.achievements,
+                    path: AchievementsScreen.routePath,
+                    pageBuilder: (context, state) => CupertinoPage<void>(
+                      key: state.pageKey,
+                      child: const AchievementsScreen(),
+                    ),
                   ),
                   GoRoute(
                     name: AppRouteNames.settings,

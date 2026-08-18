@@ -77,11 +77,11 @@ CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
 ## Что реально vs stub
 
 **API при `DATA_SOURCE=api`:** auth OTP, каталог мест/маршрутов, избранное,
-публикация черновика → модерация, отзывы, профиль (тп/звания/лидерборд/лайки),
-support tickets, inbox, FCM token (Android).
+публикация черновика → модерация, отзывы, профиль (тп/звания/лидерборд/лайки/
+достижения), support tickets, inbox, FCM token (Android).
 
 **UI-only / stub:** подбор маршрута (срез каталога до Phase 8A), «Пройти
-маршрут», Travel+ billing, аудиогид, offline download, достижения,
+маршрут», Travel+ billing, аудиогид, offline download,
 история в «Мои маршруты». Чат ИИ не ходит в Gemma/Gemini.
 
 ## Структура
