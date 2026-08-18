@@ -1,18 +1,21 @@
 # tourism-mobile
 
-Private Flutter repository для Crimea Travel Platform — мобильный клиент
-Android и iOS.
+Private Flutter repository для Crimea Travel Platform — клиент Android и iOS
+(CrimeaTrip).
+
+Стек целиком: `tourism-platform/docs/stack.md`.
+Архитектура: `tourism-platform/docs/flutter-app-architecture.md`.
 
 ## Назначение
 
-- Пользовательские сценарии поиска мест и работы с маршрутами.
-- Feature-first architecture с **Riverpod**, GoRouter и Dio.
-- Конфигурация local / test / staging / production без встроенных secrets.
+- Каталог мест и маршрутов, профиль, избранное, публикация, inbox.
+- Feature-first: Riverpod, GoRouter, Dio; credentials — secure storage.
+- Конфигурация local / test / staging / production без secrets в Git.
 
 ## Требования
 
 - Flutter stable (см. `environment.sdk` в `pubspec.yaml`)
-- Backend **не обязателен** для обычной UI-разработки (mock по умолчанию)
+- Backend не обязателен для UI (`DATA_SOURCE=mock` по умолчанию)
 
 ## Быстрый старт (frontend-only, без Docker)
 
@@ -41,11 +44,11 @@ flutter run \
   --dart-define=API_BASE_URL=https://staging-api.example.org
 ```
 
-Release без `APP_ENV` автоматически выбирает `production` и откажется
-запускаться без неплейсхолдерного `API_BASE_URL`. Android release signing
-берётся из gitignored `android/key.properties` (без fallback на debug key).
+Release без `APP_ENV` выбирает `production` и откажется стартовать без
+неплейсхолдерного `API_BASE_URL`. Android release signing — gitignored
+`android/key.properties` (без fallback на debug key).
 
-Подписанный release APK с test API (нужен локальный `android/key.properties`):
+Подписанный release APK с test API (локальный `android/key.properties`):
 
 ```bash
 ./scripts/build-signed-apk.sh          # → build/app/outputs/flutter-apk/app-release.apk
@@ -55,13 +58,11 @@ Release без `APP_ENV` автоматически выбирает `production
 CI lean (default): на `main`/`gamma` style/tests не гоняются — локально
 `./scripts/validate.sh`. APK: job `mobile-apk-test` **manual** (или полный
 pipeline при `CI_PIPELINE_MODE=full`). Нужны CI variables keystore +
-`MOBILE_TEST_API_BASE_URL`; см. §6.0.1 и
+`MOBILE_TEST_API_BASE_URL`; см.
 [ci-and-runners.md](../tourism-platform/docs/ci-and-runners.md).
 
-Полная шпаргалка по iOS/Android сборкам, `dart-define`, signed APK/AAB и
-установке на устройство:
-[mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md)
-(в monorepo) / канон в `tourism-platform/docs/mobile-build-and-install.md`.
+Сборка iOS/Android, `dart-define`, signed APK/AAB:
+[mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md).
 
 Проверки:
 
@@ -69,14 +70,19 @@ pipeline при `CI_PIPELINE_MODE=full`). Нужны CI variables keystore +
 ./scripts/validate.sh
 ```
 
-Пиксельные golden-тесты сняты на macOS и на других хостах пропускаются, поэтому
-CI их не проверяет — прогоняй `flutter test` на маке перед пушем UI-правок.
-Что именно увидит CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
+Пиксельные golden-тесты сняты на macOS; на других хостах пропускаются.
+CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
 `tourism-platform/docs/flutter-testing-guide.md`.
 
-Архитектура Phase 5:
-`tourism-platform/docs/flutter-app-architecture.md`.
-Стиль: `flutter-code-style.md`, DX: `development-environment.md`.
+## Что реально vs stub
+
+**API при `DATA_SOURCE=api`:** auth OTP, каталог мест/маршрутов, избранное,
+публикация черновика → модерация, отзывы, профиль (тп/звания/лидерборд/лайки),
+support tickets, inbox, FCM token (Android).
+
+**UI-only / stub:** подбор маршрута (срез каталога до Phase 8A), «Пройти
+маршрут», Travel+ billing, аудиогид, offline download, достижения,
+история в «Мои маршруты». Чат ИИ не ходит в Gemma/Gemini.
 
 ## Структура
 
@@ -84,21 +90,25 @@ CI их не проверяет — прогоняй `flutter test` на мак�
 lib/
 ├── core/
 │   ├── config/       # AppEnvironment / AppConfig
-│   ├── design/       # Design tokens + glass components
-│   ├── theme/        # AppTheme (+ re-exports of design tokens)
-│   ├── network/      # Dio client
-│   ├── errors/       # AppFailure
-│   └── storage/      # SecureStorage port (Phase 6 tokens)
+│   ├── design/       # Design tokens + glass
+│   ├── theme/
+│   ├── network/      # Dio
+│   ├── errors/
+│   └── storage/      # Keychain/Keystore
 ├── features/
-│   ├── onboarding/   # Welcome + session gate
-│   ├── auth/         # Mock name/phone/OTP UI (Phase 6 wires API)
-│   ├── home/         # Design home feed
+│   ├── onboarding/
+│   ├── auth/
+│   ├── home/
 │   ├── places/
-│   ├── routes/       # Catalog slider + detail
-│   └── shared/       # placeholder tabs helpers
+│   ├── routes/
+│   ├── route_publish/
+│   ├── route_match/  # form UI; builder = Phase 8A
+│   ├── my_routes/
+│   ├── profile/
+│   ├── settings/     # support, inbox, Travel+ mock
+│   ├── search/
+│   └── favorites/
 ├── routing/
-│   ├── app_router.dart
-│   └── shell/        # glass bottom NavigationBar + StatefulShellRoute
 ├── app.dart
 └── main.dart
 ```
@@ -111,15 +121,14 @@ define выбирает production. Test/staging/production — HTTPS only и т
 
 - Local: `DATA_SOURCE=mock`, API base `http://localhost:8000`.
 - Local API: `--dart-define=DATA_SOURCE=api`.
-- Test/staging/production: только `DATA_SOURCE=api`; mock запрещён startup
-  validation.
+- Test/staging/production: только `DATA_SOURCE=api`; mock запрещён.
 
 ## Связанные репозитории
 
 - [`tourism-platform`](../tourism-platform) — архитектура и local Compose.
 - [`tourism-backend`](../tourism-backend) — OpenAPI и server contracts.
 
-Mobile не подключается к PostgreSQL напрямую.
+Mobile не подключается к PostgreSQL и не вызывает Ollama напрямую.
 
 ## Лицензия
 
