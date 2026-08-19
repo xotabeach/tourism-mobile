@@ -10,6 +10,18 @@ class AuthTokens {
   final int expiresIn;
 }
 
+class OtpStartResult {
+  const OtpStartResult({
+    required this.registrationRequired,
+    required this.consentsRequired,
+    required this.otpSent,
+  });
+
+  final bool registrationRequired;
+  final bool consentsRequired;
+  final bool otpSent;
+}
+
 class MeProfile {
   const MeProfile({
     required this.id,
@@ -33,7 +45,10 @@ class MeProfile {
 }
 
 abstract interface class AuthRepository {
-  Future<void> requestOtp({required String displayName, required String phone});
+  Future<OtpStartResult> requestOtp({
+    required String phone,
+    String? displayName,
+  });
 
   Future<AuthTokens> verifyOtp({
     required String phone,

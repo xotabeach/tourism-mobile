@@ -23,9 +23,11 @@ class AuthIdentityScreen extends ConsumerStatefulWidget {
 
 class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
   final _nameController = TextEditingController();
+  final _nameFocus = FocusNode(debugLabel: 'registration-name');
   late final TextEditingController _phoneController;
   final _formKey = GlobalKey<FormState>();
   var _submitting = false;
+  var _registrationRequired = false;
 
   @override
   void initState() {
@@ -38,6 +40,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _nameFocus.dispose();
     _phoneController.dispose();
     super.dispose();
   }
@@ -50,14 +53,30 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
       return;
     }
     setState(() => _submitting = true);
+    final phone = RuPhoneInputFormatter.toE164(_phoneController.text);
+    final name = _registrationRequired ? _nameController.text : null;
     ref
         .read(sessionProvider.notifier)
-        .saveIdentity(
-          displayName: _nameController.text,
-          phone: RuPhoneInputFormatter.toE164(_phoneController.text),
-        );
+        .saveIdentity(displayName: name, phone: phone);
     try {
-      await ref.read(sessionProvider.notifier).requestOtp();
+      final result = await ref
+          .read(sessionProvider.notifier)
+          .requestOtp(displayName: name);
+      if (result.registrationRequired) {
+        if (!mounted) {
+          return;
+        }
+        setState(() => _registrationRequired = true);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _nameFocus.requestFocus();
+          }
+        });
+        return;
+      }
+      if (!result.otpSent) {
+        throw StateError('OTP was not sent');
+      }
       if (!mounted) {
         return;
       }
@@ -99,22 +118,28 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                 ),
                 const SizedBox(height: 22),
                 Text(
-                  'ЗДРАВСТВУЙ,\nПУТНИК',
+                  _registrationRequired
+                      ? 'ДАВАЙТЕ\nЗНАКОМИТЬСЯ'
+                      : 'ВОЙДИТЕ\nПО НОМЕРУ',
                   style: AppTextStyles.displayTitle(fontSize: 40),
                 ),
                 const SizedBox(height: 36),
-                TextFormField(
-                  controller: _nameController,
-                  textCapitalization: TextCapitalization.words,
-                  textInputAction: TextInputAction.next,
-                  maxLength: DisplayNamePolicy.maxLength,
-                  decoration: const InputDecoration(
-                    hintText: 'Введите ваше имя',
-                    counterText: '',
+                if (_registrationRequired) ...[
+                  TextFormField(
+                    controller: _nameController,
+                    focusNode: _nameFocus,
+                    textCapitalization: TextCapitalization.words,
+                    textInputAction: TextInputAction.done,
+                    maxLength: DisplayNamePolicy.maxLength,
+                    decoration: const InputDecoration(
+                      hintText: 'Введите ваше имя',
+                      counterText: '',
+                    ),
+                    validator: DisplayNamePolicy.validationError,
+                    onFieldSubmitted: (_) => _continue(),
                   ),
-                  validator: DisplayNamePolicy.validationError,
-                ),
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
+                ],
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
@@ -139,6 +164,18 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                   },
                   onFieldSubmitted: (_) => _continue(),
                 ),
+                if (!_registrationRequired) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'Если аккаунта ещё нет, имя понадобится только один раз — при регистрации.',
+                    style: TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 13,
+                      height: 1.35,
+                      color: AppColors.ink.withValues(alpha: 0.58),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 28),
                 AppAdaptivePrimaryButton(
                   label: 'Продолжить',

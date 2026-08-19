@@ -56,15 +56,19 @@ void main() {
     await tester.tap(find.text('Начать путешествие'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('ПУТНИК'), findsOneWidget);
-    final identityFields = find.byType(TextFormField);
-    await tester.enterText(identityFields.at(0), 'Никита');
-    await tester.enterText(identityFields.at(1), '9991234567');
+    expect(find.textContaining('ПО НОМЕРУ'), findsOneWidget);
+    expect(find.text('Введите ваше имя'), findsNothing);
+    await tester.enterText(find.byType(TextFormField), '9991234567');
     await tester.pump();
     expect(
-      tester.widget<TextFormField>(identityFields.at(1)).controller?.text,
+      tester.widget<TextFormField>(find.byType(TextFormField)).controller?.text,
       '+7 999 123-45-67',
     );
+    await tester.tap(find.text('Продолжить'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ЗНАКОМИТЬСЯ'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).first, 'Никита');
     await tester.tap(find.text('Продолжить'));
     // The OTP screen shows a perpetually blinking caret, so settle the route
     // transition with bounded pumps instead of pumpAndSettle.
@@ -82,6 +86,36 @@ void main() {
 
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
     expect(find.textContaining('ПОСТРОЙ'), findsOneWidget);
+  });
+
+  testWidgets('existing account signs in with phone and no repeated consents', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(overrides: _testOverrides(), child: const TourismApp()),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Начать путешествие'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '9990000000');
+    expect(
+      tester.widget<TextFormField>(find.byType(TextFormField)).controller?.text,
+      '+7 999 000-00-00',
+    );
+    await tester.tap(find.text('Продолжить'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.textContaining('ПОДТВЕРДИТЕ'), findsOneWidget);
+    expect(find.textContaining('политикой конфиденциальности'), findsNothing);
+    expect(find.textContaining('персональных данных'), findsNothing);
+    await tester.enterText(find.byType(TextField), '1234');
+    await tester.pump();
+    await tester.tap(find.text('Войти'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Привет, Никита'), findsOneWidget);
   });
 
   testWidgets('shows home and opens places catalog from mock data', (

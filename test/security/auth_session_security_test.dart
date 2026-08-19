@@ -11,12 +11,17 @@ class _CountingAuth implements AuthRepository {
   var requestOtpCalls = 0;
 
   @override
-  Future<void> requestOtp({
-    required String displayName,
+  Future<OtpStartResult> requestOtp({
     required String phone,
+    String? displayName,
   }) async {
     requestOtpCalls += 1;
     await Future<void>.delayed(const Duration(milliseconds: 40));
+    return const OtpStartResult(
+      registrationRequired: false,
+      consentsRequired: false,
+      otpSent: true,
+    );
   }
 
   @override
@@ -131,12 +136,12 @@ void main() {
       ),
     );
 
-    await Future.wait<void>([controller.requestOtp(), controller.requestOtp()]);
+    await Future.wait([controller.requestOtp(), controller.requestOtp()]);
 
     expect(auth.requestOtpCalls, 1);
   });
 
-  test('requestOtp rejects missing identity without calling the API', () async {
+  test('requestOtp rejects missing phone without calling the API', () async {
     final auth = _CountingAuth();
     final controller = SessionController(
       authRepository: auth,

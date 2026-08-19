@@ -74,8 +74,11 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
 
   String get _code => _controller.text;
 
-  bool get _canSubmit =>
-      _code.length == _length && _privacyAccepted && _personalDataAccepted;
+  bool get _canSubmit {
+    final consentsRequired = ref.read(sessionProvider).otpConsentsRequired;
+    return _code.length == _length &&
+        (!consentsRequired || (_privacyAccepted && _personalDataAccepted));
+  }
 
   void _onCodeChanged() {
     final cleaned = _controller.text.replaceAll(RegExp(r'\D'), '');
@@ -153,6 +156,9 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
   @override
   Widget build(BuildContext context) {
     final code = _code;
+    final consentsRequired = ref.watch(
+      sessionProvider.select((value) => value.otpConsentsRequired),
+    );
 
     return Scaffold(
       backgroundColor: AppColors.mist,
@@ -221,21 +227,23 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 23),
-              _ConsentTile(
-                value: _privacyAccepted,
-                onChanged: (v) => setState(() => _privacyAccepted = v),
-                document: 'политикой конфиденциальности',
-              ),
-              const SizedBox(height: 8),
-              _ConsentTile(
-                value: _personalDataAccepted,
-                onChanged: (v) => setState(() => _personalDataAccepted = v),
-                document: 'обработкой персональных данных',
-              ),
+              if (consentsRequired) ...[
+                const SizedBox(height: 23),
+                _ConsentTile(
+                  value: _privacyAccepted,
+                  onChanged: (v) => setState(() => _privacyAccepted = v),
+                  document: 'политикой конфиденциальности',
+                ),
+                const SizedBox(height: 8),
+                _ConsentTile(
+                  value: _personalDataAccepted,
+                  onChanged: (v) => setState(() => _personalDataAccepted = v),
+                  document: 'обработкой персональных данных',
+                ),
+              ],
               const SizedBox(height: 26),
               AppAdaptivePrimaryButton(
-                label: 'Начать путешествие',
+                label: consentsRequired ? 'Начать путешествие' : 'Войти',
                 onPressed: _canSubmit && !_submitting ? _startJourney : null,
               ),
             ],

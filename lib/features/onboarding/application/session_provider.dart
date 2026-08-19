@@ -24,6 +24,7 @@ class SessionState {
     this.notifyPushEnabled = true,
     this.notifySmsEnabled = false,
     this.notifyHapticsEnabled = true,
+    this.otpConsentsRequired = true,
   });
 
   final bool isHydrated;
@@ -37,6 +38,7 @@ class SessionState {
   final bool notifyPushEnabled;
   final bool notifySmsEnabled;
   final bool notifyHapticsEnabled;
+  final bool otpConsentsRequired;
 
   bool get isAuthenticated =>
       onboardingCompleted && (accessToken != null || userId != null);
@@ -53,6 +55,7 @@ class SessionState {
     bool? notifyPushEnabled,
     bool? notifySmsEnabled,
     bool? notifyHapticsEnabled,
+    bool? otpConsentsRequired,
     bool clearAccessToken = false,
     bool clearAvatarUrl = false,
     bool clearCoverUrl = false,
@@ -69,6 +72,7 @@ class SessionState {
       notifyPushEnabled: notifyPushEnabled ?? this.notifyPushEnabled,
       notifySmsEnabled: notifySmsEnabled ?? this.notifySmsEnabled,
       notifyHapticsEnabled: notifyHapticsEnabled ?? this.notifyHapticsEnabled,
+      otpConsentsRequired: otpConsentsRequired ?? this.otpConsentsRequired,
     );
   }
 }
@@ -89,24 +93,25 @@ class SessionController extends StateNotifier<SessionState> {
   final bool useMockData;
   final void Function()? onSessionCleared;
   Future<String?>? _refreshInFlight;
-  Future<void>? _otpRequestInFlight;
+  Future<OtpStartResult>? _otpRequestInFlight;
 
-  void saveIdentity({required String displayName, required String phone}) {
+  void saveIdentity({String? displayName, required String phone}) {
+    final normalizedName = displayName?.trim();
     state = state.copyWith(
-      displayName: displayName.trim(),
+      displayName: normalizedName?.isNotEmpty == true ? normalizedName : null,
       phone: phone.trim(),
     );
   }
 
-  Future<void> requestOtp() async {
+  Future<OtpStartResult> requestOtp({String? displayName}) async {
     final existing = _otpRequestInFlight;
     if (existing != null) {
       return existing;
     }
-    final future = _requestOtpInternal();
+    final future = _requestOtpInternal(displayName: displayName);
     _otpRequestInFlight = future;
     try {
-      await future;
+      return await future;
     } finally {
       if (identical(_otpRequestInFlight, future)) {
         _otpRequestInFlight = null;
@@ -114,13 +119,23 @@ class SessionController extends StateNotifier<SessionState> {
     }
   }
 
-  Future<void> _requestOtpInternal() async {
-    final name = state.displayName?.trim();
+  Future<OtpStartResult> _requestOtpInternal({String? displayName}) async {
+    final name = displayName?.trim().isNotEmpty == true
+        ? displayName!.trim()
+        : state.displayName?.trim();
     final phone = state.phone?.trim();
-    if (name == null || name.isEmpty || phone == null || phone.isEmpty) {
-      throw const AuthFailure('Имя и телефон обязательны');
+    if (phone == null || phone.isEmpty) {
+      throw const AuthFailure('Телефон обязателен');
     }
-    await _auth.requestOtp(displayName: name, phone: phone);
+    final result = await _auth.requestOtp(
+      displayName: name?.isNotEmpty == true ? name : null,
+      phone: phone,
+    );
+    state = state.copyWith(
+      displayName: name?.isNotEmpty == true ? name : null,
+      otpConsentsRequired: result.consentsRequired,
+    );
+    return result;
   }
 
   Future<void> verifyOtp({
@@ -134,19 +149,20 @@ class SessionController extends StateNotifier<SessionState> {
       throw const AuthFailure('Телефон обязателен');
     }
     if (useMockData) {
-      await _auth.verifyOtp(
+      final tokens = await _auth.verifyOtp(
         phone: phone,
         code: code,
         privacyAccepted: privacyAccepted,
         personalDataAccepted: personalDataAccepted,
       );
+      final me = await _auth.getMe(tokens.accessToken);
       state = state.copyWith(
         isHydrated: true,
         onboardingCompleted: true,
-        displayName: name,
-        phone: phone,
-        userId: 'mock-user',
-        accessToken: 'mock-access',
+        displayName: name?.isNotEmpty == true ? name : me.displayName,
+        phone: me.phone,
+        userId: me.id,
+        accessToken: tokens.accessToken,
       );
       await _storage.write(
         key: SecureStorageKeys.refreshToken,

@@ -100,7 +100,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
       if (!completed &&
           loc == AuthOtpScreen.routePath &&
-          (session.displayName == null || session.displayName!.isEmpty)) {
+          (session.phone == null || session.phone!.isEmpty)) {
         return AuthIdentityScreen.routePath;
       }
       return null;

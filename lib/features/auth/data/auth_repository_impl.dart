@@ -10,14 +10,23 @@ final class ApiAuthRepository implements AuthRepository {
   final Dio _dio;
 
   @override
-  Future<void> requestOtp({
-    required String displayName,
+  Future<OtpStartResult> requestOtp({
     required String phone,
+    String? displayName,
   }) {
     return guardApiCall(() async {
-      await _dio.post<void>(
-        '/api/v1/auth/otp/request',
-        data: {'display_name': displayName, 'phone': phone},
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/auth/otp/start',
+        data: {'display_name': ?displayName, 'phone': phone},
+      );
+      final data = response.data;
+      if (data == null) {
+        throw const UnexpectedFailure();
+      }
+      return OtpStartResult(
+        registrationRequired: data['registration_required'] as bool? ?? false,
+        consentsRequired: data['consents_required'] as bool? ?? true,
+        otpSent: data['otp_sent'] as bool? ?? false,
       );
     });
   }
@@ -230,10 +239,35 @@ final class MockAuthRepository implements AuthRepository {
   bool _notifyHapticsEnabled = true;
 
   @override
-  Future<void> requestOtp({
-    required String displayName,
+  Future<OtpStartResult> requestOtp({
     required String phone,
-  }) async {}
+    String? displayName,
+  }) async {
+    const existingDemoPhone = '+79990000000';
+    if (phone == existingDemoPhone) {
+      _phone = phone;
+      _displayName = 'Никита Можаров';
+      return const OtpStartResult(
+        registrationRequired: false,
+        consentsRequired: false,
+        otpSent: true,
+      );
+    }
+    if (displayName == null || displayName.trim().isEmpty) {
+      return const OtpStartResult(
+        registrationRequired: true,
+        consentsRequired: true,
+        otpSent: false,
+      );
+    }
+    _phone = phone;
+    _displayName = displayName.trim();
+    return const OtpStartResult(
+      registrationRequired: false,
+      consentsRequired: true,
+      otpSent: true,
+    );
+  }
 
   @override
   Future<AuthTokens> verifyOtp({
@@ -242,7 +276,8 @@ final class MockAuthRepository implements AuthRepository {
     required bool privacyAccepted,
     required bool personalDataAccepted,
   }) async {
-    if (!privacyAccepted || !personalDataAccepted) {
+    if (_phone != '+79990000000' &&
+        (!privacyAccepted || !personalDataAccepted)) {
       throw const AuthFailure('Consents required');
     }
     _phone = phone;
