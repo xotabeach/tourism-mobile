@@ -77,8 +77,10 @@ CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
 ## Что реально vs stub
 
 **API при `DATA_SOURCE=api`:** auth OTP, каталог мест/маршрутов, избранное,
-публикация черновика → модерация, отзывы, профиль (тп/звания/лидерборд/лайки/
-достижения), support tickets, inbox, FCM token (Android).
+публикация черновика → модерация, отзывы (фото, закреплённый собственный
+отзыв, ответы с цитатой, fullscreen viewer), профиль
+(тп/звания/лидерборд/лайки/эксперт/достижения, цельный pull-to-refresh), support tickets, inbox,
+FCM token (Android и сконфигурированный iOS-клиент; APNs key всё ещё нужен).
 
 **UI-only / stub:** подбор маршрута (срез каталога до Phase 8A), «Пройти
 маршрут», Travel+ billing, аудиогид, offline download,
