@@ -117,10 +117,15 @@ abstract final class AppIconography {
     return asset.replaceFirst('/raster/', '/raster/accent/');
   }
 
+  static String profileAsset(String asset) {
+    return asset.replaceFirst('/raster/', '/raster/profile/');
+  }
+
   static List<String> get bundledAssets => [
     ...runtimeAssets,
     ...runtimeAssets.map(inkAsset),
     ...runtimeAssets.map(mutedAsset),
+    ...runtimeAssets.map(profileAsset),
     ...settingsAssets.map(accentAsset),
   ];
 
@@ -136,6 +141,14 @@ abstract final class AppIconography {
     final dg = (color.g - target.g).abs();
     final db = (color.b - target.b).abs();
     return dr + dg + db < 0.35;
+  }
+
+  static bool isProfileStatColor(Color color) {
+    const target = AppColors.profileStatIcon;
+    final dr = (color.r - target.r).abs();
+    final dg = (color.g - target.g).abs();
+    final db = (color.b - target.b).abs();
+    return dr + dg + db < 0.08;
   }
 }
 
@@ -158,7 +171,9 @@ class AppAssetIcon extends StatelessWidget {
     final iconColor = color ?? Colors.white;
     final channelAverage = (iconColor.r + iconColor.g + iconColor.b) / 3;
     final String effectiveAsset;
-    if (channelAverage < 0.3) {
+    if (AppIconography.isProfileStatColor(iconColor)) {
+      effectiveAsset = AppIconography.profileAsset(asset);
+    } else if (channelAverage < 0.3) {
       effectiveAsset = AppIconography.inkAsset(asset);
     } else if (AppIconography.isAccentBlue(iconColor)) {
       effectiveAsset = AppIconography.accentAsset(asset);

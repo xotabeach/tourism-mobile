@@ -10,11 +10,13 @@ void main() {
       'followers_count': -12,
       'following_count': 1000000001,
       'liked_by_me': true,
+      'is_expert': true,
       'role': 'admin',
     });
     expect(user.displayName, '<script>alert(1)</script>');
     expect(user.followersCount, 0);
     expect(user.followingCount, 1000000000);
     expect(user.likedByMe, isTrue);
+    expect(user.isExpert, isTrue);
   });
 }

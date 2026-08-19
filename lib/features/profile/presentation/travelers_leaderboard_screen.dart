@@ -101,69 +101,73 @@ class _LeaderboardTile extends StatelessWidget {
       resolvedUrl: AppImages.resolveMediaUrl(config, traveler.avatarUrl),
       assetFallback: AppImages.travelerPortrait,
     );
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
+    return DecoratedBox(
+      key: ValueKey('leaderboard-traveler-shadow-$place'),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.tile + 6),
+        boxShadow: AppShadows.tile,
+      ),
+      child: Material(
+        color: AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(AppRadii.tile),
-        onTap: () => unawaited(
-          context.pushNamed(
-            AppRouteNames.userProfile,
-            pathParameters: {'userId': traveler.id},
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(AppRadii.tile),
+          onTap: () => unawaited(
+            context.pushNamed(
+              AppRouteNames.userProfile,
+              pathParameters: {'userId': traveler.id},
+            ),
           ),
-        ),
-        child: Ink(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          decoration: BoxDecoration(
-            color: AppColors.elevatedSurface,
-            borderRadius: BorderRadius.circular(AppRadii.tile),
-            boxShadow: AppShadows.tile,
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 36,
-                child: Text(
-                  '$place',
-                  style: AppTypography.sectionTitle.copyWith(fontSize: 18),
-                  textAlign: TextAlign.center,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 36,
+                  child: Text(
+                    '$place',
+                    style: AppTypography.sectionTitle.copyWith(fontSize: 18),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppColors.mistDark,
-                backgroundImage: avatar,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      traveler.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.settingsRowTitle,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      traveler.rankTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.settingsRowSubtitle,
-                    ),
-                  ],
+                const SizedBox(width: 10),
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.mistDark,
+                  backgroundImage: avatar,
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '${_formatPoints(traveler.travelPoints)} тп',
-                style: AppTypography.chip.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.primaryInk,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        traveler.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.settingsRowTitle,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        traveler.rankTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.settingsRowSubtitle,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                Text(
+                  '${_formatPoints(traveler.travelPoints)} тп',
+                  style: AppTypography.chip.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryInk,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

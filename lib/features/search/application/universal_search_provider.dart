@@ -68,6 +68,7 @@ final universalSearchProvider = FutureProvider.autoDispose
             rankTitle: 'Исследователь',
             nextRankPoints: 10000,
             leaderboardPlace: 2,
+            isExpert: true,
           ),
         ];
         return UniversalSearchResults(

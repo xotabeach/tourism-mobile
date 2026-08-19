@@ -573,57 +573,63 @@ class _TopTravelerCard extends StatelessWidget {
     return Semantics(
       button: true,
       label: '${traveler.displayName}, место $place',
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
+      child: DecoratedBox(
+        key: ValueKey('top-traveler-shadow-$place'),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppRadii.tile + 6),
+          boxShadow: AppShadows.tile,
+        ),
+        child: Material(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(AppRadii.tile),
-          onTap: () => unawaited(
-            context.pushNamed(
-              AppRouteNames.userProfile,
-              pathParameters: {'userId': traveler.id},
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadii.tile),
+            onTap: () => unawaited(
+              context.pushNamed(
+                AppRouteNames.userProfile,
+                pathParameters: {'userId': traveler.id},
+              ),
             ),
-          ),
-          child: Ink(
-            height: 116,
-            padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppRadii.tile),
-              boxShadow: AppShadows.tile,
-            ),
-            child: Column(
-              children: [
-                Container(
-                  width: 54,
-                  height: 54,
-                  padding: const EdgeInsets.all(2),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: ringColor, width: 2),
-                  ),
-                  child: CircleAvatar(
-                    backgroundColor: AppColors.mistDark,
-                    backgroundImage: avatar,
-                  ),
+            child: SizedBox(
+              height: 116,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 54,
+                      height: 54,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: ringColor, width: 2),
+                      ),
+                      child: CircleAvatar(
+                        backgroundColor: AppColors.mistDark,
+                        backgroundImage: avatar,
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      'ТОП $place',
+                      style: AppTypography.chip.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      _formatTravelPoints(traveler.travelPoints),
+                      style: AppTypography.routeMetadata.copyWith(
+                        color: AppColors.secondaryInk,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 5),
-                Text(
-                  'ТОП $place',
-                  style: AppTypography.chip.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  _formatTravelPoints(traveler.travelPoints),
-                  style: AppTypography.routeMetadata.copyWith(
-                    color: AppColors.secondaryInk,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+              ),
             ),
           ),
         ),

@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 import '../support/test_overrides.dart';
 
@@ -43,9 +48,60 @@ void main() {
     expect(find.text('Достижения:'), findsOneWidget);
     expect(find.text('Подписчиков'), findsOneWidget);
     expect(find.text('Подписок'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('profile-followers-stat')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('profile-following-stat')),
+      findsOneWidget,
+    );
+    final coverRect = tester.getRect(
+      find.byKey(const ValueKey('profile-cover')),
+    );
+    final rankRect = tester.getRect(
+      find.byKey(const ValueKey('profile-rank-card')),
+    );
+    expect(coverRect.bottom - rankRect.top, closeTo(24, 0.5));
+    final statImages = tester
+        .widgetList<Image>(
+          find.descendant(
+            of: find.byKey(const ValueKey('profile-rank-card')),
+            matching: find.byType(Image),
+          ),
+        )
+        .map((image) => image.image)
+        .whereType<AssetImage>()
+        .map((image) => image.assetName)
+        .toSet();
+    expect(
+      find.byKey(const ValueKey('profile-followers-icon')),
+      findsOneWidget,
+    );
+    expect(
+      statImages,
+      contains(AppIconography.profileAsset(AppIconography.heart)),
+    );
     expect(find.text('Марафонец'), findsOneWidget);
     expect(find.text('Мои маршруты'), findsOneWidget);
     expect(find.text('Гора Чок-Сары-Кая'), findsOneWidget);
+
+    final pullGroup = find.byKey(const ValueKey('profile-pull-group'));
+    expect(
+      tester.widget<Transform>(pullGroup).transform.storage[13],
+      closeTo(0, 0.01),
+    );
+    final pullGesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('profile-cover'))),
+    );
+    await pullGesture.moveBy(const Offset(0, 100));
+    await tester.pump();
+    expect(
+      tester.widget<Transform>(pullGroup).transform.storage[13],
+      greaterThan(0),
+    );
+    await pullGesture.up();
+    await tester.pumpAndSettle();
   });
 
   testWidgets('profile renders untrusted achievement text as plain data', (
@@ -81,5 +137,47 @@ void main() {
       }),
       isTrue,
     );
+  });
+
+  testWidgets('expert public profile exposes expert visual semantics', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1200);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: testSessionOverrides(onboardingCompleted: true),
+        child: const TourismApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Профиль'));
+    await tester.pumpAndSettle();
+    final context = tester.element(find.byType(ProfileScreen));
+    unawaited(
+      GoRouter.of(context).pushNamed(
+        AppRouteNames.userProfile,
+        pathParameters: const {'userId': 'mock-maria'},
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel(RegExp('Профиль эксперта')), findsOneWidget);
+    expect(find.text('Мария Крымская'), findsWidgets);
+    expect(find.text('Подписчиков'), findsOneWidget);
+    expect(find.text('Подписок'), findsNothing);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('profile-followers-stat')))
+          .width,
+      greaterThan(300),
+    );
+    expect(find.byKey(const ValueKey('profile-following-stat')), findsNothing);
   });
 }

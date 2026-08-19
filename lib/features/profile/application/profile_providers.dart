@@ -61,6 +61,7 @@ final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
         rankTitle: 'Исследователь',
         nextRankPoints: 15000,
         leaderboardPlace: 2,
+        isExpert: true,
       ),
       PublicUserProfile(
         id: 'mock-artem',
@@ -97,6 +98,7 @@ const _mockLeaderboard = [
     rankTitle: 'Исследователь',
     nextRankPoints: 10000,
     leaderboardPlace: 2,
+    isExpert: true,
   ),
   PublicUserProfile(
     id: 'mock-artem',
@@ -158,7 +160,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     }
     final routes = await ref.watch(routesRepositoryProvider).listRoutes();
     return ProfileSnapshot(
-      displayName: 'Путешественник',
+      displayName: userId == 'mock-maria' ? 'Мария Крымская' : 'Путешественник',
       rank: MockProfile.rank,
       coverImageAsset: AppImages.welcomeSunset,
       avatarImageAsset: AppImages.travelerPortrait,
@@ -166,6 +168,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       publishedRoutes: routes.items
           .where((route) => route.ownerUserId == userId)
           .toList(),
+      isExpert: userId == 'mock-maria',
     );
   }
 
@@ -188,6 +191,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       achievementPages: achievementPages,
       publishedRoutes: ownRoutes.items,
       likedByMe: false,
+      isExpert: bundle.user.isExpert,
       travelPoints: bundle.user.travelPoints,
       followersCount: bundle.user.followersCount,
       followingCount: bundle.user.followingCount,
@@ -204,6 +208,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     achievementPages: achievementPages,
     publishedRoutes: bundle.routes,
     likedByMe: bundle.user.likedByMe,
+    isExpert: bundle.user.isExpert,
     travelPoints: bundle.user.travelPoints,
     followersCount: bundle.user.followersCount,
     followingCount: bundle.user.followingCount,

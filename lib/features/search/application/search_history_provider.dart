@@ -6,7 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 
 const _historyKeyPrefix = 'search_history.';
-const searchHistoryMaxItems = 20;
+const searchHistoryMaxItems = 1;
 const searchHistoryMaxChars = 80;
 
 abstract class SearchHistoryStore {
@@ -74,7 +74,11 @@ class SearchHistoryController extends StateNotifier<List<String>> {
     if (!mounted) {
       return;
     }
-    state = _sanitizeAll(items);
+    final next = _sanitizeAll(items);
+    state = next;
+    if (next.length != items.length) {
+      await store.save(ownerKey, next);
+    }
   }
 
   Future<void> record(String raw) async {
@@ -86,12 +90,8 @@ class SearchHistoryController extends StateNotifier<List<String>> {
     if (value == null) {
       return;
     }
-    final next = [
-      value,
-      ...state.where((item) => item.toLowerCase() != value.toLowerCase()),
-    ].take(searchHistoryMaxItems).toList(growable: false);
-    state = next;
-    await store.save(ownerKey, next);
+    state = [value];
+    await store.save(ownerKey, state);
   }
 
   List<String> _visible = const [];
@@ -104,6 +104,14 @@ class SearchHistoryController extends StateNotifier<List<String>> {
       return;
     }
     _inSession = true;
+    unawaited(_snapshotVisible());
+  }
+
+  Future<void> _snapshotVisible() async {
+    await _loaded;
+    if (!mounted || !_inSession) {
+      return;
+    }
     _visible = List<String>.unmodifiable(state);
     state = List<String>.of(state);
   }
@@ -115,20 +123,22 @@ class SearchHistoryController extends StateNotifier<List<String>> {
     _inSession = false;
     _visible = const [];
     final value = _sanitize(lastQuery ?? '');
-    if (value == null) {
-      return;
-    }
-    final next = [
-      value,
-      ...state.where((item) => item.toLowerCase() != value.toLowerCase()),
-    ].take(searchHistoryMaxItems).toList(growable: false);
     unawaited(
-      Future<void>.microtask(() {
+      Future<void>.microtask(() async {
+        await _loaded;
         if (!mounted) {
           return;
         }
-        state = next;
-        store.save(ownerKey, next).ignore();
+        if (value != null) {
+          state = [value];
+          await store.save(ownerKey, state);
+          return;
+        }
+        final trimmed = _sanitizeAll(state);
+        if (trimmed.length != state.length) {
+          state = trimmed;
+          await store.save(ownerKey, trimmed);
+        }
       }),
     );
   }

@@ -13,6 +13,9 @@ abstract final class AppColors {
   static const Color controlSurface = Color(0xFFE7E7E7);
   static const Color hairline = Color(0xFFE3E3E5);
 
+  /// Light icon fill used inside profile follower/subscription counters.
+  static const Color profileStatIcon = Color(0xFFD1D2D4);
+
   static const Color glassFill = Color(0x99F4F4F6);
   static const Color glassFillStrong = Color(0xC7F4F4F6);
   static const Color glassBorder = Color(0xB8FFFFFF);

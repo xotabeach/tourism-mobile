@@ -43,6 +43,7 @@ class ProfileSnapshot {
     this.avatarImageUrl,
     this.coverImageUrl,
     this.likedByMe = false,
+    this.isExpert = false,
     this.travelPoints,
     this.followersCount = 0,
     this.followingCount = 0,
@@ -57,6 +58,7 @@ class ProfileSnapshot {
   final List<List<ProfileAchievement>> achievementPages;
   final List<RouteSummary> publishedRoutes;
   final bool likedByMe;
+  final bool isExpert;
   final int? travelPoints;
   final int followersCount;
   final int followingCount;

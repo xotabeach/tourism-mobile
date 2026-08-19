@@ -6,12 +6,14 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
@@ -52,12 +54,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _scrollController = ScrollController();
   var _achievementPage = 0;
   var _publishedPage = 0;
+  var _pullDownOffset = 0.0;
 
   void _onScroll() {
     if (!_scrollController.hasClients) {
       return;
     }
-    syncTabScrolledDown(ref, 4, _scrollController.offset);
+    final offset = _scrollController.offset;
+    syncTabScrolledDown(ref, 4, offset);
+    final nextPull = (-offset).clamp(0.0, 140.0);
+    if ((nextPull - _pullDownOffset).abs() > 0.5 && mounted) {
+      setState(() => _pullDownOffset = nextPull);
+    }
   }
 
   @override
@@ -116,10 +124,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             profileUserId: widget.userId,
           ),
         ),
-        loading: () => const ColoredBox(
-          color: AppColors.pageSurface,
-          child: Center(child: CircularProgressIndicator()),
-        ),
+        loading: () =>
+            _ProfileLoadingView(topInset: MediaQuery.paddingOf(context).top),
         error: (error, _) => ColoredBox(
           color: AppColors.pageSurface,
           child: Center(
@@ -157,16 +163,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final sessionUserId = session.userId;
     final ProfileSnapshot effective;
     if (sessionUserId != null && sessionUserId.isNotEmpty) {
-      effective = ref
-          .watch(publicProfileProvider(sessionUserId))
-          .when(
-            skipLoadingOnReload: true,
-            skipLoadingOnRefresh: true,
-            skipError: true,
-            data: (value) => value,
-            loading: () => profile,
-            error: (_, _) => profile,
-          );
+      final asyncProfile = ref.watch(publicProfileProvider(sessionUserId));
+      if (asyncProfile.isLoading && !asyncProfile.hasValue) {
+        return _ProfileLoadingView(topInset: MediaQuery.paddingOf(context).top);
+      }
+      effective = asyncProfile.valueOrNull ?? profile;
     } else {
       effective = profile;
     }
@@ -215,9 +216,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             _ProfileCollapsingHeader(
               profile: profile,
               topInset: topInset,
+              isOwn: isOwn,
               onMore: onMore,
               onLike: onLike,
               likedByMe: profile.likedByMe,
+              isExpert: profile.isExpert,
+              pullDownOffset: _pullDownOffset,
             ),
             SliverToBoxAdapter(
               child: Column(
@@ -328,30 +332,206 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
+const _expertGradient = LinearGradient(
+  begin: Alignment.centerLeft,
+  end: Alignment.centerRight,
+  colors: [Color(0xFF2997FF), Color(0xFF9B51FF)],
+);
+
+class _ProfileLoadingView extends StatelessWidget {
+  const _ProfileLoadingView({required this.topInset});
+
+  final double topInset;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.pageSurface,
+      child: AppShimmer(
+        child: SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: topInset + _ProfileCollapsingHeader.coverBody,
+                child: const Stack(
+                  children: [
+                    Positioned.fill(
+                      child: AppSkeleton(
+                        width: double.infinity,
+                        height: double.infinity,
+                        borderRadius: 28,
+                      ),
+                    ),
+                    Positioned(
+                      left: AppSpacing.page,
+                      bottom: 16,
+                      child: Row(
+                        children: [
+                          AppSkeleton(
+                            width: 68,
+                            height: 68,
+                            shape: BoxShape.circle,
+                          ),
+                          SizedBox(width: 12),
+                          Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              AppSkeleton(
+                                width: 154,
+                                height: 22,
+                                borderRadius: 8,
+                              ),
+                              SizedBox(height: 8),
+                              AppSkeleton(
+                                width: 126,
+                                height: 14,
+                                borderRadius: 7,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(
+                height:
+                    _ProfileCollapsingHeader.rankCardHeight -
+                    _ProfileCollapsingHeader.rankOverlap,
+                child: OverflowBox(
+                  alignment: Alignment.bottomCenter,
+                  minHeight: _ProfileCollapsingHeader.rankCardHeight,
+                  maxHeight: _ProfileCollapsingHeader.rankCardHeight,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                    child: AppSkeleton(
+                      width: double.infinity,
+                      height: _ProfileCollapsingHeader.rankCardHeight,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                child: AppSkeleton(width: 164, height: 24, borderRadius: 8),
+              ),
+              const SizedBox(height: 14),
+              for (var i = 0; i < 3; i++) ...[
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                  child: AppSkeleton(width: double.infinity, height: 64),
+                ),
+                if (i < 2) const SizedBox(height: 8),
+              ],
+              const SizedBox(height: AppSpacing.xl),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                child: AppSkeleton(width: 132, height: 24, borderRadius: 8),
+              ),
+              const SizedBox(height: 12),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+                child: AppSkeleton(width: double.infinity, height: 304),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileCover extends StatelessWidget {
+  const _ProfileCover({required this.profile, required this.isExpert});
+
+  final ProfileSnapshot profile;
+  final bool isExpert;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      key: const ValueKey('profile-cover'),
+      decoration: BoxDecoration(
+        gradient: isExpert ? _expertGradient : null,
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
+      ),
+      child: Padding(
+        padding: EdgeInsets.only(bottom: isExpert ? 2 : 0),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            bottom: Radius.circular(28),
+          ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
+              if (profile.coverImageUrl != null &&
+                  profile.coverImageUrl!.isNotEmpty)
+                Image(
+                  image: AppImages.imageProvider(
+                    resolvedUrl: profile.coverImageUrl,
+                    assetFallback: profile.coverImageAsset,
+                  ),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, _, _) =>
+                      Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x33000000),
+                      Color(0x00000000),
+                      Color(0x99000000),
+                    ],
+                    stops: [0, 0.42, 1],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProfileCollapsingHeader extends StatelessWidget {
   const _ProfileCollapsingHeader({
     required this.profile,
     required this.topInset,
+    required this.isOwn,
     this.onMore,
     this.onLike,
     this.likedByMe = false,
+    this.isExpert = false,
+    this.pullDownOffset = 0,
   });
 
-  /// Match pre-sliver `_ProfileHeader`: cover was `topInset + 190`, identity
-  /// sat at `bottom: 44`, and the rank card overlapped the cover by 28px.
-  static const double coverBody = 190;
-  static const double rankCardHeight = 188;
-  static const double rankOverlap = 28;
+  /// Geometry measured from the 393 logical-pixel Figma export.
+  static const double coverBody = 144;
+  static const double rankCardHeight = 162;
+  static const double rankOverlap = 24;
 
-  /// Gap between the identity row bottom and the rank-card top (44 - 28).
   static const double identityAboveRank = 16;
   static const double collapsedBar = 56;
+  static const double pullDownFactor = 0.18;
 
   final ProfileSnapshot profile;
   final double topInset;
+  final bool isOwn;
   final VoidCallback? onMore;
   final VoidCallback? onLike;
   final bool likedByMe;
+  final bool isExpert;
+  final double pullDownOffset;
 
   @override
   Widget build(BuildContext context) {
@@ -369,10 +549,9 @@ class _ProfileCollapsingHeader extends StatelessWidget {
     final expandedHeight = coverHeight + rankCardHeight - rankOverlap;
 
     return CollapsingHeroSliver(
-      // Keep the collapsed bar pinned; rank card lives inside this sliver so it
-      // paints above the cover (following slivers cannot overlap a pinned hero).
+      // Keep the collapsed bar pinned; the full hero stays in one sliver.
       pinned: true,
-      parallaxFactor: 0.18,
+      parallaxFactor: pullDownFactor,
       expandedHeight: expandedHeight,
       collapsedHeight: topInset + collapsedBar,
       collapsedColor: AppColors.pageSurface,
@@ -385,37 +564,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
             left: 0,
             right: 0,
             height: coverHeight,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
-                if (profile.coverImageUrl != null &&
-                    profile.coverImageUrl!.isNotEmpty)
-                  Image(
-                    image: AppImages.imageProvider(
-                      resolvedUrl: profile.coverImageUrl,
-                      assetFallback: profile.coverImageAsset,
-                    ),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, _, _) =>
-                        Image.asset(profile.coverImageAsset, fit: BoxFit.cover),
-                  ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Color(0x33000000),
-                        Color(0x00000000),
-                        Color(0x99000000),
-                      ],
-                      stops: [0, 0.42, 1],
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: _ProfileCover(profile: profile, isExpert: isExpert),
           ),
         ],
       ),
@@ -462,88 +611,100 @@ class _ProfileCollapsingHeader extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            CollapseLayer(
-              visibility: expandedVis,
-              scale: false,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  const Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: rankCardHeight - rankOverlap,
-                    child: ColoredBox(color: AppColors.pageSurface),
-                  ),
-                  // Identity sits in the cover band, 44px above the cover
-                  // bottom — same as pre-sliver — so it clears the rank card.
-                  Positioned(
-                    left: AppSpacing.page,
-                    right: AppSpacing.page,
-                    bottom: rankCardHeight + identityAboveRank,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(2),
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
+            Transform.translate(
+              key: const ValueKey('profile-pull-group'),
+              offset: Offset(0, pullDownOffset * pullDownFactor),
+              child: CollapseLayer(
+                visibility: expandedVis,
+                scale: false,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    const Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: rankCardHeight - rankOverlap,
+                      child: ColoredBox(color: AppColors.pageSurface),
+                    ),
+                    // Identity remains inside the photo and clears the rank card.
+                    Positioned(
+                      left: AppSpacing.page,
+                      right: AppSpacing.page,
+                      bottom: rankCardHeight + identityAboveRank,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(
+                              gradient: isExpert
+                                  ? _expertGradient
+                                  : const LinearGradient(
+                                      colors: [Colors.white, Colors.white],
+                                    ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: CircleAvatar(
+                              radius: 32,
+                              backgroundImage: avatarAsset,
+                              foregroundImage: avatarNetwork,
+                            ),
                           ),
-                          child: CircleAvatar(
-                            radius: 32,
-                            backgroundImage: avatarAsset,
-                            foregroundImage: avatarNetwork,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                profile.displayName,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.greeting.copyWith(
-                                  color: Colors.white,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w600,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  profile.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.greeting.copyWith(
+                                    color: Colors.white,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                profile.rank.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.greetingSubtitle.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.88),
-                                  fontSize: 14,
+                                const SizedBox(height: 2),
+                                Text(
+                                  profile.rank.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTypography.greetingSubtitle
+                                      .copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.88,
+                                        ),
+                                        fontSize: 14,
+                                      ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                        if (action != null) ...[
-                          const SizedBox(width: AppSpacing.xs),
-                          action,
+                          if (action != null) ...[
+                            const SizedBox(width: AppSpacing.xs),
+                            action,
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                  Positioned(
-                    left: AppSpacing.page,
-                    right: AppSpacing.page,
-                    bottom: 0,
-                    height: rankCardHeight,
-                    child: _RankCard(
-                      rank: profile.rank,
-                      followersCount: profile.followersCount,
-                      followingCount: profile.followingCount,
+                    Positioned(
+                      left: AppSpacing.page,
+                      right: AppSpacing.page,
+                      bottom: 0,
+                      height: rankCardHeight,
+                      child: _RankCard(
+                        rank: profile.rank,
+                        followersCount: profile.followersCount,
+                        followingCount: profile.followingCount,
+                        showFollowing: isOwn,
+                        isExpert: isExpert,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             CollapseLayer(
@@ -640,11 +801,15 @@ class _RankCard extends StatelessWidget {
     required this.rank,
     required this.followersCount,
     required this.followingCount,
+    required this.showFollowing,
+    required this.isExpert,
   });
 
   final ProfileRank rank;
   final int followersCount;
   final int followingCount;
+  final bool showFollowing;
+  final bool isExpert;
 
   @override
   Widget build(BuildContext context) {
@@ -652,122 +817,150 @@ class _RankCard extends StatelessWidget {
         ? 1.0
         : (rank.progressPoints / rank.nextRankPoints).clamp(0.0, 1.0);
 
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        boxShadow: AppShadows.tile,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
+    return Semantics(
+      label: isExpert ? 'Профиль эксперта' : 'Профиль путешественника',
+      child: Container(
+        key: const ValueKey('profile-rank-card'),
+        padding: EdgeInsets.all(isExpert ? 2 : 0),
+        decoration: BoxDecoration(
+          color: isExpert ? null : AppColors.elevatedSurface,
+          gradient: isExpert ? _expertGradient : null,
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          boxShadow: AppShadows.tile,
+        ),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: AppColors.elevatedSurface,
+            borderRadius: BorderRadius.circular(AppRadii.card - 2),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: _FollowStatBox(
-                    icon: Icons.person_outline_rounded,
-                    value: compactCount(followersCount),
-                    label: 'Подписчиков',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _FollowStatBox(
-                    icon: Icons.favorite_border_rounded,
-                    value: compactCount(followingCount),
-                    label: 'Подписок',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Text(
-                  'Звание:',
-                  style: AppTypography.greetingSubtitle.copyWith(
-                    color: AppColors.primaryInk,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    rank.title,
-                    textAlign: TextAlign.right,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTypography.greeting.copyWith(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1, thickness: 1, color: Color(0xFFE8E8E8)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadii.capsule),
-                    child: SizedBox(
-                      height: 40,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          const ColoredBox(color: Color(0xFFE8E8E8)),
-                          FractionallySizedBox(
-                            widthFactor: progress,
-                            alignment: Alignment.centerLeft,
-                            child: const ColoredBox(
-                              color: AppColors.primaryInk,
-                            ),
-                          ),
-                          Center(
-                            child: Text(
-                              rank.nextRankPoints <= 0
-                                  ? '${rank.progressPoints} тп'
-                                  : '${rank.progressPoints} / ${rank.nextRankPoints} тп',
-                              style: AppTypography.chip.copyWith(
-                                fontSize: 13,
-                                color: progress > 0.45
-                                    ? Colors.white
-                                    : AppColors.primaryInk,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: _FollowStatBox(
+                        key: const ValueKey('profile-followers-stat'),
+                        iconAsset: AppIconography.profileSelected,
+                        useFollowersIcon: true,
+                        value: compactCount(followersCount),
+                        label: 'Подписчиков',
                       ),
                     ),
-                  ),
+                    if (showFollowing) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _FollowStatBox(
+                          key: const ValueKey('profile-following-stat'),
+                          iconAsset: AppIconography.heart,
+                          value: compactCount(followingCount),
+                          label: 'Подписок',
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Container(
-                  height: 40,
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  decoration: BoxDecoration(
-                    color: AppColors.controlSurface,
-                    borderRadius: BorderRadius.circular(AppRadii.capsule),
-                  ),
-                  child: Text(
-                    'Топ ${rank.leaderboardPlace}',
-                    style: AppTypography.chip.copyWith(
-                      fontSize: 13,
-                      color: AppColors.primaryInk,
-                      fontWeight: FontWeight.w500,
+                const SizedBox(height: 9),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFE8E8E8),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      'Звание:',
+                      style: AppTypography.greetingSubtitle.copyWith(
+                        color: AppColors.primaryInk,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        rank.title,
+                        textAlign: TextAlign.right,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.greeting.copyWith(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFFE8E8E8),
+                ),
+                const SizedBox(height: 9),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadii.capsule),
+                        child: SizedBox(
+                          height: 27,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              const ColoredBox(color: Color(0xFFE8E8E8)),
+                              FractionallySizedBox(
+                                widthFactor: progress,
+                                alignment: Alignment.centerLeft,
+                                child: const ColoredBox(
+                                  color: AppColors.primaryInk,
+                                ),
+                              ),
+                              Center(
+                                child: Text(
+                                  rank.nextRankPoints <= 0
+                                      ? '${rank.progressPoints} тп'
+                                      : '${rank.progressPoints} / ${rank.nextRankPoints} тп',
+                                  style: AppTypography.chip.copyWith(
+                                    fontSize: 12,
+                                    color: progress > 0.45
+                                        ? Colors.white
+                                        : AppColors.primaryInk,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      height: 27,
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.controlSurface,
+                        borderRadius: BorderRadius.circular(AppRadii.capsule),
+                      ),
+                      child: Text(
+                        'Топ ${rank.leaderboardPlace}',
+                        style: AppTypography.chip.copyWith(
+                          fontSize: 12,
+                          color: AppColors.primaryInk,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -776,46 +969,60 @@ class _RankCard extends StatelessWidget {
 
 class _FollowStatBox extends StatelessWidget {
   const _FollowStatBox({
-    required this.icon,
+    required this.iconAsset,
     required this.value,
     required this.label,
+    this.useFollowersIcon = false,
+    super.key,
   });
 
-  final IconData icon;
+  final String iconAsset;
   final String value;
   final String label;
+  final bool useFollowersIcon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      height: 46,
+      padding: const EdgeInsets.fromLTRB(11, 5, 11, 5),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.hairline),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.primaryInk, width: 2),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 22, color: AppColors.secondaryInk),
-          const SizedBox(width: 8),
+          if (useFollowersIcon)
+            const _FollowersStatIcon(
+              key: ValueKey('profile-followers-icon'),
+              size: 30,
+            )
+          else
+            AppAssetIcon(iconAsset, size: 30, color: AppColors.profileStatIcon),
+          const SizedBox(width: 6),
           Expanded(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
                   value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.greeting.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
                   ),
                 ),
+                const SizedBox(height: 3),
                 Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.greetingSubtitle.copyWith(
-                    fontSize: 12,
+                    fontSize: 11,
+                    height: 1,
                     color: AppColors.secondaryInk,
                   ),
                 ),
@@ -826,6 +1033,60 @@ class _FollowStatBox extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Vector rendering of the supplied `Group.svg`, kept sharp at every scale.
+class _FollowersStatIcon extends StatelessWidget {
+  const _FollowersStatIcon({required this.size, super.key});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: Size.square(size),
+      painter: const _FollowersStatIconPainter(),
+    );
+  }
+}
+
+class _FollowersStatIconPainter extends CustomPainter {
+  const _FollowersStatIconPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide / 26;
+    canvas.scale(scale);
+    final stroke = Paint()
+      ..color = AppColors.profileStatIcon
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.75
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawOval(const Rect.fromLTRB(5.54, 0.875, 14.875, 10.208), stroke);
+
+    final shoulders = Path()
+      ..moveTo(19.542, 18.958)
+      ..cubicTo(19.542, 21.858, 19.542, 24.208, 10.208, 24.208)
+      ..cubicTo(0.875, 24.208, 0.875, 21.858, 0.875, 18.958)
+      ..cubicTo(0.875, 16.059, 5.054, 13.708, 10.208, 13.708)
+      ..cubicTo(15.363, 13.708, 19.542, 16.059, 19.542, 18.958)
+      ..close();
+    canvas.drawPath(shoulders, stroke);
+
+    final heart = Path()
+      ..moveTo(20.708, 13.708)
+      ..cubicTo(20.15, 13.27, 17.208, 11.48, 17.208, 9.857)
+      ..cubicTo(17.208, 7.73, 19.49, 7.12, 20.708, 8.626)
+      ..cubicTo(21.926, 7.12, 24.208, 7.73, 24.208, 9.857)
+      ..cubicTo(24.208, 11.48, 21.266, 13.27, 20.708, 13.708)
+      ..close();
+    canvas.drawPath(heart, stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _AchievementsCarousel extends StatelessWidget {

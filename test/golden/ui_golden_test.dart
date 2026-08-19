@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
@@ -102,6 +103,20 @@ void main() {
       ),
       completedOnboarding: true,
     );
+    final shadowSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey('top-traveler-shadow-1')),
+    );
+    final shadowDecoration = shadowSurface.decoration as BoxDecoration;
+    final shadowRadius = shadowDecoration.borderRadius! as BorderRadius;
+    expect(shadowRadius.topLeft.x, AppRadii.tile + 6);
+    final material = tester.widget<Material>(
+      find.descendant(
+        of: find.byKey(const ValueKey('top-traveler-shadow-1')),
+        matching: find.byType(Material),
+      ),
+    );
+    expect(material.clipBehavior, Clip.antiAlias);
+    expect(material.borderRadius, BorderRadius.circular(AppRadii.tile));
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/home_top.png'),

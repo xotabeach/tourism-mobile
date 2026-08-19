@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
@@ -22,6 +23,51 @@ import 'package:tourism_mobile/features/search/presentation/universal_search_pan
 import 'package:tourism_mobile/routing/app_router.dart';
 
 enum SearchScope { global, routes, places, profiles }
+
+class _SearchResultsSkeleton extends StatelessWidget {
+  const _SearchResultsSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppShimmer(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(18, 18, 0, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AppSkeleton(width: 146, height: 22, borderRadius: 8),
+            SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: NeverScrollableScrollPhysics(),
+              child: Row(
+                children: [
+                  AppSkeleton(width: 276, height: 178, borderRadius: 18),
+                  SizedBox(width: 12),
+                  AppSkeleton(width: 44, height: 178, borderRadius: 18),
+                ],
+              ),
+            ),
+            SizedBox(height: 22),
+            AppSkeleton(width: 112, height: 22, borderRadius: 8),
+            SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: NeverScrollableScrollPhysics(),
+              child: Row(
+                children: [
+                  AppSkeleton(width: 276, height: 178, borderRadius: 18),
+                  SizedBox(width: 12),
+                  AppSkeleton(width: 44, height: 178, borderRadius: 18),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class InPlaceSearchBody extends ConsumerStatefulWidget {
   const InPlaceSearchBody({
@@ -86,10 +132,7 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
       skipError: true,
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const _SearchResultsSkeleton(),
       error: (_, _) => const Padding(
         padding: EdgeInsets.symmetric(vertical: 48),
         child: Center(child: Text('Не удалось выполнить поиск')),
@@ -468,7 +511,7 @@ class _HorizontalCards<T> extends StatefulWidget {
 }
 
 class _HorizontalCardsState<T> extends State<_HorizontalCards<T>> {
-  late final _controller = PageController(viewportFraction: 1);
+  late final _controller = PageController(viewportFraction: 0.92);
   int _index = 0;
 
   @override
@@ -480,39 +523,52 @@ class _HorizontalCardsState<T> extends State<_HorizontalCards<T>> {
   @override
   Widget build(BuildContext context) {
     final count = widget.items.length.clamp(0, 5);
-    return Column(
-      children: [
-        SizedBox(
-          height: widget.height,
-          child: PageView.builder(
-            controller: _controller,
-            itemCount: widget.items.length,
-            padEnds: false,
-            onPageChanged: (value) => setState(() => _index = value),
-            itemBuilder: (context, index) =>
-                widget.itemBuilder(context, widget.items[index]),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    return SizedBox(
+      height: widget.height + 20,
+      child: OverflowBox(
+        alignment: Alignment.topCenter,
+        minWidth: viewportWidth,
+        maxWidth: viewportWidth,
+        child: Column(
           children: [
-            for (var i = 0; i < count; i++) ...[
-              if (i > 0) const SizedBox(width: 6),
-              Container(
-                width: i == _index ? 10 : 8,
-                height: i == _index ? 10 : 8,
-                decoration: BoxDecoration(
-                  color: i == _index
-                      ? AppColors.primaryInk
-                      : AppColors.hairline,
-                  shape: BoxShape.circle,
+            SizedBox(
+              key: const ValueKey('search-horizontal-viewport'),
+              height: widget.height,
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: widget.items.length,
+                onPageChanged: (value) => setState(() => _index = value),
+                itemBuilder: (context, index) => Padding(
+                  padding: EdgeInsets.only(
+                    right: index == widget.items.length - 1 ? 0 : 12,
+                  ),
+                  child: widget.itemBuilder(context, widget.items[index]),
                 ),
               ),
-            ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < count; i++) ...[
+                  if (i > 0) const SizedBox(width: 6),
+                  Container(
+                    width: i == _index ? 10 : 8,
+                    height: i == _index ? 10 : 8,
+                    decoration: BoxDecoration(
+                      color: i == _index
+                          ? AppColors.primaryInk
+                          : AppColors.hairline,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
-      ],
+      ),
     );
   }
 }
