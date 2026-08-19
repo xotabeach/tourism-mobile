@@ -9,10 +9,13 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
+import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/routes/data/route_reviews_repository.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
@@ -68,7 +71,136 @@ bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
 }
 
 void main() {
+  testWidgets(
+    'own review is pinned and reply/photo interactions stay available',
+    (tester) async {
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 1100);
+      addTearDown(() {
+        tester.view
+          ..resetDevicePixelRatio()
+          ..resetPhysicalSize();
+      });
+      const summary = RouteSummary(
+        id: 'review-route',
+        name: 'Маршрут с отзывами',
+        slug: 'review-route',
+        shortDescription: 'Описание',
+        stopsCount: 0,
+        visibility: 'public',
+        publicationStatus: 'published',
+      );
+      const detail = RouteDetail(
+        id: 'review-route',
+        name: 'Маршрут с отзывами',
+        slug: 'review-route',
+        shortDescription: 'Описание',
+        description: 'Описание маршрута',
+        stopsCount: 0,
+        visibility: 'public',
+        publicationStatus: 'published',
+        media: [],
+        stops: [],
+      );
+      final own = RouteReview(
+        id: 'own-review',
+        routeId: 'review-route',
+        authorUserId: 'mock-user',
+        authorDisplayName: 'Никита',
+        authorRankTitle: 'Эксперт',
+        body: 'Мой опубликованный отзыв',
+        rating: 5,
+        status: 'published',
+        createdAt: DateTime.now().toUtc(),
+        media: const [
+          RouteReviewMedia(
+            id: 'photo-1',
+            url: AppImages.coastPineTwilight,
+            sortOrder: 0,
+          ),
+        ],
+      );
+      final other = RouteReview(
+        id: 'other-review',
+        routeId: 'review-route',
+        authorUserId: 'other-user',
+        authorDisplayName: 'Анна',
+        authorRankTitle: 'Путешественник',
+        body: 'Отзыв другого путешественника',
+        rating: 4,
+        status: 'published',
+        createdAt: DateTime.now().toUtc(),
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...testSessionOverrides(onboardingCompleted: true),
+            routeDetailProvider.overrideWith((ref, id) async => detail),
+            routeReviewsProvider.overrideWith(
+              (ref, id) async => RouteReviewsPage(
+                items: [other, own],
+                total: 2,
+                ratingCount: 2,
+                averageRating: 4.5,
+              ),
+            ),
+            myRouteReviewsProvider.overrideWith((ref) async => [own]),
+          ],
+          child: const MaterialApp(
+            home: RouteDetailsScreen(
+              routeId: 'review-route',
+              initialRoute: summary,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('route-comments-tab')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('own-review-pinned-label')),
+        findsOneWidget,
+      );
+      expect(find.text('Ваш отзыв:'), findsNothing);
+      expect(find.text('Мой опубликованный отзыв'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('own-review-pinned-own-review')),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Icon && widget.icon == Icons.close_rounded,
+          ),
+        ),
+        findsNothing,
+      );
+
+      final photo = find.bySemanticsLabel('Открыть фото отзыва').first;
+      await tester.ensureVisible(photo);
+      await tester.tap(photo);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('review-photo-fullscreen')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byTooltip('Закрыть'));
+      await tester.pumpAndSettle();
+
+      final reply = find.text('Ответить').last;
+      await tester.ensureVisible(reply);
+      await tester.tap(reply);
+      await tester.pumpAndSettle();
+      expect(find.text('Ваш ответ:'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('review-reply-composer-context')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+    },
+  );
+
   testWidgets('owner can preview a route pending moderation', (tester) async {
+    final handle = tester.ensureSemantics();
     const summary = RouteSummary(
       id: 'pending-route',
       name: 'Маршрут на проверке',
@@ -126,6 +258,12 @@ void main() {
     expect(find.byKey(const ValueKey('route-owner-status')), findsOneWidget);
     expect(find.text('На модерации'), findsOneWidget);
     expect(find.bySemanticsLabel('Добавить в избранное'), findsNothing);
+    expect(_isSelected(tester, 'О маршруте'), isTrue);
+    expect(_isSelected(tester, 'Комментарии'), isFalse);
+    await tester.tap(find.byKey(const ValueKey('route-comments-tab')));
+    await tester.pumpAndSettle();
+    expect(_isSelected(tester, 'О маршруте'), isFalse);
+    expect(_isSelected(tester, 'Комментарии'), isTrue);
     expect(
       find.byKey(const ValueKey('reviews-unpublished-hint')),
       findsOneWidget,
@@ -137,6 +275,42 @@ void main() {
           .images,
       hasLength(2),
     );
+    handle.dispose();
+  });
+
+  testWidgets('route tabs switch between route info and comments', (
+    tester,
+  ) async {
+    await _openRouteDetails(tester);
+
+    expect(find.text('Карта маршрута:'), findsOneWidget);
+    expect(find.text('Ваш отзыв:'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('route-comments-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Карта маршрута:'), findsNothing);
+    expect(find.text('Ваш отзыв:'), findsOneWidget);
+    expect(find.text('Читать отзыв полностью'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('Читать отзыв полностью'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Читать отзыв полностью'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Свернуть отзыв'), findsOneWidget);
+    expect(find.byType(BottomSheet), findsNothing);
+
+    await tester.drag(
+      find.byKey(const ValueKey('route-details-list')),
+      const Offset(0, 900),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('route-about-tab')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Карта маршрута:'), findsOneWidget);
+    expect(find.text('Ваш отзыв:'), findsNothing);
   });
 
   testWidgets('route hero starts expanded and shrinks on scroll', (
@@ -302,8 +476,12 @@ void main() {
     final list = find.byKey(const ValueKey('similar-routes-list'));
     expect(list, findsOneWidget);
     expect(
-      find.descendant(of: list, matching: find.byType(Hero)),
+      find.descendant(of: list, matching: find.byType(RouteHeroCard)),
       findsWidgets,
+    );
+    expect(
+      find.descendant(of: list, matching: find.byType(Hero)),
+      findsNothing,
     );
   });
 

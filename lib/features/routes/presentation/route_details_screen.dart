@@ -1,15 +1,19 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
@@ -40,12 +44,15 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
   ConsumerState<RouteDetailsScreen> createState() => _RouteDetailsScreenState();
 }
 
+enum _RouteDetailsSection { about, comments }
+
 class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     with SingleTickerProviderStateMixin {
   final _scrollController = ScrollController();
   late final AnimationController _galleryController;
 
   int? _selectedStop;
+  var _selectedSection = _RouteDetailsSection.about;
 
   @override
   void initState() {
@@ -129,7 +136,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
         skipError: true,
         data: _buildContent,
         loading: () => widget.initialRoute == null
-            ? const Center(child: CircularProgressIndicator())
+            ? const _RouteDetailsLoadingView()
             : _buildInitialContent(widget.initialRoute!),
         error: (_, _) => AppAsyncErrorView(
           onRetry: () => ownerPreview
@@ -249,44 +256,57 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           ),
                         ),
                       ],
-                      const SizedBox(height: 18),
-                      _AudioGuideCard(
-                        title: route.name,
-                        author: authorName,
-                        image: _routeCover(config, route),
-                        onPlay: () => _showSoon('Аудиогид'),
-                      ),
-                      const SizedBox(height: 16),
-                      const _RouteTagsRow(
-                        tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
-                      ),
-                      const SizedBox(height: 16),
-                      _RouteFacts(route: route),
-                      const _SectionDivider(),
-                      const _SectionTitle('Карта маршрута:'),
                       const SizedBox(height: 14),
-                      RouteMapPreview(
-                        stops: route.stops,
-                        selectedIndex: _selectedStop,
-                        onPinTap: _selectStop,
+                      _RouteDetailsTabs(
+                        selected: _selectedSection,
+                        onSelected: (section) {
+                          if (_selectedSection == section) {
+                            return;
+                          }
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          setState(() => _selectedSection = section);
+                        },
                       ),
-                      const SizedBox(height: 24),
-                      const _SectionTitle('Остановки:'),
-                      const SizedBox(height: 6),
-                      for (var index = 0; index < route.stops.length; index++)
-                        _StopRow(
-                          stop: route.stops[index],
-                          selected: _selectedStop == index,
-                          showDivider: index != route.stops.length - 1,
-                          onNumberTap: () => _selectStop(index),
-                          onOpen: () => _openPlace(route.stops[index]),
+                      const _SectionDivider(),
+                      if (_selectedSection == _RouteDetailsSection.about) ...[
+                        _AudioGuideCard(
+                          title: route.name,
+                          author: authorName,
+                          image: _routeCover(config, route),
+                          onPlay: () => _showSoon('Аудиогид'),
                         ),
-                      _SimilarRoutesSection(currentRouteId: route.id),
-                      const SizedBox(height: 22),
-                      _RouteReviewsSection(
-                        routeId: route.id,
-                        allowComposer: publiclyAvailable,
-                      ),
+                        const SizedBox(height: 16),
+                        const _RouteTagsRow(
+                          tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                        ),
+                        const SizedBox(height: 16),
+                        _RouteFacts(route: route),
+                        const _SectionDivider(),
+                        const _SectionTitle('Карта маршрута:'),
+                        const SizedBox(height: 14),
+                        RouteMapPreview(
+                          stops: route.stops,
+                          selectedIndex: _selectedStop,
+                          onPinTap: _selectStop,
+                        ),
+                        const SizedBox(height: 24),
+                        const _SectionTitle('Остановки:'),
+                        const SizedBox(height: 6),
+                        for (var index = 0; index < route.stops.length; index++)
+                          _StopRow(
+                            stop: route.stops[index],
+                            selected: _selectedStop == index,
+                            showDivider: index != route.stops.length - 1,
+                            onNumberTap: () => _selectStop(index),
+                            onOpen: () => _openPlace(route.stops[index]),
+                          ),
+                        _SimilarRoutesSection(currentRouteId: route.id),
+                      ] else ...[
+                        _RouteReviewsSection(
+                          routeId: route.id,
+                          allowComposer: publiclyAvailable,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -321,10 +341,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
           ),
           const SliverFillRemaining(
             hasScrollBody: false,
-            child: Padding(
-              padding: EdgeInsets.all(18),
-              child: Center(child: CircularProgressIndicator()),
-            ),
+            child: _RouteDetailsBodySkeleton(),
           ),
         ],
       ),
@@ -358,6 +375,89 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
       return uploadedImages;
     }
     return [_routeCover(config, route)];
+  }
+}
+
+class _RouteDetailsTabs extends StatelessWidget {
+  const _RouteDetailsTabs({required this.selected, required this.onSelected});
+
+  final _RouteDetailsSection selected;
+  final ValueChanged<_RouteDetailsSection> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: [
+          Expanded(
+            child: _RouteDetailsTab(
+              key: const ValueKey('route-about-tab'),
+              label: 'О маршруте',
+              selected: selected == _RouteDetailsSection.about,
+              onTap: () => onSelected(_RouteDetailsSection.about),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _RouteDetailsTab(
+              key: const ValueKey('route-comments-tab'),
+              label: 'Комментарии',
+              selected: selected == _RouteDetailsSection.comments,
+              onTap: () => onSelected(_RouteDetailsSection.comments),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RouteDetailsTab extends StatelessWidget {
+  const _RouteDetailsTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    super.key,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: selected ? AppColors.accentBlue : AppColors.elevatedSurface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(7),
+          side: BorderSide(
+            color: selected ? AppColors.accentBlue : const Color(0xFFE2E2E2),
+          ),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.1,
+                color: selected ? Colors.white : AppColors.primaryInk,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -434,6 +534,63 @@ class _OwnerRouteStatusBanner extends StatelessWidget {
   }
 }
 
+class _RouteDetailsLoadingView extends StatelessWidget {
+  const _RouteDetailsLoadingView();
+
+  @override
+  Widget build(BuildContext context) {
+    final topInset = MediaQuery.paddingOf(context).top;
+    return AppShimmer(
+      child: ColoredBox(
+        color: AppColors.elevatedSurface,
+        child: Column(
+          children: [
+            AppSkeleton(
+              width: double.infinity,
+              height: topInset + 360,
+              borderRadius: 0,
+            ),
+            const Expanded(child: _RouteDetailsBodySkeleton()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RouteDetailsBodySkeleton extends StatelessWidget {
+  const _RouteDetailsBodySkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(18, 22, 18, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AppSkeleton(width: 44, height: 44, shape: BoxShape.circle),
+              SizedBox(width: 10),
+              AppSkeleton(width: 154, height: 18, borderRadius: 7),
+            ],
+          ),
+          SizedBox(height: 20),
+          AppSkeleton(width: 270, height: 25, borderRadius: 8),
+          SizedBox(height: 10),
+          AppSkeleton(width: double.infinity, height: 13, borderRadius: 6),
+          SizedBox(height: 7),
+          AppSkeleton(width: 310, height: 13, borderRadius: 6),
+          SizedBox(height: 22),
+          AppSkeleton(width: double.infinity, height: 46, borderRadius: 12),
+          SizedBox(height: 16),
+          AppSkeleton(width: double.infinity, height: 118, borderRadius: 16),
+        ],
+      ),
+    );
+  }
+}
+
 ImageProvider? _routeMediaImageProvider(AppConfig config, String value) {
   if (AppImages.isAssetPath(value)) {
     return AssetImage(value);
@@ -450,18 +607,21 @@ ImageProvider _routeCover(AppConfig config, RouteSummary route) {
   }
   final url = AppImages.resolveMediaUrl(config, route.coverImageUrl);
   if (url != null) {
-    return AppImages.imageProvider(resolvedUrl: url);
+    return AppImages.imageProvider(
+      resolvedUrl: url,
+      assetFallback: AppImages.routeFallbackAsset(route.slug),
+    );
   }
-  return AppImages.grayCoverProvider;
+  return AssetImage(AppImages.routeFallbackAsset(route.slug));
 }
 
 /// Other routes of the region, shown right before the reviews.
 class _SimilarRoutesSection extends ConsumerWidget {
   const _SimilarRoutesSection({required this.currentRouteId});
 
-  static const double cardHeight = 172;
-  static const double cardWidth = 214;
-  static const double sectionHeight = 240;
+  static const double cardHeight = 260;
+  static const double cardWidth = 292;
+  static const double sectionHeight = 328;
   static const int maxItems = 6;
 
   final String currentRouteId;
@@ -469,7 +629,6 @@ class _SimilarRoutesSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(routesListProvider);
-    final config = ref.watch(appConfigProvider);
     final routes = page.valueOrNull?.items
         .where((item) => item.id != currentRouteId)
         .take(maxItems)
@@ -517,15 +676,11 @@ class _SimilarRoutesSection extends ConsumerWidget {
                             const SizedBox(width: 10),
                         itemBuilder: (context, index) {
                           final route = routes[index];
-                          return _SimilarRouteCard(
-                            route: route,
-                            image: _routeCover(config, route),
-                            onTap: () => unawaited(
-                              context.pushNamed(
-                                AppRouteNames.routeDetails,
-                                pathParameters: {'id': route.id},
-                                extra: route,
-                              ),
+                          return SizedBox(
+                            width: cardWidth,
+                            child: RouteHeroCard(
+                              route: route,
+                              height: cardHeight,
                             ),
                           );
                         },
@@ -554,105 +709,7 @@ class _SimilarRoutesSkeleton extends StatelessWidget {
         width: _SimilarRoutesSection.cardWidth,
         decoration: BoxDecoration(
           color: AppColors.controlSurface,
-          borderRadius: BorderRadius.circular(18),
-        ),
-      ),
-    );
-  }
-}
-
-class _SimilarRouteCard extends StatelessWidget {
-  const _SimilarRouteCard({
-    required this.route,
-    required this.image,
-    required this.onTap,
-  });
-
-  final RouteSummary route;
-  final ImageProvider image;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final meta = [
-      formatDistanceKm(route.distanceMeters),
-      transportLabel(route.transportMode),
-      '${route.stopsCount} точек',
-    ].join(' · ');
-
-    return Semantics(
-      button: true,
-      label: 'Похожий маршрут: ${route.name}',
-      child: SizedBox(
-        width: _SimilarRoutesSection.cardWidth,
-        child: Material(
-          color: AppColors.controlSurface,
-          borderRadius: BorderRadius.circular(18),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onTap,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Hero(
-                  tag: 'route-cover-${route.id}',
-                  transitionOnUserGestures: true,
-                  child: Image(
-                    image: image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, _, _) =>
-                        const ColoredBox(color: AppColors.controlSurface),
-                  ),
-                ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0x00000000), Color(0xCC000000)],
-                      stops: [0.38, 1],
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 12,
-                  right: 12,
-                  bottom: 12,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        route.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        meta,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                          height: 1.2,
-                          color: Colors.white.withValues(alpha: 0.82),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          borderRadius: BorderRadius.circular(AppRadii.card),
         ),
       ),
     );
@@ -1254,6 +1311,7 @@ enum _ReviewListFilter { all, newest, oldest, withPhoto }
 class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
   final _composerFocus = FocusNode();
   var _filter = _ReviewListFilter.all;
+  RouteReview? _replyTarget;
 
   @override
   void dispose() {
@@ -1290,15 +1348,27 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
           .toList(),
       orElse: () => const <RouteReview>[],
     );
+    final allMineForRoute = myReviewsAsync.maybeWhen(
+      data: (items) => [
+        for (final review in items)
+          if (review.routeId == widget.routeId) review,
+      ],
+      orElse: () => const <RouteReview>[],
+    );
+    RouteReview? ownRootReview;
+    for (final review in allMineForRoute) {
+      if (review.replyTo == null &&
+          (review.status == 'published' || review.status == 'pending_review')) {
+        ownRootReview = review;
+        break;
+      }
+    }
 
     return reviewsAsync.when(
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
       skipError: true,
-      loading: () => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 24),
-        child: Center(child: CircularProgressIndicator()),
-      ),
+      loading: () => const _ReviewsLoadingSkeleton(),
       error: (_, _) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1314,7 +1384,14 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
             child: const Text('Повторить'),
           ),
           const SizedBox(height: 12),
-          _ReviewComposer(routeId: widget.routeId, focusNode: _composerFocus),
+          if (ownRootReview == null || _replyTarget != null)
+            _ReviewComposer(
+              routeId: widget.routeId,
+              focusNode: _composerFocus,
+              replyTo: _replyTarget,
+              onCancelReply: _cancelReply,
+              onSubmitted: _cancelReply,
+            ),
         ],
       ),
       data: (page) {
@@ -1322,7 +1399,15 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
           pending: pendingCandidates,
           published: page.items,
         );
-        final visible = _applyFilter(page.items);
+        final pinned = ownRootReview;
+        final visible = _applyFilter([
+          for (final review in page.items)
+            if (review.id != pinned?.id) review,
+        ]);
+        final pendingOthers = [
+          for (final review in pendingMine)
+            if (review.id != pinned?.id) review,
+        ];
         final ratingLabel = page.averageRating == null
             ? '—'
             : page.averageRating!.toStringAsFixed(1).replaceAll('.', ',');
@@ -1334,8 +1419,37 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
           children: [
             _RatingRow(rating: ratingLabel, topLabel: topLabel),
             const SizedBox(height: 14),
-            _ReviewComposer(routeId: widget.routeId, focusNode: _composerFocus),
-            const SizedBox(height: 14),
+            if (pinned == null || _replyTarget != null) ...[
+              _ReviewComposer(
+                routeId: widget.routeId,
+                focusNode: _composerFocus,
+                replyTo: _replyTarget,
+                onCancelReply: _cancelReply,
+                onSubmitted: _cancelReply,
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (pinned != null) ...[
+              const Text(
+                'Ваш отзыв',
+                key: ValueKey('own-review-pinned-label'),
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryInk,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _ReviewCard(
+                key: ValueKey('own-review-pinned-${pinned.id}'),
+                review: pinned,
+                pending: pinned.status == 'pending_review',
+                canDelete: _canDeleteReview(pinned, selfUserId),
+                onReply: () => _startReply(pinned),
+              ),
+              const SizedBox(height: 14),
+            ],
             AppFilterChipBar(
               labels: const ['Все', 'Новые', 'Старые', 'С фото'],
               selected: switch (_filter) {
@@ -1356,12 +1470,12 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
               },
             ),
             const SizedBox(height: 14),
-            for (final review in pendingMine) ...[
+            for (final review in pendingOthers) ...[
               _ReviewCard(
                 review: review,
                 pending: true,
                 canDelete: _canDeleteReview(review, selfUserId),
-                onReply: _focusComposer,
+                onReply: () => _startReply(review),
               ),
               const SizedBox(height: 12),
             ],
@@ -1370,7 +1484,7 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
                 review: review,
                 pending: false,
                 canDelete: _canDeleteReview(review, selfUserId),
-                onReply: _focusComposer,
+                onReply: () => _startReply(review),
               ),
               const SizedBox(height: 12),
             ],
@@ -1381,8 +1495,20 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
     );
   }
 
-  void _focusComposer() {
-    _composerFocus.requestFocus();
+  void _startReply(RouteReview review) {
+    setState(() => _replyTarget = review);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _composerFocus.requestFocus();
+      }
+    });
+  }
+
+  void _cancelReply() {
+    if (!mounted || _replyTarget == null) {
+      return;
+    }
+    setState(() => _replyTarget = null);
   }
 
   List<RouteReview> _applyFilter(List<RouteReview> items) {
@@ -1394,19 +1520,25 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
       case _ReviewListFilter.oldest:
         return [...items]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
       case _ReviewListFilter.withPhoto:
-        return const [];
+        return [
+          for (final review in items)
+            if (review.media.isNotEmpty) review,
+        ];
     }
   }
 
   static bool _canDeleteReview(RouteReview review, String? selfUserId) {
-    if (selfUserId == null || selfUserId.isEmpty) {
-      return false;
-    }
-    if (review.authorUserId != selfUserId) {
+    if (!_ownsReview(review, selfUserId)) {
       return false;
     }
     final age = DateTime.now().toUtc().difference(review.createdAt.toUtc());
     return age <= const Duration(hours: 6);
+  }
+
+  static bool _ownsReview(RouteReview review, String? selfUserId) {
+    return selfUserId != null &&
+        selfUserId.isNotEmpty &&
+        review.authorUserId == selfUserId;
   }
 
   static String _reviewsWord(int count) {
@@ -1419,6 +1551,37 @@ class _RouteReviewsSectionState extends ConsumerState<_RouteReviewsSection> {
       return 'отзывы';
     }
     return 'отзывов';
+  }
+}
+
+class _ReviewsLoadingSkeleton extends StatelessWidget {
+  const _ReviewsLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppShimmer(
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                AppSkeleton(width: 72, height: 30, borderRadius: 12),
+                AppSkeleton(width: 92, height: 18, borderRadius: 7),
+              ],
+            ),
+            SizedBox(height: 14),
+            AppSkeleton(width: double.infinity, height: 222, borderRadius: 16),
+            SizedBox(height: 14),
+            AppSkeleton(width: double.infinity, height: 36, borderRadius: 18),
+            SizedBox(height: 14),
+            AppSkeleton(width: double.infinity, height: 170, borderRadius: 16),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1439,10 +1602,19 @@ List<RouteReview> pendingReviewsNotYetPublished({
 }
 
 class _ReviewComposer extends ConsumerStatefulWidget {
-  const _ReviewComposer({required this.routeId, required this.focusNode});
+  const _ReviewComposer({
+    required this.routeId,
+    required this.focusNode,
+    required this.replyTo,
+    required this.onCancelReply,
+    required this.onSubmitted,
+  });
 
   final String routeId;
   final FocusNode focusNode;
+  final RouteReview? replyTo;
+  final VoidCallback onCancelReply;
+  final VoidCallback onSubmitted;
 
   @override
   ConsumerState<_ReviewComposer> createState() => _ReviewComposerState();
@@ -1455,8 +1627,11 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
   var _rating = 5;
   var _sending = false;
   var _lastViewInset = 0.0;
+  final _images = <XFile>[];
 
   static const _maxChars = 500;
+  static const _maxImages = 6;
+  static const _maxImageBytes = 10 * 1024 * 1024;
 
   @override
   void initState() {
@@ -1542,6 +1717,43 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
     });
   }
 
+  Future<void> _pickImages() async {
+    final available = _maxImages - _images.length;
+    if (available <= 0 || _sending) {
+      return;
+    }
+    try {
+      final picked = await ImagePicker().pickMultiImage(
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 86,
+        limit: available,
+        requestFullMetadata: false,
+      );
+      final accepted = <XFile>[];
+      for (final image in picked) {
+        if (await image.length() <= _maxImageBytes) {
+          accepted.add(image);
+        }
+      }
+      if (!mounted) {
+        return;
+      }
+      setState(() => _images.addAll(accepted.take(available)));
+      if (accepted.length != picked.length) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Фото больше 10 МБ не добавлены')),
+        );
+      }
+    } on Object {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Не удалось выбрать фотографии')),
+        );
+      }
+    }
+  }
+
   Future<void> _submit() async {
     final session = ref.read(sessionProvider);
     if (!session.isAuthenticated) {
@@ -1556,8 +1768,19 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
     try {
       await ref
           .read(routeReviewsRepositoryProvider)
-          .submit(routeId: widget.routeId, body: body, rating: _rating);
+          .submit(
+            routeId: widget.routeId,
+            body: body,
+            rating: _rating,
+            imagePaths: [for (final image in _images) image.path],
+            replyToReviewId: widget.replyTo?.id,
+          );
       _controller.clear();
+      setState(() {
+        _images.clear();
+        _rating = 5;
+      });
+      widget.onSubmitted();
       ref
         ..invalidate(routeReviewsProvider(widget.routeId))
         ..invalidate(myRouteReviewsProvider);
@@ -1565,7 +1788,13 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Отзыв отправлен на модерацию как новый')),
+        SnackBar(
+          content: Text(
+            widget.replyTo == null
+                ? 'Отзыв отправлен на модерацию'
+                : 'Ответ отправлен на модерацию',
+          ),
+        ),
       );
     } on AppFailure catch (error) {
       if (!mounted) {
@@ -1596,95 +1825,159 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE4E4E6)),
       ),
-      padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (widget.replyTo != null) ...[
+            _ReplyComposerContext(
+              review: widget.replyTo!,
+              onCancel: widget.onCancelReply,
+            ),
+            const SizedBox(height: 10),
+          ],
+          Text(
+            widget.replyTo == null ? 'Ваш отзыв:' : 'Ваш ответ:',
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryInk,
+            ),
+          ),
+          const SizedBox(height: 7),
           Row(
             children: [
-              const Expanded(
-                child: Text(
-                  'Ваш отзыв:',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryInk,
-                  ),
-                ),
-              ),
-              for (var index = 1; index <= 5; index++)
-                GestureDetector(
+              for (var index = 1; index <= 5; index++) ...[
+                InkResponse(
+                  radius: 22,
                   onTap: () => setState(() => _rating = index),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 1),
-                    child: Icon(
-                      index <= _rating
-                          ? Icons.star_rounded
-                          : Icons.star_outline_rounded,
-                      color: AppColors.rating,
-                      size: 22,
-                    ),
+                  child: Icon(
+                    index <= _rating
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    color: AppColors.rating,
+                    size: 32,
                   ),
                 ),
-              IconButton(
-                tooltip: 'Очистить',
-                visualDensity: VisualDensity.compact,
-                onPressed: () {
-                  _controller.clear();
-                  setState(() => _rating = 5);
-                },
-                icon: const Icon(
-                  Icons.delete_outline_rounded,
-                  color: AppColors.secondaryInk,
+                if (index != 5) const SizedBox(width: 2),
+              ],
+              const Spacer(),
+              Material(
+                color: const Color(0xFFF0F0F1),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: 'Очистить',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() {
+                      _rating = 5;
+                      _images.clear();
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.primaryInk,
+                    size: 23,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          TextField(
-            controller: _controller,
-            focusNode: widget.focusNode,
-            minLines: 4,
-            maxLines: 6,
-            maxLength: _maxChars,
-            style: const TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 14,
-              color: AppColors.primaryInk,
-              height: 1.35,
-            ),
-            decoration: InputDecoration(
-              hintText: 'Поделитесь впечатлениями о маршруте',
-              hintStyle: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 14,
-                color: AppColors.secondaryInk,
+          Stack(
+            children: [
+              TextField(
+                controller: _controller,
+                focusNode: widget.focusNode,
+                minLines: 4,
+                maxLines: 6,
+                maxLength: _maxChars,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 14,
+                  color: AppColors.primaryInk,
+                  height: 1.35,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Поделитесь впечатлениями о маршруте',
+                  hintStyle: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 14,
+                    color: AppColors.secondaryInk,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF0F0F0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primaryInk),
+                  ),
+                  counterText: '',
+                  contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+                ),
               ),
-              filled: true,
-              fillColor: const Color(0xFFF0F0F0),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide.none,
+              Positioned(
+                right: 10,
+                bottom: 8,
+                child: Text(
+                  '$used/$_maxChars',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 12,
+                    color: AppColors.secondaryInk,
+                  ),
+                ),
               ),
-              counterText: '',
-              contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              '$used/$_maxChars',
-              style: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 12,
-                color: AppColors.secondaryInk,
+          const SizedBox(height: 10),
+          if (_images.isNotEmpty) ...[
+            SizedBox(
+              height: 82,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _images.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  return _SelectedReviewImage(
+                    image: _images[index],
+                    onRemove: _sending
+                        ? null
+                        : () => setState(() => _images.removeAt(index)),
+                  );
+                },
               ),
             ),
+            const SizedBox(height: 10),
+          ],
+          Row(
+            children: [
+              OutlinedButton.icon(
+                onPressed: _sending || _images.length >= _maxImages
+                    ? null
+                    : _pickImages,
+                icon: const Icon(Icons.add_photo_alternate_outlined, size: 20),
+                label: Text('Фото ${_images.length}/$_maxImages'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryInk,
+                  side: const BorderSide(color: Color(0xFFD9D9DB)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 10),
           SizedBox(
@@ -1694,9 +1987,9 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
               onPressed: _sending ? null : _submit,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primaryInk,
-                side: const BorderSide(color: AppColors.primaryInk),
+                side: const BorderSide(color: Color(0xFFD9D9DB)),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(24),
                 ),
               ),
               child: Text(_sending ? 'Отправка…' : 'Отправить'),
@@ -1708,12 +2001,360 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
   }
 }
 
-class _ReviewCard extends ConsumerWidget {
+class _SelectedReviewImage extends StatelessWidget {
+  const _SelectedReviewImage({required this.image, required this.onRemove});
+
+  final XFile image;
+  final VoidCallback? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 82,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.file(File(image.path), fit: BoxFit.cover),
+            ),
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.58),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: onRemove,
+                child: const Padding(
+                  padding: EdgeInsets.all(4),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReplyComposerContext extends StatelessWidget {
+  const _ReplyComposerContext({required this.review, required this.onCancel});
+
+  final RouteReview review;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('review-reply-composer-context'),
+      decoration: BoxDecoration(
+        color: AppColors.controlSurface,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Container(
+              width: 3,
+              decoration: const BoxDecoration(
+                color: AppColors.primaryInk,
+                borderRadius: BorderRadius.horizontal(
+                  left: Radius.circular(10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Ответ для ${review.authorDisplayName}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryInk,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      review.body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 12,
+                        height: 1.25,
+                        color: AppColors.secondaryInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Отменить ответ',
+              onPressed: onCancel,
+              icon: const Icon(Icons.close_rounded, size: 20),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ReviewMediaGrid extends StatelessWidget {
+  const _ReviewMediaGrid({
+    required this.media,
+    required this.config,
+    required this.onOpen,
+  });
+
+  final List<RouteReviewMedia> media;
+  final AppConfig config;
+  final ValueChanged<RouteReviewMedia> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final width = (constraints.maxWidth - gap) / 2;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: [
+            for (final item in media)
+              SizedBox(
+                width: width,
+                height: 108,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Semantics(
+                        button: true,
+                        label: 'Открыть фото отзыва',
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          clipBehavior: Clip.antiAlias,
+                          child: InkWell(
+                            onTap: () => onOpen(item),
+                            child: Image(
+                              image: AppImages.imageProvider(
+                                resolvedUrl: AppImages.resolveMediaUrl(
+                                  config,
+                                  item.url,
+                                ),
+                                assetFallback: AppImages.coastPineTwilight,
+                              ),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, _, _) => const ColoredBox(
+                                color: AppColors.controlSurface,
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: AppColors.secondaryInk,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _PublishedReplyContext extends StatelessWidget {
+  const _PublishedReplyContext({required this.reply});
+
+  final RouteReviewReply reply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: ValueKey('published-review-reply-${reply.reviewId}'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: AppColors.controlSurface,
+        borderRadius: BorderRadius.circular(10),
+        border: const Border(
+          left: BorderSide(color: AppColors.primaryInk, width: 3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            reply.authorDisplayName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryInk,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            reply.body,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 12,
+              height: 1.3,
+              color: AppColors.secondaryInk,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewGalleryDialog extends StatefulWidget {
+  const _ReviewGalleryDialog({
+    required this.media,
+    required this.config,
+    required this.initialIndex,
+  });
+
+  final List<RouteReviewMedia> media;
+  final AppConfig config;
+  final int initialIndex;
+
+  @override
+  State<_ReviewGalleryDialog> createState() => _ReviewGalleryDialogState();
+}
+
+class _ReviewGalleryDialogState extends State<_ReviewGalleryDialog> {
+  late final PageController _controller;
+  late int _index;
+
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialIndex;
+    _controller = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      key: const ValueKey('review-photo-fullscreen'),
+      color: Colors.black,
+      child: Stack(
+        children: [
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.media.length,
+            onPageChanged: (value) => setState(() => _index = value),
+            itemBuilder: (context, index) {
+              final item = widget.media[index];
+              return InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Center(
+                  child: Image(
+                    image: AppImages.imageProvider(
+                      resolvedUrl: AppImages.resolveMediaUrl(
+                        widget.config,
+                        item.url,
+                      ),
+                      assetFallback: AppImages.coastPineTwilight,
+                    ),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              );
+            },
+          ),
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: IconButton.filled(
+                  tooltip: 'Закрыть',
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.black.withValues(alpha: 0.5),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ),
+            ),
+          ),
+          if (widget.media.length > 1)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.bottomCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: 18),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: Text(
+                      '${_index + 1} / ${widget.media.length}',
+                      style: const TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 13,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReviewCard extends ConsumerStatefulWidget {
   const _ReviewCard({
     required this.review,
     required this.onReply,
     this.pending = false,
     this.canDelete = false,
+    super.key,
   });
 
   final RouteReview review;
@@ -1722,12 +2363,21 @@ class _ReviewCard extends ConsumerWidget {
   final bool canDelete;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_ReviewCard> createState() => _ReviewCardState();
+}
+
+class _ReviewCardState extends ConsumerState<_ReviewCard> {
+  var _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
+    final review = widget.review;
     final score = '${review.rating}';
     final avatar = AppImages.resolveMediaUrl(config, review.authorAvatarUrl);
+    final media = review.media;
     return Opacity(
-      opacity: pending ? 0.72 : 1,
+      opacity: widget.pending ? 0.72 : 1,
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.elevatedSurface,
@@ -1745,7 +2395,7 @@ class _ReviewCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (pending)
+            if (widget.pending)
               const Padding(
                 padding: EdgeInsets.only(bottom: 8),
                 child: Text(
@@ -1823,38 +2473,82 @@ class _ReviewCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(
-              review.body,
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 13,
-                fontWeight: FontWeight.w400,
-                height: 1.45,
-                color: AppColors.secondaryInk,
-              ),
+            if (review.replyTo case final reply?) ...[
+              _PublishedReplyContext(reply: reply),
+              const SizedBox(height: 10),
+            ],
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const bodyStyle = TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1.45,
+                  color: AppColors.secondaryInk,
+                );
+                final painter = TextPainter(
+                  text: const TextSpan(style: bodyStyle),
+                  textDirection: Directionality.of(context),
+                  textScaler: MediaQuery.textScalerOf(context),
+                  maxLines: 4,
+                )..text = TextSpan(text: review.body, style: bodyStyle);
+                painter.layout(maxWidth: constraints.maxWidth);
+                final expandable =
+                    painter.didExceedMaxLines || media.length > 2;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AnimatedSize(
+                      duration: AppMotion.emphasized,
+                      curve: AppMotion.standard,
+                      alignment: Alignment.topCenter,
+                      child: Text(
+                        review.body,
+                        maxLines: _expanded ? null : 4,
+                        overflow: _expanded
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
+                        style: bodyStyle,
+                      ),
+                    ),
+                    if (media.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      AnimatedSize(
+                        duration: AppMotion.emphasized,
+                        curve: AppMotion.standard,
+                        alignment: Alignment.topCenter,
+                        child: _ReviewMediaGrid(
+                          media: _expanded ? media : media.take(2).toList(),
+                          config: config,
+                          onOpen: (item) => _openGallery(media, item),
+                        ),
+                      ),
+                    ],
+                    if (expandable) ...[
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => setState(() => _expanded = !_expanded),
+                        child: Text(
+                          _expanded
+                              ? 'Свернуть отзыв'
+                              : 'Читать отзыв полностью',
+                          style: AppTypography.button.copyWith(
+                            fontSize: 13,
+                            color: AppColors.primaryInk,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 10),
             Row(
               children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () => _showFullReview(context),
-                    child: Text(
-                      'Читать отзыв полностью',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppTypography.button.copyWith(
-                        fontSize: 13,
-                        color: AppColors.primaryInk,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
+                const Spacer(),
                 GestureDetector(
-                  onTap: onReply,
+                  onTap: widget.onReply,
                   child: Text(
                     'Ответить',
                     style: AppTypography.button.copyWith(
@@ -1863,7 +2557,7 @@ class _ReviewCard extends ConsumerWidget {
                     ),
                   ),
                 ),
-                if (canDelete) ...[
+                if (widget.canDelete) ...[
                   const SizedBox(width: 14),
                   GestureDetector(
                     onTap: () => unawaited(_confirmDelete(context, ref)),
@@ -1884,73 +2578,18 @@ class _ReviewCard extends ConsumerWidget {
     );
   }
 
-  void _showFullReview(BuildContext context) {
+  void _openGallery(List<RouteReviewMedia> media, RouteReviewMedia selected) {
+    final initialIndex = media.indexWhere((item) => item.id == selected.id);
     unawaited(
-      showModalBottomSheet<void>(
+      showDialog<void>(
         context: context,
-        isScrollControlled: true,
-        useSafeArea: true,
-        backgroundColor: AppColors.elevatedSurface,
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        barrierColor: Colors.black,
+        useSafeArea: false,
+        builder: (_) => _ReviewGalleryDialog(
+          media: media,
+          config: ref.read(appConfigProvider),
+          initialIndex: initialIndex < 0 ? 0 : initialIndex,
         ),
-        builder: (context) {
-          final height = MediaQuery.sizeOf(context).height;
-          return SizedBox(
-            height: height * 0.72,
-            width: double.infinity,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 10),
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFD0D0D4),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.fromLTRB(
-                      20,
-                      16,
-                      20,
-                      24 + MediaQuery.paddingOf(context).bottom,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          review.authorDisplayName,
-                          style: AppTypography.settingsRowTitle,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          review.authorRankTitle,
-                          style: AppTypography.settingsRowSubtitle,
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          review.body,
-                          style: const TextStyle(
-                            fontFamily: AppFonts.rubik,
-                            fontSize: 15,
-                            height: 1.45,
-                            color: AppColors.primaryInk,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
       ),
     );
   }
@@ -1983,8 +2622,8 @@ class _ReviewCard extends ConsumerWidget {
     try {
       await ref
           .read(routeReviewsRepositoryProvider)
-          .delete(routeId: review.routeId, reviewId: review.id);
-      ref.invalidate(routeReviewsProvider(review.routeId));
+          .delete(routeId: widget.review.routeId, reviewId: widget.review.id);
+      ref.invalidate(routeReviewsProvider(widget.review.routeId));
       ref.invalidate(myRouteReviewsProvider);
     } on AppFailure catch (failure) {
       if (!context.mounted) {

@@ -127,14 +127,32 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
                 onPageChanged: (value) => setState(() => _page = value),
                 itemCount: widget.images.length,
                 itemBuilder: (context, index) {
-                  final image = Image(
-                    image: widget.images[index],
-                    fit: BoxFit.cover,
+                  final provider = widget.images[index];
+                  final image = SizedBox.expand(
+                    child: Image(
+                      image: provider,
+                      fit: BoxFit.cover,
+                      gaplessPlayback: true,
+                    ),
                   );
                   if (index == 0 && widget.heroTag != null) {
                     return Hero(
                       tag: widget.heroTag!,
                       transitionOnUserGestures: true,
+                      flightShuttleBuilder:
+                          (
+                            flightContext,
+                            animation,
+                            flightDirection,
+                            fromHeroContext,
+                            toHeroContext,
+                          ) {
+                            return Image(
+                              image: provider,
+                              fit: BoxFit.cover,
+                              gaplessPlayback: true,
+                            );
+                          },
                       child: image,
                     );
                   }
