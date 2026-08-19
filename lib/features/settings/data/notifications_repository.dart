@@ -14,6 +14,10 @@ enum InboxNotificationKind {
   reviewRejected,
   profileLike,
   achievementUnlocked,
+  supportReply,
+  reviewReply,
+  expertGranted,
+  expertRevoked,
   unknown,
 }
 
@@ -26,6 +30,10 @@ InboxNotificationKind inboxNotificationKindFromApi(String raw) {
     'review_rejected' => InboxNotificationKind.reviewRejected,
     'profile_like' => InboxNotificationKind.profileLike,
     'achievement_unlocked' => InboxNotificationKind.achievementUnlocked,
+    'support_reply' => InboxNotificationKind.supportReply,
+    'review_reply' => InboxNotificationKind.reviewReply,
+    'expert_granted' => InboxNotificationKind.expertGranted,
+    'expert_revoked' => InboxNotificationKind.expertRevoked,
     _ => InboxNotificationKind.unknown,
   };
 }
@@ -63,8 +71,11 @@ class InboxNotification {
   String get headline => switch (kind) {
     InboxNotificationKind.routeReview => actorName,
     InboxNotificationKind.profileLike => actorName,
+    InboxNotificationKind.reviewReply => actorName,
     InboxNotificationKind.achievementUnlocked =>
       title.trim().isNotEmpty ? title : 'Новое достижение',
+    InboxNotificationKind.supportReply =>
+      title.trim().isNotEmpty ? title : 'Ответ поддержки',
     _ => title.trim().isNotEmpty ? title : actorName,
   };
 
@@ -171,6 +182,16 @@ final class MockNotificationsRepository implements NotificationsRepository {
   var _items = <InboxNotification>[
     InboxNotification(
       id: 'n1',
+      kind: InboxNotificationKind.supportReply,
+      title: 'Ответ поддержки',
+      body: 'Здравствуйте! Мы получили ваше обращение и уже проверили детали.',
+      targetType: 'support_ticket',
+      targetId: 't-1',
+      isUnread: true,
+      createdAt: DateTime.now().subtract(const Duration(minutes: 4)),
+    ),
+    InboxNotification(
+      id: 'n2',
       kind: InboxNotificationKind.routePublished,
       title: 'Маршрут опубликован',
       body:
@@ -182,7 +203,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       createdAt: DateTime.utc(2026, 1, 3),
     ),
     InboxNotification(
-      id: 'n2',
+      id: 'n3',
       kind: InboxNotificationKind.reviewPublished,
       title: 'Отзыв опубликован',
       body: 'Ваш отзыв к маршруту «Крымская классика» прошёл модерацию',
@@ -192,7 +213,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       createdAt: DateTime.utc(2026, 1, 2, 12),
     ),
     InboxNotification(
-      id: 'n3',
+      id: 'n4',
       kind: InboxNotificationKind.routeReview,
       title: 'Новый отзыв',
       body: 'Оставил свой комментарий под вашим маршрутом «Крымская классика»',
@@ -203,7 +224,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       createdAt: DateTime.utc(2026, 1, 2),
     ),
     InboxNotification(
-      id: 'n4',
+      id: 'n5',
       kind: InboxNotificationKind.routeRejected,
       title: 'Маршрут на доработке',
       body:
@@ -215,7 +236,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       createdAt: DateTime.utc(2026, 1, 1),
     ),
     InboxNotification(
-      id: 'n5',
+      id: 'n6',
       kind: InboxNotificationKind.profileLike,
       title: 'Новая подписка',
       body: 'Подписался на ваш профиль',
@@ -227,7 +248,7 @@ final class MockNotificationsRepository implements NotificationsRepository {
       createdAt: DateTime.utc(2026, 1, 2, 18),
     ),
     InboxNotification(
-      id: 'n6',
+      id: 'n7',
       kind: InboxNotificationKind.achievementUnlocked,
       title: 'Новое достижение',
       body: 'Получено достижение «Марафонец»',

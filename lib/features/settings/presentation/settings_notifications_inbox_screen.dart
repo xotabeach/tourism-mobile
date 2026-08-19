@@ -147,6 +147,11 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
     if (item.kind == InboxNotificationKind.achievementUnlocked ||
         item.targetType == 'achievement') {
       await context.pushNamed(AppRouteNames.achievements);
+      return;
+    }
+    if (item.kind == InboxNotificationKind.supportReply ||
+        item.targetType == 'support_ticket') {
+      await context.pushNamed(AppRouteNames.settingsChat);
     }
   }
 

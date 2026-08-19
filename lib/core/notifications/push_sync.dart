@@ -99,5 +99,9 @@ void handlePushOpened(GoRouter router, RemoteMessage message) {
   }
   if (targetType == 'achievement') {
     unawaited(router.pushNamed(AppRouteNames.achievements));
+    return;
+  }
+  if (targetType == 'support_ticket') {
+    unawaited(router.pushNamed(AppRouteNames.settingsChat));
   }
 }

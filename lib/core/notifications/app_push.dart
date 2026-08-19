@@ -23,6 +23,7 @@ abstract final class AppPush {
 
   static bool _started = false;
   static void Function(RemoteMessage message)? onOpened;
+  static void Function(RemoteMessage message)? onForeground;
 
   static Future<void> bootstrap({
     void Function(RemoteMessage message)? onMessageOpened,
@@ -46,6 +47,9 @@ abstract final class AppPush {
 
     FirebaseMessaging.onMessageOpenedApp.listen((message) {
       onOpened?.call(message);
+    });
+    FirebaseMessaging.onMessage.listen((message) {
+      onForeground?.call(message);
     });
 
     final initial = await FirebaseMessaging.instance.getInitialMessage();

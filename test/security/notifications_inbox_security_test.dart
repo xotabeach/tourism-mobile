@@ -44,6 +44,46 @@ void main() {
     expect(item.headline, 'Новое достижение');
   });
 
+  test('support_reply maps from API and keeps the support title', () {
+    expect(
+      inboxNotificationKindFromApi('support_reply'),
+      InboxNotificationKind.supportReply,
+    );
+    final item = InboxNotification(
+      id: 'support',
+      kind: InboxNotificationKind.supportReply,
+      title: 'Ответ поддержки',
+      body: 'Специалист ответил в чате',
+      targetType: 'support_ticket',
+      targetId: 'ticket-1',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 1),
+    );
+    expect(item.headline, 'Ответ поддержки');
+  });
+
+  test('expert status kinds map to visible inbox notifications', () {
+    expect(
+      inboxNotificationKindFromApi('expert_granted'),
+      InboxNotificationKind.expertGranted,
+    );
+    expect(
+      inboxNotificationKindFromApi('expert_revoked'),
+      InboxNotificationKind.expertRevoked,
+    );
+    final item = InboxNotification(
+      id: 'expert',
+      kind: InboxNotificationKind.expertGranted,
+      title: 'Вы стали экспертом',
+      body: 'Ваш профиль получил статус эксперта КРЫМТРИП',
+      targetType: 'user',
+      targetId: 'user-1',
+      isUnread: true,
+      createdAt: DateTime.utc(2026, 1, 1),
+    );
+    expect(item.headline, 'Вы стали экспертом');
+  });
+
   test('clampText bounds oversized notification payloads', () {
     final oversized = 'A' * 500;
     final clamped = SettingsNotificationsInboxScreen.clampText(

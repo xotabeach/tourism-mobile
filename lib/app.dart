@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -10,6 +12,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class TourismApp extends ConsumerStatefulWidget {
@@ -27,6 +30,9 @@ class _TourismAppState extends ConsumerState<TourismApp> {
       AppPush.onOpened = (message) {
         final router = ref.read(appRouterProvider);
         handlePushOpened(router, message);
+      };
+      AppPush.onForeground = (_) {
+        unawaited(ref.read(notificationsInboxProvider.notifier).softRefresh());
       };
     }
   }

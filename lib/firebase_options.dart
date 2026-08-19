@@ -1,6 +1,4 @@
-// Android values from android/app/google-services.json (Firebase project
-// crimeatrip-41d24). iOS stays placeholder until GoogleService-Info.plist +
-// flutterfire configure (or manual fill).
+// Android/iOS values from Firebase project crimeatrip-41d24.
 //
 // Setup: tourism-platform/docs/push-notifications-fcm.md
 //
@@ -49,10 +47,9 @@ class DefaultFirebaseOptions {
     storageBucket: 'crimeatrip-41d24.firebasestorage.app',
   );
 
-  // Placeholder — replace after adding iOS app in Firebase Console.
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REPLACE_ME',
-    appId: '1:0:ios:replace',
+    apiKey: 'AIzaSyCG28sFNysO0vH1dVaCDw65VOkZt4mZMuA',
+    appId: '1:254312974108:ios:83cc618193b078b6ab5cd9',
     messagingSenderId: '254312974108',
     projectId: 'crimeatrip-41d24',
     storageBucket: 'crimeatrip-41d24.firebasestorage.app',
