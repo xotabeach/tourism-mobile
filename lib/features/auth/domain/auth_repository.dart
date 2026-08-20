@@ -32,6 +32,13 @@ class MeProfile {
     this.notifyPushEnabled = true,
     this.notifySmsEnabled = false,
     this.notifyHapticsEnabled = true,
+    this.travelPlusActive = false,
+    this.travelPlusPlan,
+    this.travelPlusExpiresAt,
+    this.aiChatEnabled = false,
+    this.maxRoutePoints = 5,
+    this.alternativesCount = 1,
+    this.advancedFiltersEnabled = false,
   });
 
   final String id;
@@ -42,6 +49,13 @@ class MeProfile {
   final bool notifyPushEnabled;
   final bool notifySmsEnabled;
   final bool notifyHapticsEnabled;
+  final bool travelPlusActive;
+  final String? travelPlusPlan;
+  final DateTime? travelPlusExpiresAt;
+  final bool aiChatEnabled;
+  final int maxRoutePoints;
+  final int alternativesCount;
+  final bool advancedFiltersEnabled;
 }
 
 abstract interface class AuthRepository {
@@ -93,4 +107,11 @@ abstract interface class AuthRepository {
     required String accessToken,
     required String filePath,
   });
+
+  Future<MeProfile> activateTravelPlus({
+    required String accessToken,
+    required String plan,
+  });
+
+  Future<MeProfile> cancelTravelPlus({required String accessToken});
 }

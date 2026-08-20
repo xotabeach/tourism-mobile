@@ -9,9 +9,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
-import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/theme/app_fonts.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/place_reviews_providers.dart';
@@ -80,61 +80,37 @@ class _PlaceReviewsSectionState extends ConsumerState<PlaceReviewsSection> {
                 !page.items.any((published) => published.id == review.id))
               review,
         ];
+        final ratingLabel = page.averageRating == null
+            ? '—'
+            : page.averageRating!.toStringAsFixed(1).replaceAll('.', ',');
+        final topLabel = page.ratingCount == 0
+            ? 'Пока нет отзывов'
+            : 'ТОП ${page.ratingCount}';
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryInk,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        color: AppColors.rating,
-                        size: 17,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        page.averageRating
-                                ?.toStringAsFixed(1)
-                                .replaceAll('.', ',') ??
-                            '—',
-                        style: AppTypography.button.copyWith(
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                Text(
-                  page.ratingCount == 0
-                      ? 'Пока нет отзывов'
-                      : '${page.ratingCount} отзывов',
-                  style: AppTypography.sectionAction,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            _PlaceRatingRow(rating: ratingLabel, topLabel: topLabel),
+            const SizedBox(height: 14),
             if (own == null || _replyTo != null) ...[
               _PlaceReviewComposer(
                 placeId: widget.placeId,
                 focusNode: _focus,
                 replyTo: _replyTo,
+                onCancelReply: () => setState(() => _replyTo = null),
                 onDone: () => setState(() => _replyTo = null),
               ),
               const SizedBox(height: 14),
             ],
             if (own != null) ...[
-              const Text('Ваш отзыв', style: AppTypography.button),
+              const Text(
+                'Ваш отзыв',
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryInk,
+                ),
+              ),
               const SizedBox(height: 8),
               _PlaceReviewCard(
                 review: own,
@@ -161,7 +137,7 @@ class _PlaceReviewsSectionState extends ConsumerState<PlaceReviewsSection> {
                 };
               }),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             for (final review in [...pending, ...items]) ...[
               _PlaceReviewCard(
                 review: review,
@@ -204,17 +180,69 @@ class _PlaceReviewsSectionState extends ConsumerState<PlaceReviewsSection> {
   }
 }
 
+class _PlaceRatingRow extends StatelessWidget {
+  const _PlaceRatingRow({required this.rating, required this.topLabel});
+
+  final String rating;
+  final String topLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.primaryInk,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.star_rounded, size: 18, color: AppColors.rating),
+              const SizedBox(width: 6),
+              Text(
+                rating,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  height: 1.1,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Spacer(),
+        Text(
+          topLabel,
+          style: const TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+            color: AppColors.primaryInk,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _PlaceReviewComposer extends ConsumerStatefulWidget {
   const _PlaceReviewComposer({
     required this.placeId,
     required this.focusNode,
     required this.replyTo,
+    required this.onCancelReply,
     required this.onDone,
   });
 
   final String placeId;
   final FocusNode focusNode;
   final RouteReview? replyTo;
+  final VoidCallback onCancelReply;
   final VoidCallback onDone;
 
   @override
@@ -228,6 +256,15 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
   var _rating = 5;
   var _sending = false;
 
+  static const _maxChars = 500;
+  static const _maxImages = 6;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(() => setState(() {}));
+  }
+
   @override
   void dispose() {
     _controller.dispose();
@@ -240,7 +277,7 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
         maxWidth: 2048,
         maxHeight: 2048,
         imageQuality: 86,
-        limit: 6 - _images.length,
+        limit: _maxImages - _images.length,
         requestFullMetadata: false,
       );
       final accepted = <XFile>[];
@@ -280,7 +317,13 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
       ref
         ..invalidate(placeReviewsProvider(widget.placeId))
         ..invalidate(myPlaceReviewsProvider);
-      if (mounted) _message('Отзыв отправлен на модерацию');
+      if (mounted) {
+        _message(
+          widget.replyTo == null
+              ? 'Отзыв отправлен на модерацию'
+              : 'Ответ отправлен на модерацию',
+        );
+      }
     } on AppFailure catch (error) {
       if (mounted) _message(error.message);
     } on Object {
@@ -292,13 +335,14 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
 
   @override
   Widget build(BuildContext context) {
+    final used = _controller.text.characters.length;
     return Container(
-      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.hairline),
+        border: Border.all(color: const Color(0xFFE4E4E6)),
       ),
+      padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -311,85 +355,175 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
                 borderRadius: BorderRadius.circular(10),
                 border: const Border(left: BorderSide(width: 3)),
               ),
-              child: Text(
-                'Ответ для ${reply.authorDisplayName}\n${reply.body}',
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.settingsRowSubtitle,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Ответ для ${reply.authorDisplayName}\n${reply.body}',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 12,
+                        height: 1.35,
+                        color: AppColors.secondaryInk,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Отменить ответ',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: widget.onCancelReply,
+                    icon: const Icon(Icons.close_rounded, size: 18),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 10),
           ],
-          const Text('Ваш отзыв:', style: AppTypography.button),
-          const SizedBox(height: 6),
+          Text(
+            widget.replyTo == null ? 'Ваш отзыв:' : 'Ваш ответ:',
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryInk,
+            ),
+          ),
+          const SizedBox(height: 7),
           Row(
             children: [
-              for (var i = 1; i <= 5; i++)
-                GestureDetector(
-                  onTap: () => setState(() => _rating = i),
+              for (var index = 1; index <= 5; index++) ...[
+                InkResponse(
+                  radius: 22,
+                  onTap: () => setState(() => _rating = index),
                   child: Icon(
-                    i <= _rating
+                    index <= _rating
                         ? Icons.star_rounded
                         : Icons.star_outline_rounded,
                     color: AppColors.rating,
-                    size: 30,
+                    size: 32,
                   ),
                 ),
+                if (index != 5) const SizedBox(width: 2),
+              ],
               const Spacer(),
-              IconButton(
-                tooltip: 'Очистить',
-                onPressed: () => setState(() {
-                  _controller.clear();
-                  _images.clear();
-                  _rating = 5;
-                }),
-                icon: const Icon(Icons.delete_outline_rounded),
+              Material(
+                color: const Color(0xFFF0F0F1),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: 'Очистить',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () {
+                    _controller.clear();
+                    setState(() {
+                      _rating = 5;
+                      _images.clear();
+                    });
+                  },
+                  icon: const Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppColors.primaryInk,
+                    size: 23,
+                  ),
+                ),
               ),
             ],
           ),
-          TextField(
-            controller: _controller,
-            focusNode: widget.focusNode,
-            minLines: 4,
-            maxLines: 6,
-            maxLength: 500,
-            decoration: InputDecoration(
-              hintText: 'Поделитесь впечатлениями о месте',
-              filled: true,
-              fillColor: AppColors.pageSurface,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 8),
+          Stack(
+            children: [
+              TextField(
+                controller: _controller,
+                focusNode: widget.focusNode,
+                minLines: 4,
+                maxLines: 6,
+                maxLength: _maxChars,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 14,
+                  color: AppColors.primaryInk,
+                  height: 1.35,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Поделитесь впечатлениями о месте',
+                  hintStyle: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 14,
+                    color: AppColors.secondaryInk,
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFFF0F0F0),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.primaryInk),
+                  ),
+                  counterText: '',
+                  contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+                ),
               ),
-            ),
+              Positioned(
+                right: 10,
+                bottom: 8,
+                child: Text(
+                  '$used/$_maxChars',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 12,
+                    color: AppColors.secondaryInk,
+                  ),
+                ),
+              ),
+            ],
           ),
           if (_images.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             SizedBox(
-              height: 76,
+              height: 82,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _images.length,
-                separatorBuilder: (_, _) => const SizedBox(width: 7),
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
                 itemBuilder: (_, index) => Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(10),
                       child: Image.file(
                         File(_images[index].path),
-                        width: 76,
-                        height: 76,
+                        width: 82,
+                        height: 82,
                         fit: BoxFit.cover,
                       ),
                     ),
                     Positioned(
-                      top: 2,
-                      right: 2,
-                      child: IconButton.filled(
-                        visualDensity: VisualDensity.compact,
-                        iconSize: 15,
-                        onPressed: () =>
-                            setState(() => _images.removeAt(index)),
-                        icon: const Icon(Icons.close_rounded),
+                      top: 4,
+                      right: 4,
+                      child: Material(
+                        color: Colors.black.withValues(alpha: 0.55),
+                        shape: const CircleBorder(),
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: _sending
+                              ? null
+                              : () => setState(() => _images.removeAt(index)),
+                          child: const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: Icon(
+                              Icons.close_rounded,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -397,11 +531,24 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
               ),
             ),
           ],
-          const SizedBox(height: 8),
-          OutlinedButton.icon(
-            onPressed: _sending || _images.length >= 6 ? null : _pick,
-            icon: const Icon(Icons.add_photo_alternate_outlined),
-            label: Text('Добавить фото ${_images.length}/6'),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 44,
+            child: OutlinedButton.icon(
+              onPressed: _sending || _images.length >= _maxImages
+                  ? null
+                  : _pick,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryInk,
+                side: const BorderSide(color: Color(0xFFD9D9DB)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 20),
+              label: const Text('Добавить фото или видео'),
+            ),
           ),
           const SizedBox(height: 8),
           SizedBox(
@@ -409,6 +556,13 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
             height: 46,
             child: OutlinedButton(
               onPressed: _sending ? null : _submit,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryInk,
+                side: const BorderSide(color: AppColors.primaryInk),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
               child: Text(_sending ? 'Отправка…' : 'Отправить'),
             ),
           ),
@@ -446,22 +600,38 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
   Widget build(BuildContext context) {
     final review = widget.review;
     final config = ref.watch(appConfigProvider);
+    final media = review.media;
     return Opacity(
       opacity: widget.pending ? 0.72 : 1,
       child: Container(
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppColors.elevatedSurface,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.hairline),
+          border: Border.all(color: const Color(0xFFEDEDEE)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (widget.pending)
               const Padding(
-                padding: EdgeInsets.only(bottom: 6),
-                child: Text('На модерации', style: AppTypography.sectionAction),
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'На модерации',
+                  style: TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.secondaryInk,
+                  ),
+                ),
               ),
             Row(
               children: [
@@ -475,34 +645,63 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
                     assetFallback: AppImages.travelerPortrait,
                   ),
                 ),
-                const SizedBox(width: 9),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         review.authorDisplayName,
-                        style: AppTypography.settingsRowTitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                          color: AppColors.primaryInk,
+                        ),
                       ),
                       Text(
                         review.authorRankTitle,
-                        style: AppTypography.settingsRowSubtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          height: 1.3,
+                          color: AppColors.secondaryInk,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                for (var i = 0; i < 5; i++)
+                for (var index = 0; index < 5; index++)
                   Icon(
-                    i < review.rating
+                    index < review.rating
                         ? Icons.star_rounded
                         : Icons.star_outline_rounded,
-                    size: 15,
-                    color: AppColors.rating,
+                    size: 16,
+                    color: index < review.rating
+                        ? AppColors.rating
+                        : AppColors.secondaryInk,
                   ),
+                const SizedBox(width: 6),
+                Text(
+                  '${review.rating}',
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    color: AppColors.primaryInk,
+                  ),
+                ),
               ],
             ),
             if (review.replyTo case final reply?) ...[
-              const SizedBox(height: 9),
+              const SizedBox(height: 10),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
@@ -515,32 +714,40 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
                   '${reply.authorDisplayName}\n${reply.body}',
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
-                  style: AppTypography.settingsRowSubtitle,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 12,
+                    height: 1.35,
+                    color: AppColors.secondaryInk,
+                  ),
                 ),
               ),
             ],
-            const SizedBox(height: 9),
+            const SizedBox(height: 10),
             AnimatedSize(
               duration: AppMotion.normal,
               child: Text(
                 review.body,
                 maxLines: _expanded ? null : 4,
                 overflow: _expanded ? null : TextOverflow.ellipsis,
-                style: AppTypography.routeMetadata.copyWith(
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1.45,
                   color: AppColors.secondaryInk,
-                  height: 1.4,
                 ),
               ),
             ),
-            if (review.media.isNotEmpty) ...[
-              const SizedBox(height: 9),
+            if (media.isNotEmpty) ...[
+              const SizedBox(height: 10),
               SizedBox(
                 height: 92,
                 child: ListView.separated(
                   scrollDirection: Axis.horizontal,
                   itemCount: _expanded
-                      ? review.media.length
-                      : review.media.length.clamp(0, 3),
+                      ? media.length
+                      : media.length.clamp(0, 3),
                   separatorBuilder: (_, _) => const SizedBox(width: 7),
                   itemBuilder: (_, index) => GestureDetector(
                     onTap: () => _openGallery(index),
@@ -552,7 +759,7 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
                         image: AppImages.imageProvider(
                           resolvedUrl: AppImages.resolveMediaUrl(
                             config,
-                            review.media[index].url,
+                            media[index].url,
                           ),
                           assetFallback: AppImages.coastPineTwilight,
                         ),
@@ -562,29 +769,61 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
                 ),
               ),
             ],
-            if (review.body.length > 220 || review.media.length > 3) ...[
+            if (review.body.length > 220 || media.length > 3) ...[
               const SizedBox(height: 8),
               GestureDetector(
                 onTap: () => setState(() => _expanded = !_expanded),
                 child: Text(
                   _expanded ? 'Свернуть отзыв' : 'Читать отзыв полностью',
-                  style: AppTypography.button.copyWith(fontSize: 13),
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryInk,
+                  ),
                 ),
               ),
             ],
-            const SizedBox(height: 9),
+            const SizedBox(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 TextButton(
                   onPressed: widget.onReply,
-                  child: const Text('Ответить'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryInk,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Ответить',
+                    style: TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-                if (widget.canDelete)
+                if (widget.canDelete) ...[
+                  const SizedBox(width: 16),
                   TextButton(
                     onPressed: () => unawaited(_delete()),
-                    child: const Text('Удалить'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.secondaryInk,
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Удалить',
+                      style: TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
+                ],
               ],
             ),
           ],

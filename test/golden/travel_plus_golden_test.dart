@@ -6,7 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/core/theme/app_theme.dart';
-import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_checkout_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_screen.dart';
 
@@ -135,12 +134,12 @@ Future<void> _pumpReferenceFrame(
         ...testSessionOverrides(
           onboardingCompleted: true,
           displayName: 'Никита Можаров',
+          travelPlusActive: active,
+          travelPlusPlan: active ? 'monthly' : null,
+          travelPlusExpiresAt: active
+              ? DateTime.now().add(const Duration(days: 26))
+              : null,
         ),
-        if (active)
-          settingsPreferencesProvider.overrideWith((ref) {
-            return SettingsController()
-              ..activateTravelPlus(yearly: false, paymentLast4: '1234');
-          }),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

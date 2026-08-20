@@ -78,7 +78,9 @@ void main() {
       await tester.ensureVisible(find.text('Ваш отзыв:'));
       await tester.pumpAndSettle();
       expect(find.text('Поделитесь впечатлениями о месте'), findsOneWidget);
-      expect(find.text('Добавить фото 0/6'), findsOneWidget);
+      expect(find.text('Добавить фото или видео'), findsOneWidget);
+      expect(find.textContaining('Слушать аудиогид'), findsNothing);
+      expect(find.bySemanticsLabel('Слушать аудиогид'), findsOneWidget);
     },
   );
 }

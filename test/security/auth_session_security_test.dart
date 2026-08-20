@@ -76,6 +76,16 @@ class _CountingAuth implements AuthRepository {
     required String accessToken,
     required String filePath,
   }) => throw UnimplementedError();
+
+  @override
+  Future<MeProfile> activateTravelPlus({
+    required String accessToken,
+    required String plan,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<MeProfile> cancelTravelPlus({required String accessToken}) =>
+      throw UnimplementedError();
 }
 
 void main() {

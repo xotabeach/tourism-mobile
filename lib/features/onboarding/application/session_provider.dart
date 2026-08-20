@@ -24,6 +24,9 @@ class SessionState {
     this.notifyPushEnabled = true,
     this.notifySmsEnabled = false,
     this.notifyHapticsEnabled = true,
+    this.travelPlusActive = false,
+    this.travelPlusPlan,
+    this.travelPlusExpiresAt,
     this.otpConsentsRequired = true,
   });
 
@@ -38,6 +41,9 @@ class SessionState {
   final bool notifyPushEnabled;
   final bool notifySmsEnabled;
   final bool notifyHapticsEnabled;
+  final bool travelPlusActive;
+  final String? travelPlusPlan;
+  final DateTime? travelPlusExpiresAt;
   final bool otpConsentsRequired;
 
   bool get isAuthenticated =>
@@ -55,10 +61,15 @@ class SessionState {
     bool? notifyPushEnabled,
     bool? notifySmsEnabled,
     bool? notifyHapticsEnabled,
+    bool? travelPlusActive,
+    String? travelPlusPlan,
+    DateTime? travelPlusExpiresAt,
     bool? otpConsentsRequired,
     bool clearAccessToken = false,
     bool clearAvatarUrl = false,
     bool clearCoverUrl = false,
+    bool clearTravelPlusPlan = false,
+    bool clearTravelPlusExpiresAt = false,
   }) {
     return SessionState(
       isHydrated: isHydrated ?? this.isHydrated,
@@ -72,6 +83,13 @@ class SessionState {
       notifyPushEnabled: notifyPushEnabled ?? this.notifyPushEnabled,
       notifySmsEnabled: notifySmsEnabled ?? this.notifySmsEnabled,
       notifyHapticsEnabled: notifyHapticsEnabled ?? this.notifyHapticsEnabled,
+      travelPlusActive: travelPlusActive ?? this.travelPlusActive,
+      travelPlusPlan: clearTravelPlusPlan
+          ? null
+          : (travelPlusPlan ?? this.travelPlusPlan),
+      travelPlusExpiresAt: clearTravelPlusExpiresAt
+          ? null
+          : (travelPlusExpiresAt ?? this.travelPlusExpiresAt),
       otpConsentsRequired: otpConsentsRequired ?? this.otpConsentsRequired,
     );
   }
@@ -300,9 +318,35 @@ class SessionController extends StateNotifier<SessionState> {
       notifyPushEnabled: me.notifyPushEnabled,
       notifySmsEnabled: me.notifySmsEnabled,
       notifyHapticsEnabled: me.notifyHapticsEnabled,
+      travelPlusActive: me.travelPlusActive,
+      travelPlusPlan: me.travelPlusPlan,
+      travelPlusExpiresAt: me.travelPlusExpiresAt,
       clearAvatarUrl: me.avatarUrl == null,
       clearCoverUrl: me.coverUrl == null,
+      clearTravelPlusPlan: me.travelPlusPlan == null,
+      clearTravelPlusExpiresAt: me.travelPlusExpiresAt == null,
     );
+  }
+
+  Future<void> activateTravelPlus({required bool yearly}) async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    final me = await _auth.activateTravelPlus(
+      accessToken: token,
+      plan: yearly ? 'yearly' : 'monthly',
+    );
+    _applyMe(me);
+  }
+
+  Future<void> cancelTravelPlus() async {
+    final token = state.accessToken;
+    if (token == null) {
+      throw const AuthFailure('Нужна авторизация');
+    }
+    final me = await _auth.cancelTravelPlus(accessToken: token);
+    _applyMe(me);
   }
 
   Future<void> hydrate() async {
@@ -333,6 +377,13 @@ class SessionController extends StateNotifier<SessionState> {
         notifyPushEnabled: me.notifyPushEnabled,
         notifySmsEnabled: me.notifySmsEnabled,
         notifyHapticsEnabled: me.notifyHapticsEnabled,
+        travelPlusActive: me.travelPlusActive,
+        travelPlusPlan: me.travelPlusPlan,
+        travelPlusExpiresAt: me.travelPlusExpiresAt,
+        clearAvatarUrl: me.avatarUrl == null,
+        clearCoverUrl: me.coverUrl == null,
+        clearTravelPlusPlan: me.travelPlusPlan == null,
+        clearTravelPlusExpiresAt: me.travelPlusExpiresAt == null,
       );
     } on Object {
       await _storage.delete(key: SecureStorageKeys.refreshToken);

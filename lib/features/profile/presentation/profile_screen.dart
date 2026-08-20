@@ -15,9 +15,9 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
+import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
-import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -574,7 +574,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                 onTap: onLike!,
                 fillColor: Colors.black.withValues(alpha: 0.35),
                 iconColor: Colors.white,
-                iconWidget: AppFavoriteIcon(selected: likedByMe, size: 18),
+                iconWidget: AppFavoriteIcon(selected: likedByMe, size: 22),
               )
             : onMore != null
             ? _HeaderActionButton(
@@ -590,7 +590,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                 semanticLabel: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
                 iconWidget: AppFavoriteIcon(
                   selected: likedByMe,
-                  size: 18,
+                  size: 22,
                   color: AppColors.primaryInk,
                 ),
                 onPhoto: false,
@@ -771,24 +771,23 @@ class _HeaderActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
-      child: SizedBox.square(
+      child: AppGlassCircle(
         dimension: 44,
+        blur: 10,
+        fillColor: fillColor,
+        borderColor: Colors.white.withValues(alpha: 0.28),
+        contentColor: iconColor,
         child: Material(
           color: Colors.transparent,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () {
               unawaited(AppHaptics.selectionClick());
               onTap();
             },
             customBorder: const CircleBorder(),
-            child: AppAdaptiveGlassSurface(
-              borderRadius: AppRadii.circle,
-              shape: NativeLiquidGlassShape.circle,
-              interactive: true,
-              blur: 10,
-              fillColor: fillColor,
-              borderColor: Colors.white.withValues(alpha: 0.28),
-              contentColor: iconColor,
+            child: Center(
               child: iconWidget ?? Icon(icon, size: 22, color: iconColor),
             ),
           ),

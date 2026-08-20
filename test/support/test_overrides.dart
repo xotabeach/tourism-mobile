@@ -17,6 +17,9 @@ const testAppConfig = AppConfig(
 List<Override> testSessionOverrides({
   bool onboardingCompleted = false,
   String displayName = 'Никита',
+  bool travelPlusActive = false,
+  String? travelPlusPlan,
+  DateTime? travelPlusExpiresAt,
 }) {
   final storage = MemorySecureStorage();
   return [
@@ -35,6 +38,9 @@ List<Override> testSessionOverrides({
           phone: onboardingCompleted ? '+79001234567' : null,
           userId: onboardingCompleted ? 'mock-user' : null,
           accessToken: onboardingCompleted ? 'mock-access' : null,
+          travelPlusActive: travelPlusActive,
+          travelPlusPlan: travelPlusPlan,
+          travelPlusExpiresAt: travelPlusExpiresAt,
         ),
       ),
     ),

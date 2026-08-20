@@ -14,12 +14,12 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefs = ref.watch(settingsPreferencesProvider);
+    final travelPlus = ref.watch(travelPlusViewProvider);
     return SettingsScaffold(
       headerOverlay: TravelPlusBanner(
-        active: prefs.travelPlusActive,
-        subtitle: prefs.travelPlusActive
-            ? 'Активна до ${prefs.travelPlusExpiresLabel}'
+        active: travelPlus.active,
+        subtitle: travelPlus.active
+            ? 'Активна до ${travelPlus.expiresLabel}'
             : 'Первый месяц бесплатно',
         onTap: () => context.pushNamed(AppRouteNames.settingsTravelPlus),
       ),
@@ -43,9 +43,7 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsOffline),
         ),
         SettingsNavTile(
-          title: prefs.travelPlusActive
-              ? 'Поддержка и обратная связь'
-              : 'Поддержка',
+          title: travelPlus.active ? 'Поддержка и обратная связь' : 'Поддержка',
           subtitle: 'Поможем с любым вопросом',
           iconAsset: AppIconography.settingsSupport,
           onTap: () => context.pushNamed(AppRouteNames.settingsSupport),

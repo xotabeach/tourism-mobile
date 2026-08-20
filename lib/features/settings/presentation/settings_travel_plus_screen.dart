@@ -7,6 +7,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -16,15 +17,15 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final prefs = ref.watch(settingsPreferencesProvider);
+    final travelPlus = ref.watch(travelPlusViewProvider);
     final top = MediaQuery.paddingOf(context).top;
 
-    final subtitle = prefs.travelPlusActive
-        ? 'Активна до ${prefs.travelPlusExpiresLabel}'
+    final subtitle = travelPlus.active
+        ? 'Активна до ${travelPlus.expiresLabel}'
         : 'Первый месяц бесплатно';
 
-    if (prefs.travelPlusActive) {
-      return _TravelPlusActiveBody(topInset: top, prefs: prefs);
+    if (travelPlus.active) {
+      return _TravelPlusActiveBody(topInset: top, travelPlus: travelPlus);
     }
 
     return ColoredBox(
@@ -144,17 +145,20 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
 }
 
 class _TravelPlusActiveBody extends ConsumerWidget {
-  const _TravelPlusActiveBody({required this.topInset, required this.prefs});
+  const _TravelPlusActiveBody({
+    required this.topInset,
+    required this.travelPlus,
+  });
 
   final double topInset;
-  final SettingsPreferences prefs;
+  final TravelPlusViewState travelPlus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final expires = prefs.travelPlusExpiresLabel;
-    final nextCharge = prefs.travelPlusYearly ? '29.07.2027' : '29.08.2026';
-    final tariffLabel = prefs.travelPlusYearly ? 'Год' : 'Месяц';
-    final tariffPrice = prefs.travelPlusYearly ? '999 ₽/год' : '99 ₽/мес';
+    final expires = travelPlus.expiresLabel;
+    final nextCharge = travelPlus.yearly ? '29.07.2027' : '29.08.2026';
+    final tariffLabel = travelPlus.yearly ? 'Год' : 'Месяц';
+    final tariffPrice = travelPlus.yearly ? '999 ₽/год' : '99 ₽/мес';
 
     return ColoredBox(
       color: AppColors.pageSurface,
@@ -204,9 +208,7 @@ class _TravelPlusActiveBody extends ConsumerWidget {
                           icon: Icons.calendar_month_outlined,
                           title: 'Следующее списание',
                           subtitle: nextCharge,
-                          trailing: _SoftBadge(
-                            label: prefs.travelPlusDaysLeftLabel,
-                          ),
+                          trailing: _SoftBadge(label: travelPlus.daysLeftLabel),
                         ),
                         const Divider(
                           height: 1,
@@ -232,7 +234,7 @@ class _TravelPlusActiveBody extends ConsumerWidget {
                         _SubscriptionMetaRow(
                           icon: Icons.credit_card_rounded,
                           title: 'Способ оплаты',
-                          subtitle: '•••• ${prefs.paymentLast4}',
+                          subtitle: '•••• ${travelPlus.paymentLast4}',
                           trailing: const Icon(
                             Icons.chevron_right_rounded,
                             size: 20,
@@ -267,7 +269,7 @@ class _TravelPlusActiveBody extends ConsumerWidget {
                     onTap: () => context.pushNamed(
                       AppRouteNames.settingsTravelPlusCheckout,
                       queryParameters: {
-                        'yearly': prefs.travelPlusYearly ? 'true' : 'false',
+                        'yearly': travelPlus.yearly ? 'true' : 'false',
                       },
                     ),
                   ),
@@ -320,12 +322,13 @@ class _TravelPlusActiveBody extends ConsumerWidget {
     if (ok != true || !context.mounted) {
       return;
     }
-    ref.read(settingsPreferencesProvider.notifier).cancelTravelPlus();
+    await ref.read(sessionProvider.notifier).cancelTravelPlus();
+    if (!context.mounted) {
+      return;
+    }
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Автопродление отключено (мок)')),
-      );
+      ..showSnackBar(const SnackBar(content: Text('Подписка отменена')));
   }
 }
 

@@ -140,6 +140,7 @@ class SettingsScaffold extends StatelessWidget {
     this.headerOverlay,
     this.padding,
     this.spaceChildren = true,
+    this.pinTopBar = false,
   });
 
   final String? title;
@@ -153,71 +154,115 @@ class SettingsScaffold extends StatelessWidget {
   final EdgeInsetsGeometry? padding;
   final bool spaceChildren;
 
+  /// Keep «КРЫМТРИП» + back above the scroll (home-style sticky chrome).
+  final bool pinTopBar;
+
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+    const horizontal = SettingsMetrics.contentInset;
+    final bodyPadding =
+        padding ??
+        EdgeInsets.fromLTRB(horizontal, pinTopBar ? 8 : top + 8, horizontal, 0);
+
+    Widget scrollBody({required bool includeTopBar}) {
+      return CustomScrollView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: bodyPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (includeTopBar)
+                    SettingsTopBar(
+                      showSave: showSave,
+                      onSave: onSave ?? () => context.pop(),
+                    ),
+                  if (headerOverlay != null) ...[
+                    const SizedBox(height: 16),
+                    headerOverlay!,
+                  ],
+                  if (title != null) ...[
+                    SizedBox(
+                      height: includeTopBar
+                          ? (headerOverlay == null ? 20 : 18)
+                          : (headerOverlay == null ? 12 : 10),
+                    ),
+                    Text(
+                      title!,
+                      style: AppTypography.settingsSectionTitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        subtitle!,
+                        style: AppTypography.settingsRowSubtitle,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                  ] else if (includeTopBar && headerOverlay == null)
+                    const SizedBox(height: 20)
+                  else if (includeTopBar)
+                    const SizedBox(height: SettingsMetrics.rowGap),
+                  if (spaceChildren) ..._spaced(children) else ...children,
+                  const SizedBox(height: AppSpacing.shellBottomContent),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final content = pinTopBar
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Material(
+                color: AppColors.pageSurface,
+                elevation: 0,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(
+                        color: AppColors.mistDark.withValues(alpha: 0.55),
+                      ),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      horizontal,
+                      top + 8,
+                      horizontal,
+                      8,
+                    ),
+                    child: SettingsTopBar(
+                      showSave: showSave,
+                      onSave: onSave ?? () => context.pop(),
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(child: scrollBody(includeTopBar: false)),
+            ],
+          )
+        : scrollBody(includeTopBar: true);
+
     return ColoredBox(
       color: AppColors.pageSurface,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: CustomScrollView(
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            SliverToBoxAdapter(
-              child: Padding(
-                padding:
-                    padding ??
-                    EdgeInsets.fromLTRB(
-                      SettingsMetrics.contentInset,
-                      top + 8,
-                      SettingsMetrics.contentInset,
-                      0,
-                    ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SettingsTopBar(
-                      showSave: showSave,
-                      onSave: onSave ?? () => context.pop(),
-                    ),
-                    if (headerOverlay != null) ...[
-                      const SizedBox(height: 16),
-                      headerOverlay!,
-                    ],
-                    if (title != null) ...[
-                      SizedBox(height: headerOverlay == null ? 20 : 18),
-                      Text(
-                        title!,
-                        style: AppTypography.settingsSectionTitle,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          subtitle!,
-                          style: AppTypography.settingsRowSubtitle,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                      const SizedBox(height: 14),
-                    ] else if (headerOverlay == null)
-                      const SizedBox(height: 20)
-                    else
-                      const SizedBox(height: SettingsMetrics.rowGap),
-                    if (spaceChildren) ..._spaced(children) else ...children,
-                    const SizedBox(height: AppSpacing.shellBottomContent),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
+        child: content,
       ),
     );
   }

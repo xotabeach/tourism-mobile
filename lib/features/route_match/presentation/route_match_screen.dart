@@ -6,9 +6,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_safety.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_topic.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -56,7 +58,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   bool _typing = false;
   bool _sending = false;
   bool _composerDirty = false;
-  int _aiAttemptsLeft = 3;
   double _appBarProgress = 0;
   double _lastViewInset = 0;
 
@@ -199,6 +200,12 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _setMode(RouteMatchMode mode) {
+    if (mode == RouteMatchMode.ai &&
+        !widget.pixelReference &&
+        !ref.read(sessionProvider).travelPlusActive) {
+      unawaited(context.push('/profile/settings/travel-plus'));
+      return;
+    }
     if (_mode == mode) {
       return;
     }
@@ -292,7 +299,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _onAiCtaPressed() {
-    if (_aiAttemptsLeft <= 0) {
+    if (!widget.pixelReference && !ref.read(sessionProvider).travelPlusActive) {
       unawaited(context.push('/profile/settings/travel-plus'));
       return;
     }
@@ -321,7 +328,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     });
     _scrollAiToEnd();
 
-    if (routeMatchLooksLikeSelfHarm(text)) {
+    final intent = classifyRouteMatchChatIntent(text);
+    if (intent != RouteMatchChatIntent.onTopicTravel) {
       await Future<void>.delayed(const Duration(milliseconds: 350));
       if (!mounted) {
         return;
@@ -330,9 +338,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         _messages.add(
           RouteChatMessage(
             fromAgent: true,
-            text: routeMatchCrisisSupportReply,
+            text: cannedReplyForIntent(intent),
             time: _nowTime(),
-            isCrisis: true,
+            isCrisis: intent == RouteMatchChatIntent.crisis,
           ),
         );
         _sending = false;
@@ -369,9 +377,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           time: _nowTime(),
         ),
       );
-      if (_aiAttemptsLeft > 0) {
-        _aiAttemptsLeft -= 1;
-      }
     });
     _scrollAiToEnd();
   }
@@ -597,7 +602,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           padding: EdgeInsets.symmetric(horizontal: px(16)),
           child: RouteActionButtons(
             px: px,
-            attemptsLeft: _aiAttemptsLeft,
+            hasTravelPlus:
+                widget.pixelReference ||
+                ref.watch(sessionProvider).travelPlusActive,
             matching: _matching,
             onMatch: () {
               unawaited(_onMatchPressed());

@@ -49,6 +49,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
       skipError: true,
       loading: () => const SettingsScaffold(
         title: 'Достижения:',
+        pinTopBar: true,
         children: [
           Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
@@ -58,6 +59,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
       ),
       error: (_, _) => SettingsScaffold(
         title: 'Достижения:',
+        pinTopBar: true,
         children: [
           const Text('Не удалось загрузить достижения'),
           TextButton(
@@ -87,6 +89,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     return SettingsScaffold(
       title: 'Достижения:',
       subtitle: 'Получено $unlockedCount из ${all.length}',
+      pinTopBar: true,
       spaceChildren: false,
       children: [
         AppFilterChipBar(

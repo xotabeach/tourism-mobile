@@ -225,7 +225,48 @@ final class ApiAuthRepository implements AuthRepository {
       notifyPushEnabled: data['notify_push_enabled'] as bool? ?? true,
       notifySmsEnabled: data['notify_sms_enabled'] as bool? ?? false,
       notifyHapticsEnabled: data['notify_haptics_enabled'] as bool? ?? true,
+      travelPlusActive: data['travel_plus_active'] as bool? ?? false,
+      travelPlusPlan: data['travel_plus_plan'] as String?,
+      travelPlusExpiresAt: _parseIsoDate(data['travel_plus_expires_at']),
+      aiChatEnabled: data['ai_chat_enabled'] as bool? ?? false,
+      maxRoutePoints: data['max_route_points'] as int? ?? 5,
+      alternativesCount: data['alternatives_count'] as int? ?? 1,
+      advancedFiltersEnabled:
+          data['advanced_filters_enabled'] as bool? ?? false,
     );
+  }
+
+  DateTime? _parseIsoDate(Object? raw) {
+    if (raw is! String || raw.isEmpty) {
+      return null;
+    }
+    return DateTime.tryParse(raw)?.toLocal();
+  }
+
+  @override
+  Future<MeProfile> activateTravelPlus({
+    required String accessToken,
+    required String plan,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/travel-plus/activate',
+        data: {'plan': plan},
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      return _meFrom(response.data);
+    });
+  }
+
+  @override
+  Future<MeProfile> cancelTravelPlus({required String accessToken}) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/travel-plus/cancel',
+        options: Options(headers: {'Authorization': 'Bearer $accessToken'}),
+      );
+      return _meFrom(response.data);
+    });
   }
 }
 
@@ -237,6 +278,9 @@ final class MockAuthRepository implements AuthRepository {
   bool _notifyPushEnabled = true;
   bool _notifySmsEnabled = false;
   bool _notifyHapticsEnabled = true;
+  bool _travelPlusActive = false;
+  String? _travelPlusPlan;
+  DateTime? _travelPlusExpiresAt;
 
   @override
   Future<OtpStartResult> requestOtp({
@@ -311,6 +355,13 @@ final class MockAuthRepository implements AuthRepository {
       notifyPushEnabled: _notifyPushEnabled,
       notifySmsEnabled: _notifySmsEnabled,
       notifyHapticsEnabled: _notifyHapticsEnabled,
+      travelPlusActive: _travelPlusActive,
+      travelPlusPlan: _travelPlusPlan,
+      travelPlusExpiresAt: _travelPlusExpiresAt,
+      aiChatEnabled: _travelPlusActive,
+      maxRoutePoints: _travelPlusActive ? 12 : 5,
+      alternativesCount: _travelPlusActive ? 3 : 1,
+      advancedFiltersEnabled: _travelPlusActive,
     );
   }
 
@@ -373,6 +424,28 @@ final class MockAuthRepository implements AuthRepository {
     required String filePath,
   }) async {
     _coverUrl = 'file://$filePath';
+    return getMe(accessToken);
+  }
+
+  @override
+  Future<MeProfile> activateTravelPlus({
+    required String accessToken,
+    required String plan,
+  }) async {
+    final yearly = plan == 'yearly';
+    _travelPlusActive = true;
+    _travelPlusPlan = plan;
+    _travelPlusExpiresAt = DateTime.now().add(
+      Duration(days: yearly ? 365 : 30),
+    );
+    return getMe(accessToken);
+  }
+
+  @override
+  Future<MeProfile> cancelTravelPlus({required String accessToken}) async {
+    _travelPlusActive = false;
+    _travelPlusPlan = null;
+    _travelPlusExpiresAt = null;
     return getMe(accessToken);
   }
 }

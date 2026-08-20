@@ -30,6 +30,7 @@ class TravelersLeaderboardScreen extends ConsumerWidget {
     return SettingsScaffold(
       title: 'Топ путешественников:',
       subtitle: 'Рейтинг по очкам Тревел Поинт (тп)',
+      pinTopBar: true,
       spaceChildren: false,
       children: [
         board.when(

@@ -1586,7 +1586,7 @@ class _PaceCard extends StatelessWidget {
 class RouteActionButtons extends StatelessWidget {
   const RouteActionButtons({
     required this.px,
-    required this.attemptsLeft,
+    required this.hasTravelPlus,
     required this.matching,
     required this.onMatch,
     required this.onAi,
@@ -1594,7 +1594,7 @@ class RouteActionButtons extends StatelessWidget {
   });
 
   final RoutePx px;
-  final int attemptsLeft;
+  final bool hasTravelPlus;
   final bool matching;
   final VoidCallback onMatch;
   final VoidCallback onAi;
@@ -1605,7 +1605,7 @@ class RouteActionButtons extends StatelessWidget {
       children: [
         _PrimaryMatchButton(px: px, matching: matching, onPressed: onMatch),
         SizedBox(height: px(8)),
-        _AiMatchButton(px: px, attemptsLeft: attemptsLeft, onPressed: onAi),
+        _AiMatchButton(px: px, hasTravelPlus: hasTravelPlus, onPressed: onAi),
       ],
     );
   }
@@ -1670,17 +1670,20 @@ class _PrimaryMatchButton extends StatelessWidget {
 class _AiMatchButton extends StatelessWidget {
   const _AiMatchButton({
     required this.px,
-    required this.attemptsLeft,
+    required this.hasTravelPlus,
     required this.onPressed,
   });
 
   final RoutePx px;
-  final int attemptsLeft;
+  final bool hasTravelPlus;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(px(28));
+    final caption = hasTravelPlus
+        ? 'Подписка Тревел+ активна'
+        : 'Доступно с подпиской Тревел+';
     return Semantics(
       button: true,
       label: 'Собрать маршрут с ИИ',
@@ -1717,7 +1720,7 @@ class _AiMatchButton extends StatelessWidget {
                 ),
                 SizedBox(height: px(3)),
                 Text(
-                  'Осталось $attemptsLeft попытки без подписки',
+                  caption,
                   textAlign: TextAlign.center,
                   style: RouteBuilderDesignTokens.rubik(
                     fontSize: px(11.75),

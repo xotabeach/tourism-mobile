@@ -250,16 +250,16 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 76,
+                      bottom: 22,
                       child: _PageDots(count: images.length, selected: _page),
                     ),
                   Positioned(
                     left: 14,
                     right: 14,
-                    bottom: 24,
+                    bottom: images.length > 1 ? 42 : 24,
                     child: SizedBox(
                       height: 44,
-                      child: FilledButton.icon(
+                      child: FilledButton(
                         onPressed: widget.onMap,
                         style: FilledButton.styleFrom(
                           backgroundColor: Colors.black.withValues(alpha: 0.48),
@@ -271,8 +271,7 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
                             ),
                           ),
                         ),
-                        icon: const Icon(Icons.map_outlined, size: 18),
-                        label: const Text('Посмотреть на карте'),
+                        child: const Text('Посмотреть на карте'),
                       ),
                     ),
                   ),
@@ -340,13 +339,18 @@ class _PlaceInformationSheet extends ConsumerWidget {
         ? place.description!.trim()
         : place.shortDescription?.trim();
     final routes = ref.watch(routesForPlaceProvider(place.id));
+    final config = ref.watch(appConfigProvider);
+    final cover = AppImages.imageProvider(
+      resolvedUrl: AppImages.resolveMediaUrl(config, place.coverImageUrl),
+      assetFallback: AppImages.coastPineTwilight,
+    );
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(
-        14,
-        14,
-        14,
+        18,
+        18,
+        18,
         112 + MediaQuery.paddingOf(context).bottom,
       ),
       decoration: const BoxDecoration(
@@ -358,51 +362,50 @@ class _PlaceInformationSheet extends ConsumerWidget {
         children: [
           Text(
             place.name,
-            style: AppTypography.routeTitle.copyWith(fontSize: 22),
+            style: AppTypography.routeTitle.copyWith(
+              fontSize: 24,
+              height: 1.14,
+              color: AppColors.primaryInk,
+            ),
           ),
           if (description != null && description.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               description,
-              style: AppTypography.routeMetadata.copyWith(
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
                 fontSize: 13,
-                height: 1.28,
-                color: AppColors.primaryInk,
+                fontWeight: FontWeight.w400,
+                height: 1.42,
+                color: AppColors.secondaryInk,
               ),
             ),
           ],
-          if (place.address?.trim().isNotEmpty == true ||
-              place.seasonality.isNotEmpty ||
-              place.difficulty != null) ...[
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                if (place.address?.trim().isNotEmpty == true)
-                  _InfoChip(
-                    icon: Icons.place_outlined,
-                    label: place.address!.trim(),
-                  ),
-                if (place.difficulty != null)
-                  _InfoChip(
-                    icon: Icons.terrain_rounded,
-                    label: _difficultyLabel(place.difficulty),
-                  ),
-                for (final season in place.seasonality.take(2))
-                  _InfoChip(
-                    icon: Icons.calendar_month_outlined,
-                    label: _seasonLabel(season),
-                  ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 18),
-          const Divider(height: 1),
-          const SizedBox(height: 14),
-          Text(
+          const SizedBox(height: 16),
+          _PlaceAudioGuideCard(
+            title: place.name,
+            image: cover,
+            onPlay: () {
+              ScaffoldMessenger.of(context)
+                ..hideCurrentSnackBar()
+                ..showSnackBar(
+                  const SnackBar(content: Text('Аудиогид появится позже')),
+                );
+            },
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+          ),
+          const Text(
             'Маршруты с этим местом:',
-            style: AppTypography.sectionTitle.copyWith(fontSize: 17),
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: AppColors.primaryInk,
+            ),
           ),
           const SizedBox(height: 10),
           routes.when(
@@ -416,12 +419,19 @@ class _PlaceInformationSheet extends ConsumerWidget {
             data: (page) => _RelatedRoutesCarousel(routes: page.items),
           ),
           if (place.safetyWarnings.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 14),
-            Text(
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+            ),
+            const Text(
               'Перед посещением:',
-              style: AppTypography.sectionTitle.copyWith(fontSize: 17),
+              style: TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+                color: AppColors.primaryInk,
+              ),
             ),
             const SizedBox(height: 8),
             for (final warning in place.safetyWarnings)
@@ -432,26 +442,143 @@ class _PlaceInformationSheet extends ConsumerWidget {
                   children: [
                     const Icon(Icons.warning_amber_rounded, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(warning)),
+                    Expanded(
+                      child: Text(
+                        warning,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 13,
+                          height: 1.35,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
           ],
-          const SizedBox(height: 16),
-          const Divider(height: 1),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Отзывы о месте',
-                  style: AppTypography.sectionTitle.copyWith(fontSize: 17),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+          ),
+          PlaceReviewsSection(placeId: place.id),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlaceAudioGuideCard extends StatelessWidget {
+  const _PlaceAudioGuideCard({
+    required this.title,
+    required this.image,
+    required this.onPlay,
+  });
+
+  final String title;
+  final ImageProvider image;
+  final VoidCallback onPlay;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 76,
+      decoration: BoxDecoration(
+        color: AppColors.elevatedSurface,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFEDEDEE)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0F000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Image(
+              image: image,
+              width: 44,
+              height: 44,
+              fit: BoxFit.cover,
+              errorBuilder: (context, _, _) => const SizedBox.square(
+                dimension: 44,
+                child: ColoredBox(color: AppColors.controlSurface),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
+                    color: AppColors.primaryInk,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'КрымТрип',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.2,
+                    color: AppColors.secondaryInk,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          const Text(
+            '48м 17с',
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 12,
+              fontWeight: FontWeight.w400,
+              height: 1.2,
+              color: AppColors.secondaryInk,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Semantics(
+            button: true,
+            label: 'Слушать аудиогид',
+            child: SizedBox.square(
+              dimension: 44,
+              child: Material(
+                color: AppColors.elevatedSurface,
+                shape: const CircleBorder(
+                  side: BorderSide(color: Color(0xFFE0E0E2)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onPlay,
+                  child: const Icon(
+                    Icons.play_arrow_rounded,
+                    size: 26,
+                    color: AppColors.primaryInk,
+                  ),
                 ),
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          PlaceReviewsSection(placeId: place.id),
         ],
       ),
     );
@@ -547,19 +674,35 @@ class _RelatedRouteRow extends ConsumerWidget {
                     route.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.settingsRowTitle,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      color: AppColors.primaryInk,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    route.authorLabel ?? 'КрымТрип',
+                    route.authorLabel ?? 'КрымТрип редакция',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AppTypography.settingsRowSubtitle,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      height: 1.2,
+                      color: AppColors.secondaryInk,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, size: 24),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 24,
+              color: AppColors.secondaryInk,
+            ),
           ],
         ),
       ),
@@ -599,43 +742,6 @@ class _PageDots extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 340),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.pageSurface,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: AppColors.hairline),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: AppColors.secondaryInk),
-          const SizedBox(width: 5),
-          Flexible(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AppTypography.settingsRowSubtitle.copyWith(
-                color: AppColors.primaryInk,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -802,25 +908,6 @@ void _showPlaceMap(BuildContext context, PlaceDetail place) {
       ),
     ),
   );
-}
-
-String _seasonLabel(String season) {
-  return switch (season) {
-    'spring' => 'Весна',
-    'summer' => 'Лето',
-    'autumn' => 'Осень',
-    'winter' => 'Зима',
-    _ => season,
-  };
-}
-
-String _difficultyLabel(String? difficulty) {
-  return switch (difficulty) {
-    'easy' => 'Легко',
-    'moderate' => 'Средне',
-    'hard' => 'Сложно',
-    _ => 'Не указано',
-  };
 }
 
 void _showMessage(BuildContext context, String message) {
