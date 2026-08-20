@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -95,6 +96,7 @@ class RouteHeroCard extends ConsumerWidget {
     this.variant = RouteCardVariant.list,
     this.visualProgress = 0,
     this.authorAvatarUrl,
+    this.authorIsExpert,
     this.onFavoriteToggle,
     this.onEdit,
     super.key,
@@ -112,6 +114,10 @@ class RouteHeroCard extends ConsumerWidget {
   /// Optional author avatar (resolved https / `file://`). Falls back to the
   /// current session avatar when the route author matches the signed-in user.
   final String? authorAvatarUrl;
+
+  /// Optional context override (for profile-owned carousels). API-backed
+  /// catalogs normally use [RouteSummary.authorIsExpert].
+  final bool? authorIsExpert;
 
   /// Lets list owners coordinate a favorite change with their own removal
   /// animation. Other cards keep using [favoritesProvider] directly.
@@ -158,6 +164,7 @@ class RouteHeroCard extends ConsumerWidget {
     );
     final canOpenAuthor =
         route.ownerUserId != null && route.ownerUserId!.isNotEmpty;
+    final resolvedAuthorIsExpert = authorIsExpert ?? route.authorIsExpert;
     final card = RepaintBoundary(
       child: _RouteCardContent(
         route: route,
@@ -167,6 +174,7 @@ class RouteHeroCard extends ConsumerWidget {
         variant: variant,
         visualProgress: visualProgress.clamp(0, 1),
         authorAvatar: avatar,
+        authorIsExpert: resolvedAuthorIsExpert,
         onAuthorTap: canOpenAuthor ? () => _openAuthor(context, ref) : null,
         onFavoriteToggle: onFavoriteToggle,
         onEdit: onEdit,
@@ -198,6 +206,7 @@ class _RouteCardContent extends StatelessWidget {
     required this.variant,
     required this.visualProgress,
     required this.authorAvatar,
+    required this.authorIsExpert,
     this.onAuthorTap,
     this.onFavoriteToggle,
     this.onEdit,
@@ -210,6 +219,7 @@ class _RouteCardContent extends StatelessWidget {
   final RouteCardVariant variant;
   final double visualProgress;
   final ImageProvider authorAvatar;
+  final bool authorIsExpert;
   final VoidCallback? onAuthorTap;
   final Future<void> Function()? onFavoriteToggle;
   final VoidCallback? onEdit;
@@ -230,184 +240,211 @@ class _RouteCardContent extends StatelessWidget {
         (route.publicationStatus == 'published' &&
             (route.visibility == null || route.visibility == 'public'));
 
-    return ClipRRect(
+    return AppExpertFrame(
+      isExpert: authorIsExpert,
       borderRadius: BorderRadius.circular(AppRadii.card),
-      child: SizedBox(
-        height: height,
-        width: double.infinity,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            AppImages.coverImage(
-              config: config,
-              coverImageUrl: route.coverImageUrl,
-              fallbackSeed: route.slug,
-              alignment: route.slug.contains('south-coast')
-                  ? const Alignment(-0.12, 0)
-                  : Alignment.center,
-            ),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x45000000),
-                    Color(0x00000000),
-                    Color(0xBF000000),
-                  ],
-                  stops: [0, 0.36, 1],
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        child: SizedBox(
+          height: height,
+          width: double.infinity,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              AppImages.coverImage(
+                config: config,
+                coverImageUrl: route.coverImageUrl,
+                fallbackSeed: route.slug,
+                alignment: route.slug.contains('south-coast')
+                    ? const Alignment(-0.12, 0)
+                    : Alignment.center,
+              ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x45000000),
+                      Color(0x00000000),
+                      Color(0xBF000000),
+                    ],
+                    stops: [0, 0.36, 1],
+                  ),
                 ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(compact ? 14 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: onAuthorTap,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(1.5),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  shape: BoxShape.circle,
+              Padding(
+                padding: EdgeInsets.all(compact ? 14 : 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onAuthorTap,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.all(
+                                    authorIsExpert ? 2 : 1.5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: authorIsExpert
+                                        ? null
+                                        : Colors.white.withValues(alpha: 0.9),
+                                    gradient: authorIsExpert
+                                        ? AppExpertStyle.gradient
+                                        : null,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: CircleAvatar(
+                                    radius: 18.5,
+                                    backgroundImage: authorAvatar,
+                                  ),
                                 ),
-                                child: CircleAvatar(
-                                  radius: 18.5,
-                                  backgroundImage: authorAvatar,
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      route.authorLabel ?? 'Никита',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTypography.chip.copyWith(
-                                        fontSize: 15,
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 1),
-                                    Text(
-                                      route.authorLabel?.contains('редакция') ??
-                                              false
-                                          ? transportLabel(route.transportMode)
-                                          : 'Продвинутый пешеход',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTypography.routeMetadata
-                                          .copyWith(
-                                            fontSize: 12,
-                                            color: Colors.white.withValues(
-                                              alpha: 0.8,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              route.authorLabel ?? 'Никита',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: AppTypography.chip
+                                                  .copyWith(
+                                                    fontSize: 15,
+                                                    color: Colors.white,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                             ),
                                           ),
-                                    ),
-                                  ],
+                                          if (authorIsExpert) ...[
+                                            const SizedBox(width: 7),
+                                            const AppExpertBadge(compact: true),
+                                          ],
+                                        ],
+                                      ),
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        route.authorLabel?.contains(
+                                                  'редакция',
+                                                ) ??
+                                                false
+                                            ? transportLabel(
+                                                route.transportMode,
+                                              )
+                                            : 'Продвинутый пешеход',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.routeMetadata
+                                            .copyWith(
+                                              fontSize: 12,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.8,
+                                              ),
+                                            ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      if (onEdit != null)
-                        AppFilteredOpacity(
-                          opacity: actionOpacity,
-                          child: _EditRouteButton(onTap: onEdit!),
-                        ),
-                      if (onEdit != null && publiclyAvailable)
-                        const SizedBox(width: 8),
-                      if (publiclyAvailable)
-                        AppFilteredOpacity(
-                          opacity: actionOpacity,
-                          child: _FavoriteButton(
-                            routeId: route.id,
-                            onToggle: onFavoriteToggle,
-                          ),
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  if (height >= 260)
-                    AppFilteredOpacity(
-                      opacity: actionOpacity,
-                      child: Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: [
-                          for (final tag in chipTags.take(3))
-                            _RouteTag(label: tag),
-                        ],
-                      ),
-                    ),
-                  const Spacer(),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _RatingPill(route: route),
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              route.name,
-                              maxLines: height >= 260 ? 2 : 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.routeTitle.copyWith(
-                                color: Colors.white,
-                                fontSize: compact ? 22 : 24,
-                              ),
+                              ],
                             ),
-                            const SizedBox(height: 6),
-                            _RouteMetadata(route: route),
-                            if (!compact) ...[
-                              const SizedBox(height: AppSpacing.xs),
-                              _DifficultyRow(
-                                bolts: bolts,
-                                label: difficultyLabel(route.difficulty),
-                              ),
-                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        if (onEdit != null)
+                          AppFilteredOpacity(
+                            opacity: actionOpacity,
+                            child: _EditRouteButton(onTap: onEdit!),
+                          ),
+                        if (onEdit != null && publiclyAvailable)
+                          const SizedBox(width: 8),
+                        if (publiclyAvailable)
+                          AppFilteredOpacity(
+                            opacity: actionOpacity,
+                            child: _FavoriteButton(
+                              routeId: route.id,
+                              onToggle: onFavoriteToggle,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    if (height >= 260)
+                      AppFilteredOpacity(
+                        opacity: actionOpacity,
+                        child: Wrap(
+                          spacing: 6,
+                          runSpacing: 6,
+                          children: [
+                            for (final tag in chipTags.take(3))
+                              _RouteTag(label: tag),
                           ],
                         ),
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      AppFilteredOpacity(
-                        opacity: actionOpacity,
-                        child: AppGlassCircle(
-                          dimension: compact ? 50 : 56,
-                          blur: 12,
-                          fillColor: Colors.white.withValues(alpha: 0.3),
-                          borderColor: Colors.white.withValues(alpha: 0.34),
-                          contentColor: Colors.white,
-                          child: AppAssetIcon(
-                            AppIconography.arrow,
-                            color: Colors.white,
-                            size: compact ? 26 : 28,
+                    const Spacer(),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _RatingPill(route: route),
+                              const SizedBox(height: AppSpacing.xs),
+                              Text(
+                                route.name,
+                                maxLines: height >= 260 ? 2 : 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.routeTitle.copyWith(
+                                  color: Colors.white,
+                                  fontSize: compact ? 22 : 24,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              _RouteMetadata(route: route),
+                              if (!compact) ...[
+                                const SizedBox(height: AppSpacing.xs),
+                                _DifficultyRow(
+                                  bolts: bolts,
+                                  label: difficultyLabel(route.difficulty),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
+                        const SizedBox(width: AppSpacing.sm),
+                        AppFilteredOpacity(
+                          opacity: actionOpacity,
+                          child: AppGlassCircle(
+                            dimension: compact ? 50 : 56,
+                            blur: 12,
+                            fillColor: Colors.white.withValues(alpha: 0.3),
+                            borderColor: Colors.white.withValues(alpha: 0.34),
+                            contentColor: Colors.white,
+                            child: AppAssetIcon(
+                              AppIconography.arrow,
+                              color: Colors.white,
+                              size: compact ? 26 : 28,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

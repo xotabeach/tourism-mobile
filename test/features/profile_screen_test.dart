@@ -62,7 +62,7 @@ void main() {
     final rankRect = tester.getRect(
       find.byKey(const ValueKey('profile-rank-card')),
     );
-    expect(coverRect.bottom - rankRect.top, closeTo(24, 0.5));
+    expect(coverRect.bottom - rankRect.top, closeTo(26, 0.5));
     final statImages = tester
         .widgetList<Image>(
           find.descendant(
@@ -86,10 +86,13 @@ void main() {
     expect(find.text('Мои маршруты'), findsOneWidget);
     expect(find.text('Гора Чок-Сары-Кая'), findsOneWidget);
 
-    final pullGroup = find.byKey(const ValueKey('profile-pull-group'));
+    final pullRank = find.byKey(const ValueKey('profile-pull-rank'));
     expect(
-      tester.widget<Transform>(pullGroup).transform.storage[13],
+      tester.widget<Transform>(pullRank).transform.storage[13],
       closeTo(0, 0.01),
+    );
+    final fixedIdentity = tester.getTopLeft(
+      find.byKey(const ValueKey('profile-fixed-identity')),
     );
     final pullGesture = await tester.startGesture(
       tester.getCenter(find.byKey(const ValueKey('profile-cover'))),
@@ -97,8 +100,12 @@ void main() {
     await pullGesture.moveBy(const Offset(0, 100));
     await tester.pump();
     expect(
-      tester.widget<Transform>(pullGroup).transform.storage[13],
+      tester.widget<Transform>(pullRank).transform.storage[13],
       greaterThan(0),
+    );
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('profile-fixed-identity'))),
+      fixedIdentity,
     );
     await pullGesture.up();
     await tester.pumpAndSettle();

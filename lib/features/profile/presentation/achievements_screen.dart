@@ -87,6 +87,7 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     return SettingsScaffold(
       title: 'Достижения:',
       subtitle: 'Получено $unlockedCount из ${all.length}',
+      spaceChildren: false,
       children: [
         AppFilterChipBar(
           labels: const ['Все', 'Полученные'],
@@ -99,11 +100,13 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
             });
           },
         ),
+        const SizedBox(height: SettingsMetrics.rowGap),
         _AchievementSearchField(
           controller: _searchController,
           onChanged: (_) => setState(() {}),
           onClear: () => setState(() {}),
         ),
+        const SizedBox(height: SettingsMetrics.rowGap),
         if (visible.isEmpty)
           _EmptyAchievements(query: query)
         else
@@ -253,6 +256,7 @@ class _AchievementBadgeRow extends StatelessWidget {
           '${achievement.title}: ${achievement.description}. '
           '${unlocked ? 'Получено' : 'Заблокировано'}',
       child: SizedBox(
+        key: ValueKey('achievement-row-${achievement.id}'),
         width: double.infinity,
         child: AppPressableScale(
           borderRadius: AppRadii.card,
@@ -370,32 +374,36 @@ class _EmptyAchievements extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          const Icon(
-            Icons.emoji_events_outlined,
-            size: 48,
-            color: AppColors.secondaryInk,
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Text(
-            query.isEmpty ? 'Пока нет достижений' : 'Ничего не найдено',
-            textAlign: TextAlign.center,
-            style: AppTypography.sectionTitle,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            query.isEmpty
-                ? 'Проходите маршруты, чтобы открывать новые бейджи'
-                : 'Попробуйте изменить запрос',
-            textAlign: TextAlign.center,
-            style: AppTypography.routeMetadata.copyWith(
+    return SizedBox(
+      width: double.infinity,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.emoji_events_outlined,
+              size: 48,
               color: AppColors.secondaryInk,
             ),
-          ),
-        ],
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              query.isEmpty ? 'Пока нет достижений' : 'Ничего не найдено',
+              textAlign: TextAlign.center,
+              style: AppTypography.sectionTitle,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              query.isEmpty
+                  ? 'Проходите маршруты, чтобы открывать новые бейджи'
+                  : 'Попробуйте изменить запрос',
+              textAlign: TextAlign.center,
+              style: AppTypography.routeMetadata.copyWith(
+                color: AppColors.secondaryInk,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

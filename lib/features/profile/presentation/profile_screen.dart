@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -313,6 +314,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (profile.publishedRoutes.isNotEmpty)
                     _PublishedRoutesCarousel(
                       routes: profile.publishedRoutes,
+                      authorIsExpert: profile.isExpert,
                       showStatuses: isOwn,
                       pageIndex: _publishedPage,
                       authorAvatarUrl: profile.avatarImageUrl,
@@ -331,12 +333,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 }
-
-const _expertGradient = LinearGradient(
-  begin: Alignment.centerLeft,
-  end: Alignment.centerRight,
-  colors: [Color(0xFF2997FF), Color(0xFF9B51FF)],
-);
 
 class _ProfileLoadingView extends StatelessWidget {
   const _ProfileLoadingView({required this.topInset});
@@ -457,7 +453,7 @@ class _ProfileCover extends StatelessWidget {
     return DecoratedBox(
       key: const ValueKey('profile-cover'),
       decoration: BoxDecoration(
-        gradient: isExpert ? _expertGradient : null,
+        gradient: isExpert ? AppExpertStyle.gradient : null,
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(30)),
       ),
       child: Padding(
@@ -516,13 +512,12 @@ class _ProfileCollapsingHeader extends StatelessWidget {
   });
 
   /// Geometry measured from the 393 logical-pixel Figma export.
-  static const double coverBody = 144;
-  static const double rankCardHeight = 162;
-  static const double rankOverlap = 24;
+  static const double coverBody = 174;
+  static const double rankCardHeight = 190;
+  static const double rankOverlap = 26;
 
   static const double identityAboveRank = 16;
   static const double collapsedBar = 56;
-  static const double pullDownFactor = 0.18;
 
   final ProfileSnapshot profile;
   final double topInset;
@@ -551,7 +546,8 @@ class _ProfileCollapsingHeader extends StatelessWidget {
     return CollapsingHeroSliver(
       // Keep the collapsed bar pinned; the full hero stays in one sliver.
       pinned: true,
-      parallaxFactor: pullDownFactor,
+      parallaxFactor: 0.18,
+      clipBehavior: Clip.none,
       expandedHeight: expandedHeight,
       collapsedHeight: topInset + collapsedBar,
       collapsedColor: AppColors.pageSurface,
@@ -611,90 +607,93 @@ class _ProfileCollapsingHeader extends StatelessWidget {
         return Stack(
           fit: StackFit.expand,
           children: [
-            Transform.translate(
+            CollapseLayer(
               key: const ValueKey('profile-pull-group'),
-              offset: Offset(0, pullDownOffset * pullDownFactor),
-              child: CollapseLayer(
-                visibility: expandedVis,
-                scale: false,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: rankCardHeight - rankOverlap,
-                      child: ColoredBox(color: AppColors.pageSurface),
+              visibility: expandedVis,
+              scale: false,
+              child: Stack(
+                fit: StackFit.expand,
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: rankCardHeight - rankOverlap,
+                    child: Transform.translate(
+                      offset: Offset(0, pullDownOffset),
+                      child: const ColoredBox(color: AppColors.pageSurface),
                     ),
-                    // Identity remains inside the photo and clears the rank card.
-                    Positioned(
-                      left: AppSpacing.page,
-                      right: AppSpacing.page,
-                      bottom: rankCardHeight + identityAboveRank,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(
-                              gradient: isExpert
-                                  ? _expertGradient
-                                  : const LinearGradient(
-                                      colors: [Colors.white, Colors.white],
-                                    ),
-                              shape: BoxShape.circle,
-                            ),
-                            child: CircleAvatar(
-                              radius: 32,
-                              backgroundImage: avatarAsset,
-                              foregroundImage: avatarNetwork,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  profile.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.greeting.copyWith(
-                                    color: Colors.white,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w600,
+                  ),
+                  // Identity remains fixed to the cover during pull-to-refresh.
+                  Positioned(
+                    key: const ValueKey('profile-fixed-identity'),
+                    left: AppSpacing.page,
+                    right: AppSpacing.page,
+                    bottom: rankCardHeight + identityAboveRank,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            gradient: isExpert
+                                ? AppExpertStyle.gradient
+                                : const LinearGradient(
+                                    colors: [Colors.white, Colors.white],
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  profile.rank.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AppTypography.greetingSubtitle
-                                      .copyWith(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.88,
-                                        ),
-                                        fontSize: 14,
-                                      ),
-                                ),
-                              ],
-                            ),
+                            shape: BoxShape.circle,
                           ),
-                          if (action != null) ...[
-                            const SizedBox(width: AppSpacing.xs),
-                            action,
-                          ],
+                          child: CircleAvatar(
+                            radius: 32,
+                            backgroundImage: avatarAsset,
+                            foregroundImage: avatarNetwork,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                profile.displayName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.greeting.copyWith(
+                                  color: Colors.white,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                profile.rank.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.greetingSubtitle.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.88),
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (action != null) ...[
+                          const SizedBox(width: AppSpacing.xs),
+                          action,
                         ],
-                      ),
+                      ],
                     ),
-                    Positioned(
-                      left: AppSpacing.page,
-                      right: AppSpacing.page,
-                      bottom: 0,
-                      height: rankCardHeight,
+                  ),
+                  Positioned(
+                    left: AppSpacing.page,
+                    right: AppSpacing.page,
+                    bottom: 0,
+                    height: rankCardHeight,
+                    child: Transform.translate(
+                      key: const ValueKey('profile-pull-rank'),
+                      offset: Offset(0, pullDownOffset),
                       child: _RankCard(
                         rank: profile.rank,
                         followersCount: profile.followersCount,
@@ -703,8 +702,8 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                         isExpert: isExpert,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             CollapseLayer(
@@ -824,7 +823,7 @@ class _RankCard extends StatelessWidget {
         padding: EdgeInsets.all(isExpert ? 2 : 0),
         decoration: BoxDecoration(
           color: isExpert ? null : AppColors.elevatedSurface,
-          gradient: isExpert ? _expertGradient : null,
+          gradient: isExpert ? AppExpertStyle.gradient : null,
           borderRadius: BorderRadius.circular(AppRadii.card),
           boxShadow: AppShadows.tile,
         ),
@@ -834,7 +833,7 @@ class _RankCard extends StatelessWidget {
             borderRadius: BorderRadius.circular(AppRadii.card - 2),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -862,13 +861,13 @@ class _RankCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 9),
+                const SizedBox(height: 12),
                 const Divider(
                   height: 1,
                   thickness: 1,
                   color: Color(0xFFE8E8E8),
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     Text(
@@ -894,20 +893,20 @@ class _RankCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 10),
                 const Divider(
                   height: 1,
                   thickness: 1,
                   color: Color(0xFFE8E8E8),
                 ),
-                const SizedBox(height: 9),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(AppRadii.capsule),
                         child: SizedBox(
-                          height: 27,
+                          height: 30,
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
@@ -940,7 +939,7 @@ class _RankCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      height: 27,
+                      height: 30,
                       alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       decoration: BoxDecoration(
@@ -984,8 +983,8 @@ class _FollowStatBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 46,
-      padding: const EdgeInsets.fromLTRB(11, 5, 11, 5),
+      height: 54,
+      padding: const EdgeInsets.fromLTRB(11, 7, 11, 7),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: AppColors.primaryInk, width: 2),
@@ -1010,18 +1009,18 @@ class _FollowStatBox extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.greeting.copyWith(
-                    fontSize: 14,
+                    fontSize: 15,
                     fontWeight: FontWeight.w400,
                     height: 1,
                   ),
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 4),
                 Text(
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.greetingSubtitle.copyWith(
-                    fontSize: 11,
+                    fontSize: 12,
                     height: 1,
                     color: AppColors.secondaryInk,
                   ),
@@ -1226,6 +1225,7 @@ class _PublishedRoutesCarousel extends StatelessWidget {
     required this.pageIndex,
     required this.onPageChanged,
     required this.showStatuses,
+    required this.authorIsExpert,
     this.authorAvatarUrl,
   });
 
@@ -1233,6 +1233,7 @@ class _PublishedRoutesCarousel extends StatelessWidget {
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
   final bool showStatuses;
+  final bool authorIsExpert;
   final String? authorAvatarUrl;
 
   @override
@@ -1258,6 +1259,7 @@ class _PublishedRoutesCarousel extends StatelessWidget {
                       : const [],
                   interactive: true,
                   authorAvatarUrl: authorAvatarUrl,
+                  authorIsExpert: authorIsExpert,
                   onEdit: showStatuses
                       ? () => context.pushNamed(AppRouteNames.routePublish)
                       : null,

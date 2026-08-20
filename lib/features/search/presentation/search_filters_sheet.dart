@@ -154,6 +154,22 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                       showCheckmark: false,
                       label: Text(tag),
                       selected: _filters.tags.contains(tag),
+                      labelStyle: AppTypography.chip.copyWith(
+                        color: _filters.tags.contains(tag)
+                            ? Colors.white
+                            : AppColors.primaryInk,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      backgroundColor: AppColors.controlSurface,
+                      selectedColor: AppColors.accentBlue,
+                      side: BorderSide(
+                        color: _filters.tags.contains(tag)
+                            ? AppColors.accentBlue
+                            : AppColors.hairline,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                       onSelected: (selected) {
                         final tags = {..._filters.tags};
                         if (selected) {

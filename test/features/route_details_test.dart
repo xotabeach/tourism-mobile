@@ -479,6 +479,11 @@ void main() {
       find.descendant(of: list, matching: find.byType(RouteHeroCard)),
       findsWidgets,
     );
+    final cardSize = tester.getSize(
+      find.descendant(of: list, matching: find.byType(RouteHeroCard)).first,
+    );
+    expect(cardSize, const Size(250, 210));
+    expect(cardSize.width / cardSize.height, closeTo(361 / 304, 0.01));
     expect(
       find.descendant(of: list, matching: find.byType(Hero)),
       findsNothing,

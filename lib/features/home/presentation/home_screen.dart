@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -579,55 +580,65 @@ class _TopTravelerCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(AppRadii.tile + 6),
           boxShadow: AppShadows.tile,
         ),
-        child: Material(
-          color: Colors.white,
+        child: AppExpertFrame(
+          isExpert: traveler.isExpert,
           borderRadius: BorderRadius.circular(AppRadii.tile),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
+          child: Material(
+            color: Colors.white,
             borderRadius: BorderRadius.circular(AppRadii.tile),
-            onTap: () => unawaited(
-              context.pushNamed(
-                AppRouteNames.userProfile,
-                pathParameters: {'userId': traveler.id},
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(AppRadii.tile),
+              onTap: () => unawaited(
+                context.pushNamed(
+                  AppRouteNames.userProfile,
+                  pathParameters: {'userId': traveler.id},
+                ),
               ),
-            ),
-            child: SizedBox(
-              height: 116,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: ringColor, width: 2),
+              child: SizedBox(
+                height: 116,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(6, 12, 6, 10),
+                  child: Column(
+                    children: [
+                      SizedBox.square(
+                        dimension: 54,
+                        child: AppExpertFrame(
+                          isExpert: traveler.isExpert,
+                          borderRadius: BorderRadius.circular(999),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: traveler.isExpert
+                                  ? null
+                                  : Border.all(color: ringColor, width: 2),
+                            ),
+                            child: CircleAvatar(
+                              backgroundColor: AppColors.mistDark,
+                              backgroundImage: avatar,
+                            ),
+                          ),
+                        ),
                       ),
-                      child: CircleAvatar(
-                        backgroundColor: AppColors.mistDark,
-                        backgroundImage: avatar,
+                      const SizedBox(height: 5),
+                      Text(
+                        'ТОП $place',
+                        style: AppTypography.chip.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text(
-                      'ТОП $place',
-                      style: AppTypography.chip.copyWith(
-                        fontWeight: FontWeight.w600,
+                      Text(
+                        _formatTravelPoints(traveler.travelPoints),
+                        style: AppTypography.routeMetadata.copyWith(
+                          color: AppColors.secondaryInk,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      _formatTravelPoints(traveler.travelPoints),
-                      style: AppTypography.routeMetadata.copyWith(
-                        color: AppColors.secondaryInk,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

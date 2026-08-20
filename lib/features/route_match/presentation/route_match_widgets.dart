@@ -682,12 +682,6 @@ class CityQuickChips extends StatelessWidget {
             },
           ),
         ),
-        SizedBox(height: px(1)),
-        Divider(
-          height: px(1),
-          thickness: px(1),
-          color: RouteBuilderDesignTokens.lightBorder,
-        ),
       ],
     );
   }

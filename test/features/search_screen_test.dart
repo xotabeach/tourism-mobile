@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/search/application/search_history_provider.dart';
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
@@ -119,6 +120,33 @@ void main() {
     await tester.tap(find.text('Пользователи'));
     await tester.pump();
     expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+  });
+
+  testWidgets('filter tags stay readable before and after selection', (
+    tester,
+  ) async {
+    await pumpApp(tester);
+
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
+    await tester.pumpAndSettle();
+    final sheet = find.byKey(const ValueKey('search-filters-sheet-content'));
+    final seaTag = find.descendant(of: sheet, matching: find.text('Море'));
+    await tester.scrollUntilVisible(
+      seaTag,
+      300,
+      scrollable: find
+          .descendant(of: sheet, matching: find.byType(Scrollable))
+          .first,
+    );
+
+    FilterChip tagChip() => tester.widget<FilterChip>(
+      find.ancestor(of: seaTag, matching: find.byType(FilterChip)),
+    );
+    expect(tagChip().labelStyle?.color, AppColors.primaryInk);
+
+    await tester.tap(seaTag);
+    await tester.pump();
+    expect(tagChip().labelStyle?.color, Colors.white);
   });
 
   testWidgets('dragging the filter sheet handle down dismisses the sheet', (

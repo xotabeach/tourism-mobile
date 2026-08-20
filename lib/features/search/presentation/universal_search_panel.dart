@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -139,6 +140,7 @@ class DiscoveryProfileCard extends ConsumerWidget {
       height: height,
       background: _profileCoverBackground(config, profile),
       hasImage: true,
+      isExpert: profile.isExpert,
       onTap: onTap,
       leading: CircleAvatar(
         radius: 32,
@@ -174,6 +176,7 @@ class DiscoveryRouteCard extends ConsumerWidget {
       height: height,
       background: _mediaBackground(config, route.coverImageUrl),
       hasImage: route.coverImageUrl != null && route.coverImageUrl!.isNotEmpty,
+      isExpert: route.authorIsExpert,
       onTap: onTap,
       leading: const CircleAvatar(
         radius: 32,
@@ -207,6 +210,7 @@ class DiscoveryPlaceCard extends StatelessWidget {
       height: height,
       background: const ColoredBox(color: AppColors.controlSurface),
       hasImage: false,
+      isExpert: false,
       onTap: onTap,
       leading: const CircleAvatar(
         radius: 32,
@@ -224,6 +228,7 @@ class _DiscoveryCardShell extends StatelessWidget {
     required this.height,
     required this.background,
     required this.hasImage,
+    required this.isExpert,
     required this.leading,
     required this.title,
     required this.subtitle,
@@ -233,6 +238,7 @@ class _DiscoveryCardShell extends StatelessWidget {
   final double height;
   final Widget background;
   final bool hasImage;
+  final bool isExpert;
   final Widget leading;
   final String title;
   final String subtitle;
@@ -247,87 +253,106 @@ class _DiscoveryCardShell extends StatelessWidget {
     return Semantics(
       button: true,
       label: '$title, $subtitle',
-      child: Material(
-        color: Colors.transparent,
+      child: AppExpertFrame(
+        isExpert: isExpert,
         borderRadius: BorderRadius.circular(16),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap,
-          child: SizedBox(
-            height: height,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                background,
-                if (hasImage)
-                  const DecoratedBox(
-                    decoration: BoxDecoration(color: Color(0x52000000)),
-                  ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.2),
-                        ),
-                        child: leading,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              title,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.settingsRowTitle.copyWith(
-                                color: foreground,
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                              ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: height,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  background,
+                  if (hasImage)
+                    const DecoratedBox(
+                      decoration: BoxDecoration(color: Color(0x52000000)),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Row(
+                      children: [
+                        AppExpertFrame(
+                          isExpert: isExpert,
+                          borderRadius: BorderRadius.circular(999),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: isExpert
+                                  ? null
+                                  : Border.all(color: Colors.white, width: 1.2),
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              subtitle,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTypography.settingsRowSubtitle.copyWith(
-                                color: secondary,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: hasImage
-                              ? Colors.white.withValues(alpha: 0.32)
-                              : AppColors.controlSurface,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: hasImage
-                                ? Colors.white.withValues(alpha: 0.8)
-                                : AppColors.hairline,
+                            child: leading,
                           ),
                         ),
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
-                          color: foreground,
-                          size: 27,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.settingsRowTitle
+                                          .copyWith(
+                                            color: foreground,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                  if (isExpert) ...[
+                                    const SizedBox(width: 7),
+                                    const AppExpertBadge(compact: true),
+                                  ],
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.settingsRowSubtitle
+                                    .copyWith(color: secondary, fontSize: 13),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 8),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: hasImage
+                                ? Colors.white.withValues(alpha: 0.32)
+                                : AppColors.controlSurface,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: hasImage
+                                  ? Colors.white.withValues(alpha: 0.8)
+                                  : AppColors.hairline,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            color: foreground,
+                            size: 27,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),

@@ -64,6 +64,7 @@ class CollapsingHeroSliver extends StatelessWidget {
     this.collapsedColor = AppColors.elevatedSurface,
     this.background,
     this.pinned = true,
+    this.clipBehavior = Clip.hardEdge,
     super.key,
   });
 
@@ -73,6 +74,7 @@ class CollapsingHeroSliver extends StatelessWidget {
   final double parallaxFactor;
   final Color collapsedColor;
   final bool pinned;
+  final Clip clipBehavior;
 
   /// Optional media layer drawn behind overlays with parallax + fade.
   ///
@@ -91,6 +93,7 @@ class CollapsingHeroSliver extends StatelessWidget {
         parallaxFactor: parallaxFactor,
         collapsedColor: collapsedColor,
         background: background,
+        clipBehavior: clipBehavior,
       ),
     );
   }
@@ -104,6 +107,7 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
     required this.parallaxFactor,
     required this.collapsedColor,
     required this.background,
+    required this.clipBehavior,
   });
 
   final double expandedHeight;
@@ -112,6 +116,7 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
   final double parallaxFactor;
   final Color collapsedColor;
   final Widget? background;
+  final Clip clipBehavior;
 
   @override
   double get maxExtent => expandedHeight;
@@ -142,6 +147,7 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
     return SizedBox(
       height: currentExtent,
       child: ClipRect(
+        clipBehavior: clipBehavior,
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -178,6 +184,7 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
         parallaxFactor != oldDelegate.parallaxFactor ||
         collapsedColor != oldDelegate.collapsedColor ||
         background != oldDelegate.background ||
+        clipBehavior != oldDelegate.clipBehavior ||
         builder != oldDelegate.builder;
   }
 }

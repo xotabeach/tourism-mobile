@@ -65,6 +65,7 @@ class RouteSummary {
     this.coverImageUrl,
     this.ownerUserId,
     this.authorAvatarUrl,
+    this.authorIsExpert = false,
     this.source,
     this.visibility,
     this.lifecycleStatus,
@@ -85,6 +86,7 @@ class RouteSummary {
   final String? coverImageUrl;
   final String? ownerUserId;
   final String? authorAvatarUrl;
+  final bool authorIsExpert;
   final String? source;
   final String? visibility;
   final String? lifecycleStatus;
@@ -106,6 +108,7 @@ class RouteSummary {
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorIsExpert: json['author_is_expert'] as bool? ?? false,
       source: json['source'] as String?,
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,
@@ -155,6 +158,7 @@ class RouteDetail extends RouteSummary {
     super.coverImageUrl,
     super.ownerUserId,
     super.authorAvatarUrl,
+    super.authorIsExpert,
     super.source,
     super.visibility,
     super.lifecycleStatus,
@@ -186,6 +190,7 @@ class RouteDetail extends RouteSummary {
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorIsExpert: json['author_is_expert'] as bool? ?? false,
       source: json['source'] as String?,
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,

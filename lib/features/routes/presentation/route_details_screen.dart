@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -221,6 +222,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           config: config,
                           avatarUrl: route.authorAvatarUrl,
                         ),
+                        isExpert: route.authorIsExpert,
                         onAuthorTap: onAuthorTap,
                         onMore: () => _showSoon('Меню маршрута'),
                       ),
@@ -619,9 +621,10 @@ ImageProvider _routeCover(AppConfig config, RouteSummary route) {
 class _SimilarRoutesSection extends ConsumerWidget {
   const _SimilarRoutesSection({required this.currentRouteId});
 
-  static const double cardHeight = 260;
-  static const double cardWidth = 292;
-  static const double sectionHeight = 328;
+  // Compact version of the shared 361×304 route-card proportion.
+  static const double cardHeight = 210;
+  static const double cardWidth = 250;
+  static const double sectionHeight = 278;
   static const int maxItems = 6;
 
   final String currentRouteId;
@@ -721,6 +724,7 @@ class _AuthorRow extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.avatar,
+    required this.isExpert,
     required this.onMore,
     this.onAuthorTap,
   });
@@ -728,6 +732,7 @@ class _AuthorRow extends StatelessWidget {
   final String name;
   final String subtitle;
   final ImageProvider avatar;
+  final bool isExpert;
   final VoidCallback onMore;
   final VoidCallback? onAuthorTap;
 
@@ -741,23 +746,40 @@ class _AuthorRow extends StatelessWidget {
             onTap: onAuthorTap,
             child: Row(
               children: [
-                CircleAvatar(radius: 24, backgroundImage: avatar),
+                SizedBox.square(
+                  dimension: 48,
+                  child: AppExpertFrame(
+                    isExpert: isExpert,
+                    borderRadius: BorderRadius.circular(999),
+                    child: CircleAvatar(backgroundImage: avatar),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                          color: AppColors.primaryInk,
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontFamily: AppFonts.rubik,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                height: 1.2,
+                                color: AppColors.primaryInk,
+                              ),
+                            ),
+                          ),
+                          if (isExpert) ...[
+                            const SizedBox(width: 7),
+                            const AppExpertBadge(compact: true),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 2),
                       Text(

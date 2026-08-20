@@ -52,6 +52,13 @@ void main() {
 
     expect(find.text('Ура Советам'), findsOneWidget);
     expect(find.byIcon(Icons.close_rounded), findsWidgets);
+    final firstRow = tester.getRect(
+      find.byKey(const ValueKey('achievement-row-ach-marathoner')),
+    );
+    final secondRow = tester.getRect(
+      find.byKey(const ValueKey('achievement-row-ach-same-way')),
+    );
+    expect(secondRow.top - firstRow.bottom, closeTo(6, 0.1));
   });
 
   testWidgets('achievements screen filters by segment and search', (
@@ -82,5 +89,13 @@ void main() {
     await tester.tap(find.byIcon(Icons.close_rounded).last);
     await tester.pumpAndSettle();
     expect(find.text('Ранняя пташка'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).last, 'нет такого бейджа');
+    await tester.pumpAndSettle();
+    expect(find.text('Ничего не найдено'), findsOneWidget);
+    expect(
+      tester.getCenter(find.text('Ничего не найдено')).dx,
+      closeTo(393 / 2, 0.5),
+    );
   });
 }

@@ -212,7 +212,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final title = tester.widget<Text>(card);
-    expect(title.maxLines, 2);
+    expect(title.maxLines, 1);
     expect(title.overflow, TextOverflow.ellipsis);
     expect(tester.takeException(), isNull);
   });
