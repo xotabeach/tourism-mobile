@@ -574,7 +574,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                 onTap: onLike!,
                 fillColor: Colors.black.withValues(alpha: 0.35),
                 iconColor: Colors.white,
-                iconWidget: AppFavoriteIcon(selected: likedByMe, size: 22),
+                iconWidget: AppFavoriteIcon(selected: likedByMe, size: 18),
               )
             : onMore != null
             ? _HeaderActionButton(
@@ -590,7 +590,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                 semanticLabel: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
                 iconWidget: AppFavoriteIcon(
                   selected: likedByMe,
-                  size: 22,
+                  size: 18,
                   color: AppColors.primaryInk,
                 ),
                 onPhoto: false,
