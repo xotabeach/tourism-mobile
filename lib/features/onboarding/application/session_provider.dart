@@ -27,6 +27,10 @@ class SessionState {
     this.travelPlusActive = false,
     this.travelPlusPlan,
     this.travelPlusExpiresAt,
+    this.aiChatEnabled = false,
+    this.maxRoutePoints = 5,
+    this.alternativesCount = 1,
+    this.advancedFiltersEnabled = false,
     this.otpConsentsRequired = true,
   });
 
@@ -44,6 +48,10 @@ class SessionState {
   final bool travelPlusActive;
   final String? travelPlusPlan;
   final DateTime? travelPlusExpiresAt;
+  final bool aiChatEnabled;
+  final int maxRoutePoints;
+  final int alternativesCount;
+  final bool advancedFiltersEnabled;
   final bool otpConsentsRequired;
 
   bool get isAuthenticated =>
@@ -64,6 +72,10 @@ class SessionState {
     bool? travelPlusActive,
     String? travelPlusPlan,
     DateTime? travelPlusExpiresAt,
+    bool? aiChatEnabled,
+    int? maxRoutePoints,
+    int? alternativesCount,
+    bool? advancedFiltersEnabled,
     bool? otpConsentsRequired,
     bool clearAccessToken = false,
     bool clearAvatarUrl = false,
@@ -90,6 +102,11 @@ class SessionState {
       travelPlusExpiresAt: clearTravelPlusExpiresAt
           ? null
           : (travelPlusExpiresAt ?? this.travelPlusExpiresAt),
+      aiChatEnabled: aiChatEnabled ?? this.aiChatEnabled,
+      maxRoutePoints: maxRoutePoints ?? this.maxRoutePoints,
+      alternativesCount: alternativesCount ?? this.alternativesCount,
+      advancedFiltersEnabled:
+          advancedFiltersEnabled ?? this.advancedFiltersEnabled,
       otpConsentsRequired: otpConsentsRequired ?? this.otpConsentsRequired,
     );
   }
@@ -212,6 +229,13 @@ class SessionController extends StateNotifier<SessionState> {
       notifyPushEnabled: me.notifyPushEnabled,
       notifySmsEnabled: me.notifySmsEnabled,
       notifyHapticsEnabled: me.notifyHapticsEnabled,
+      travelPlusActive: me.travelPlusActive,
+      travelPlusPlan: me.travelPlusPlan,
+      travelPlusExpiresAt: me.travelPlusExpiresAt,
+      aiChatEnabled: me.aiChatEnabled,
+      maxRoutePoints: me.maxRoutePoints,
+      alternativesCount: me.alternativesCount,
+      advancedFiltersEnabled: me.advancedFiltersEnabled,
     );
   }
 
@@ -321,6 +345,10 @@ class SessionController extends StateNotifier<SessionState> {
       travelPlusActive: me.travelPlusActive,
       travelPlusPlan: me.travelPlusPlan,
       travelPlusExpiresAt: me.travelPlusExpiresAt,
+      aiChatEnabled: me.aiChatEnabled,
+      maxRoutePoints: me.maxRoutePoints,
+      alternativesCount: me.alternativesCount,
+      advancedFiltersEnabled: me.advancedFiltersEnabled,
       clearAvatarUrl: me.avatarUrl == null,
       clearCoverUrl: me.coverUrl == null,
       clearTravelPlusPlan: me.travelPlusPlan == null,
@@ -380,6 +408,10 @@ class SessionController extends StateNotifier<SessionState> {
         travelPlusActive: me.travelPlusActive,
         travelPlusPlan: me.travelPlusPlan,
         travelPlusExpiresAt: me.travelPlusExpiresAt,
+        aiChatEnabled: me.aiChatEnabled,
+        maxRoutePoints: me.maxRoutePoints,
+        alternativesCount: me.alternativesCount,
+        advancedFiltersEnabled: me.advancedFiltersEnabled,
         clearAvatarUrl: me.avatarUrl == null,
         clearCoverUrl: me.coverUrl == null,
         clearTravelPlusPlan: me.travelPlusPlan == null,

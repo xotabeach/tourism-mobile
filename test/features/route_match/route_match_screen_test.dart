@@ -68,6 +68,14 @@ void main() {
     expect(find.text('КРЫМТРИП'), findsOneWidget);
     expect(find.text('ПОСТРОЙ МАРШРУТ'), findsOneWidget);
     expect(find.text('По параметрам'), findsOneWidget);
+    expect(find.text('Сезон:'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Подобрать маршрут'),
+      280,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pump();
     expect(find.text('Подобрать маршрут'), findsOneWidget);
 
     await tester.scrollUntilVisible(

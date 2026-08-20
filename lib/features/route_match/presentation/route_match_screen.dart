@@ -6,12 +6,16 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_safety.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_topic.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Подбор маршрута — форма по параметрам + чат «Подбор с ИИ».
@@ -44,8 +48,15 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   int _people = 2;
   final Set<String> _interests = {'Природа'};
   RoutePace _pace = RoutePace.calm;
+  String? _season;
+  RouteTransportMode? _transportMode;
+  RouteDayKind _dayKind = RouteDayKind.any;
+  bool _withChildren = false;
+  bool _withPets = false;
+  bool _avoidCrowds = false;
 
   final _cityController = TextEditingController();
+  final _budgetController = TextEditingController();
   final _cityFocus = FocusNode(debugLabel: 'route-match-city');
   final _aiController = TextEditingController();
   final _aiFocus = FocusNode(debugLabel: 'route-match-ai');
@@ -143,6 +154,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cityController.dispose();
+    _budgetController.dispose();
     _cityFocus.dispose();
     _aiController.dispose();
     _aiFocus
@@ -286,16 +298,129 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
     setState(() => _matching = true);
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 280));
+      final params = _buildMatchParams(city: city);
+      final result = await ref.read(routeMatchRepositoryProvider).match(params);
       if (!mounted) {
         return;
       }
+      ref.read(lastRouteMatchResultProvider.notifier).state = result;
+      ref.read(lastRouteMatchParamsProvider.notifier).state = params;
       unawaited(context.pushNamed(AppRouteNames.routeMatchResults));
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } finally {
       if (mounted) {
         setState(() => _matching = false);
       }
     }
+  }
+
+  RouteMatchParams _buildMatchParams({required String city}) {
+    final session = ref.read(sessionProvider);
+    final advanced = session.advancedFiltersEnabled || session.travelPlusActive;
+    final budgetRaw = _budgetController.text.trim();
+    final budget = budgetRaw.isEmpty ? null : int.tryParse(budgetRaw);
+    return RouteMatchParams(
+      city: city,
+      tripType: _tripType,
+      duration: _duration,
+      people: _people,
+      interests: _interests.toList(growable: false),
+      pace: _pace,
+      season: _season,
+      transportMode: _transportMode?.apiValue,
+      dayKind: _dayKind == RouteDayKind.any ? null : _dayKind.apiValue,
+      budgetAmount: advanced ? budget : null,
+      withChildren: advanced && _withChildren ? true : null,
+      withPets: advanced && _withPets ? true : null,
+      avoidCrowds: advanced && _avoidCrowds ? true : null,
+    );
+  }
+
+  RouteChatMessage _agentProposalMessage(RouteProposal proposal) {
+    final card = proposal.cardData;
+    return RouteChatMessage(
+      fromAgent: true,
+      text: proposal.assistantText,
+      time: _nowTime(),
+      proposalId: card.proposalId,
+      proposalTitle: card.title,
+      proposalStopsCount: card.stopsCount,
+      proposalDurationMinutes: card.durationMinutes,
+      proposalCoverUrl: card.coverUrl,
+    );
+  }
+
+  Future<void> _acceptProposal(
+    String proposalId, {
+    required String message,
+  }) async {
+    try {
+      final result = await ref
+          .read(routeMatchRepositoryProvider)
+          .acceptProposal(proposalId);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+      final routeId = result.routeId;
+      if (routeId != null && routeId.isNotEmpty) {
+        final userId = ref.read(sessionProvider).userId;
+        unawaited(
+          context.pushNamed(
+            AppRouteNames.routeDetails,
+            pathParameters: {'id': routeId},
+            extra: RouteSummary(
+              id: routeId,
+              name: 'Сгенерированный маршрут',
+              slug: 'generated',
+              shortDescription: null,
+              stopsCount: 0,
+              ownerUserId: userId,
+              publicationStatus: 'draft',
+              visibility: 'private',
+              source: 'generated',
+            ),
+          ),
+        );
+      }
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
+  void _onProposalRefine(String _) {
+    setState(() {
+      _messages.add(
+        RouteChatMessage(
+          fromAgent: true,
+          text: 'Что хотите изменить — город, темп, интересы или длительность?',
+          time: _nowTime(),
+        ),
+      );
+    });
+    _scrollAiToEnd();
+  }
+
+  void _showChatFailure(AppFailure error) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(error.message)));
   }
 
   void _onAiCtaPressed() {
@@ -351,33 +476,29 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
 
     setState(() => _typing = true);
     _scrollAiToEnd();
-    await Future<void>.delayed(const Duration(milliseconds: 700));
-    if (!mounted) {
-      return;
+    try {
+      final params = _buildMatchParams(city: _city?.trim() ?? 'Ялта');
+      final result = await ref
+          .read(routeMatchRepositoryProvider)
+          .generate(channel: 'chat', params: params);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _typing = false;
+        _sending = false;
+        _messages.add(_agentProposalMessage(result.proposal));
+      });
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _typing = false;
+        _sending = false;
+      });
+      _showChatFailure(error);
     }
-
-    final contextBits = <String>[
-      if (_city != null) 'старт: $_city',
-      if (_tripType != null) 'тип: ${_tripType!.name}',
-      'длительность: ${_duration.name}',
-      'люди: $_people',
-      if (_interests.isNotEmpty) 'интересы: ${_interests.join(", ")}',
-      'темп: ${_pace.name}',
-    ].join('; ');
-
-    setState(() {
-      _typing = false;
-      _sending = false;
-      _messages.add(
-        RouteChatMessage(
-          fromAgent: true,
-          text:
-              'Принял. Учту пожелания и параметры ($contextBits). '
-              'Соберу спокойный черновик маршрута без опасных активностей.',
-          time: _nowTime(),
-        ),
-      );
-    });
     _scrollAiToEnd();
   }
 
@@ -416,6 +537,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     final bottom = MediaQuery.paddingOf(context).bottom;
     final top = MediaQuery.paddingOf(context).top;
     final shellNavPad = px(56 + 10) + bottom;
+    final session = ref.watch(sessionProvider);
+    final showAdvanced =
+        session.advancedFiltersEnabled || session.travelPlusActive;
 
     final body = MediaQuery(
       data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
@@ -457,9 +581,23 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             onSend: () {
                               unawaited(_sendAiMessage());
                             },
+                            onProposalCreate: (id) {
+                              unawaited(
+                                _acceptProposal(id, message: 'Маршрут создан'),
+                              );
+                            },
+                            onProposalSaveDraft: (id) {
+                              unawaited(
+                                _acceptProposal(
+                                  id,
+                                  message: 'Маршрут сохранён в черновик',
+                                ),
+                              );
+                            },
+                            onProposalRefine: _onProposalRefine,
                             bottomInset: px(8),
                           )
-                        : _buildParams(px, shellNavPad),
+                        : _buildParams(px, shellNavPad, showAdvanced),
                   ),
                 ),
                 Positioned(
@@ -482,7 +620,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     return AppEdgeBackGesture(onBack: _goBack, child: body);
   }
 
-  Widget _buildParams(RoutePx px, double bottomPad) {
+  Widget _buildParams(RoutePx px, double bottomPad, bool showAdvanced) {
     final suggestions = _filteredSuggestions;
     return ListView(
       key: const ValueKey('route-match-params-scroll'),
@@ -597,6 +735,51 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             onChanged: (value) => setState(() => _pace = value),
           ),
         ),
+        SizedBox(height: px(21)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: px(16)),
+          child: SeasonSelector(
+            px: px,
+            value: _season,
+            onChanged: (value) => setState(() => _season = value),
+          ),
+        ),
+        SizedBox(height: px(21)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: px(16)),
+          child: TransportSelector(
+            px: px,
+            value: _transportMode,
+            onChanged: (value) => setState(() => _transportMode = value),
+          ),
+        ),
+        SizedBox(height: px(21)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: px(16)),
+          child: DayKindSelector(
+            px: px,
+            value: _dayKind,
+            onChanged: (value) => setState(() => _dayKind = value),
+          ),
+        ),
+        if (showAdvanced) ...[
+          SizedBox(height: px(21)),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: px(16)),
+            child: AdvancedMatchOptions(
+              px: px,
+              budgetController: _budgetController,
+              withChildren: _withChildren,
+              withPets: _withPets,
+              avoidCrowds: _avoidCrowds,
+              onWithChildrenChanged: (value) =>
+                  setState(() => _withChildren = value),
+              onWithPetsChanged: (value) => setState(() => _withPets = value),
+              onAvoidCrowdsChanged: (value) =>
+                  setState(() => _avoidCrowds = value),
+            ),
+          ),
+        ],
         SizedBox(height: px(17)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: px(16)),

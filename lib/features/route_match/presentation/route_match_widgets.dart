@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 typedef RoutePx = double Function(double);
 
@@ -19,18 +20,38 @@ enum RouteDurationOption { d1_2, d3_5, d6_7, d7plus }
 
 enum RoutePace { calm, moderate, active }
 
+enum RouteDayKind { any, weekday, weekend }
+
+enum RouteTransportMode { walk, car, publicTransport, mixed }
+
 class RouteChatMessage {
   const RouteChatMessage({
     required this.fromAgent,
     required this.text,
     required this.time,
     this.isCrisis = false,
+    this.proposalId,
+    this.proposalTitle,
+    this.proposalStopsCount,
+    this.proposalDurationMinutes,
+    this.proposalCoverUrl,
   });
 
   final bool fromAgent;
   final String text;
   final String time;
   final bool isCrisis;
+  final String? proposalId;
+  final String? proposalTitle;
+  final int? proposalStopsCount;
+  final int? proposalDurationMinutes;
+  final String? proposalCoverUrl;
+
+  bool get hasProposalCard =>
+      proposalId != null &&
+      proposalTitle != null &&
+      proposalStopsCount != null &&
+      proposalDurationMinutes != null;
 }
 
 // ── Header ──────────────────────────────────────────────────────────────────
@@ -1581,6 +1602,334 @@ class _PaceCard extends StatelessWidget {
   }
 }
 
+// ── Season / transport / day kind / advanced ────────────────────────────────
+
+class SeasonSelector extends StatelessWidget {
+  const SeasonSelector({
+    required this.px,
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final RoutePx px;
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  static const _options = ['весна', 'лето', 'осень', 'зима'];
+
+  @override
+  Widget build(BuildContext context) {
+    return _LabeledChipRow(
+      px: px,
+      title: 'Сезон:',
+      options: _options,
+      selected: value,
+      onSelected: (option) => onChanged(option == value ? null : option),
+    );
+  }
+}
+
+class TransportSelector extends StatelessWidget {
+  const TransportSelector({
+    required this.px,
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final RoutePx px;
+  final RouteTransportMode? value;
+  final ValueChanged<RouteTransportMode?> onChanged;
+
+  static const _options = <(RouteTransportMode, String)>[
+    (RouteTransportMode.walk, 'Пешком'),
+    (RouteTransportMode.car, 'Авто'),
+    (RouteTransportMode.publicTransport, 'Общ. трансп.'),
+    (RouteTransportMode.mixed, 'Смешанный'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(bottom: px(12)),
+          child: Text(
+            'Транспорт:',
+            style: RouteBuilderDesignTokens.rubik(
+              fontSize: px(18),
+              weight: FontWeight.w700,
+              color: RouteBuilderDesignTokens.textPrimary,
+              height: 1.1,
+            ),
+          ),
+        ),
+        Wrap(
+          spacing: px(8),
+          runSpacing: px(9),
+          children: [
+            for (final entry in _options)
+              _InterestChip(
+                px: px,
+                label: entry.$2,
+                selected: value == entry.$1,
+                onTap: () => onChanged(value == entry.$1 ? null : entry.$1),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+extension RouteTransportModeJson on RouteTransportMode {
+  String get apiValue => switch (this) {
+    RouteTransportMode.walk => 'walk',
+    RouteTransportMode.car => 'car',
+    RouteTransportMode.publicTransport => 'public',
+    RouteTransportMode.mixed => 'mixed',
+  };
+}
+
+class DayKindSelector extends StatelessWidget {
+  const DayKindSelector({
+    required this.px,
+    required this.value,
+    required this.onChanged,
+    super.key,
+  });
+
+  final RoutePx px;
+  final RouteDayKind value;
+  final ValueChanged<RouteDayKind> onChanged;
+
+  static const _options = <(RouteDayKind, String)>[
+    (RouteDayKind.any, 'Любой'),
+    (RouteDayKind.weekday, 'Будни'),
+    (RouteDayKind.weekend, 'Выходные'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return _LabeledChipRow(
+      px: px,
+      title: 'День поездки:',
+      options: _options.map((e) => e.$2).toList(),
+      selected: _options.firstWhere((e) => e.$1 == value).$2,
+      onSelected: (label) {
+        final match = _options.where((e) => e.$2 == label).firstOrNull;
+        if (match != null) {
+          onChanged(match.$1);
+        }
+      },
+    );
+  }
+}
+
+extension RouteDayKindJson on RouteDayKind {
+  String get apiValue => name;
+}
+
+class AdvancedMatchOptions extends StatelessWidget {
+  const AdvancedMatchOptions({
+    required this.px,
+    required this.budgetController,
+    required this.withChildren,
+    required this.withPets,
+    required this.avoidCrowds,
+    required this.onWithChildrenChanged,
+    required this.onWithPetsChanged,
+    required this.onAvoidCrowdsChanged,
+    super.key,
+  });
+
+  final RoutePx px;
+  final TextEditingController budgetController;
+  final bool withChildren;
+  final bool withPets;
+  final bool avoidCrowds;
+  final ValueChanged<bool> onWithChildrenChanged;
+  final ValueChanged<bool> onWithPetsChanged;
+  final ValueChanged<bool> onAvoidCrowdsChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(px(12));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Дополнительно:',
+          style: RouteBuilderDesignTokens.rubik(
+            fontSize: px(18),
+            weight: FontWeight.w700,
+            color: RouteBuilderDesignTokens.textPrimary,
+            height: 1.1,
+          ),
+        ),
+        SizedBox(height: px(12)),
+        Text(
+          'Бюджет (₽, необязательно):',
+          style: RouteBuilderDesignTokens.rubik(
+            fontSize: px(14),
+            color: RouteBuilderDesignTokens.textSecondary,
+            height: 1.1,
+          ),
+        ),
+        SizedBox(height: px(8)),
+        SizedBox(
+          height: px(48),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: RouteBuilderDesignTokens.fieldBackground,
+              borderRadius: radius,
+              border: Border.all(
+                color: RouteBuilderDesignTokens.lightBorder,
+                width: px(1),
+              ),
+            ),
+            child: TextField(
+              controller: budgetController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: RouteBuilderDesignTokens.rubik(
+                fontSize: px(14),
+                color: RouteBuilderDesignTokens.textPrimary,
+              ),
+              decoration: InputDecoration(
+                isCollapsed: true,
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: px(14)),
+                hintText: 'Например, 15000',
+                hintStyle: RouteBuilderDesignTokens.rubik(
+                  fontSize: px(14),
+                  color: RouteBuilderDesignTokens.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: px(14)),
+        _AdvancedToggle(
+          px: px,
+          label: 'С детьми',
+          value: withChildren,
+          onChanged: onWithChildrenChanged,
+        ),
+        SizedBox(height: px(8)),
+        _AdvancedToggle(
+          px: px,
+          label: 'С питомцами',
+          value: withPets,
+          onChanged: onWithPetsChanged,
+        ),
+        SizedBox(height: px(8)),
+        _AdvancedToggle(
+          px: px,
+          label: 'Избегать толпы',
+          value: avoidCrowds,
+          onChanged: onAvoidCrowdsChanged,
+        ),
+      ],
+    );
+  }
+}
+
+class _LabeledChipRow extends StatelessWidget {
+  const _LabeledChipRow({
+    required this.px,
+    required this.title,
+    required this.options,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final RoutePx px;
+  final String title;
+  final List<String> options;
+  final String? selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: RouteBuilderDesignTokens.rubik(
+            fontSize: px(18),
+            weight: FontWeight.w700,
+            color: RouteBuilderDesignTokens.textPrimary,
+            height: 1.1,
+          ),
+        ),
+        SizedBox(height: px(12)),
+        Wrap(
+          spacing: px(8),
+          runSpacing: px(9),
+          children: [
+            for (final option in options)
+              _InterestChip(
+                px: px,
+                label: option,
+                selected: selected == option,
+                onTap: () => onSelected(option),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _AdvancedToggle extends StatelessWidget {
+  const _AdvancedToggle({
+    required this.px,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final RoutePx px;
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: RouteBuilderDesignTokens.surface,
+        borderRadius: BorderRadius.circular(px(12)),
+        border: Border.all(
+          color: RouteBuilderDesignTokens.lightBorder,
+          width: px(1),
+        ),
+      ),
+      child: SwitchListTile(
+        dense: true,
+        contentPadding: EdgeInsets.symmetric(horizontal: px(8)),
+        title: Text(
+          label,
+          style: RouteBuilderDesignTokens.rubik(
+            fontSize: px(14),
+            color: RouteBuilderDesignTokens.textPrimary,
+          ),
+        ),
+        value: value,
+        activeThumbColor: Colors.white,
+        activeTrackColor: RouteBuilderDesignTokens.primaryBlue,
+        onChanged: onChanged,
+      ),
+    );
+  }
+}
+
 // ── Action buttons ──────────────────────────────────────────────────────────
 
 class RouteActionButtons extends StatelessWidget {
@@ -1752,6 +2101,9 @@ class RouteAiChatView extends StatelessWidget {
     required this.onChanged,
     required this.onSend,
     required this.bottomInset,
+    this.onProposalCreate,
+    this.onProposalSaveDraft,
+    this.onProposalRefine,
     super.key,
   });
 
@@ -1766,6 +2118,9 @@ class RouteAiChatView extends StatelessWidget {
   final ValueChanged<String> onChanged;
   final VoidCallback onSend;
   final double bottomInset;
+  final void Function(String proposalId)? onProposalCreate;
+  final void Function(String proposalId)? onProposalSaveDraft;
+  final void Function(String proposalId)? onProposalRefine;
 
   @override
   Widget build(BuildContext context) {
@@ -1817,7 +2172,13 @@ class RouteAiChatView extends StatelessWidget {
                 return Padding(
                   padding: EdgeInsets.fromLTRB(px(16), topGap, px(16), 0),
                   child: message.fromAgent
-                      ? AgentMessageBubble(px: px, message: message)
+                      ? AgentMessageBubble(
+                          px: px,
+                          message: message,
+                          onProposalCreate: onProposalCreate,
+                          onProposalSaveDraft: onProposalSaveDraft,
+                          onProposalRefine: onProposalRefine,
+                        )
                       : UserMessageBubble(px: px, message: message),
                 );
               },
@@ -1848,11 +2209,17 @@ class AgentMessageBubble extends StatelessWidget {
   const AgentMessageBubble({
     required this.px,
     required this.message,
+    this.onProposalCreate,
+    this.onProposalSaveDraft,
+    this.onProposalRefine,
     super.key,
   });
 
   final RoutePx px;
   final RouteChatMessage message;
+  final void Function(String proposalId)? onProposalCreate;
+  final void Function(String proposalId)? onProposalSaveDraft;
+  final void Function(String proposalId)? onProposalRefine;
 
   @override
   Widget build(BuildContext context) {
@@ -1895,7 +2262,9 @@ class AgentMessageBubble extends StatelessWidget {
                         ),
                         SizedBox(height: px(4)),
                         Padding(
-                          padding: EdgeInsets.only(bottom: px(14)),
+                          padding: EdgeInsets.only(
+                            bottom: message.hasProposalCard ? px(8) : px(14),
+                          ),
                           child: Text(
                             message.text,
                             style: RouteBuilderDesignTokens.rubik(
@@ -1905,6 +2274,25 @@ class AgentMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (message.hasProposalCard) ...[
+                          ChatRouteProposalCard(
+                            title: message.proposalTitle!,
+                            stopsCount: message.proposalStopsCount!,
+                            durationMinutes: message.proposalDurationMinutes!,
+                            coverUrl: message.proposalCoverUrl,
+                            onCreate: onProposalCreate == null
+                                ? null
+                                : () => onProposalCreate!(message.proposalId!),
+                            onSaveDraft: onProposalSaveDraft == null
+                                ? null
+                                : () =>
+                                      onProposalSaveDraft!(message.proposalId!),
+                            onRefine: onProposalRefine == null
+                                ? null
+                                : () => onProposalRefine!(message.proposalId!),
+                          ),
+                          SizedBox(height: px(14)),
+                        ],
                       ],
                     ),
                     Positioned(
