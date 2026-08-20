@@ -75,8 +75,33 @@ void main() {
     await tester.tap(find.text('Места'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Моё избранное:'), findsOneWidget);
+    expect(find.text('Маршруты'), findsOneWidget);
     expect(find.byType(DiscoveryPlaceCard), findsWidgets);
     expect(find.text('Ласточкино гнездо'), findsWidgets);
     expect(find.text('Достопримечательности'), findsWidgets);
+  });
+
+  testWidgets('short place swipe stays open and remove action deletes it', (
+    tester,
+  ) async {
+    final container = await pumpPlaces(tester);
+    await tester.tap(find.text('Места'));
+    await tester.pumpAndSettle();
+
+    final swipe = find.byKey(
+      const ValueKey('favorite-dismiss-place-favorite-place'),
+    );
+    await tester.drag(swipe, const Offset(-72, 0));
+    await tester.pumpAndSettle();
+
+    expect(container.read(favoritesProvider).placeIds, {_place.id});
+    expect(find.text('Убрать'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('favorite-remove-action')));
+    await tester.pumpAndSettle();
+
+    expect(container.read(favoritesProvider).placeIds, isEmpty);
+    expect(find.textContaining('удалено из избранного'), findsOneWidget);
   });
 }

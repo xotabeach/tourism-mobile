@@ -80,6 +80,8 @@ void main() {
       tester.getSize(find.byType(RouteHeroCard)).height,
     );
     await tester.pumpAndSettle();
+    expect(container.read(favoritesProvider).routeIds, {_route.id});
+    expect(find.text('Убрать'), findsOneWidget);
 
     await tester.drag(dismissible, const Offset(-240, 0));
     await tester.pumpAndSettle();

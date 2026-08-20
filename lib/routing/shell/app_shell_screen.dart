@@ -47,7 +47,7 @@ const _appNavDestinations = [
     selectedIcon: AppIconography.build,
   ),
   _NavDestination(
-    label: 'Мои маршруты',
+    label: 'Избранное',
     icon: AppIconography.map,
     selectedIcon: AppIconography.map,
   ),

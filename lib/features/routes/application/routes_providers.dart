@@ -41,6 +41,13 @@ final routeDetailProvider = FutureProvider.autoDispose
       return ref.watch(routesRepositoryProvider).getRoute(id);
     });
 
+final routesForPlaceProvider = FutureProvider.autoDispose
+    .family<RouteListPage, String>((ref, placeId) {
+      return ref
+          .watch(routesRepositoryProvider)
+          .listRoutes(placeId: placeId, limit: 10);
+    });
+
 final ownRouteDetailProvider = FutureProvider.autoDispose
     .family<RouteDetail, String>((ref, id) {
       return ref.watch(routesRepositoryProvider).getMyRoute(id);

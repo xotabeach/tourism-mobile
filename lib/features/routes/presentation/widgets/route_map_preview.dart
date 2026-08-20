@@ -16,6 +16,7 @@ class RouteMapPreview extends StatelessWidget {
     required this.selectedIndex,
     required this.onPinTap,
     this.height = 260,
+    this.footerLabel,
     super.key,
   });
 
@@ -23,6 +24,7 @@ class RouteMapPreview extends StatelessWidget {
   final int? selectedIndex;
   final ValueChanged<int> onPinTap;
   final double height;
+  final String? footerLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +60,7 @@ class RouteMapPreview extends StatelessWidget {
                   right: 16,
                   bottom: 14,
                   child: Text(
-                    _pointsLabel(stops.length),
+                    footerLabel ?? _pointsLabel(stops.length),
                     style: AppTypography.button.copyWith(
                       fontSize: 15,
                       color: Colors.white,

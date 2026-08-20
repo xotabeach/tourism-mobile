@@ -14,6 +14,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
@@ -573,9 +574,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                 onTap: onLike!,
                 fillColor: Colors.black.withValues(alpha: 0.35),
                 iconColor: Colors.white,
-                icon: likedByMe
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
+                iconWidget: AppFavoriteIcon(selected: likedByMe, size: 22),
               )
             : onMore != null
             ? _HeaderActionButton(
@@ -589,9 +588,11 @@ class _ProfileCollapsingHeader extends StatelessWidget {
         final collapsedAction = onLike != null
             ? CollapsingHeroAction(
                 semanticLabel: likedByMe ? 'Убрать лайк' : 'Лайк профиля',
-                icon: likedByMe
-                    ? Icons.favorite_rounded
-                    : Icons.favorite_border_rounded,
+                iconWidget: AppFavoriteIcon(
+                  selected: likedByMe,
+                  size: 22,
+                  color: AppColors.primaryInk,
+                ),
                 onPhoto: false,
                 onPressed: onLike!,
               )
@@ -755,14 +756,16 @@ class _HeaderActionButton extends StatelessWidget {
     required this.onTap,
     required this.fillColor,
     required this.iconColor,
-    required this.icon,
-  });
+    this.icon,
+    this.iconWidget,
+  }) : assert((icon == null) != (iconWidget == null));
 
   final String tooltip;
   final VoidCallback onTap;
   final Color fillColor;
   final Color iconColor;
-  final IconData icon;
+  final IconData? icon;
+  final Widget? iconWidget;
 
   @override
   Widget build(BuildContext context) {
@@ -786,7 +789,7 @@ class _HeaderActionButton extends StatelessWidget {
               fillColor: fillColor,
               borderColor: Colors.white.withValues(alpha: 0.28),
               contentColor: iconColor,
-              child: Icon(icon, size: 22, color: iconColor),
+              child: iconWidget ?? Icon(icon, size: 22, color: iconColor),
             ),
           ),
         ),

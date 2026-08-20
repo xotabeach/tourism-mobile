@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -47,6 +48,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   MyRoutesTab _tab = MyRoutesTab.favorites;
   var _searchQuery = '';
   var _searchFocused = false;
+  final _removedSubscriptionIds = <String>{};
 
   bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
 
@@ -99,6 +101,11 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     final favorites = ref.watch(favoritesProvider);
     final routesAsync = ref.watch(routesListProvider);
     final subscriptionsAsync = ref.watch(profileSubscriptionsProvider);
+    final visibleSubscriptionsAsync = subscriptionsAsync.whenData(
+      (items) => items
+          .where((item) => !_removedSubscriptionIds.contains(item.id))
+          .toList(growable: false),
+    );
     final placesAsync = ref.watch(placesListProvider);
 
     return ColoredBox(
@@ -144,7 +151,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Мои маршруты:',
+                          'Моё избранное:',
                           style: AppTypography.sectionTitle.copyWith(
                             fontSize: 22,
                             fontWeight: FontWeight.w700,
@@ -194,7 +201,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                             ? favoritePlaces
                             : null,
                         localProfiles: _tab == MyRoutesTab.subscriptions
-                            ? (subscriptionsAsync.valueOrNull ??
+                            ? (visibleSubscriptionsAsync.valueOrNull ??
                                   const <PublicUserProfile>[])
                             : null,
                         onQueryFromHistory: (value) {
@@ -205,7 +212,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                     ),
                   )
                 else if (_tab == MyRoutesTab.subscriptions)
-                  ..._subscriptionSlivers(subscriptionsAsync)
+                  ..._subscriptionSlivers(visibleSubscriptionsAsync)
                 else if (_tab == MyRoutesTab.places)
                   ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
                 else if (filtered.isEmpty)
@@ -286,21 +293,27 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final item = items[index];
-                return DiscoveryProfileCard(
-                  profile: item,
-                  height: 88,
-                  onTap: () {
-                    if (item.id == 'mock-user') {
-                      context.goNamed(AppRouteNames.profile);
-                      return;
-                    }
-                    unawaited(
-                      context.pushNamed(
-                        AppRouteNames.userProfile,
-                        pathParameters: {'userId': item.id},
-                      ),
-                    );
-                  },
+                return _FavoriteSwipeTile(
+                  key: ValueKey('favorite-profile-${item.id}'),
+                  itemId: 'profile-${item.id}',
+                  semanticLabel: '${item.displayName}, профиль в подписках',
+                  onRemove: () => _removeSubscription(item),
+                  childBuilder: (_) => DiscoveryProfileCard(
+                    profile: item,
+                    height: 88,
+                    onTap: () {
+                      if (item.id == 'mock-user') {
+                        context.goNamed(AppRouteNames.profile);
+                        return;
+                      }
+                      unawaited(
+                        context.pushNamed(
+                          AppRouteNames.userProfile,
+                          pathParameters: {'userId': item.id},
+                        ),
+                      );
+                    },
+                  ),
                 );
               },
             ),
@@ -352,14 +365,19 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
                 final place = favoritePlaces[index];
-                return DiscoveryPlaceCard(
+                return _FavoriteSwipeTile(
                   key: ValueKey('favorite-place-${place.id}'),
-                  place: place,
-                  height: 88,
-                  onTap: () => unawaited(
-                    context.pushNamed(
-                      AppRouteNames.placeDetails,
-                      pathParameters: {'id': place.id},
+                  itemId: 'place-${place.id}',
+                  semanticLabel: '${place.name}, место в избранном',
+                  onRemove: () => _removeFavoritePlace(place),
+                  childBuilder: (_) => DiscoveryPlaceCard(
+                    place: place,
+                    height: 88,
+                    onTap: () => unawaited(
+                      context.pushNamed(
+                        AppRouteNames.placeDetails,
+                        pathParameters: {'id': place.id},
+                      ),
                     ),
                   ),
                 );
@@ -414,9 +432,84 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       );
     }
   }
+
+  Future<void> _removeFavoritePlace(PlaceSummary place) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(favoritesProvider.notifier).removePlace(place.id);
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 112),
+            content: Text('«${place.name}» удалено из избранного'),
+            action: SnackBarAction(
+              label: 'Вернуть',
+              onPressed: () => unawaited(
+                ref.read(favoritesProvider.notifier).addPlace(place.id),
+              ),
+            ),
+          ),
+        );
+    } on Object {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Не удалось обновить избранное')),
+      );
+    }
+  }
+
+  Future<void> _removeSubscription(PublicUserProfile profile) async {
+    setState(() => _removedSubscriptionIds.add(profile.id));
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      if (!ref.read(appConfigProvider).useMockData) {
+        await ref.read(publicProfileRepositoryProvider).unlike(profile.id);
+        ref.invalidate(profileSubscriptionsProvider);
+      }
+      if (!mounted) return;
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 112),
+            content: Text('Подписка на «${profile.displayName}» удалена'),
+            action: SnackBarAction(
+              label: 'Вернуть',
+              onPressed: () => unawaited(_restoreSubscription(profile.id)),
+            ),
+          ),
+        );
+    } on Object {
+      if (!mounted) return;
+      setState(() => _removedSubscriptionIds.remove(profile.id));
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Не удалось удалить подписку')),
+      );
+    }
+  }
+
+  Future<void> _restoreSubscription(String userId) async {
+    try {
+      if (!ref.read(appConfigProvider).useMockData) {
+        await ref.read(publicProfileRepositoryProvider).like(userId);
+        ref.invalidate(profileSubscriptionsProvider);
+      }
+      if (!mounted) return;
+      setState(() => _removedSubscriptionIds.remove(userId));
+    } on Object {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось вернуть подписку')),
+      );
+    }
+  }
 }
 
-class _FavoriteRouteTile extends StatefulWidget {
+class _FavoriteRouteTile extends StatelessWidget {
   const _FavoriteRouteTile({
     required this.route,
     required this.onRemove,
@@ -427,27 +520,94 @@ class _FavoriteRouteTile extends StatefulWidget {
   final Future<void> Function() onRemove;
 
   @override
-  State<_FavoriteRouteTile> createState() => _FavoriteRouteTileState();
+  Widget build(BuildContext context) {
+    return _FavoriteSwipeTile(
+      itemId: route.id,
+      semanticLabel: '${route.name}, маршрут в избранном',
+      onRemove: onRemove,
+      childBuilder: (remove) => SizedBox(
+        height: 295,
+        child: RouteHeroCard(
+          route: route,
+          height: 295,
+          onFavoriteToggle: remove,
+        ),
+      ),
+    );
+  }
 }
 
-class _FavoriteRouteTileState extends State<_FavoriteRouteTile> {
+class _FavoriteSwipeTile extends StatefulWidget {
+  const _FavoriteSwipeTile({
+    required this.itemId,
+    required this.semanticLabel,
+    required this.onRemove,
+    required this.childBuilder,
+    super.key,
+  });
+
+  final String itemId;
+  final String semanticLabel;
+  final Future<void> Function() onRemove;
+  final Widget Function(Future<void> Function() remove) childBuilder;
+
+  @override
+  State<_FavoriteSwipeTile> createState() => _FavoriteSwipeTileState();
+}
+
+class _FavoriteSwipeTileState extends State<_FavoriteSwipeTile> {
+  static const _actionWidth = 104.0;
+  static const _openThreshold = 32.0;
+  static const _autoRemoveFraction = 0.72;
+
+  double _offset = 0;
+  double _cardWidth = 1;
+  bool _dragging = false;
   bool _leaving = false;
   bool _collapsed = false;
-  double _swipeProgress = 0;
 
-  Duration get _exitDuration => MediaQuery.disableAnimationsOf(context)
+  Duration get _settleDuration => MediaQuery.disableAnimationsOf(context)
       ? Duration.zero
-      : const Duration(milliseconds: 300);
+      : const Duration(milliseconds: 240);
 
   Duration get _collapseDuration => MediaQuery.disableAnimationsOf(context)
       ? Duration.zero
-      : const Duration(milliseconds: 220);
+      : const Duration(milliseconds: 190);
+
+  void _onDragStart(DragStartDetails details) {
+    if (_leaving) return;
+    setState(() => _dragging = true);
+  }
+
+  void _onDragUpdate(DragUpdateDetails details) {
+    if (_leaving) return;
+    final delta = details.primaryDelta ?? 0;
+    setState(() => _offset = (_offset + delta).clamp(-_cardWidth, 0));
+  }
+
+  void _onDragEnd(DragEndDetails details) {
+    if (_leaving) return;
+    final distance = -_offset;
+    if (distance >= _cardWidth * _autoRemoveFraction) {
+      setState(() => _dragging = false);
+      unawaited(_animateRemove());
+      return;
+    }
+    setState(() {
+      _dragging = false;
+      _offset = distance >= _openThreshold ? -_actionWidth : 0;
+    });
+  }
 
   Future<void> _animateRemove() async {
     if (_leaving) return;
     unawaited(AppHaptics.mediumImpact());
-    setState(() => _leaving = true);
-    await Future<void>.delayed(_exitDuration);
+    setState(() {
+      _leaving = true;
+      _dragging = false;
+      _offset = -_cardWidth;
+    });
+    await Future<void>.delayed(_settleDuration);
     if (!mounted) return;
     setState(() => _collapsed = true);
     await Future<void>.delayed(_collapseDuration);
@@ -458,8 +618,8 @@ class _FavoriteRouteTileState extends State<_FavoriteRouteTile> {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: '${widget.route.name}, маршрут в избранном',
-      hint: 'Смахните влево, чтобы убрать из избранного',
+      label: widget.semanticLabel,
+      hint: 'Смахните влево или нажмите «Убрать»',
       customSemanticsActions: {
         const CustomSemanticsAction(label: 'Удалить из избранного'): () {
           unawaited(_animateRemove());
@@ -471,59 +631,37 @@ class _FavoriteRouteTileState extends State<_FavoriteRouteTile> {
         alignment: Alignment.topCenter,
         child: _collapsed
             ? const SizedBox(width: double.infinity)
-            : AnimatedSlide(
-                duration: _exitDuration,
-                curve: AppMotion.liquidOut,
-                offset: _leaving ? const Offset(-1.08, 0) : Offset.zero,
-                child: AnimatedScale(
-                  duration: _exitDuration,
-                  curve: AppMotion.emphasizedCurve,
-                  scale: _leaving ? 0.96 : 1,
-                  alignment: Alignment.centerLeft,
-                  child: AnimatedOpacity(
-                    duration: _exitDuration,
-                    curve: const Interval(0, 0.72, curve: Curves.easeOut),
-                    opacity: _leaving ? 0 : 1,
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  _cardWidth = constraints.maxWidth;
+                  final reveal = (-_offset / _actionWidth).clamp(0.0, 1.0);
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(AppRadii.card),
                     child: Stack(
                       children: [
                         Positioned.fill(
                           child: _FavoriteRemoveBackground(
-                            progress: _swipeProgress,
+                            progress: reveal,
+                            onRemove: _animateRemove,
                           ),
                         ),
-                        Dismissible(
-                          key: ValueKey('favorite-dismiss-${widget.route.id}'),
-                          direction: DismissDirection.endToStart,
-                          dismissThresholds: const {
-                            DismissDirection.endToStart: 0.28,
-                          },
-                          movementDuration: AppMotion.emphasized,
-                          resizeDuration: _collapseDuration,
-                          onUpdate: (details) {
-                            final progress = details.progress.clamp(0.0, 1.0);
-                            if ((progress - _swipeProgress).abs() < 0.01) {
-                              return;
-                            }
-                            setState(() => _swipeProgress = progress);
-                          },
-                          confirmDismiss: (_) async {
-                            unawaited(AppHaptics.mediumImpact());
-                            return true;
-                          },
-                          onDismissed: (_) => unawaited(widget.onRemove()),
-                          child: SizedBox(
-                            height: 295,
-                            child: RouteHeroCard(
-                              route: widget.route,
-                              height: 295,
-                              onFavoriteToggle: _animateRemove,
-                            ),
+                        AnimatedContainer(
+                          key: ValueKey('favorite-dismiss-${widget.itemId}'),
+                          duration: _dragging ? Duration.zero : _settleDuration,
+                          curve: AppMotion.liquidOut,
+                          transform: Matrix4.translationValues(_offset, 0, 0),
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onHorizontalDragStart: _onDragStart,
+                            onHorizontalDragUpdate: _onDragUpdate,
+                            onHorizontalDragEnd: _onDragEnd,
+                            child: widget.childBuilder(_animateRemove),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
       ),
     );
@@ -531,9 +669,13 @@ class _FavoriteRouteTileState extends State<_FavoriteRouteTile> {
 }
 
 class _FavoriteRemoveBackground extends StatelessWidget {
-  const _FavoriteRemoveBackground({required this.progress});
+  const _FavoriteRemoveBackground({
+    required this.progress,
+    required this.onRemove,
+  });
 
   final double progress;
+  final VoidCallback onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -554,31 +696,39 @@ class _FavoriteRemoveBackground extends StatelessWidget {
             }
             return Align(
               alignment: Alignment.centerRight,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 24),
-                child: Transform.scale(
-                  scale: 0.72 + 0.28 * reveal,
-                  child: Opacity(
-                    opacity: 0.45 + 0.55 * reveal,
-                    child: const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.heart_broken_rounded,
-                          color: Colors.white,
-                          size: 29,
+              child: SizedBox(
+                width: _FavoriteSwipeTileState._actionWidth,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    key: const ValueKey('favorite-remove-action'),
+                    onTap: onRemove,
+                    child: Transform.scale(
+                      scale: 0.72 + 0.28 * reveal,
+                      child: Opacity(
+                        opacity: 0.45 + 0.55 * reveal,
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.heart_broken_rounded,
+                              color: Colors.white,
+                              size: 29,
+                            ),
+                            SizedBox(height: 7),
+                            Text(
+                              'Убрать',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontFamily: 'Rubik',
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 7),
-                        Text(
-                          'Убрать',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'Rubik',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -610,7 +760,7 @@ class _TabRow extends StatelessWidget {
               Expanded(
                 child: _TabChip(
                   label: switch (tab) {
-                    MyRoutesTab.favorites => 'Избранное',
+                    MyRoutesTab.favorites => 'Маршруты',
                     MyRoutesTab.history => 'История',
                     MyRoutesTab.places => 'Места',
                     MyRoutesTab.subscriptions => 'Подписки',
@@ -630,7 +780,7 @@ class _TabRow extends StatelessWidget {
               Expanded(
                 child: _TabChip(
                   label: switch (tab) {
-                    MyRoutesTab.favorites => 'Избранное',
+                    MyRoutesTab.favorites => 'Маршруты',
                     MyRoutesTab.history => 'История',
                     MyRoutesTab.places => 'Места',
                     MyRoutesTab.subscriptions => 'Подписки',

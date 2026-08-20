@@ -81,12 +81,14 @@ class PlaceDetail extends PlaceSummary {
     required this.address,
     required this.seasonality,
     required this.safetyWarnings,
+    this.imageUrls = const [],
   });
 
   final String? description;
   final String? address;
   final List<String> seasonality;
   final List<String> safetyWarnings;
+  final List<String> imageUrls;
 
   factory PlaceDetail.fromJson(Map<String, dynamic> json) {
     final summary = PlaceSummary.fromJson(json);
@@ -109,6 +111,9 @@ class PlaceDetail extends PlaceSummary {
       safetyWarnings: (json['safety_warnings'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(),
+      imageUrls: (json['image_urls'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
     );
   }
 }

@@ -214,7 +214,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(RoutePublishScreen), findsNothing);
 
-    await tester.tap(find.bySemanticsLabel('Мои маршруты'));
+    await tester.tap(find.bySemanticsLabel('Избранное'));
     await tester.pumpAndSettle();
     expect(find.byType(MyRoutesScreen), findsOneWidget);
     expect(find.byType(RoutePublishScreen), findsNothing);
@@ -354,7 +354,7 @@ void main() {
   ) async {
     await tester.pumpWidget(appWithCompletedOnboarding());
     await tester.pumpAndSettle();
-    await tester.tap(find.bySemanticsLabel('Мои маршруты'));
+    await tester.tap(find.bySemanticsLabel('Избранное'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Подписки'));
     await tester.pumpAndSettle();
@@ -362,6 +362,19 @@ void main() {
     expect(find.byType(DiscoveryProfileCard), findsNWidgets(3));
     expect(find.text('Никита Можаров'), findsOneWidget);
     expect(find.text('Продвинутый пешеход'), findsOneWidget);
+
+    final profileSwipe = find.byKey(
+      const ValueKey('favorite-dismiss-profile-mock-user'),
+    );
+    await tester.drag(profileSwipe, const Offset(-72, 0));
+    await tester.pumpAndSettle();
+    expect(find.byType(DiscoveryProfileCard), findsNWidgets(3));
+
+    await tester.tap(
+      find.byKey(const ValueKey('favorite-remove-action')).first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DiscoveryProfileCard), findsNWidgets(2));
   });
 
   testWidgets('home shows seven featured routes and expands in place', (

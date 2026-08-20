@@ -196,24 +196,33 @@ class CollapsingHeroAction extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.iconAsset,
+    this.iconWidget,
     this.onPhoto = true,
     this.dimension = 44,
     super.key,
-  }) : assert((icon == null) != (iconAsset == null));
+  }) : assert(
+         (icon != null ? 1 : 0) +
+                 (iconAsset != null ? 1 : 0) +
+                 (iconWidget != null ? 1 : 0) ==
+             1,
+       );
 
   final String semanticLabel;
   final VoidCallback onPressed;
   final IconData? icon;
   final String? iconAsset;
+  final Widget? iconWidget;
   final bool onPhoto;
   final double dimension;
 
   @override
   Widget build(BuildContext context) {
     final fg = onPhoto ? Colors.white : AppColors.primaryInk;
-    final child = iconAsset != null
-        ? AppAssetIcon(iconAsset!, size: 22, color: fg)
-        : Icon(icon, size: 22, color: fg);
+    final child =
+        iconWidget ??
+        (iconAsset != null
+            ? AppAssetIcon(iconAsset!, size: 22, color: fg)
+            : Icon(icon, size: 22, color: fg));
 
     if (onPhoto) {
       return Semantics(

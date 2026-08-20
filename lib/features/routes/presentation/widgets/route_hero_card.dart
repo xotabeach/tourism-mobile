@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -679,22 +680,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
           padding: EdgeInsets.zero,
           icon: ScaleTransition(
             scale: _scale,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                if (selected)
-                  const Icon(
-                    Icons.favorite_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                AppAssetIcon(
-                  AppIconography.heart,
-                  color: Colors.white.withValues(alpha: selected ? 0.35 : 1),
-                  size: 22,
-                ),
-              ],
-            ),
+            child: AppFavoriteIcon(selected: selected, size: 22),
           ),
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 abstract interface class RoutesRepository {
   Future<RouteListPage> listRoutes({
     String? regionSlug,
+    String? placeId,
     String? query,
     int limit = 50,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,

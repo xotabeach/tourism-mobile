@@ -122,6 +122,19 @@ final travelersLeaderboardProvider = FutureProvider<List<PublicUserProfile>>((
   return ref.watch(publicProfileRepositoryProvider).leaderboard(limit: 100);
 });
 
+final currentLeaderboardTravelerProvider = FutureProvider<PublicUserProfile?>((
+  ref,
+) async {
+  final session = ref.watch(sessionProvider);
+  final config = ref.watch(appConfigProvider);
+  if (config.useMockData) {
+    return _mockLeaderboard.first;
+  }
+  final userId = session.userId;
+  if (userId == null || userId.isEmpty) return null;
+  return ref.watch(publicProfileRepositoryProvider).getUser(userId);
+});
+
 final userAchievementsProvider =
     FutureProvider.family<List<ProfileAchievement>, String>((
       ref,

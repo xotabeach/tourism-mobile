@@ -88,7 +88,7 @@ class RouteReview {
   factory RouteReview.fromJson(Map<String, dynamic> json) {
     return RouteReview(
       id: json['id'] as String,
-      routeId: json['route_id'] as String,
+      routeId: (json['route_id'] ?? json['place_id']) as String,
       authorUserId: json['author_user_id'] as String,
       authorDisplayName:
           json['author_display_name'] as String? ?? 'Путешественник',

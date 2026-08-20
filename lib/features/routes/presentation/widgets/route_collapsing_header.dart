@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 
 /// Collapsing media hero for route details.
@@ -211,9 +212,10 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
                             semanticLabel: widget.isFavorite
                                 ? 'Удалить из избранного'
                                 : 'Добавить в избранное',
-                            icon: widget.isFavorite
-                                ? Icons.favorite_rounded
-                                : Icons.favorite_border_rounded,
+                            iconWidget: AppFavoriteIcon(
+                              selected: widget.isFavorite,
+                              size: 22,
+                            ),
                             onPressed: widget.onToggleFavorite,
                           ),
                           const SizedBox(width: 8),
