@@ -71,6 +71,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   bool _composerDirty = false;
   double _appBarProgress = 0;
   double _lastViewInset = 0;
+  String? _chatSessionId;
+  bool _sessionStarting = false;
 
   late List<RouteChatMessage> _messages;
 
@@ -223,9 +225,40 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
     setState(() => _mode = mode);
     _syncAiModeProvider();
+    if (mode == RouteMatchMode.ai &&
+        !widget.pixelReference &&
+        _chatSessionId == null) {
+      unawaited(_ensureChatSession());
+    }
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _syncAppBarFromActiveScroll(),
     );
+  }
+
+  Future<void> _ensureChatSession() async {
+    if (widget.pixelReference || _chatSessionId != null || _sessionStarting) {
+      return;
+    }
+    setState(() => _sessionStarting = true);
+    try {
+      final params = _buildMatchParams(city: _city?.trim() ?? 'Ялта');
+      final session = await ref
+          .read(routeMatchRepositoryProvider)
+          .createSession(params);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _chatSessionId = session.sessionId;
+        _sessionStarting = false;
+      });
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _sessionStarting = false);
+      _showChatFailure(error);
+    }
   }
 
   void _syncAppBarFromActiveScroll() {
@@ -477,17 +510,41 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     setState(() => _typing = true);
     _scrollAiToEnd();
     try {
-      final params = _buildMatchParams(city: _city?.trim() ?? 'Ялта');
+      if (_chatSessionId == null) {
+        await _ensureChatSession();
+      }
+      final sessionId = _chatSessionId;
+      if (sessionId == null) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _typing = false;
+          _sending = false;
+        });
+        return;
+      }
       final result = await ref
           .read(routeMatchRepositoryProvider)
-          .generate(channel: 'chat', params: params);
+          .postMessage(sessionId: sessionId, text: text);
       if (!mounted) {
         return;
       }
       setState(() {
         _typing = false;
         _sending = false;
-        _messages.add(_agentProposalMessage(result.proposal));
+        if (result.proposal != null) {
+          _messages.add(_agentProposalMessage(result.proposal!));
+        } else {
+          _messages.add(
+            RouteChatMessage(
+              fromAgent: true,
+              text: result.text,
+              time: _nowTime(),
+              isCrisis: result.intent == 'crisis',
+            ),
+          );
+        }
       });
     } on AppFailure catch (error) {
       if (!mounted) {

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'package:tourism_mobile/core/network/api_guard.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 class ApiRouteMatchRepository implements RouteMatchRepository {
@@ -51,6 +52,32 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
         '/api/v1/route-builder/proposals/$id/reject',
       );
       return RouteProposal.fromJson(response.data!);
+    });
+  }
+
+  @override
+  Future<RoutePlanningSession> createSession(RouteMatchParams params) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-builder/sessions',
+        data: {'params': params.toJson()},
+      );
+      return RoutePlanningSession.fromJson(response.data!);
+    });
+  }
+
+  @override
+  Future<RoutePlanningMessageResult> postMessage({
+    required String sessionId,
+    required String text,
+    bool wantGenerate = false,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-builder/sessions/$sessionId/messages',
+        data: {'text': text, 'want_generate': wantGenerate},
+      );
+      return RoutePlanningMessageResult.fromJson(response.data!);
     });
   }
 }
@@ -164,6 +191,60 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       durationMinutes: 180,
       blocks: const [],
       quota: const RouteQuotaSnapshot(dailyUsed: 1, weeklyUsed: 1),
+    );
+  }
+
+  @override
+  Future<RoutePlanningSession> createSession(RouteMatchParams params) async {
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    return RoutePlanningSession(
+      sessionId: 'mock-session-1',
+      status: 'active',
+      constraints: params,
+      aiPlanningEnabled: false,
+    );
+  }
+
+  @override
+  Future<RoutePlanningMessageResult> postMessage({
+    required String sessionId,
+    required String text,
+    bool wantGenerate = false,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    if (wantGenerate || text.toLowerCase().contains('подбери маршрут')) {
+      final generated = await generate(
+        channel: 'chat',
+        params: const RouteMatchParams(
+          city: 'Ялта',
+          duration: RouteDurationOption.d3_5,
+          people: 2,
+          interests: ['Пляж'],
+          pace: RoutePace.calm,
+        ),
+      );
+      return RoutePlanningMessageResult(
+        messageId: 'mock-msg-gen',
+        sessionId: sessionId,
+        role: 'assistant',
+        text: generated.proposal.assistantText,
+        intent: 'generate',
+        proposal: generated.proposal,
+        blocks: generated.proposal.blocks,
+        provider: 'deterministic_generate',
+      );
+    }
+    return RoutePlanningMessageResult(
+      messageId: 'mock-msg-1',
+      sessionId: sessionId,
+      role: 'assistant',
+      text:
+          'Понял: «$text». Могу уточнить параметры или собрать маршрут — '
+          'напишите «подбери маршрут».',
+      intent: 'on_topic_travel',
+      blocks: const [],
+      provider: 'mock',
+      fallback: true,
     );
   }
 }

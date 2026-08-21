@@ -363,4 +363,102 @@ abstract class RouteMatchRepository {
   Future<RouteProposalResult> acceptProposal(String id);
 
   Future<RouteProposalResult> rejectProposal(String id);
+
+  Future<RoutePlanningSession> createSession(RouteMatchParams params);
+
+  Future<RoutePlanningMessageResult> postMessage({
+    required String sessionId,
+    required String text,
+    bool wantGenerate = false,
+  });
+}
+
+class RoutePlanningSession {
+  const RoutePlanningSession({
+    required this.sessionId,
+    required this.status,
+    required this.constraints,
+    required this.aiPlanningEnabled,
+  });
+
+  final String sessionId;
+  final String status;
+  final RouteMatchParams constraints;
+  final bool aiPlanningEnabled;
+
+  factory RoutePlanningSession.fromJson(Map<String, dynamic> json) {
+    final rawConstraints =
+        json['constraints'] as Map<String, dynamic>? ?? const {};
+    return RoutePlanningSession(
+      sessionId: json['session_id'] as String,
+      status: json['status'] as String? ?? 'active',
+      constraints: RouteMatchParams(
+        city: rawConstraints['city'] as String? ?? 'Ялта',
+        duration: RouteDurationOption.values.firstWhere(
+          (item) =>
+              item.name == (rawConstraints['duration'] as String? ?? 'd3_5'),
+          orElse: () => RouteDurationOption.d3_5,
+        ),
+        people: rawConstraints['people'] as int? ?? 2,
+        interests: (rawConstraints['interests'] as List<dynamic>? ?? const [])
+            .map((item) => item as String)
+            .toList(),
+        pace: RoutePace.values.firstWhere(
+          (item) => item.name == (rawConstraints['pace'] as String? ?? 'calm'),
+          orElse: () => RoutePace.calm,
+        ),
+        season: rawConstraints['season'] as String?,
+        transportMode: rawConstraints['transport_mode'] as String?,
+        dayKind: rawConstraints['day_kind'] as String?,
+        budgetAmount: rawConstraints['budget_amount'] as int?,
+        paidOk: rawConstraints['paid_ok'] as bool?,
+        withChildren: rawConstraints['with_children'] as bool?,
+        withPets: rawConstraints['with_pets'] as bool?,
+        avoidCrowds: rawConstraints['avoid_crowds'] as bool?,
+        regionSlug: rawConstraints['region_slug'] as String? ?? 'crimea',
+      ),
+      aiPlanningEnabled: json['ai_planning_enabled'] as bool? ?? false,
+    );
+  }
+}
+
+class RoutePlanningMessageResult {
+  const RoutePlanningMessageResult({
+    required this.messageId,
+    required this.sessionId,
+    required this.role,
+    required this.text,
+    required this.blocks,
+    this.intent,
+    this.proposal,
+    this.provider,
+    this.fallback = false,
+  });
+
+  final String messageId;
+  final String sessionId;
+  final String role;
+  final String text;
+  final String? intent;
+  final RouteProposal? proposal;
+  final List<RouteChatBlock> blocks;
+  final String? provider;
+  final bool fallback;
+
+  factory RoutePlanningMessageResult.fromJson(Map<String, dynamic> json) {
+    final proposalJson = json['proposal'] as Map<String, dynamic>?;
+    return RoutePlanningMessageResult(
+      messageId: json['message_id'] as String,
+      sessionId: json['session_id'] as String,
+      role: json['role'] as String? ?? 'assistant',
+      text: json['text'] as String? ?? '',
+      intent: json['intent'] as String?,
+      proposal: proposalJson == null
+          ? null
+          : RouteProposal.fromJson(proposalJson),
+      blocks: RouteChatBlock.parseAllowlist(json['blocks'] as List<dynamic>?),
+      provider: json['provider'] as String?,
+      fallback: json['fallback'] as bool? ?? false,
+    );
+  }
 }
