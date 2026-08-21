@@ -73,6 +73,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   double _lastViewInset = 0;
   String? _chatSessionId;
   bool _sessionStarting = false;
+  List<String> _confirmedFields = const [];
+  RouteMatchParams? _sessionConstraints;
 
   late List<RouteChatMessage> _messages;
 
@@ -241,15 +243,20 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
     setState(() => _sessionStarting = true);
     try {
-      final params = _buildMatchParams(city: _city?.trim() ?? 'Ялта');
+      final seeded = _seedChatSessionParams();
       final session = await ref
           .read(routeMatchRepositoryProvider)
-          .createSession(params);
+          .createSession(
+            seeded.params,
+            confirmedFields: seeded.confirmedFields,
+          );
       if (!mounted) {
         return;
       }
       setState(() {
         _chatSessionId = session.sessionId;
+        _confirmedFields = session.confirmedFields;
+        _sessionConstraints = session.constraints;
         _sessionStarting = false;
       });
     } on AppFailure catch (error) {
@@ -261,6 +268,21 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
   }
 
+  ({RouteMatchParams params, List<String> confirmedFields})
+  _seedChatSessionParams() {
+    final city = _city?.trim();
+    final hasCity = city != null && city.isNotEmpty;
+    final params = _buildMatchParams(city: hasCity ? city : 'Крым');
+    final confirmed = <String>[
+      if (hasCity) 'city',
+      if (_interests.isNotEmpty) 'interests',
+      if (_tripType != null) 'trip_type',
+      // Form defaults for duration/people/pace are drafts — only confirm when
+      // the user explicitly chose city or advanced intent on the form.
+    ];
+    return (params: params, confirmedFields: confirmed);
+  }
+
   Future<void> _startNewChat() async {
     if (widget.pixelReference || _sessionStarting || _sending || _typing) {
       return;
@@ -270,6 +292,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       _sessionStarting = true;
       _messages = <RouteChatMessage>[];
       _chatSessionId = null;
+      _confirmedFields = const [];
+      _sessionConstraints = null;
       _composerDirty = false;
       _aiController.clear();
     });
@@ -282,13 +306,18 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       }
     }
     try {
-      final params = _buildMatchParams(city: _city?.trim() ?? 'Ялта');
-      final session = await repo.createSession(params);
+      final seeded = _seedChatSessionParams();
+      final session = await repo.createSession(
+        seeded.params,
+        confirmedFields: seeded.confirmedFields,
+      );
       if (!mounted) {
         return;
       }
       setState(() {
         _chatSessionId = session.sessionId;
+        _confirmedFields = session.confirmedFields;
+        _sessionConstraints = session.constraints;
         _sessionStarting = false;
         _messages = [
           RouteChatMessage(
@@ -296,10 +325,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             text: 'Новый чат. Чем помочь с маршрутом по Крыму?',
             time: _nowTime(),
             actions: const [
-              {'id': 'want_generate', 'label': 'Подбери маршрут'},
-              {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
-              {'id': 'say_mood_active', 'label': 'Хочу активно'},
-              {'id': 'say_more_sea', 'label': 'Больше моря'},
+              {'id': 'pace_calm', 'label': 'Хочу спокойно'},
+              {'id': 'pace_active', 'label': 'Хочу активно'},
+              {'id': 'interest_sea', 'label': 'Больше моря'},
+              {'id': 'interest_mountains', 'label': 'Больше гор'},
             ],
           ),
         ];
@@ -540,10 +569,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           time: _nowTime(),
           actions: const [
             {'id': 'want_generate', 'label': 'Подбери маршрут'},
-            {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
-            {'id': 'say_mood_active', 'label': 'Хочу активно'},
-            {'id': 'say_more_sea', 'label': 'Больше моря'},
-            {'id': 'say_more_mountains', 'label': 'Больше гор'},
+            {'id': 'pace_calm', 'label': 'Хочу спокойно'},
+            {'id': 'pace_active', 'label': 'Хочу активно'},
+            {'id': 'interest_sea', 'label': 'Больше моря'},
+            {'id': 'interest_mountains', 'label': 'Больше гор'},
+            {'id': 'duration_d3_5', 'label': '3–5 дней'},
           ],
         ),
       );
@@ -556,10 +586,165 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       return;
     }
     if (id == 'want_generate') {
-      await _sendAiMessage(textOverride: 'подбери маршрут', wantGenerate: true);
+      await _sendAiMessage(
+        textOverride: 'подбери маршрут',
+        wantGenerate: true,
+        actionId: id,
+      );
       return;
     }
-    await _sendAiMessage(textOverride: label);
+    await _sendAiMessage(textOverride: label, actionId: id);
+  }
+
+  String? _confirmedSummaryLabel() {
+    final constraints = _sessionConstraints;
+    if (constraints == null || _confirmedFields.isEmpty) {
+      return null;
+    }
+    final parts = <String>[];
+    for (final field in _confirmedFields) {
+      if (field == 'city' &&
+          constraints.city.trim().isNotEmpty &&
+          constraints.city.trim() != 'Крым') {
+        parts.add(constraints.city.trim());
+      } else if (field == 'pace') {
+        parts.add(switch (constraints.pace) {
+          RoutePace.calm => 'спокойно',
+          RoutePace.moderate => 'умеренно',
+          RoutePace.active => 'активно',
+        });
+      } else if (field == 'interests' && constraints.interests.isNotEmpty) {
+        parts.add(constraints.interests.take(2).join(', '));
+      } else if (field == 'transport_mode') {
+        final mode = constraints.transportMode;
+        if (mode != null && mode.isNotEmpty) {
+          parts.add(switch (mode) {
+            'car' => 'машина',
+            'public' => 'транспорт',
+            'walk' => 'пешком',
+            'mixed' => 'смешанный',
+            _ => mode,
+          });
+        }
+      } else if (field == 'duration') {
+        parts.add(switch (constraints.duration) {
+          RouteDurationOption.d1_2 => '1–2 дня',
+          RouteDurationOption.d3_5 => '3–5 дней',
+          RouteDurationOption.d6_7 => '6–7 дней',
+          RouteDurationOption.d7plus => '7+ дней',
+        });
+      } else if (field == 'people') {
+        parts.add('${constraints.people} чел.');
+      } else if (field == 'with_children' && constraints.withChildren == true) {
+        parts.add('с детьми');
+      }
+    }
+    if (parts.isEmpty) {
+      return null;
+    }
+    return 'Учли: ${parts.join(' · ')}';
+  }
+
+  void _applyLocalConstraintPatch(String? actionId) {
+    if (actionId == null || _sessionConstraints == null) {
+      return;
+    }
+    final current = _sessionConstraints!;
+    if (actionId == 'pace_calm') {
+      _sessionConstraints = _copyParams(current, pace: RoutePace.calm);
+    } else if (actionId == 'pace_moderate') {
+      _sessionConstraints = _copyParams(current, pace: RoutePace.moderate);
+    } else if (actionId == 'pace_active') {
+      _sessionConstraints = _copyParams(current, pace: RoutePace.active);
+    } else if (actionId == 'interest_sea') {
+      _sessionConstraints = _copyParams(
+        current,
+        interests: _mergeInterests(current.interests, 'море'),
+      );
+    } else if (actionId == 'interest_mountains') {
+      _sessionConstraints = _copyParams(
+        current,
+        interests: _mergeInterests(current.interests, 'горы'),
+      );
+    } else if (actionId == 'interest_romance') {
+      _sessionConstraints = _copyParams(
+        current,
+        interests: _mergeInterests(current.interests, 'романтика'),
+      );
+    } else if (actionId == 'with_children') {
+      _sessionConstraints = _copyParams(current, withChildren: true);
+    } else if (actionId == 'transport_car') {
+      _sessionConstraints = _copyParams(current, transportMode: 'car');
+    } else if (actionId == 'transport_public') {
+      _sessionConstraints = _copyParams(current, transportMode: 'public');
+    } else if (actionId == 'transport_walk') {
+      _sessionConstraints = _copyParams(current, transportMode: 'walk');
+    } else if (actionId == 'transport_mixed') {
+      _sessionConstraints = _copyParams(current, transportMode: 'mixed');
+    } else if (actionId == 'duration_d1_2') {
+      _sessionConstraints = _copyParams(
+        current,
+        duration: RouteDurationOption.d1_2,
+      );
+    } else if (actionId == 'duration_d3_5') {
+      _sessionConstraints = _copyParams(
+        current,
+        duration: RouteDurationOption.d3_5,
+      );
+    } else if (actionId == 'duration_d6_7') {
+      _sessionConstraints = _copyParams(
+        current,
+        duration: RouteDurationOption.d6_7,
+      );
+    } else if (actionId == 'duration_d7plus') {
+      _sessionConstraints = _copyParams(
+        current,
+        duration: RouteDurationOption.d7plus,
+      );
+    } else if (actionId == 'people_1') {
+      _sessionConstraints = _copyParams(current, people: 1);
+    } else if (actionId == 'people_2') {
+      _sessionConstraints = _copyParams(current, people: 2);
+    } else if (actionId == 'people_3_plus') {
+      _sessionConstraints = _copyParams(current, people: 3);
+    }
+  }
+
+  List<String> _mergeInterests(List<String> current, String extra) {
+    final out = [...current];
+    if (!out.any((item) => item.toLowerCase() == extra.toLowerCase())) {
+      out.add(extra);
+    }
+    return out;
+  }
+
+  RouteMatchParams _copyParams(
+    RouteMatchParams source, {
+    String? city,
+    RouteDurationOption? duration,
+    int? people,
+    List<String>? interests,
+    RoutePace? pace,
+    String? transportMode,
+    bool? withChildren,
+  }) {
+    return RouteMatchParams(
+      city: city ?? source.city,
+      tripType: source.tripType,
+      duration: duration ?? source.duration,
+      people: people ?? source.people,
+      interests: interests ?? source.interests,
+      pace: pace ?? source.pace,
+      season: source.season,
+      transportMode: transportMode ?? source.transportMode,
+      dayKind: source.dayKind,
+      budgetAmount: source.budgetAmount,
+      paidOk: source.paidOk,
+      withChildren: withChildren ?? source.withChildren,
+      withPets: source.withPets,
+      avoidCrowds: source.avoidCrowds,
+      regionSlug: source.regionSlug,
+    );
   }
 
   void _showChatFailure(AppFailure error) {
@@ -589,6 +774,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   Future<void> _sendAiMessage({
     String? textOverride,
     bool wantGenerate = false,
+    String? actionId,
   }) async {
     final text = (textOverride ?? _aiController.text).trim();
     if (text.isEmpty || _sending || _typing) {
@@ -626,7 +812,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             actions: intent == RouteMatchChatIntent.offTopic
                 ? const [
                     {'id': 'want_generate', 'label': 'Подбери маршрут'},
-                    {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
+                    {'id': 'pace_calm', 'label': 'Хочу спокойно'},
+                    {'id': 'interest_sea', 'label': 'Больше моря'},
                   ]
                 : const [],
           ),
@@ -660,6 +847,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             sessionId: sessionId,
             text: text,
             wantGenerate: wantGenerate,
+            actionId: actionId,
           );
       if (!mounted) {
         return;
@@ -667,6 +855,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       setState(() {
         _typing = false;
         _sending = false;
+        _applyLocalConstraintPatch(actionId);
+        if (result.confirmedFields.isNotEmpty) {
+          _confirmedFields = result.confirmedFields;
+        }
         _messages.add(_agentMessageFromResult(result));
       });
     } on AppFailure catch (error) {
@@ -781,6 +973,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             onNewChat: () {
                               unawaited(_startNewChat());
                             },
+                            confirmedSummary: _confirmedSummaryLabel(),
                             bottomInset: px(8),
                           )
                         : _buildParams(px, shellNavPad, showAdvanced),

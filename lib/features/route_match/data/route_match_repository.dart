@@ -56,11 +56,14 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
   }
 
   @override
-  Future<RoutePlanningSession> createSession(RouteMatchParams params) {
+  Future<RoutePlanningSession> createSession(
+    RouteMatchParams params, {
+    List<String> confirmedFields = const [],
+  }) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/route-builder/sessions',
-        data: {'params': params.toJson()},
+        data: {'params': params.toJson(), 'confirmed_fields': confirmedFields},
       );
       return RoutePlanningSession.fromJson(response.data!);
     });
@@ -81,11 +84,16 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
     required String sessionId,
     required String text,
     bool wantGenerate = false,
+    String? actionId,
   }) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/route-builder/sessions/$sessionId/messages',
-        data: {'text': text, 'want_generate': wantGenerate},
+        data: {
+          'text': text,
+          'want_generate': wantGenerate,
+          'action_id': ?actionId,
+        },
       );
       return RoutePlanningMessageResult.fromJson(response.data!);
     });
@@ -207,13 +215,17 @@ class MockRouteMatchRepository implements RouteMatchRepository {
   }
 
   @override
-  Future<RoutePlanningSession> createSession(RouteMatchParams params) async {
+  Future<RoutePlanningSession> createSession(
+    RouteMatchParams params, {
+    List<String> confirmedFields = const [],
+  }) async {
     await Future<void>.delayed(const Duration(milliseconds: 80));
     _mockSessionSeq += 1;
     return RoutePlanningSession(
       sessionId: 'mock-session-$_mockSessionSeq',
       status: 'active',
       constraints: params,
+      confirmedFields: confirmedFields,
       aiPlanningEnabled: false,
     );
   }
@@ -225,12 +237,13 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       sessionId: sessionId,
       status: 'closed',
       constraints: const RouteMatchParams(
-        city: 'Ялта',
+        city: 'Крым',
         duration: RouteDurationOption.d3_5,
         people: 2,
         interests: [],
         pace: RoutePace.calm,
       ),
+      confirmedFields: const [],
       aiPlanningEnabled: false,
     );
   }
@@ -240,9 +253,11 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     required String sessionId,
     required String text,
     bool wantGenerate = false,
+    String? actionId,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (wantGenerate ||
+        actionId == 'want_generate' ||
         text.toLowerCase().contains('подбери маршрут') ||
         text.toLowerCase().trim() == 'давай') {
       final generated = await generate(
@@ -266,24 +281,60 @@ class MockRouteMatchRepository implements RouteMatchRepository {
         provider: 'deterministic_generate',
       );
     }
+    final lowered = text.toLowerCase();
+    var actions = <Map<String, String>>[
+      {'id': 'want_generate', 'label': 'Подбери маршрут'},
+      {'id': 'pace_calm', 'label': 'Хочу спокойно'},
+      {'id': 'pace_active', 'label': 'Хочу активно'},
+    ];
+    var reply =
+        'Понял: «$text». Уточните параметры поездки или нажмите «Подбери маршрут».';
+    var askField = 'pace';
+    if (actionId == 'transport_car' ||
+        actionId == 'transport_public' ||
+        lowered.contains('транспорт') ||
+        lowered.contains('машин')) {
+      actions = const [
+        {'id': 'transport_car', 'label': 'На машине'},
+        {'id': 'transport_public', 'label': 'Общественный транспорт'},
+        {'id': 'transport_walk', 'label': 'Пешком'},
+        {'id': 'want_generate', 'label': 'Подбери маршрут'},
+      ];
+      reply =
+          'Принято. Подскажите, вы планируете поездку на машине, '
+          'общественным транспортом или пешком?';
+      askField = 'transport_mode';
+    } else if (actionId?.startsWith('pace_') == true ||
+        lowered.contains('спокойн') ||
+        lowered.contains('активн')) {
+      actions = const [
+        {'id': 'pace_calm', 'label': 'Хочу спокойно'},
+        {'id': 'pace_moderate', 'label': 'Умеренный темп'},
+        {'id': 'pace_active', 'label': 'Хочу активно'},
+        {'id': 'want_generate', 'label': 'Подбери маршрут'},
+      ];
+      reply = 'Какой темп вам ближе — спокойный, умеренный или активный?';
+      askField = 'pace';
+    } else if (actionId?.startsWith('interest_') == true ||
+        lowered.contains('гор') ||
+        lowered.contains('мор')) {
+      actions = const [
+        {'id': 'interest_sea', 'label': 'Больше моря'},
+        {'id': 'interest_mountains', 'label': 'Больше гор'},
+        {'id': 'interest_romance', 'label': 'Романтика'},
+        {'id': 'want_generate', 'label': 'Подбери маршрут'},
+      ];
+      reply = 'Что важнее — море, горы или романтика?';
+      askField = 'interests';
+    }
     return RoutePlanningMessageResult(
       messageId: 'mock-msg-1',
       sessionId: sessionId,
       role: 'assistant',
-      text:
-          'Понял: «$text». Могу уточнить настроение или собрать маршрут — '
-          'нажмите «Подбери маршрут».',
+      text: reply,
       intent: 'on_topic_travel',
-      blocks: const [
-        ActionsBlock(
-          actions: [
-            {'id': 'want_generate', 'label': 'Подбери маршрут'},
-            {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
-            {'id': 'say_mood_active', 'label': 'Хочу активно'},
-            {'id': 'say_more_sea', 'label': 'Больше моря'},
-          ],
-        ),
-      ],
+      askField: askField,
+      blocks: [ActionsBlock(actions: actions)],
       provider: 'mock',
       fallback: true,
     );

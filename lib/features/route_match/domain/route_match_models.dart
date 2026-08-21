@@ -364,7 +364,10 @@ abstract class RouteMatchRepository {
 
   Future<RouteProposalResult> rejectProposal(String id);
 
-  Future<RoutePlanningSession> createSession(RouteMatchParams params);
+  Future<RoutePlanningSession> createSession(
+    RouteMatchParams params, {
+    List<String> confirmedFields = const [],
+  });
 
   Future<RoutePlanningSession> closeSession(String sessionId);
 
@@ -372,6 +375,7 @@ abstract class RouteMatchRepository {
     required String sessionId,
     required String text,
     bool wantGenerate = false,
+    String? actionId,
   });
 }
 
@@ -381,12 +385,14 @@ class RoutePlanningSession {
     required this.status,
     required this.constraints,
     required this.aiPlanningEnabled,
+    this.confirmedFields = const [],
   });
 
   final String sessionId;
   final String status;
   final RouteMatchParams constraints;
   final bool aiPlanningEnabled;
+  final List<String> confirmedFields;
 
   factory RoutePlanningSession.fromJson(Map<String, dynamic> json) {
     final rawConstraints =
@@ -395,7 +401,7 @@ class RoutePlanningSession {
       sessionId: json['session_id'] as String,
       status: json['status'] as String? ?? 'active',
       constraints: RouteMatchParams(
-        city: rawConstraints['city'] as String? ?? 'Ялта',
+        city: rawConstraints['city'] as String? ?? 'Крым',
         duration: RouteDurationOption.values.firstWhere(
           (item) =>
               item.name == (rawConstraints['duration'] as String? ?? 'd3_5'),
@@ -419,6 +425,9 @@ class RoutePlanningSession {
         avoidCrowds: rawConstraints['avoid_crowds'] as bool?,
         regionSlug: rawConstraints['region_slug'] as String? ?? 'crimea',
       ),
+      confirmedFields: (json['confirmed_fields'] as List<dynamic>? ?? const [])
+          .map((item) => item as String)
+          .toList(growable: false),
       aiPlanningEnabled: json['ai_planning_enabled'] as bool? ?? false,
     );
   }
@@ -435,6 +444,8 @@ class RoutePlanningMessageResult {
     this.proposal,
     this.provider,
     this.fallback = false,
+    this.confirmedFields = const [],
+    this.askField,
   });
 
   final String messageId;
@@ -446,6 +457,8 @@ class RoutePlanningMessageResult {
   final List<RouteChatBlock> blocks;
   final String? provider;
   final bool fallback;
+  final List<String> confirmedFields;
+  final String? askField;
 
   factory RoutePlanningMessageResult.fromJson(Map<String, dynamic> json) {
     final proposalJson = json['proposal'] as Map<String, dynamic>?;
@@ -461,6 +474,10 @@ class RoutePlanningMessageResult {
       blocks: RouteChatBlock.parseAllowlist(json['blocks'] as List<dynamic>?),
       provider: json['provider'] as String?,
       fallback: json['fallback'] as bool? ?? false,
+      confirmedFields: (json['confirmed_fields'] as List<dynamic>? ?? const [])
+          .map((item) => item as String)
+          .toList(growable: false),
+      askField: json['ask_field'] as String?,
     );
   }
 }

@@ -2131,6 +2131,7 @@ class RouteAiChatView extends StatelessWidget {
     this.onProposalRefine,
     this.onChatAction,
     this.onNewChat,
+    this.confirmedSummary,
     super.key,
   });
 
@@ -2150,6 +2151,7 @@ class RouteAiChatView extends StatelessWidget {
   final void Function(String proposalId)? onProposalRefine;
   final void Function(String id, String label)? onChatAction;
   final VoidCallback? onNewChat;
+  final String? confirmedSummary;
 
   @override
   Widget build(BuildContext context) {
@@ -2196,6 +2198,28 @@ class RouteAiChatView extends StatelessWidget {
                                     color: RouteBuilderDesignTokens.deepBlue,
                                     height: 1.1,
                                   ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        if (confirmedSummary != null &&
+                            confirmedSummary!.trim().isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              px(16),
+                              0,
+                              px(16),
+                              px(10),
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                confirmedSummary!,
+                                style: RouteBuilderDesignTokens.rubik(
+                                  fontSize: px(12),
+                                  color: RouteBuilderDesignTokens.deepBlue
+                                      .withValues(alpha: 0.72),
+                                  height: 1.25,
                                 ),
                               ),
                             ),
