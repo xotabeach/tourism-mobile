@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_place_chip.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
@@ -39,6 +40,9 @@ class RouteChatMessage {
     this.proposalCoverUrl,
     this.placeChips = const [],
     this.actions = const [],
+    this.recommendations = const [],
+    this.sliders = const [],
+    this.toggles = const [],
   });
 
   final bool fromAgent;
@@ -52,6 +56,9 @@ class RouteChatMessage {
   final String? proposalCoverUrl;
   final List<RouteChatPlaceChipData> placeChips;
   final List<Map<String, String>> actions;
+  final List<RouteChatRecommendationData> recommendations;
+  final List<RouteChatSliderData> sliders;
+  final List<RouteChatToggleData> toggles;
 
   bool get hasProposalCard =>
       proposalId != null &&
@@ -60,7 +67,60 @@ class RouteChatMessage {
       proposalDurationMinutes != null;
 
   bool get hasInteractiveBlocks =>
-      hasProposalCard || placeChips.isNotEmpty || actions.isNotEmpty;
+      hasProposalCard ||
+      placeChips.isNotEmpty ||
+      actions.isNotEmpty ||
+      recommendations.isNotEmpty ||
+      sliders.isNotEmpty ||
+      toggles.isNotEmpty;
+}
+
+class RouteChatRecommendationData {
+  const RouteChatRecommendationData({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.acceptActionId,
+    this.acceptLabel = 'Попробуем так',
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final String acceptActionId;
+  final String acceptLabel;
+}
+
+class RouteChatSliderData {
+  const RouteChatSliderData({
+    required this.id,
+    required this.label,
+    required this.minValue,
+    required this.maxValue,
+    required this.step,
+    this.value,
+    this.unit,
+  });
+
+  final String id;
+  final String label;
+  final double minValue;
+  final double maxValue;
+  final double step;
+  final double? value;
+  final String? unit;
+}
+
+class RouteChatToggleData {
+  const RouteChatToggleData({
+    required this.id,
+    required this.label,
+    required this.value,
+  });
+
+  final String id;
+  final String label;
+  final bool value;
 }
 
 class RouteChatPlaceChipData {
@@ -2131,6 +2191,7 @@ class RouteAiChatView extends StatelessWidget {
     this.onProposalRefine,
     this.onChatAction,
     this.onNewChat,
+    this.onControlChanged,
     this.confirmedSummary,
     super.key,
   });
@@ -2151,6 +2212,7 @@ class RouteAiChatView extends StatelessWidget {
   final void Function(String proposalId)? onProposalRefine;
   final void Function(String id, String label)? onChatAction;
   final VoidCallback? onNewChat;
+  final void Function(String id, Object value)? onControlChanged;
   final String? confirmedSummary;
 
   @override
@@ -2261,6 +2323,7 @@ class RouteAiChatView extends StatelessWidget {
                           onProposalSaveDraft: onProposalSaveDraft,
                           onProposalRefine: onProposalRefine,
                           onChatAction: onChatAction,
+                          onControlChanged: onControlChanged,
                         )
                       : UserMessageBubble(px: px, message: message),
                 );
@@ -2296,6 +2359,7 @@ class AgentMessageBubble extends StatelessWidget {
     this.onProposalSaveDraft,
     this.onProposalRefine,
     this.onChatAction,
+    this.onControlChanged,
     super.key,
   });
 
@@ -2305,6 +2369,7 @@ class AgentMessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
   final void Function(String id, String label)? onChatAction;
+  final void Function(String id, Object value)? onControlChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2398,6 +2463,42 @@ class AgentMessageBubble extends StatelessWidget {
                                 : () => onProposalRefine!(message.proposalId!),
                           ),
                           SizedBox(height: px(10)),
+                        ],
+                        if (message.recommendations.isNotEmpty) ...[
+                          for (final tip in message.recommendations) ...[
+                            ChatRecommendationCard(
+                              px: px,
+                              data: tip,
+                              onAccept: () {
+                                onChatAction?.call(
+                                  tip.acceptActionId,
+                                  tip.acceptLabel,
+                                );
+                              },
+                            ),
+                            SizedBox(height: px(8)),
+                          ],
+                        ],
+                        if (message.sliders.isNotEmpty &&
+                            onControlChanged != null) ...[
+                          for (final slider in message.sliders) ...[
+                            ChatSliderControl(
+                              px: px,
+                              data: slider,
+                              onCommit: (id, value) =>
+                                  onControlChanged!(id, value),
+                            ),
+                          ],
+                        ],
+                        if (message.toggles.isNotEmpty &&
+                            onControlChanged != null) ...[
+                          for (final toggle in message.toggles)
+                            ChatToggleControl(
+                              px: px,
+                              data: toggle,
+                              onChanged: (id, value) =>
+                                  onControlChanged!(id, value),
+                            ),
                         ],
                         if (message.actions.isNotEmpty &&
                             onChatAction != null) ...[

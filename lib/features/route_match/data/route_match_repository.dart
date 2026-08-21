@@ -85,6 +85,7 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
     required String text,
     bool wantGenerate = false,
     String? actionId,
+    Object? controlValue,
   }) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -93,6 +94,7 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
           'text': text,
           'want_generate': wantGenerate,
           'action_id': ?actionId,
+          'control_value': ?controlValue,
         },
       );
       return RoutePlanningMessageResult.fromJson(response.data!);
@@ -254,6 +256,7 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     required String text,
     bool wantGenerate = false,
     String? actionId,
+    Object? controlValue,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (wantGenerate ||

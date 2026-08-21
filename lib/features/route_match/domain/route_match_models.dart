@@ -184,6 +184,9 @@ sealed class RouteChatBlock {
       'place_chip' => PlaceChipBlock.fromJson(json),
       'route_proposal_card' => RouteProposalCardBlock.fromJson(json),
       'actions' => ActionsBlock.fromJson(json),
+      'slider' => SliderBlock.fromJson(json),
+      'toggle' => ToggleBlock.fromJson(json),
+      'recommendation_card' => RecommendationCardBlock.fromJson(json),
       _ => throw FormatException('Unknown block type: ${json['type']}'),
     };
   }
@@ -257,6 +260,84 @@ final class ActionsBlock extends RouteChatBlock {
             },
           )
           .toList(),
+    );
+  }
+}
+
+final class SliderBlock extends RouteChatBlock {
+  const SliderBlock({
+    required this.id,
+    required this.label,
+    required this.minValue,
+    required this.maxValue,
+    required this.step,
+    this.value,
+    this.unit,
+  });
+
+  final String id;
+  final String label;
+  final double minValue;
+  final double maxValue;
+  final double step;
+  final double? value;
+  final String? unit;
+
+  factory SliderBlock.fromJson(Map<String, dynamic> json) {
+    return SliderBlock(
+      id: json['id'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      minValue: (json['min_value'] as num?)?.toDouble() ?? 0,
+      maxValue: (json['max_value'] as num?)?.toDouble() ?? 1,
+      step: (json['step'] as num?)?.toDouble() ?? 1,
+      value: (json['value'] as num?)?.toDouble(),
+      unit: json['unit'] as String?,
+    );
+  }
+}
+
+final class ToggleBlock extends RouteChatBlock {
+  const ToggleBlock({
+    required this.id,
+    required this.label,
+    required this.value,
+  });
+
+  final String id;
+  final String label;
+  final bool value;
+
+  factory ToggleBlock.fromJson(Map<String, dynamic> json) {
+    return ToggleBlock(
+      id: json['id'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      value: json['value'] as bool? ?? false,
+    );
+  }
+}
+
+final class RecommendationCardBlock extends RouteChatBlock {
+  const RecommendationCardBlock({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.acceptActionId,
+    this.acceptLabel = 'Попробуем так',
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final String acceptActionId;
+  final String acceptLabel;
+
+  factory RecommendationCardBlock.fromJson(Map<String, dynamic> json) {
+    return RecommendationCardBlock(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      acceptActionId: json['accept_action_id'] as String? ?? '',
+      acceptLabel: json['accept_label'] as String? ?? 'Попробуем так',
     );
   }
 }
@@ -376,6 +457,7 @@ abstract class RouteMatchRepository {
     required String text,
     bool wantGenerate = false,
     String? actionId,
+    Object? controlValue,
   });
 }
 

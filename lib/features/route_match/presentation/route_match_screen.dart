@@ -468,6 +468,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       isCrisis: result.intent == 'crisis',
       placeChips: _placeChipsFromBlocks(result.blocks),
       actions: _actionsFromBlocks(result.blocks),
+      recommendations: _recommendationsFromBlocks(result.blocks),
+      sliders: _slidersFromBlocks(result.blocks),
+      toggles: _togglesFromBlocks(result.blocks),
     );
   }
 
@@ -512,6 +515,50 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             if ((action['id'] ?? '').isNotEmpty &&
                 (action['label'] ?? '').isNotEmpty)
               {'id': action['id']!, 'label': action['label']!},
+    ];
+  }
+
+  List<RouteChatRecommendationData> _recommendationsFromBlocks(
+    List<RouteChatBlock> blocks,
+  ) {
+    return [
+      for (final block in blocks)
+        if (block is RecommendationCardBlock)
+          RouteChatRecommendationData(
+            id: block.id,
+            title: block.title,
+            body: block.body,
+            acceptActionId: block.acceptActionId,
+            acceptLabel: block.acceptLabel,
+          ),
+    ];
+  }
+
+  List<RouteChatSliderData> _slidersFromBlocks(List<RouteChatBlock> blocks) {
+    return [
+      for (final block in blocks)
+        if (block is SliderBlock)
+          RouteChatSliderData(
+            id: block.id,
+            label: block.label,
+            minValue: block.minValue,
+            maxValue: block.maxValue,
+            step: block.step,
+            value: block.value,
+            unit: block.unit,
+          ),
+    ];
+  }
+
+  List<RouteChatToggleData> _togglesFromBlocks(List<RouteChatBlock> blocks) {
+    return [
+      for (final block in blocks)
+        if (block is ToggleBlock)
+          RouteChatToggleData(
+            id: block.id,
+            label: block.label,
+            value: block.value,
+          ),
     ];
   }
 
@@ -594,6 +641,23 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       return;
     }
     await _sendAiMessage(textOverride: label, actionId: id);
+  }
+
+  Future<void> _onControlChanged(String id, Object value) async {
+    if (_sending || _typing) {
+      return;
+    }
+    final label = switch (id) {
+      'budget_amount' => 'Бюджет ${value is num ? value.round() : value} ₽',
+      'with_children' => value == true ? 'С детьми' : 'Без детей',
+      'with_pets' => value == true ? 'С питомцами' : 'Без питомцев',
+      _ => id,
+    };
+    await _sendAiMessage(
+      textOverride: label,
+      actionId: id,
+      controlValue: value,
+    );
   }
 
   String? _confirmedSummaryLabel() {
@@ -775,6 +839,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     String? textOverride,
     bool wantGenerate = false,
     String? actionId,
+    Object? controlValue,
   }) async {
     final text = (textOverride ?? _aiController.text).trim();
     if (text.isEmpty || _sending || _typing) {
@@ -848,6 +913,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             text: text,
             wantGenerate: wantGenerate,
             actionId: actionId,
+            controlValue: controlValue,
           );
       if (!mounted) {
         return;
@@ -969,6 +1035,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             onProposalRefine: _onProposalRefine,
                             onChatAction: (id, label) {
                               unawaited(_onChatAction(id, label));
+                            },
+                            onControlChanged: (id, value) {
+                              unawaited(_onControlChanged(id, value));
                             },
                             onNewChat: () {
                               unawaited(_startNewChat());
