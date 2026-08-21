@@ -75,6 +75,17 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   bool _sessionStarting = false;
   RouteMatchParams? _sessionConstraints;
 
+  static const _starterChatActions = <Map<String, String>>[
+    {'id': 'pace_calm', 'label': 'Спокойный маршрут'},
+    {'id': 'pace_active', 'label': 'Активный маршрут'},
+    {'id': 'interest_mountains', 'label': 'Маршрут по горам'},
+    {'id': 'interest_sea', 'label': 'Путешествие к морю'},
+    {'id': 'interest_food', 'label': 'Хочу пожрать'},
+  ];
+
+  static const _starterGreeting =
+      'Здравствуй Путник! Выбери из предложенного или опиши свой идеальный маршрут.';
+
   late List<RouteChatMessage> _messages;
 
   static const _popularCities = ['Симферополь', 'Ялта', 'Алушта', 'Саки'];
@@ -132,9 +143,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         : [
             const RouteChatMessage(
               fromAgent: true,
-              text:
-                  'Здравствуй Путник! Что должно быть в твоём идеальном маршруте?',
+              text: _starterGreeting,
               time: '17:53',
+              actions: _starterChatActions,
+              actionsLayout: ChatActionsLayout.stack,
             ),
           ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -313,14 +325,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         _messages = [
           RouteChatMessage(
             fromAgent: true,
-            text: 'Новый чат. Чем помочь с маршрутом по Крыму?',
+            text: _starterGreeting,
             time: _nowTime(),
-            actions: const [
-              {'id': 'pace_calm', 'label': 'Хочу спокойно'},
-              {'id': 'pace_active', 'label': 'Хочу активно'},
-              {'id': 'interest_sea', 'label': 'Больше моря'},
-              {'id': 'interest_mountains', 'label': 'Больше гор'},
-            ],
+            actions: _starterChatActions,
+            actionsLayout: ChatActionsLayout.stack,
           ),
         ];
       });
@@ -458,7 +466,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       time: _nowTime(),
       isCrisis: result.intent == 'crisis',
       placeChips: _placeChipsFromBlocks(result.blocks),
+      catalogMatch: _catalogMatchFromBlocks(result.blocks),
       actions: _actionsFromBlocks(result.blocks),
+      actionsLayout: _actionsLayoutFromBlocks(result.blocks),
       recommendations: _recommendationsFromBlocks(result.blocks),
       sliders: _slidersFromBlocks(result.blocks),
       toggles: _togglesFromBlocks(result.blocks),
@@ -476,9 +486,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       proposalStopsCount: card.stopsCount,
       proposalDurationMinutes: card.durationMinutes,
       proposalCoverUrl: card.coverUrl,
+      proposalCard: card,
       placeChips: _placeChipsFromBlocks(proposal.blocks),
-      // Proposal card already has create/draft/refine; skip duplicate chips.
+      catalogMatch: _catalogMatchFromBlocks(proposal.blocks),
       actions: const [],
+      actionsLayout: _actionsLayoutFromBlocks(proposal.blocks),
     );
   }
 
@@ -496,6 +508,24 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             durationMinutes: block.durationMinutes,
           ),
     ];
+  }
+
+  List<CatalogRouteItem> _catalogMatchFromBlocks(List<RouteChatBlock> blocks) {
+    for (final block in blocks) {
+      if (block is CatalogMatchBlock) {
+        return block.routes;
+      }
+    }
+    return const [];
+  }
+
+  ChatActionsLayout _actionsLayoutFromBlocks(List<RouteChatBlock> blocks) {
+    for (final block in blocks) {
+      if (block is ActionsBlock) {
+        return block.layout;
+      }
+    }
+    return ChatActionsLayout.wrap;
   }
 
   List<Map<String, String>> _actionsFromBlocks(List<RouteChatBlock> blocks) {
@@ -598,6 +628,37 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
   }
 
+  Future<void> _onProposalReject(String proposalId) async {
+    try {
+      await ref.read(routeMatchRepositoryProvider).rejectProposal(proposalId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _messages.add(
+          RouteChatMessage(
+            fromAgent: true,
+            text: 'Хорошо, соберём маршрут заново. Что изменить?',
+            time: _nowTime(),
+            actions: const [
+              {'id': 'want_generate', 'label': 'Подбери маршрут'},
+              {'id': 'pace_calm', 'label': 'Спокойный маршрут'},
+              {'id': 'pace_active', 'label': 'Активный маршрут'},
+            ],
+          ),
+        );
+      });
+      _scrollAiToEnd();
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
+
   void _onProposalRefine(String _) {
     setState(() {
       _messages.add(
@@ -631,6 +692,14 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       );
       return;
     }
+    if (id == 'build_custom_route') {
+      await _sendAiMessage(textOverride: label, actionId: id);
+      return;
+    }
+    if (id == 'clear_params') {
+      await _sendAiMessage(textOverride: label, actionId: id);
+      return;
+    }
     await _sendAiMessage(textOverride: label, actionId: id);
   }
 
@@ -648,6 +717,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       textOverride: label,
       actionId: id,
       controlValue: value,
+      silent: true,
     );
   }
 
@@ -671,6 +741,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       _sessionConstraints = _copyParams(
         current,
         interests: _mergeInterests(current.interests, 'горы'),
+      );
+    } else if (actionId == 'interest_food') {
+      _sessionConstraints = _copyParams(
+        current,
+        interests: _mergeInterests(current.interests, 'еда'),
       );
     } else if (actionId == 'interest_romance') {
       _sessionConstraints = _copyParams(
@@ -782,6 +857,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     bool wantGenerate = false,
     String? actionId,
     Object? controlValue,
+    bool silent = false,
   }) async {
     final text = (textOverride ?? _aiController.text).trim();
     if (text.isEmpty || _sending || _typing) {
@@ -789,9 +865,12 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
     setState(() {
       _sending = true;
-      _messages.add(
-        RouteChatMessage(fromAgent: false, text: text, time: _nowTime()),
-      );
+      // Controls (slider/toggle) reply silently — no fake "user typed" bubble.
+      if (!silent) {
+        _messages.add(
+          RouteChatMessage(fromAgent: false, text: text, time: _nowTime()),
+        );
+      }
       if (textOverride == null) {
         _aiController.clear();
         _composerDirty = false;
@@ -972,8 +1051,14 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                               );
                             },
                             onProposalRefine: _onProposalRefine,
+                            onProposalReject: (id) {
+                              unawaited(_onProposalReject(id));
+                            },
                             onChatAction: (id, label) {
                               unawaited(_onChatAction(id, label));
+                            },
+                            onOpenCatalogRoute: (routeId) {
+                              unawaited(context.push('/routes/$routeId'));
                             },
                             onControlChanged: (id, value) {
                               unawaited(_onControlChanged(id, value));

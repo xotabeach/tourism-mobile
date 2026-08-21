@@ -7,8 +7,10 @@ import 'package:flutter/services.dart';
 
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_catalog_match_carousel.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_place_chip.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
@@ -38,8 +40,11 @@ class RouteChatMessage {
     this.proposalStopsCount,
     this.proposalDurationMinutes,
     this.proposalCoverUrl,
+    this.proposalCard,
+    this.catalogMatch = const [],
     this.placeChips = const [],
     this.actions = const [],
+    this.actionsLayout = ChatActionsLayout.wrap,
     this.recommendations = const [],
     this.sliders = const [],
     this.toggles = const [],
@@ -54,20 +59,30 @@ class RouteChatMessage {
   final int? proposalStopsCount;
   final int? proposalDurationMinutes;
   final String? proposalCoverUrl;
+
+  /// Full proposal-preview data (design-spec screens 2/3); preferred over the
+  /// individual fields above when present.
+  final RouteProposalCardData? proposalCard;
+
+  final List<CatalogRouteItem> catalogMatch;
+
   final List<RouteChatPlaceChipData> placeChips;
   final List<Map<String, String>> actions;
+  final ChatActionsLayout actionsLayout;
   final List<RouteChatRecommendationData> recommendations;
   final List<RouteChatSliderData> sliders;
   final List<RouteChatToggleData> toggles;
 
   bool get hasProposalCard =>
-      proposalId != null &&
-      proposalTitle != null &&
-      proposalStopsCount != null &&
-      proposalDurationMinutes != null;
+      proposalCard != null ||
+      (proposalId != null &&
+          proposalTitle != null &&
+          proposalStopsCount != null &&
+          proposalDurationMinutes != null);
 
   bool get hasInteractiveBlocks =>
       hasProposalCard ||
+      catalogMatch.isNotEmpty ||
       placeChips.isNotEmpty ||
       actions.isNotEmpty ||
       recommendations.isNotEmpty ||
@@ -2189,7 +2204,9 @@ class RouteAiChatView extends StatelessWidget {
     this.onProposalCreate,
     this.onProposalSaveDraft,
     this.onProposalRefine,
+    this.onProposalReject,
     this.onChatAction,
+    this.onOpenCatalogRoute,
     this.onNewChat,
     this.onControlChanged,
     super.key,
@@ -2209,7 +2226,9 @@ class RouteAiChatView extends StatelessWidget {
   final void Function(String proposalId)? onProposalCreate;
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
+  final void Function(String proposalId)? onProposalReject;
   final void Function(String id, String label)? onChatAction;
+  final void Function(String routeId)? onOpenCatalogRoute;
   final VoidCallback? onNewChat;
   final void Function(String id, Object value)? onControlChanged;
 
@@ -2275,15 +2294,9 @@ class RouteAiChatView extends StatelessWidget {
                 if (typing && messageIndex == messages.length) {
                   return Padding(
                     padding: EdgeInsets.fromLTRB(px(16), px(8), px(16), 0),
-                    child: Align(
+                    child: const Align(
                       alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Тревел Агент печатает…',
-                        style: RouteBuilderDesignTokens.rubik(
-                          fontSize: px(13),
-                          color: RouteBuilderDesignTokens.textSecondary,
-                        ),
-                      ),
+                      child: _TypingDots(),
                     ),
                   );
                 }
@@ -2291,17 +2304,22 @@ class RouteAiChatView extends StatelessWidget {
                 final topGap = messageIndex == 0 ? px(12) : px(15);
                 return Padding(
                   padding: EdgeInsets.fromLTRB(px(16), topGap, px(16), 0),
-                  child: message.fromAgent
-                      ? AgentMessageBubble(
-                          px: px,
-                          message: message,
-                          onProposalCreate: onProposalCreate,
-                          onProposalSaveDraft: onProposalSaveDraft,
-                          onProposalRefine: onProposalRefine,
-                          onChatAction: onChatAction,
-                          onControlChanged: onControlChanged,
-                        )
-                      : UserMessageBubble(px: px, message: message),
+                  child: _MessageEntry(
+                    message: message,
+                    child: message.fromAgent
+                        ? AgentMessageBubble(
+                            px: px,
+                            message: message,
+                            onProposalCreate: onProposalCreate,
+                            onProposalSaveDraft: onProposalSaveDraft,
+                            onProposalRefine: onProposalRefine,
+                            onProposalReject: onProposalReject,
+                            onChatAction: onChatAction,
+                            onOpenCatalogRoute: onOpenCatalogRoute,
+                            onControlChanged: onControlChanged,
+                          )
+                        : UserMessageBubble(px: px, message: message),
+                  ),
                 );
               },
             ),
@@ -2334,7 +2352,9 @@ class AgentMessageBubble extends StatelessWidget {
     this.onProposalCreate,
     this.onProposalSaveDraft,
     this.onProposalRefine,
+    this.onProposalReject,
     this.onChatAction,
+    this.onOpenCatalogRoute,
     this.onControlChanged,
     super.key,
   });
@@ -2344,8 +2364,40 @@ class AgentMessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onProposalCreate;
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
+  final void Function(String proposalId)? onProposalReject;
   final void Function(String id, String label)? onChatAction;
+  final void Function(String routeId)? onOpenCatalogRoute;
   final void Function(String id, Object value)? onControlChanged;
+
+  String? get _proposalId =>
+      message.proposalCard?.proposalId ?? message.proposalId;
+
+  void _handleAction(String id, String label) {
+    final proposalId = _proposalId;
+    switch (id) {
+      case 'accept_proposal':
+        if (proposalId != null && onProposalCreate != null) {
+          onProposalCreate!(proposalId);
+          return;
+        }
+      case 'save_draft':
+        if (proposalId != null && onProposalSaveDraft != null) {
+          onProposalSaveDraft!(proposalId);
+          return;
+        }
+      case 'refine':
+        if (proposalId != null && onProposalRefine != null) {
+          onProposalRefine!(proposalId);
+          return;
+        }
+      case 'reject':
+        if (proposalId != null && onProposalReject != null) {
+          onProposalReject!(proposalId);
+          return;
+        }
+    }
+    onChatAction?.call(id, label);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2378,15 +2430,38 @@ class AgentMessageBubble extends StatelessWidget {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          'Тревел Агент',
-                          style: RouteBuilderDesignTokens.rubik(
-                            fontSize: px(14),
-                            color: RouteBuilderDesignTokens.deepBlue,
-                            height: 1.1,
-                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: px(20),
+                              height: px(20),
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient:
+                                    RouteBuilderDesignTokens.travelPlusGradient,
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 12,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: px(6)),
+                            Text(
+                              'Тревел Агент',
+                              style: RouteBuilderDesignTokens.rubik(
+                                fontSize: px(14),
+                                weight: FontWeight.w600,
+                                color: RouteBuilderDesignTokens.deepBlue,
+                                height: 1.1,
+                              ),
+                            ),
+                          ],
                         ),
-                        SizedBox(height: px(4)),
+                        SizedBox(height: px(6)),
                         Padding(
                           padding: EdgeInsets.only(
                             bottom: message.hasInteractiveBlocks
@@ -2421,22 +2496,46 @@ class AgentMessageBubble extends StatelessWidget {
                           ),
                           SizedBox(height: px(10)),
                         ],
+                        if (message.catalogMatch.isNotEmpty &&
+                            onOpenCatalogRoute != null) ...[
+                          ChatCatalogMatchCarousel(
+                            routes: message.catalogMatch,
+                            onOpenRoute: onOpenCatalogRoute!,
+                          ),
+                          SizedBox(height: px(10)),
+                        ],
                         if (message.hasProposalCard) ...[
                           ChatRouteProposalCard(
-                            title: message.proposalTitle!,
-                            stopsCount: message.proposalStopsCount!,
-                            durationMinutes: message.proposalDurationMinutes!,
-                            coverUrl: message.proposalCoverUrl,
-                            onCreate: onProposalCreate == null
+                            card:
+                                message.proposalCard ??
+                                RouteProposalCardData(
+                                  proposalId: message.proposalId!,
+                                  title: message.proposalTitle!,
+                                  stopsCount: message.proposalStopsCount!,
+                                  durationMinutes:
+                                      message.proposalDurationMinutes!,
+                                  coverUrl: message.proposalCoverUrl,
+                                  placeIds: message.placeChips
+                                      .map((chip) => chip.placeId)
+                                      .toList(growable: false),
+                                ),
+                            onCreate:
+                                onProposalCreate == null || _proposalId == null
                                 ? null
-                                : () => onProposalCreate!(message.proposalId!),
-                            onSaveDraft: onProposalSaveDraft == null
+                                : () => onProposalCreate!(_proposalId!),
+                            onSaveDraft:
+                                onProposalSaveDraft == null ||
+                                    _proposalId == null
                                 ? null
-                                : () =>
-                                      onProposalSaveDraft!(message.proposalId!),
-                            onRefine: onProposalRefine == null
+                                : () => onProposalSaveDraft!(_proposalId!),
+                            onRefine:
+                                onProposalRefine == null || _proposalId == null
                                 ? null
-                                : () => onProposalRefine!(message.proposalId!),
+                                : () => onProposalRefine!(_proposalId!),
+                            onRebuild:
+                                onProposalReject == null || _proposalId == null
+                                ? null
+                                : () => onProposalReject!(_proposalId!),
                           ),
                           SizedBox(height: px(10)),
                         ],
@@ -2446,7 +2545,7 @@ class AgentMessageBubble extends StatelessWidget {
                               px: px,
                               data: tip,
                               onAccept: () {
-                                onChatAction?.call(
+                                _handleAction(
                                   tip.acceptActionId,
                                   tip.acceptLabel,
                                 );
@@ -2476,12 +2575,12 @@ class AgentMessageBubble extends StatelessWidget {
                                   onControlChanged!(id, value),
                             ),
                         ],
-                        if (message.actions.isNotEmpty &&
-                            onChatAction != null) ...[
+                        if (message.actions.isNotEmpty) ...[
                           ChatActionChips(
                             px: px,
                             actions: message.actions,
-                            onAction: onChatAction!,
+                            layout: message.actionsLayout,
+                            onAction: _handleAction,
                           ),
                           SizedBox(height: px(14)),
                         ] else if (message.hasInteractiveBlocks)
@@ -2507,6 +2606,60 @@ class AgentMessageBubble extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Wraps a chat message with a subtle fade-and-rise entry animation on first
+/// appearance. Honors reduced-motion accessibility.
+class _MessageEntry extends StatefulWidget {
+  const _MessageEntry({required this.message, required this.child});
+
+  final RouteChatMessage message;
+  final Widget child;
+
+  @override
+  State<_MessageEntry> createState() => _MessageEntryState();
+}
+
+class _MessageEntryState extends State<_MessageEntry>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: AppMotion.emphasized,
+    );
+    _opacity = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0, 0.8, curve: Curves.easeOut),
+    );
+    _slide = Tween<Offset>(
+      begin: const Offset(0, 0.06),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: AppMotion.standard));
+    unawaited(_controller.forward());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      return widget.child;
+    }
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
@@ -2707,4 +2860,86 @@ class _PaperPlanePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _PaperPlanePainter oldDelegate) =>
       oldDelegate.stroke != stroke;
+}
+
+/// Three bouncing dots shown while the backend plans the reply.
+class _TypingDots extends StatefulWidget {
+  const _TypingDots();
+
+  @override
+  State<_TypingDots> createState() => _TypingDotsState();
+}
+
+class _TypingDotsState extends State<_TypingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    unawaited(_controller.repeat());
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final px = RouteBuilderScale.of(context).px;
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < 3; i++) ...[
+              if (i > 0) SizedBox(width: px(5)),
+              _TypingDot(px: px, phase: (_controller.value + i / 3) % 1),
+            ],
+            SizedBox(width: px(8)),
+            Text(
+              'думает…',
+              style: RouteBuilderDesignTokens.rubik(
+                fontSize: px(13),
+                color: RouteBuilderDesignTokens.textSecondary,
+                height: 1.1,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TypingDot extends StatelessWidget {
+  const _TypingDot({required this.px, required this.phase});
+
+  final RoutePx px;
+  final double phase;
+
+  @override
+  Widget build(BuildContext context) {
+    final bounce = Curves.easeInOut.transform(
+      (phase < 0.5 ? phase * 2 : (1 - phase) * 2).clamp(0.0, 1.0),
+    );
+    final size = px(6 + 3 * bounce);
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: RouteBuilderDesignTokens.deepBlue.withValues(
+          alpha: 0.35 + 0.45 * bounce,
+        ),
+      ),
+    );
+  }
 }

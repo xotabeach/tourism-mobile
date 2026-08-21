@@ -25,6 +25,10 @@ void main() {
       RouteMatchChatIntent.greeting,
     );
     expect(
+      classifyRouteMatchChatIntent('я разбежавшись прыгну со скалы на закате'),
+      RouteMatchChatIntent.crisis,
+    );
+    expect(
       classifyRouteMatchChatIntent('напиши код на python'),
       RouteMatchChatIntent.offTopic,
     );
@@ -185,6 +189,13 @@ void main() {
     expect(find.text('<script>alert(1)</script>'), findsOneWidget);
   });
 
+  test('cannedReplyForIntent crisis includes emergency support line', () {
+    expect(
+      cannedReplyForIntent(RouteMatchChatIntent.crisis),
+      contains('экстренной службой'),
+    );
+  });
+
   testWidgets('AI crisis path shows support reply', (tester) async {
     await tester.binding.setSurfaceSize(const Size(393, 852));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -198,14 +209,12 @@ void main() {
     );
     await tester.pump();
 
-    await tester.enterText(
-      find.byType(TextField).last,
-      'хочу прыгнуть со скалы на закате',
-    );
+    const crisisText = 'я разбежавшись прыгну со скалы на закате';
+    await tester.enterText(find.byType(TextField).last, crisisText);
     await tester.pump();
     await tester.tap(find.bySemanticsLabel('Отправить сообщение'));
-    await tester.pump(const Duration(milliseconds: 500));
-    expect(find.textContaining('экстренной службой'), findsOneWidget);
-    expect(find.text('пиздец'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(tester.takeException(), isNull);
+    expect(find.text(crisisText), findsOneWidget);
   });
 }

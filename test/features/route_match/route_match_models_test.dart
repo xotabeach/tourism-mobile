@@ -105,4 +105,67 @@ void main() {
     expect(result.proposal.blocks, hasLength(2));
     expect(result.proposal.blocks.last, isA<ActionsBlock>());
   });
+
+  test('RouteProposalCardData parses assembled extras safely', () {
+    final card = RouteProposalCardData.fromJson({
+      'proposal_id': 'p-2',
+      'title': 'Собранный маршрут',
+      'stops_count': 5,
+      'duration_minutes': 360,
+      'card_variant': 'assembled',
+      'gallery_urls': [
+        'https://example.com/1.jpg',
+        'https://example.com/2.jpg',
+      ],
+      'start_label': 'Симферополь',
+      'start_subtitle': 'г. Симферополь',
+      'finish_label': 'Ялта',
+      'finish_subtitle': 'г. Ялта',
+      'route_id': 'route-1',
+      'locations': [
+        {
+          'id': 'loc-1',
+          'title': 'Ласточкино гнездо',
+          'subtitle': 'Гора',
+          'index': 1,
+        },
+      ],
+    });
+
+    expect(card.cardVariant, RouteProposalCardVariant.assembled);
+    expect(card.galleryUrls, hasLength(2));
+    expect(card.startLabel, 'Симферополь');
+    expect(card.routeId, 'route-1');
+    expect(card.locations.single.title, 'Ласточкино гнездо');
+  });
+
+  test('CatalogMatchBlock and ActionsBlock layout parse from allowlist', () {
+    final blocks = RouteChatBlock.parseAllowlist([
+      {
+        'type': 'catalog_match',
+        'routes': [
+          {
+            'route_id': 'r-1',
+            'title': 'Ялта · море',
+            'rating': 4.8,
+            'distance_km': 12.4,
+            'tags': ['Пляж'],
+          },
+        ],
+      },
+      {
+        'type': 'actions',
+        'layout': 'stack',
+        'actions': [
+          {'id': 'build_custom_route', 'label': 'Собрать собственный маршрут'},
+        ],
+      },
+    ]);
+
+    expect(blocks, hasLength(2));
+    expect(blocks.first, isA<CatalogMatchBlock>());
+    expect((blocks.first as CatalogMatchBlock).routes.single.routeId, 'r-1');
+    expect(blocks.last, isA<ActionsBlock>());
+    expect((blocks.last as ActionsBlock).layout, ChatActionsLayout.stack);
+  });
 }

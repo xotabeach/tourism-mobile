@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
 
@@ -32,6 +33,33 @@ void main() {
     expect(tappedId, 'want_generate');
     expect(tappedLabel, 'Подбери маршрут');
     expect(find.byType(HtmlElementView), findsNothing);
+  });
+
+  testWidgets('ChatActionChips stack layout renders full-width buttons', (
+    tester,
+  ) async {
+    String? tappedId;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatActionChips(
+            px: (value) => value,
+            layout: ChatActionsLayout.stack,
+            actions: const [
+              {'id': 'pace_calm', 'label': 'Спокойный маршрут'},
+              {'id': 'interest_sea', 'label': 'Путешествие к морю'},
+            ],
+            onAction: (id, _) => tappedId = id,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(ActionChip), findsNothing);
+    expect(find.text('Спокойный маршрут'), findsOneWidget);
+    await tester.tap(find.text('Путешествие к морю'));
+    await tester.pump();
+    expect(tappedId, 'interest_sea');
   });
 
   testWidgets('RouteAiChatView shows dynamic chips', (tester) async {

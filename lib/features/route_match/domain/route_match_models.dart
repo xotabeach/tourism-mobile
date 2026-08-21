@@ -145,6 +145,39 @@ class RouteQuotaSnapshot {
   }
 }
 
+enum RouteProposalCardVariant { catalog, assembled, compact }
+
+RouteProposalCardVariant _parseCardVariant(String? raw) {
+  return switch (raw) {
+    'catalog' => RouteProposalCardVariant.catalog,
+    'assembled' => RouteProposalCardVariant.assembled,
+    _ => RouteProposalCardVariant.compact,
+  };
+}
+
+class ProposalLocationItem {
+  const ProposalLocationItem({
+    required this.id,
+    required this.title,
+    this.subtitle,
+    required this.index,
+  });
+
+  final String id;
+  final String title;
+  final String? subtitle;
+  final int index;
+
+  factory ProposalLocationItem.fromJson(Map<String, dynamic> json) {
+    return ProposalLocationItem(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      subtitle: json['subtitle'] as String?,
+      index: json['index'] as int? ?? 1,
+    );
+  }
+}
+
 class RouteProposalCardData {
   const RouteProposalCardData({
     required this.proposalId,
@@ -153,6 +186,21 @@ class RouteProposalCardData {
     required this.durationMinutes,
     this.coverUrl,
     this.placeIds = const [],
+    this.rating,
+    this.distanceKm,
+    this.localityLabel,
+    this.tags = const [],
+    this.budgetLabel,
+    this.difficultyLabel,
+    this.primaryActionLabel = 'Пройти маршрут',
+    this.cardVariant = RouteProposalCardVariant.compact,
+    this.galleryUrls = const [],
+    this.startLabel,
+    this.startSubtitle,
+    this.finishLabel,
+    this.finishSubtitle,
+    this.locations = const [],
+    this.routeId,
   });
 
   final String proposalId;
@@ -161,6 +209,21 @@ class RouteProposalCardData {
   final int durationMinutes;
   final String? coverUrl;
   final List<String> placeIds;
+  final double? rating;
+  final double? distanceKm;
+  final String? localityLabel;
+  final List<String> tags;
+  final String? budgetLabel;
+  final String? difficultyLabel;
+  final String primaryActionLabel;
+  final RouteProposalCardVariant cardVariant;
+  final List<String> galleryUrls;
+  final String? startLabel;
+  final String? startSubtitle;
+  final String? finishLabel;
+  final String? finishSubtitle;
+  final List<ProposalLocationItem> locations;
+  final String? routeId;
 
   factory RouteProposalCardData.fromJson(Map<String, dynamic> json) {
     return RouteProposalCardData(
@@ -172,6 +235,77 @@ class RouteProposalCardData {
       placeIds: (json['place_ids'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(),
+      rating: (json['rating'] as num?)?.toDouble(),
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
+      localityLabel: json['locality_label'] as String?,
+      tags: (json['tags'] as List<dynamic>? ?? const [])
+          .map((item) => item as String)
+          .toList(),
+      budgetLabel: json['budget_label'] as String?,
+      difficultyLabel: json['difficulty_label'] as String?,
+      primaryActionLabel:
+          json['primary_action_label'] as String? ?? 'Пройти маршрут',
+      cardVariant: _parseCardVariant(json['card_variant'] as String?),
+      galleryUrls: (json['gallery_urls'] as List<dynamic>? ?? const [])
+          .map((item) => item as String)
+          .where((item) => item.isNotEmpty)
+          .toList(growable: false),
+      startLabel: json['start_label'] as String?,
+      startSubtitle: json['start_subtitle'] as String?,
+      finishLabel: json['finish_label'] as String?,
+      finishSubtitle: json['finish_subtitle'] as String?,
+      locations: (json['locations'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(ProposalLocationItem.fromJson)
+          .where((item) => item.id.isNotEmpty && item.title.isNotEmpty)
+          .toList(growable: false),
+      routeId: json['route_id'] as String?,
+    );
+  }
+}
+
+class CatalogRouteItem {
+  const CatalogRouteItem({
+    required this.routeId,
+    required this.title,
+    this.coverUrl,
+    this.rating,
+    this.distanceKm,
+    this.localityLabel,
+    this.tags = const [],
+    this.budgetLabel,
+    this.difficultyLabel,
+    this.stopsCount = 0,
+    this.durationMinutes = 0,
+  });
+
+  final String routeId;
+  final String title;
+  final String? coverUrl;
+  final double? rating;
+  final double? distanceKm;
+  final String? localityLabel;
+  final List<String> tags;
+  final String? budgetLabel;
+  final String? difficultyLabel;
+  final int stopsCount;
+  final int durationMinutes;
+
+  factory CatalogRouteItem.fromJson(Map<String, dynamic> json) {
+    return CatalogRouteItem(
+      routeId: json['route_id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      coverUrl: json['cover_url'] as String?,
+      rating: (json['rating'] as num?)?.toDouble(),
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
+      localityLabel: json['locality_label'] as String?,
+      tags: (json['tags'] as List<dynamic>? ?? const [])
+          .map((item) => item as String)
+          .toList(),
+      budgetLabel: json['budget_label'] as String?,
+      difficultyLabel: json['difficulty_label'] as String?,
+      stopsCount: json['stops_count'] as int? ?? 0,
+      durationMinutes: json['duration_minutes'] as int? ?? 0,
     );
   }
 }
@@ -183,6 +317,7 @@ sealed class RouteChatBlock {
     return switch (json['type'] as String?) {
       'place_chip' => PlaceChipBlock.fromJson(json),
       'route_proposal_card' => RouteProposalCardBlock.fromJson(json),
+      'catalog_match' => CatalogMatchBlock.fromJson(json),
       'actions' => ActionsBlock.fromJson(json),
       'slider' => SliderBlock.fromJson(json),
       'toggle' => ToggleBlock.fromJson(json),
@@ -243,10 +378,20 @@ final class RouteProposalCardBlock extends RouteChatBlock {
   }
 }
 
+enum ChatActionsLayout { wrap, stack }
+
+ChatActionsLayout _parseActionsLayout(String? raw) {
+  return raw == 'stack' ? ChatActionsLayout.stack : ChatActionsLayout.wrap;
+}
+
 final class ActionsBlock extends RouteChatBlock {
-  const ActionsBlock({required this.actions});
+  const ActionsBlock({
+    required this.actions,
+    this.layout = ChatActionsLayout.wrap,
+  });
 
   final List<Map<String, String>> actions;
+  final ChatActionsLayout layout;
 
   factory ActionsBlock.fromJson(Map<String, dynamic> json) {
     final raw = json['actions'] as List<dynamic>? ?? const [];
@@ -260,6 +405,24 @@ final class ActionsBlock extends RouteChatBlock {
             },
           )
           .toList(),
+      layout: _parseActionsLayout(json['layout'] as String?),
+    );
+  }
+}
+
+final class CatalogMatchBlock extends RouteChatBlock {
+  const CatalogMatchBlock({required this.routes});
+
+  final List<CatalogRouteItem> routes;
+
+  factory CatalogMatchBlock.fromJson(Map<String, dynamic> json) {
+    final raw = json['routes'] as List<dynamic>? ?? const [];
+    return CatalogMatchBlock(
+      routes: raw
+          .whereType<Map<String, dynamic>>()
+          .map(CatalogRouteItem.fromJson)
+          .where((item) => item.routeId.isNotEmpty && item.title.isNotEmpty)
+          .toList(growable: false),
     );
   }
 }
