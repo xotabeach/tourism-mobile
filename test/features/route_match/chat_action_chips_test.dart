@@ -34,9 +34,7 @@ void main() {
     expect(find.byType(HtmlElementView), findsNothing);
   });
 
-  testWidgets('RouteAiChatView shows confirmed summary and dynamic chips', (
-    tester,
-  ) async {
+  testWidgets('RouteAiChatView shows dynamic chips', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -62,14 +60,13 @@ void main() {
             onChanged: (_) {},
             onSend: () {},
             bottomInset: 0,
-            confirmedSummary: 'Учли: Ялта · горы',
             onChatAction: (_, _) {},
           ),
         ),
       ),
     );
 
-    expect(find.text('Учли: Ялта · горы'), findsOneWidget);
+    expect(find.textContaining('Учли:'), findsNothing);
     expect(find.text('На машине'), findsOneWidget);
     expect(find.text('Общественный транспорт'), findsOneWidget);
     expect(find.text('Хочу спокойно'), findsNothing);

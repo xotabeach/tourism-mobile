@@ -73,7 +73,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   double _lastViewInset = 0;
   String? _chatSessionId;
   bool _sessionStarting = false;
-  List<String> _confirmedFields = const [];
   RouteMatchParams? _sessionConstraints;
 
   late List<RouteChatMessage> _messages;
@@ -255,7 +254,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       }
       setState(() {
         _chatSessionId = session.sessionId;
-        _confirmedFields = session.confirmedFields;
         _sessionConstraints = session.constraints;
         _sessionStarting = false;
       });
@@ -273,14 +271,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     final city = _city?.trim();
     final hasCity = city != null && city.isNotEmpty;
     final params = _buildMatchParams(city: hasCity ? city : 'Крым');
-    final confirmed = <String>[
-      if (hasCity) 'city',
-      if (_interests.isNotEmpty) 'interests',
-      if (_tripType != null) 'trip_type',
-      // Form defaults for duration/people/pace are drafts — only confirm when
-      // the user explicitly chose city or advanced intent on the form.
-    ];
-    return (params: params, confirmedFields: confirmed);
+    // Form values are a draft for generate only. Nothing is "stated in chat"
+    // until the user taps a chip / control or writes it in this session.
+    return (params: params, confirmedFields: const <String>[]);
   }
 
   Future<void> _startNewChat() async {
@@ -292,7 +285,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       _sessionStarting = true;
       _messages = <RouteChatMessage>[];
       _chatSessionId = null;
-      _confirmedFields = const [];
       _sessionConstraints = null;
       _composerDirty = false;
       _aiController.clear();
@@ -316,7 +308,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       }
       setState(() {
         _chatSessionId = session.sessionId;
-        _confirmedFields = session.confirmedFields;
         _sessionConstraints = session.constraints;
         _sessionStarting = false;
         _messages = [
@@ -660,55 +651,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     );
   }
 
-  String? _confirmedSummaryLabel() {
-    final constraints = _sessionConstraints;
-    if (constraints == null || _confirmedFields.isEmpty) {
-      return null;
-    }
-    final parts = <String>[];
-    for (final field in _confirmedFields) {
-      if (field == 'city' &&
-          constraints.city.trim().isNotEmpty &&
-          constraints.city.trim() != 'Крым') {
-        parts.add(constraints.city.trim());
-      } else if (field == 'pace') {
-        parts.add(switch (constraints.pace) {
-          RoutePace.calm => 'спокойно',
-          RoutePace.moderate => 'умеренно',
-          RoutePace.active => 'активно',
-        });
-      } else if (field == 'interests' && constraints.interests.isNotEmpty) {
-        parts.add(constraints.interests.take(2).join(', '));
-      } else if (field == 'transport_mode') {
-        final mode = constraints.transportMode;
-        if (mode != null && mode.isNotEmpty) {
-          parts.add(switch (mode) {
-            'car' => 'машина',
-            'public' => 'транспорт',
-            'walk' => 'пешком',
-            'mixed' => 'смешанный',
-            _ => mode,
-          });
-        }
-      } else if (field == 'duration') {
-        parts.add(switch (constraints.duration) {
-          RouteDurationOption.d1_2 => '1–2 дня',
-          RouteDurationOption.d3_5 => '3–5 дней',
-          RouteDurationOption.d6_7 => '6–7 дней',
-          RouteDurationOption.d7plus => '7+ дней',
-        });
-      } else if (field == 'people') {
-        parts.add('${constraints.people} чел.');
-      } else if (field == 'with_children' && constraints.withChildren == true) {
-        parts.add('с детьми');
-      }
-    }
-    if (parts.isEmpty) {
-      return null;
-    }
-    return 'Учли: ${parts.join(' · ')}';
-  }
-
   void _applyLocalConstraintPatch(String? actionId) {
     if (actionId == null || _sessionConstraints == null) {
       return;
@@ -922,9 +864,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         _typing = false;
         _sending = false;
         _applyLocalConstraintPatch(actionId);
-        if (result.confirmedFields.isNotEmpty) {
-          _confirmedFields = result.confirmedFields;
-        }
         _messages.add(_agentMessageFromResult(result));
       });
     } on AppFailure catch (error) {
@@ -1042,7 +981,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             onNewChat: () {
                               unawaited(_startNewChat());
                             },
-                            confirmedSummary: _confirmedSummaryLabel(),
                             bottomInset: px(8),
                           )
                         : _buildParams(px, shellNavPad, showAdvanced),
