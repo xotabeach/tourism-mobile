@@ -36,9 +36,10 @@ void main() {
       classifyRouteMatchChatIntent('Хочу маршрут по Ялте на полдня'),
       RouteMatchChatIntent.onTopicTravel,
     );
+    expect(cannedReplyForIntent(RouteMatchChatIntent.greeting), isEmpty);
     expect(
-      cannedReplyForIntent(RouteMatchChatIntent.greeting),
-      contains('готов помочь составить маршрут'),
+      cannedReplyForIntent(RouteMatchChatIntent.offTopic),
+      contains('только с подбором маршрутов'),
     );
   });
 

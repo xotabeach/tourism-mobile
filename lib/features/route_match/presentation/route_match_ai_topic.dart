@@ -36,13 +36,14 @@ RouteMatchChatIntent classifyRouteMatchChatIntent(String raw) {
   return RouteMatchChatIntent.onTopicTravel;
 }
 
-/// Canonical canned replies (product contract).
+/// Canonical canned replies for hard safety / off-topic only.
+/// Greeting is handled by the LLM with system rules (no mock small-talk).
 String cannedReplyForIntent(RouteMatchChatIntent intent) {
   switch (intent) {
     case RouteMatchChatIntent.crisis:
       return routeMatchCrisisSupportReply;
     case RouteMatchChatIntent.greeting:
-      return routeMatchGreetingReply;
+      return '';
     case RouteMatchChatIntent.offTopic:
       return routeMatchOffTopicReply;
     case RouteMatchChatIntent.injectionAttempt:
@@ -51,10 +52,6 @@ String cannedReplyForIntent(RouteMatchChatIntent intent) {
       return '';
   }
 }
-
-const String routeMatchGreetingReply =
-    'Привет! У меня всё супер — я готов помочь составить маршрут по Крыму. '
-    'Откуда стартуем и сколько у вас времени?';
 
 const String routeMatchOffTopicReply =
     'Я могу помогать только с подбором маршрутов и мест в Крыму. '

@@ -261,6 +261,59 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
   }
 
+  Future<void> _startNewChat() async {
+    if (widget.pixelReference || _sessionStarting || _sending || _typing) {
+      return;
+    }
+    final previousId = _chatSessionId;
+    setState(() {
+      _sessionStarting = true;
+      _messages = <RouteChatMessage>[];
+      _chatSessionId = null;
+      _composerDirty = false;
+      _aiController.clear();
+    });
+    final repo = ref.read(routeMatchRepositoryProvider);
+    if (previousId != null) {
+      try {
+        await repo.closeSession(previousId);
+      } on AppFailure {
+        // Best-effort close; still create a fresh session below.
+      }
+    }
+    try {
+      final params = _buildMatchParams(city: _city?.trim() ?? 'Ялта');
+      final session = await repo.createSession(params);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _chatSessionId = session.sessionId;
+        _sessionStarting = false;
+        _messages = [
+          RouteChatMessage(
+            fromAgent: true,
+            text: 'Новый чат. Чем помочь с маршрутом по Крыму?',
+            time: _nowTime(),
+            actions: const [
+              {'id': 'want_generate', 'label': 'Подбери маршрут'},
+              {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
+              {'id': 'say_mood_active', 'label': 'Хочу активно'},
+              {'id': 'say_more_sea', 'label': 'Больше моря'},
+            ],
+          ),
+        ];
+      });
+      _scrollAiToEnd();
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _sessionStarting = false);
+      _showChatFailure(error);
+    }
+  }
+
   void _syncAppBarFromActiveScroll() {
     if (!mounted) {
       return;
@@ -375,6 +428,20 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     );
   }
 
+  RouteChatMessage _agentMessageFromResult(RoutePlanningMessageResult result) {
+    if (result.proposal != null) {
+      return _agentProposalMessage(result.proposal!);
+    }
+    return RouteChatMessage(
+      fromAgent: true,
+      text: result.text,
+      time: _nowTime(),
+      isCrisis: result.intent == 'crisis',
+      placeChips: _placeChipsFromBlocks(result.blocks),
+      actions: _actionsFromBlocks(result.blocks),
+    );
+  }
+
   RouteChatMessage _agentProposalMessage(RouteProposal proposal) {
     final card = proposal.cardData;
     return RouteChatMessage(
@@ -386,7 +453,37 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       proposalStopsCount: card.stopsCount,
       proposalDurationMinutes: card.durationMinutes,
       proposalCoverUrl: card.coverUrl,
+      placeChips: _placeChipsFromBlocks(proposal.blocks),
+      // Proposal card already has create/draft/refine; skip duplicate chips.
+      actions: const [],
     );
+  }
+
+  List<RouteChatPlaceChipData> _placeChipsFromBlocks(
+    List<RouteChatBlock> blocks,
+  ) {
+    return [
+      for (final block in blocks)
+        if (block is PlaceChipBlock)
+          RouteChatPlaceChipData(
+            placeId: block.placeId,
+            title: block.title,
+            subtitle: block.subtitle,
+            imageUrl: block.imageUrl,
+            durationMinutes: block.durationMinutes,
+          ),
+    ];
+  }
+
+  List<Map<String, String>> _actionsFromBlocks(List<RouteChatBlock> blocks) {
+    return [
+      for (final block in blocks)
+        if (block is ActionsBlock)
+          for (final action in block.actions)
+            if ((action['id'] ?? '').isNotEmpty &&
+                (action['label'] ?? '').isNotEmpty)
+              {'id': action['id']!, 'label': action['label']!},
+    ];
   }
 
   Future<void> _acceptProposal(
@@ -441,10 +538,28 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           fromAgent: true,
           text: 'Что хотите изменить — город, темп, интересы или длительность?',
           time: _nowTime(),
+          actions: const [
+            {'id': 'want_generate', 'label': 'Подбери маршрут'},
+            {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
+            {'id': 'say_mood_active', 'label': 'Хочу активно'},
+            {'id': 'say_more_sea', 'label': 'Больше моря'},
+            {'id': 'say_more_mountains', 'label': 'Больше гор'},
+          ],
         ),
       );
     });
     _scrollAiToEnd();
+  }
+
+  Future<void> _onChatAction(String id, String label) async {
+    if (_sending || _typing) {
+      return;
+    }
+    if (id == 'want_generate') {
+      await _sendAiMessage(textOverride: 'подбери маршрут', wantGenerate: true);
+      return;
+    }
+    await _sendAiMessage(textOverride: label);
   }
 
   void _showChatFailure(AppFailure error) {
@@ -471,8 +586,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     return '$h:$m';
   }
 
-  Future<void> _sendAiMessage() async {
-    final text = _aiController.text.trim();
+  Future<void> _sendAiMessage({
+    String? textOverride,
+    bool wantGenerate = false,
+  }) async {
+    final text = (textOverride ?? _aiController.text).trim();
     if (text.isEmpty || _sending || _typing) {
       return;
     }
@@ -481,13 +599,19 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       _messages.add(
         RouteChatMessage(fromAgent: false, text: text, time: _nowTime()),
       );
-      _aiController.clear();
-      _composerDirty = false;
+      if (textOverride == null) {
+        _aiController.clear();
+        _composerDirty = false;
+      }
     });
     _scrollAiToEnd();
 
     final intent = classifyRouteMatchChatIntent(text);
-    if (intent != RouteMatchChatIntent.onTopicTravel) {
+    final useLocalCanned =
+        intent == RouteMatchChatIntent.crisis ||
+        intent == RouteMatchChatIntent.offTopic ||
+        intent == RouteMatchChatIntent.injectionAttempt;
+    if (useLocalCanned) {
       await Future<void>.delayed(const Duration(milliseconds: 350));
       if (!mounted) {
         return;
@@ -499,6 +623,12 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
             text: cannedReplyForIntent(intent),
             time: _nowTime(),
             isCrisis: intent == RouteMatchChatIntent.crisis,
+            actions: intent == RouteMatchChatIntent.offTopic
+                ? const [
+                    {'id': 'want_generate', 'label': 'Подбери маршрут'},
+                    {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
+                  ]
+                : const [],
           ),
         );
         _sending = false;
@@ -526,25 +656,18 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       }
       final result = await ref
           .read(routeMatchRepositoryProvider)
-          .postMessage(sessionId: sessionId, text: text);
+          .postMessage(
+            sessionId: sessionId,
+            text: text,
+            wantGenerate: wantGenerate,
+          );
       if (!mounted) {
         return;
       }
       setState(() {
         _typing = false;
         _sending = false;
-        if (result.proposal != null) {
-          _messages.add(_agentProposalMessage(result.proposal!));
-        } else {
-          _messages.add(
-            RouteChatMessage(
-              fromAgent: true,
-              text: result.text,
-              time: _nowTime(),
-              isCrisis: result.intent == 'crisis',
-            ),
-          );
-        }
+        _messages.add(_agentMessageFromResult(result));
       });
     } on AppFailure catch (error) {
       if (!mounted) {
@@ -626,7 +749,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             scrollController: _aiScroll,
                             composerController: _aiController,
                             composerFocus: _aiFocus,
-                            typing: _typing,
+                            typing: _typing || _sessionStarting,
                             canSend:
                                 _composerDirty &&
                                 _aiController.text.trim().isNotEmpty,
@@ -652,6 +775,12 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                               );
                             },
                             onProposalRefine: _onProposalRefine,
+                            onChatAction: (id, label) {
+                              unawaited(_onChatAction(id, label));
+                            },
+                            onNewChat: () {
+                              unawaited(_startNewChat());
+                            },
                             bottomInset: px(8),
                           )
                         : _buildParams(px, shellNavPad, showAdvanced),

@@ -67,6 +67,16 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
   }
 
   @override
+  Future<RoutePlanningSession> closeSession(String sessionId) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-builder/sessions/$sessionId/close',
+      );
+      return RoutePlanningSession.fromJson(response.data!);
+    });
+  }
+
+  @override
   Future<RoutePlanningMessageResult> postMessage({
     required String sessionId,
     required String text,
@@ -84,6 +94,8 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
 
 /// Local fallback when DATA_SOURCE=mock (no backend).
 class MockRouteMatchRepository implements RouteMatchRepository {
+  int _mockSessionSeq = 0;
+
   @override
   Future<RouteMatchResult> match(RouteMatchParams params) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
@@ -197,10 +209,28 @@ class MockRouteMatchRepository implements RouteMatchRepository {
   @override
   Future<RoutePlanningSession> createSession(RouteMatchParams params) async {
     await Future<void>.delayed(const Duration(milliseconds: 80));
+    _mockSessionSeq += 1;
     return RoutePlanningSession(
-      sessionId: 'mock-session-1',
+      sessionId: 'mock-session-$_mockSessionSeq',
       status: 'active',
       constraints: params,
+      aiPlanningEnabled: false,
+    );
+  }
+
+  @override
+  Future<RoutePlanningSession> closeSession(String sessionId) async {
+    await Future<void>.delayed(const Duration(milliseconds: 40));
+    return RoutePlanningSession(
+      sessionId: sessionId,
+      status: 'closed',
+      constraints: const RouteMatchParams(
+        city: 'Ялта',
+        duration: RouteDurationOption.d3_5,
+        people: 2,
+        interests: [],
+        pace: RoutePace.calm,
+      ),
       aiPlanningEnabled: false,
     );
   }
@@ -212,7 +242,9 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     bool wantGenerate = false,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 200));
-    if (wantGenerate || text.toLowerCase().contains('подбери маршрут')) {
+    if (wantGenerate ||
+        text.toLowerCase().contains('подбери маршрут') ||
+        text.toLowerCase().trim() == 'давай') {
       final generated = await generate(
         channel: 'chat',
         params: const RouteMatchParams(
@@ -239,10 +271,19 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       sessionId: sessionId,
       role: 'assistant',
       text:
-          'Понял: «$text». Могу уточнить параметры или собрать маршрут — '
-          'напишите «подбери маршрут».',
+          'Понял: «$text». Могу уточнить настроение или собрать маршрут — '
+          'нажмите «Подбери маршрут».',
       intent: 'on_topic_travel',
-      blocks: const [],
+      blocks: const [
+        ActionsBlock(
+          actions: [
+            {'id': 'want_generate', 'label': 'Подбери маршрут'},
+            {'id': 'say_mood_calm', 'label': 'Хочу спокойно'},
+            {'id': 'say_mood_active', 'label': 'Хочу активно'},
+            {'id': 'say_more_sea', 'label': 'Больше моря'},
+          ],
+        ),
+      ],
       provider: 'mock',
       fallback: true,
     );

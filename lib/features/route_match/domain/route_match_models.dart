@@ -366,6 +366,8 @@ abstract class RouteMatchRepository {
 
   Future<RoutePlanningSession> createSession(RouteMatchParams params);
 
+  Future<RoutePlanningSession> closeSession(String sessionId);
+
   Future<RoutePlanningMessageResult> postMessage({
     required String sessionId,
     required String text,

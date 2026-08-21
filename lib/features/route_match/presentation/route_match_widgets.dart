@@ -8,6 +8,8 @@ import 'package:flutter/services.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_place_chip.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 typedef RoutePx = double Function(double);
@@ -35,6 +37,8 @@ class RouteChatMessage {
     this.proposalStopsCount,
     this.proposalDurationMinutes,
     this.proposalCoverUrl,
+    this.placeChips = const [],
+    this.actions = const [],
   });
 
   final bool fromAgent;
@@ -46,12 +50,33 @@ class RouteChatMessage {
   final int? proposalStopsCount;
   final int? proposalDurationMinutes;
   final String? proposalCoverUrl;
+  final List<RouteChatPlaceChipData> placeChips;
+  final List<Map<String, String>> actions;
 
   bool get hasProposalCard =>
       proposalId != null &&
       proposalTitle != null &&
       proposalStopsCount != null &&
       proposalDurationMinutes != null;
+
+  bool get hasInteractiveBlocks =>
+      hasProposalCard || placeChips.isNotEmpty || actions.isNotEmpty;
+}
+
+class RouteChatPlaceChipData {
+  const RouteChatPlaceChipData({
+    required this.placeId,
+    required this.title,
+    this.subtitle,
+    this.imageUrl,
+    this.durationMinutes,
+  });
+
+  final String placeId;
+  final String title;
+  final String? subtitle;
+  final String? imageUrl;
+  final int? durationMinutes;
 }
 
 // ── Header ──────────────────────────────────────────────────────────────────
@@ -2104,6 +2129,8 @@ class RouteAiChatView extends StatelessWidget {
     this.onProposalCreate,
     this.onProposalSaveDraft,
     this.onProposalRefine,
+    this.onChatAction,
+    this.onNewChat,
     super.key,
   });
 
@@ -2121,6 +2148,8 @@ class RouteAiChatView extends StatelessWidget {
   final void Function(String proposalId)? onProposalCreate;
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
+  final void Function(String id, String label)? onChatAction;
+  final VoidCallback? onNewChat;
 
   @override
   Widget build(BuildContext context) {
@@ -2144,10 +2173,39 @@ class RouteAiChatView extends StatelessWidget {
                 if (index == 1) {
                   return Padding(
                     padding: EdgeInsets.only(top: px(15)),
-                    child: Divider(
-                      height: px(1),
-                      thickness: px(1),
-                      color: RouteBuilderDesignTokens.divider,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (onNewChat != null)
+                          Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              px(16),
+                              0,
+                              px(16),
+                              px(10),
+                            ),
+                            child: Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton.icon(
+                                onPressed: typing ? null : onNewChat,
+                                icon: Icon(Icons.edit_square, size: px(16)),
+                                label: Text(
+                                  'Новый чат',
+                                  style: RouteBuilderDesignTokens.rubik(
+                                    fontSize: px(13),
+                                    color: RouteBuilderDesignTokens.deepBlue,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Divider(
+                          height: px(1),
+                          thickness: px(1),
+                          color: RouteBuilderDesignTokens.divider,
+                        ),
+                      ],
                     ),
                   );
                 }
@@ -2178,6 +2236,7 @@ class RouteAiChatView extends StatelessWidget {
                           onProposalCreate: onProposalCreate,
                           onProposalSaveDraft: onProposalSaveDraft,
                           onProposalRefine: onProposalRefine,
+                          onChatAction: onChatAction,
                         )
                       : UserMessageBubble(px: px, message: message),
                 );
@@ -2212,6 +2271,7 @@ class AgentMessageBubble extends StatelessWidget {
     this.onProposalCreate,
     this.onProposalSaveDraft,
     this.onProposalRefine,
+    this.onChatAction,
     super.key,
   });
 
@@ -2220,6 +2280,7 @@ class AgentMessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onProposalCreate;
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
+  final void Function(String id, String label)? onChatAction;
 
   @override
   Widget build(BuildContext context) {
@@ -2263,7 +2324,9 @@ class AgentMessageBubble extends StatelessWidget {
                         SizedBox(height: px(4)),
                         Padding(
                           padding: EdgeInsets.only(
-                            bottom: message.hasProposalCard ? px(8) : px(14),
+                            bottom: message.hasInteractiveBlocks
+                                ? px(8)
+                                : px(14),
                           ),
                           child: Text(
                             message.text,
@@ -2274,6 +2337,25 @@ class AgentMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (message.placeChips.isNotEmpty) ...[
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                for (final chip in message.placeChips) ...[
+                                  ChatPlaceChip(
+                                    title: chip.title,
+                                    subtitle: chip.subtitle,
+                                    durationMinutes: chip.durationMinutes,
+                                    imageUrl: chip.imageUrl,
+                                  ),
+                                  SizedBox(width: px(8)),
+                                ],
+                              ],
+                            ),
+                          ),
+                          SizedBox(height: px(10)),
+                        ],
                         if (message.hasProposalCard) ...[
                           ChatRouteProposalCard(
                             title: message.proposalTitle!,
@@ -2291,8 +2373,18 @@ class AgentMessageBubble extends StatelessWidget {
                                 ? null
                                 : () => onProposalRefine!(message.proposalId!),
                           ),
-                          SizedBox(height: px(14)),
+                          SizedBox(height: px(10)),
                         ],
+                        if (message.actions.isNotEmpty &&
+                            onChatAction != null) ...[
+                          ChatActionChips(
+                            px: px,
+                            actions: message.actions,
+                            onAction: onChatAction!,
+                          ),
+                          SizedBox(height: px(14)),
+                        ] else if (message.hasInteractiveBlocks)
+                          SizedBox(height: px(4)),
                       ],
                     ),
                     Positioned(
