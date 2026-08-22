@@ -288,6 +288,105 @@ class _ChatSliderControlState extends State<ChatSliderControl> {
   }
 }
 
+/// Groups sliders + toggles from one agent message behind a single
+/// «Подтвердить» action instead of sending a chat turn per drag/tap — each
+/// control only updates local pending state until confirmed.
+class ChatControlsGroup extends StatefulWidget {
+  const ChatControlsGroup({
+    required this.px,
+    required this.sliders,
+    required this.toggles,
+    required this.onConfirm,
+    super.key,
+  });
+
+  final RoutePx px;
+  final List<RouteChatSliderData> sliders;
+  final List<RouteChatToggleData> toggles;
+  final void Function(Map<String, Object> values) onConfirm;
+
+  @override
+  State<ChatControlsGroup> createState() => _ChatControlsGroupState();
+}
+
+class _ChatControlsGroupState extends State<ChatControlsGroup> {
+  late final Map<String, Object> _values;
+  bool _confirmed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _values = {
+      for (final slider in widget.sliders)
+        slider.id: slider.value ?? slider.minValue,
+      for (final toggle in widget.toggles) toggle.id: toggle.value,
+    };
+  }
+
+  void _confirm() {
+    if (_confirmed) {
+      return;
+    }
+    setState(() => _confirmed = true);
+    widget.onConfirm(Map<String, Object>.from(_values));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final px = widget.px;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final slider in widget.sliders) ...[
+          ChatSliderControl(
+            px: px,
+            data: slider,
+            onCommit: _confirmed
+                ? (_, _) {}
+                : (id, value) => setState(() => _values[id] = value),
+          ),
+          SizedBox(height: px(10)),
+        ],
+        for (final toggle in widget.toggles) ...[
+          ChatToggleControl(
+            px: px,
+            data: RouteChatToggleData(
+              id: toggle.id,
+              label: toggle.label,
+              value: _values[toggle.id] == true,
+            ),
+            onChanged: _confirmed
+                ? (_, _) {}
+                : (id, value) => setState(() => _values[id] = value),
+          ),
+          SizedBox(height: px(8)),
+        ],
+        SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _confirmed ? null : _confirm,
+            style: FilledButton.styleFrom(
+              backgroundColor: RouteBuilderDesignTokens.primaryBlue,
+              disabledBackgroundColor: RouteBuilderDesignTokens.primaryBlue
+                  .withValues(alpha: 0.4),
+              minimumSize: Size.fromHeight(px(40)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(px(10)),
+              ),
+              textStyle: RouteBuilderDesignTokens.rubik(
+                fontSize: px(14),
+                weight: FontWeight.w600,
+                height: 1.1,
+              ),
+            ),
+            child: Text(_confirmed ? 'Учтено' : 'Подтвердить'),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 /// Boolean toggle with a gradient track and animated thumb.
 class ChatToggleControl extends StatelessWidget {
   const ChatToggleControl({

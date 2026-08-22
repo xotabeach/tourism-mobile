@@ -167,9 +167,9 @@ class MockRouteMatchRepository implements RouteMatchRepository {
         RouteProposalCardBlock(card: card),
         const ActionsBlock(
           actions: [
-            {'id': 'accept_proposal', 'label': 'Создать маршрут'},
-            {'id': 'save_draft', 'label': 'В черновик'},
-            {'id': 'refine', 'label': 'Уточнить'},
+            {'id': 'accept_proposal', 'label': 'Пройти маршрут'},
+            {'id': 'save_draft', 'label': 'Сохранить маршрут в черновик'},
+            {'id': 'refine', 'label': 'Указать агенту на ошибку'},
           ],
         ),
       ],

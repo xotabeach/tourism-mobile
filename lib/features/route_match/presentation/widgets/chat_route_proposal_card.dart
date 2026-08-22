@@ -5,6 +5,16 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 
+/// `90` -> `1 ч 30 мин`, `45` -> `45 мин`, `120` -> `2 ч`.
+String formatRouteDuration(int minutes) {
+  final hours = minutes ~/ 60;
+  final mins = minutes % 60;
+  if (hours <= 0) {
+    return '$mins мин';
+  }
+  return mins > 0 ? '$hours ч $mins мин' : '$hours ч';
+}
+
 /// Structured proposal card for AI chat (before draft / create).
 ///
 /// Follows design-spec-travel-agent.md screens 2/3: photo header with rating
@@ -70,11 +80,7 @@ class _CompactProposalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hours = card.durationMinutes ~/ 60;
-    final mins = card.durationMinutes % 60;
-    final durationLabel = hours > 0
-        ? (mins > 0 ? '$hours ч $mins мин' : '$hours ч')
-        : '$mins мин';
+    final durationLabel = formatRouteDuration(card.durationMinutes);
     final distanceLabel = card.distanceKm != null
         ? '${card.distanceKm!.toStringAsFixed(1)} км'
         : null;
@@ -180,7 +186,8 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
   @override
   void initState() {
     super.initState();
-    _galleryController = PageController();
+    // ~4 thumbnails visible at once, matching the design export strip.
+    _galleryController = PageController(viewportFraction: 0.28);
   }
 
   @override
@@ -190,7 +197,7 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
   }
 
   List<String> get _galleryImages {
-    final urls = widget.card.galleryUrls.take(4).toList(growable: false);
+    final urls = widget.card.galleryUrls.take(8).toList(growable: false);
     if (urls.isNotEmpty) {
       return urls;
     }
@@ -213,69 +220,65 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (gallery.isNotEmpty)
-            AspectRatio(
-              aspectRatio: 16 / 7,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  PageView.builder(
-                    controller: _galleryController,
-                    itemCount: gallery.length,
-                    onPageChanged: (index) =>
-                        setState(() => _galleryPage = index),
-                    itemBuilder: (context, index) {
-                      return Image.network(
-                        gallery[index],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) =>
-                            const ColoredBox(color: AppColors.controlSurface),
-                      );
-                    },
-                  ),
-                  const DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Color(0x55000000)],
-                        stops: [0.45, 1],
+          if (gallery.isNotEmpty) ...[
+            // Design export shows a horizontal strip of ~4 thumbnails with a
+            // page indicator underneath — not one full-bleed hero image.
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 0, 0),
+              child: SizedBox(
+                height: 66,
+                child: PageView.builder(
+                  controller: _galleryController,
+                  padEnds: false,
+                  itemCount: gallery.length,
+                  onPageChanged: (index) =>
+                      setState(() => _galleryPage = index),
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          gallery[index],
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              const ColoredBox(color: AppColors.controlSurface),
+                        ),
                       ),
-                    ),
-                  ),
-                  if (card.rating != null)
-                    Positioned(
-                      left: 10,
-                      top: 10,
-                      child: RoutePreviewRatingBadge(rating: card.rating!),
-                    ),
-                  if (gallery.length > 1)
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 8,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          for (var i = 0; i < gallery.length; i++) ...[
-                            if (i > 0) const SizedBox(width: 5),
-                            Container(
-                              width: i == _galleryPage ? 7 : 5,
-                              height: i == _galleryPage ? 7 : 5,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: i == _galleryPage
-                                    ? Colors.white
-                                    : Colors.white.withValues(alpha: 0.55),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                ],
+                    );
+                  },
+                ),
               ),
-            )
+            ),
+            if (gallery.length > 1)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (var i = 0; i < gallery.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 5),
+                      Container(
+                        width: i == _galleryPage ? 7 : 6,
+                        height: i == _galleryPage ? 7 : 6,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: i == _galleryPage
+                              ? RouteBuilderDesignTokens.primaryBlue
+                              : RouteBuilderDesignTokens.borderGray,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            const SizedBox(height: 12),
+            const Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.hairline,
+            ),
+          ]
           else if (card.coverUrl != null && card.coverUrl!.isNotEmpty)
             AspectRatio(
               aspectRatio: 16 / 7,
@@ -292,19 +295,9 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  card.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: RouteBuilderDesignTokens.rubik(
-                    fontSize: 18,
-                    weight: FontWeight.w700,
-                    color: RouteBuilderDesignTokens.textPrimary,
-                    height: 1.15,
-                  ),
-                ),
                 if (card.startLabel != null) ...[
-                  const SizedBox(height: 12),
+                  const _SectionLabel('Точка старта:'),
+                  const SizedBox(height: 6),
                   _PointEditRow(
                     label: card.startLabel!,
                     subtitle: card.startSubtitle,
@@ -314,7 +307,9 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
                   ),
                 ],
                 if (card.finishLabel != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
+                  const _SectionLabel('Точка финиша:'),
+                  const SizedBox(height: 6),
                   _PointEditRow(
                     label: card.finishLabel!,
                     subtitle: card.finishSubtitle,
@@ -324,16 +319,8 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
                   ),
                 ],
                 if (card.locations.isNotEmpty) ...[
-                  const SizedBox(height: 14),
-                  Text(
-                    'Локации собранного маршрута:',
-                    style: RouteBuilderDesignTokens.rubik(
-                      fontSize: 14,
-                      weight: FontWeight.w600,
-                      color: RouteBuilderDesignTokens.textPrimary,
-                      height: 1.1,
-                    ),
-                  ),
+                  const SizedBox(height: 12),
+                  const _SectionLabel('Локации собранного маршрута:'),
                   const SizedBox(height: 8),
                   for (final location in card.locations) ...[
                     _LocationRow(
@@ -353,17 +340,28 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
                     onPressed: widget.onViewMap,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: RouteBuilderDesignTokens.primaryBlue,
-                      side: const BorderSide(
-                        color: RouteBuilderDesignTokens.primaryBlue,
-                      ),
-                      minimumSize: const Size.fromHeight(42),
+                      side: const BorderSide(color: AppColors.hairline),
+                      minimumSize: const Size.fromHeight(34),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      textStyle: RouteBuilderDesignTokens.rubik(
+                        fontSize: 13,
+                        weight: FontWeight.w400,
+                        height: 1.1,
                       ),
                     ),
                     child: const Text('Посмотреть на карте'),
                   ),
                 ],
+                const SizedBox(height: 12),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: AppColors.hairline,
+                ),
                 const SizedBox(height: 12),
                 _ProposalDetailsSection(
                   card: card,
@@ -404,12 +402,14 @@ class _ProposalDetailsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Labels match backend's ActionsBlock for the assembled-proposal turn
+    // (generate_service._blocks_for_proposal) and design-spec screen 3.
     final secondaryActions = <(String label, VoidCallback onTap)>[];
     if (onSaveDraft != null) {
-      secondaryActions.add(('В черновик', onSaveDraft!));
+      secondaryActions.add(('Сохранить маршрут в черновик', onSaveDraft!));
     }
     if (onRefine != null) {
-      secondaryActions.add(('Уточнить', onRefine!));
+      secondaryActions.add(('Указать агенту на ошибку', onRefine!));
     }
     if (onRebuild != null) {
       secondaryActions.add(('Собрать маршрут заново', onRebuild!));
@@ -427,25 +427,28 @@ class _ProposalDetailsSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-        ],
-        if (card.budgetLabel != null ||
-            card.difficultyLabel != null ||
-            card.localityLabel != null ||
-            distanceLabel != null) ...[
-          _ParamsBlock(
-            budgetLabel: card.budgetLabel,
-            difficultyLabel: card.difficultyLabel,
-            localityLabel: card.localityLabel,
-            distanceLabel: distanceLabel,
-          ),
+          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
           const SizedBox(height: 12),
         ],
-        if (onCreate != null)
-          FilledButton(
+        RouteParamsBlock(
+          budgetLabel: card.budgetLabel,
+          difficultyLabel: card.difficultyLabel,
+          localityLabel: card.localityLabel,
+          distanceLabel: distanceLabel,
+          durationLabel: formatRouteDuration(card.durationMinutes),
+          stopsLabel: card.stopsCount > 0 ? '${card.stopsCount}' : null,
+        ),
+        const SizedBox(height: 12),
+        if (onCreate != null) ...[
+          const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          const SizedBox(height: 12),
+          OutlinedButton(
             onPressed: onCreate,
-            style: FilledButton.styleFrom(
-              backgroundColor: RouteBuilderDesignTokens.primaryBlue,
-              foregroundColor: Colors.white,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: RouteBuilderDesignTokens.primaryBlue,
+              side: const BorderSide(
+                color: RouteBuilderDesignTokens.primaryBlue,
+              ),
               minimumSize: const Size.fromHeight(44),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -453,6 +456,7 @@ class _ProposalDetailsSection extends StatelessWidget {
             ),
             child: Text(card.primaryActionLabel),
           ),
+        ],
         if (secondaryActions.isNotEmpty) ...[
           const SizedBox(height: 8),
           if (stackedActions)
@@ -508,6 +512,25 @@ class _ProposalDetailsSection extends StatelessWidget {
   }
 }
 
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: RouteBuilderDesignTokens.rubik(
+        fontSize: 13,
+        weight: FontWeight.w400,
+        color: RouteBuilderDesignTokens.deepBlue,
+        height: 1.1,
+      ),
+    );
+  }
+}
+
 class _PointEditRow extends StatelessWidget {
   const _PointEditRow({required this.label, this.subtitle, this.onTap});
 
@@ -517,14 +540,18 @@ class _PointEditRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: RouteBuilderDesignTokens.fieldBackground,
-      borderRadius: BorderRadius.circular(10),
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.elevatedSurface,
+        border: Border.all(color: AppColors.hairline),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -536,7 +563,7 @@ class _PointEditRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: RouteBuilderDesignTokens.rubik(
-                        fontSize: 14,
+                        fontSize: 13,
                         weight: FontWeight.w600,
                         color: RouteBuilderDesignTokens.textPrimary,
                         height: 1.1,
@@ -549,7 +576,7 @@ class _PointEditRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: RouteBuilderDesignTokens.rubik(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: RouteBuilderDesignTokens.textSecondary,
                           height: 1.1,
                         ),
@@ -558,11 +585,10 @@ class _PointEditRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onTap != null)
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: RouteBuilderDesignTokens.textSecondary,
-                ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: RouteBuilderDesignTokens.textSecondary,
+              ),
             ],
           ),
         ),
@@ -596,21 +622,19 @@ class _LocationRow extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 24,
-                height: 24,
+                width: 20,
+                height: 20,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: RouteBuilderDesignTokens.primaryBlue.withValues(
-                    alpha: 0.12,
-                  ),
+                  color: RouteBuilderDesignTokens.textPrimary,
                 ),
                 child: Text(
                   '$index',
                   style: RouteBuilderDesignTokens.rubik(
                     fontSize: 12,
                     weight: FontWeight.w600,
-                    color: RouteBuilderDesignTokens.primaryBlue,
+                    color: Colors.white,
                     height: 1.0,
                   ),
                 ),
@@ -625,7 +649,8 @@ class _LocationRow extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: RouteBuilderDesignTokens.rubik(
-                        fontSize: 14,
+                        fontSize: 13,
+                        weight: FontWeight.w600,
                         color: RouteBuilderDesignTokens.textPrimary,
                         height: 1.1,
                       ),
@@ -636,7 +661,7 @@ class _LocationRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: RouteBuilderDesignTokens.rubik(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: RouteBuilderDesignTokens.textSecondary,
                           height: 1.1,
                         ),
@@ -644,12 +669,11 @@ class _LocationRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (onTap != null)
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: RouteBuilderDesignTokens.textSecondary,
-                  size: 20,
-                ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: RouteBuilderDesignTokens.textSecondary,
+                size: 20,
+              ),
             ],
           ),
         ),
@@ -726,7 +750,7 @@ class RoutePreviewTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: const Color(0xFF33343A),
         borderRadius: BorderRadius.circular(14),
@@ -734,7 +758,7 @@ class RoutePreviewTagChip extends StatelessWidget {
       child: Text(
         label,
         style: RouteBuilderDesignTokens.rubik(
-          fontSize: 12,
+          fontSize: 11,
           color: Colors.white,
           height: 1.0,
         ),
@@ -743,34 +767,46 @@ class RoutePreviewTagChip extends StatelessWidget {
   }
 }
 
-class _ParamsBlock extends StatelessWidget {
-  const _ParamsBlock({
+/// Icon + label + value rows (budget/difficulty/locality/distance). Shared
+/// by the proposal card and the catalog-match carousel (design-spec screen 2:
+/// tags + this block render below the photo, not overlaid on it).
+class RouteParamsBlock extends StatelessWidget {
+  const RouteParamsBlock({
     this.budgetLabel,
     this.difficultyLabel,
     this.localityLabel,
     this.distanceLabel,
+    this.durationLabel,
+    this.stopsLabel,
+    super.key,
   });
 
   final String? budgetLabel;
   final String? difficultyLabel;
   final String? localityLabel;
   final String? distanceLabel;
+  final String? durationLabel;
+  final String? stopsLabel;
 
   @override
   Widget build(BuildContext context) {
     final rows = <_ParamRowData>[
+      if (difficultyLabel != null)
+        _ParamRowData(Icons.bolt_rounded, 'Сложность:', difficultyLabel!),
+      if (distanceLabel != null)
+        _ParamRowData(Icons.place_outlined, 'Расстояние:', distanceLabel!),
+      if (durationLabel != null)
+        _ParamRowData(Icons.schedule_rounded, 'Время в пути:', durationLabel!),
+      if (stopsLabel != null)
+        _ParamRowData(Icons.flag_outlined, 'Точек маршрута:', stopsLabel!),
+      if (localityLabel != null)
+        _ParamRowData(Icons.landscape_outlined, 'Маршрут:', localityLabel!),
       if (budgetLabel != null)
         _ParamRowData(
           Icons.account_balance_wallet_outlined,
           'Минимальный бюджет:',
           budgetLabel!,
         ),
-      if (difficultyLabel != null)
-        _ParamRowData(Icons.bolt_rounded, 'Сложность:', difficultyLabel!),
-      if (localityLabel != null)
-        _ParamRowData(Icons.landscape_outlined, 'Маршрут:', localityLabel!),
-      if (distanceLabel != null)
-        _ParamRowData(Icons.place_outlined, 'Расстояние:', distanceLabel!),
     ];
     if (rows.isEmpty) {
       return const SizedBox.shrink();
@@ -780,26 +816,37 @@ class _ParamsBlock extends StatelessWidget {
       children: [
         for (final row in rows) ...[
           if (row != rows.first) const SizedBox(height: 10),
+          // Design export runs "label value" as one continuous left-aligned
+          // line — the value is not pushed to the right edge.
           Row(
             children: [
-              Icon(row.icon, size: 16, color: const Color(0xFF33343A)),
-              const SizedBox(width: 8),
-              Text(
-                row.label,
-                style: RouteBuilderDesignTokens.rubik(
-                  fontSize: 14,
-                  color: const Color(0xFF3A3A3C),
-                  height: 1.1,
-                ),
-              ),
-              const Spacer(),
-              Text(
-                row.value,
-                style: RouteBuilderDesignTokens.rubik(
-                  fontSize: 14,
-                  weight: FontWeight.w700,
-                  color: const Color(0xFF1C1C1E),
-                  height: 1.1,
+              Icon(row.icon, size: 13, color: const Color(0xFF33343A)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${row.label} ',
+                        style: RouteBuilderDesignTokens.rubik(
+                          fontSize: 12,
+                          color: const Color(0xFF3A3A3C),
+                          height: 1.15,
+                        ),
+                      ),
+                      TextSpan(
+                        text: row.value,
+                        style: RouteBuilderDesignTokens.rubik(
+                          fontSize: 12,
+                          weight: FontWeight.w700,
+                          color: const Color(0xFF1C1C1E),
+                          height: 1.15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

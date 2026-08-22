@@ -80,7 +80,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     {'id': 'pace_active', 'label': 'Активный маршрут'},
     {'id': 'interest_mountains', 'label': 'Маршрут по горам'},
     {'id': 'interest_sea', 'label': 'Путешествие к морю'},
-    {'id': 'interest_food', 'label': 'Хочу пожрать'},
+    {'id': 'interest_food', 'label': 'Гастрономический тур'},
   ];
 
   static const _starterGreeting =
@@ -703,22 +703,33 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     await _sendAiMessage(textOverride: label, actionId: id);
   }
 
-  Future<void> _onControlChanged(String id, Object value) async {
-    if (_sending || _typing) {
+  static String _controlLabel(String id, Object value) => switch (id) {
+    'budget_amount' => 'Бюджет ${value is num ? value.round() : value} ₽',
+    'with_children' => value == true ? 'С детьми' : 'Без детей',
+    'with_pets' => value == true ? 'С питомцами' : 'Без питомцев',
+    _ => id,
+  };
+
+  /// Sends every slider/toggle value from one «Подтвердить» tap as a single
+  /// chat turn on screen — each pending value still round-trips to the
+  /// backend individually (one constraint patch per call), but only the
+  /// last response is appended as a new agent bubble so confirming several
+  /// controls at once doesn't reprint the conversation once per control.
+  Future<void> _onConfirmControls(Map<String, Object> values) async {
+    if (_sending || _typing || values.isEmpty) {
       return;
     }
-    final label = switch (id) {
-      'budget_amount' => 'Бюджет ${value is num ? value.round() : value} ₽',
-      'with_children' => value == true ? 'С детьми' : 'Без детей',
-      'with_pets' => value == true ? 'С питомцами' : 'Без питомцев',
-      _ => id,
-    };
-    await _sendAiMessage(
-      textOverride: label,
-      actionId: id,
-      controlValue: value,
-      silent: true,
-    );
+    final entries = values.entries.toList(growable: false);
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      await _sendAiMessage(
+        textOverride: _controlLabel(entry.key, entry.value),
+        actionId: entry.key,
+        controlValue: entry.value,
+        silent: true,
+        appendReply: i == entries.length - 1,
+      );
+    }
   }
 
   void _applyLocalConstraintPatch(String? actionId) {
@@ -858,6 +869,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     String? actionId,
     Object? controlValue,
     bool silent = false,
+    bool appendReply = true,
   }) async {
     final text = (textOverride ?? _aiController.text).trim();
     if (text.isEmpty || _sending || _typing) {
@@ -889,21 +901,23 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         return;
       }
       setState(() {
-        _messages.add(
-          RouteChatMessage(
-            fromAgent: true,
-            text: cannedReplyForIntent(intent),
-            time: _nowTime(),
-            isCrisis: intent == RouteMatchChatIntent.crisis,
-            actions: intent == RouteMatchChatIntent.offTopic
-                ? const [
-                    {'id': 'want_generate', 'label': 'Подбери маршрут'},
-                    {'id': 'pace_calm', 'label': 'Хочу спокойно'},
-                    {'id': 'interest_sea', 'label': 'Больше моря'},
-                  ]
-                : const [],
-          ),
-        );
+        if (appendReply) {
+          _messages.add(
+            RouteChatMessage(
+              fromAgent: true,
+              text: cannedReplyForIntent(intent),
+              time: _nowTime(),
+              isCrisis: intent == RouteMatchChatIntent.crisis,
+              actions: intent == RouteMatchChatIntent.offTopic
+                  ? const [
+                      {'id': 'want_generate', 'label': 'Подбери маршрут'},
+                      {'id': 'pace_calm', 'label': 'Хочу спокойно'},
+                      {'id': 'interest_sea', 'label': 'Больше моря'},
+                    ]
+                  : const [],
+            ),
+          );
+        }
         _sending = false;
       });
       _scrollAiToEnd();
@@ -943,7 +957,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         _typing = false;
         _sending = false;
         _applyLocalConstraintPatch(actionId);
-        _messages.add(_agentMessageFromResult(result));
+        if (appendReply) {
+          _messages.add(_agentMessageFromResult(result));
+        }
       });
     } on AppFailure catch (error) {
       if (!mounted) {
@@ -1054,14 +1070,24 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             onProposalReject: (id) {
                               unawaited(_onProposalReject(id));
                             },
+                            onProposalViewMap: (_) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Карта маршрута появится в одном из '
+                                    'следующих обновлений',
+                                  ),
+                                ),
+                              );
+                            },
                             onChatAction: (id, label) {
                               unawaited(_onChatAction(id, label));
                             },
                             onOpenCatalogRoute: (routeId) {
                               unawaited(context.push('/routes/$routeId'));
                             },
-                            onControlChanged: (id, value) {
-                              unawaited(_onControlChanged(id, value));
+                            onControlChanged: (values) {
+                              unawaited(_onConfirmControls(values));
                             },
                             onNewChat: () {
                               unawaited(_startNewChat());

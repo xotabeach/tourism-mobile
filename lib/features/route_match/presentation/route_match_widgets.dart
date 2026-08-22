@@ -12,7 +12,6 @@ import 'package:tourism_mobile/features/route_match/presentation/route_builder_d
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_catalog_match_carousel.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
-import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_place_chip.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 typedef RoutePx = double Function(double);
@@ -83,7 +82,6 @@ class RouteChatMessage {
   bool get hasInteractiveBlocks =>
       hasProposalCard ||
       catalogMatch.isNotEmpty ||
-      placeChips.isNotEmpty ||
       actions.isNotEmpty ||
       recommendations.isNotEmpty ||
       sliders.isNotEmpty ||
@@ -546,19 +544,11 @@ class _RouteModeSwitchPainter extends CustomPainter {
 
     // Anchor the shader to the largest possible AI rectangle. As its left
     // edge moves, existing pixels keep the same color instead of stretching.
-    final anchorLeft = available * RouteModeSwitcher._shrunkShare + gap;
-    final shaderRect = Rect.fromLTWH(
-      anchorLeft,
-      0,
-      size.width - anchorLeft,
-      size.height,
-    );
+    // Design export samples a flat #1D71CB across the whole pill — the AI
+    // mode chip is a solid fill, not the Travel+ gradient.
     canvas.drawRRect(
       aiRRect,
-      Paint()
-        ..shader = RouteBuilderDesignTokens.travelPlusGradient.createShader(
-          shaderRect,
-        ),
+      Paint()..color = RouteBuilderDesignTokens.primaryBlue,
     );
     canvas.drawRRect(
       aiRRect,
@@ -2205,6 +2195,7 @@ class RouteAiChatView extends StatelessWidget {
     this.onProposalSaveDraft,
     this.onProposalRefine,
     this.onProposalReject,
+    this.onProposalViewMap,
     this.onChatAction,
     this.onOpenCatalogRoute,
     this.onNewChat,
@@ -2227,10 +2218,16 @@ class RouteAiChatView extends StatelessWidget {
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
   final void Function(String proposalId)? onProposalReject;
+  final void Function(String proposalId)? onProposalViewMap;
   final void Function(String id, String label)? onChatAction;
   final void Function(String routeId)? onOpenCatalogRoute;
+  /// Close-and-start-a-new-session action. Currently has **no UI entry
+  /// point**: the design exports show no «Новый чат» control in the chat, so
+  /// it was removed during the 1:1 design pass. Keep this wired — where the
+  /// entry point should live is an open product/design question tracked in
+  /// `tourism-platform/docs/ai-route-chat-mobile-implementation.md`.
   final VoidCallback? onNewChat;
-  final void Function(String id, Object value)? onControlChanged;
+  final void Function(Map<String, Object> values)? onControlChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -2257,30 +2254,19 @@ class RouteAiChatView extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        if (onNewChat != null)
-                          Padding(
-                            padding: EdgeInsets.fromLTRB(
-                              px(16),
-                              0,
-                              px(16),
-                              px(10),
-                            ),
-                            child: Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                onPressed: typing ? null : onNewChat,
-                                icon: Icon(Icons.edit_square, size: px(16)),
-                                label: Text(
-                                  'Новый чат',
-                                  style: RouteBuilderDesignTokens.rubik(
-                                    fontSize: px(13),
-                                    color: RouteBuilderDesignTokens.deepBlue,
-                                    height: 1.1,
-                                  ),
-                                ),
+                        Padding(
+                          padding: EdgeInsets.only(bottom: px(10)),
+                          child: Center(
+                            child: Text(
+                              'Сегодня',
+                              style: RouteBuilderDesignTokens.rubik(
+                                fontSize: px(13),
+                                color: RouteBuilderDesignTokens.textSecondary,
+                                height: 1.1,
                               ),
                             ),
                           ),
+                        ),
                         Divider(
                           height: px(1),
                           thickness: px(1),
@@ -2314,6 +2300,7 @@ class RouteAiChatView extends StatelessWidget {
                             onProposalSaveDraft: onProposalSaveDraft,
                             onProposalRefine: onProposalRefine,
                             onProposalReject: onProposalReject,
+                            onProposalViewMap: onProposalViewMap,
                             onChatAction: onChatAction,
                             onOpenCatalogRoute: onOpenCatalogRoute,
                             onControlChanged: onControlChanged,
@@ -2353,6 +2340,7 @@ class AgentMessageBubble extends StatelessWidget {
     this.onProposalSaveDraft,
     this.onProposalRefine,
     this.onProposalReject,
+    this.onProposalViewMap,
     this.onChatAction,
     this.onOpenCatalogRoute,
     this.onControlChanged,
@@ -2365,9 +2353,10 @@ class AgentMessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onProposalSaveDraft;
   final void Function(String proposalId)? onProposalRefine;
   final void Function(String proposalId)? onProposalReject;
+  final void Function(String proposalId)? onProposalViewMap;
   final void Function(String id, String label)? onChatAction;
   final void Function(String routeId)? onOpenCatalogRoute;
-  final void Function(String id, Object value)? onControlChanged;
+  final void Function(Map<String, Object> values)? onControlChanged;
 
   String? get _proposalId =>
       message.proposalCard?.proposalId ?? message.proposalId;
@@ -2424,7 +2413,7 @@ class AgentMessageBubble extends StatelessWidget {
                 borderRadius: innerRadius,
               ),
               child: Padding(
-                padding: EdgeInsets.fromLTRB(px(12), px(12), px(12), px(10)),
+                padding: EdgeInsets.fromLTRB(px(10), px(10), px(10), px(8)),
                 child: Stack(
                   children: [
                     Column(
@@ -2433,27 +2422,10 @@ class AgentMessageBubble extends StatelessWidget {
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Container(
-                              width: px(20),
-                              height: px(20),
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient:
-                                    RouteBuilderDesignTokens.travelPlusGradient,
-                              ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.auto_awesome_rounded,
-                                  size: 12,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            SizedBox(width: px(6)),
                             Text(
                               'Тревел Агент',
                               style: RouteBuilderDesignTokens.rubik(
-                                fontSize: px(14),
+                                fontSize: px(13),
                                 weight: FontWeight.w600,
                                 color: RouteBuilderDesignTokens.deepBlue,
                                 height: 1.1,
@@ -2471,31 +2443,12 @@ class AgentMessageBubble extends StatelessWidget {
                           child: Text(
                             message.text,
                             style: RouteBuilderDesignTokens.rubik(
-                              fontSize: px(16),
+                              fontSize: px(15),
                               color: RouteBuilderDesignTokens.textPrimary,
-                              height: 1.08,
+                              height: 1.15,
                             ),
                           ),
                         ),
-                        if (message.placeChips.isNotEmpty) ...[
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
-                              children: [
-                                for (final chip in message.placeChips) ...[
-                                  ChatPlaceChip(
-                                    title: chip.title,
-                                    subtitle: chip.subtitle,
-                                    durationMinutes: chip.durationMinutes,
-                                    imageUrl: chip.imageUrl,
-                                  ),
-                                  SizedBox(width: px(8)),
-                                ],
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: px(10)),
-                        ],
                         if (message.catalogMatch.isNotEmpty &&
                             onOpenCatalogRoute != null) ...[
                           ChatCatalogMatchCarousel(
@@ -2536,6 +2489,10 @@ class AgentMessageBubble extends StatelessWidget {
                                 onProposalReject == null || _proposalId == null
                                 ? null
                                 : () => onProposalReject!(_proposalId!),
+                            onViewMap:
+                                onProposalViewMap == null || _proposalId == null
+                                ? null
+                                : () => onProposalViewMap!(_proposalId!),
                           ),
                           SizedBox(height: px(10)),
                         ],
@@ -2554,26 +2511,16 @@ class AgentMessageBubble extends StatelessWidget {
                             SizedBox(height: px(8)),
                           ],
                         ],
-                        if (message.sliders.isNotEmpty &&
+                        if ((message.sliders.isNotEmpty ||
+                                message.toggles.isNotEmpty) &&
                             onControlChanged != null) ...[
-                          for (final slider in message.sliders) ...[
-                            ChatSliderControl(
-                              px: px,
-                              data: slider,
-                              onCommit: (id, value) =>
-                                  onControlChanged!(id, value),
-                            ),
-                          ],
-                        ],
-                        if (message.toggles.isNotEmpty &&
-                            onControlChanged != null) ...[
-                          for (final toggle in message.toggles)
-                            ChatToggleControl(
-                              px: px,
-                              data: toggle,
-                              onChanged: (id, value) =>
-                                  onControlChanged!(id, value),
-                            ),
+                          ChatControlsGroup(
+                            px: px,
+                            sliders: message.sliders,
+                            toggles: message.toggles,
+                            onConfirm: onControlChanged!,
+                          ),
+                          SizedBox(height: px(4)),
                         ],
                         if (message.actions.isNotEmpty) ...[
                           ChatActionChips(
@@ -2809,15 +2756,11 @@ class ChatComposer extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RouteBuilderDesignTokens.actionLinearGradient,
-                    border: Border.all(
-                      color: RouteBuilderDesignTokens.deepBlue,
-                      width: px(1.75),
-                    ),
                   ),
                   child: Center(
                     child: CustomPaint(
-                      size: Size(px(22), px(22)),
-                      painter: _PaperPlanePainter(stroke: px(1.7)),
+                      size: Size(px(26), px(26)),
+                      painter: _PaperPlanePainter(stroke: px(2)),
                     ),
                   ),
                 ),
@@ -2843,16 +2786,17 @@ class _PaperPlanePainter extends CustomPainter {
       ..strokeWidth = stroke
       ..strokeJoin = StrokeJoin.round
       ..strokeCap = StrokeCap.round;
+    // Design export: an outlined triangle pointing right with a flat vertical
+    // back edge and a short fold line running in from that edge.
     final path = Path()
-      ..moveTo(size.width * 0.08, size.height * 0.55)
-      ..lineTo(size.width * 0.92, size.height * 0.18)
-      ..lineTo(size.width * 0.42, size.height * 0.88)
-      ..lineTo(size.width * 0.38, size.height * 0.58)
+      ..moveTo(size.width * 0.22, size.height * 0.20)
+      ..lineTo(size.width * 0.82, size.height * 0.50)
+      ..lineTo(size.width * 0.22, size.height * 0.80)
       ..close();
     canvas.drawPath(path, paint);
     canvas.drawLine(
-      Offset(size.width * 0.38, size.height * 0.58),
-      Offset(size.width * 0.92, size.height * 0.18),
+      Offset(size.width * 0.22, size.height * 0.50),
+      Offset(size.width * 0.52, size.height * 0.50),
       paint,
     );
   }

@@ -37,7 +37,8 @@ class ChatActionChips extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (var i = 0; i < visible.length; i++) ...[
-            if (i > 0) SizedBox(height: px(8)),
+            // 34 px pitch measured off the design export: 28 px pill + 6 gap.
+            if (i > 0) SizedBox(height: px(6)),
             _StackActionButton(
               px: px,
               label: visible[i]['label']!,
@@ -94,13 +95,15 @@ class _StackActionButton extends StatelessWidget {
         side: BorderSide(
           color: RouteBuilderDesignTokens.deepBlue.withValues(alpha: 0.35),
         ),
-        minimumSize: Size.fromHeight(px(42)),
+        minimumSize: Size.fromHeight(px(28)),
+        padding: EdgeInsets.symmetric(horizontal: px(10)),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(px(10)),
+          borderRadius: BorderRadius.circular(px(8)),
         ),
         textStyle: RouteBuilderDesignTokens.rubik(
-          fontSize: px(14),
-          weight: FontWeight.w500,
+          fontSize: px(13),
+          weight: FontWeight.w400,
           height: 1.1,
         ),
       ),

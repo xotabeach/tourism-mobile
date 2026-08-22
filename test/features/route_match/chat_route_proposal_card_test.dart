@@ -30,8 +30,8 @@ void main() {
     expect(find.text('Ялта · море и виды'), findsOneWidget);
     expect(find.textContaining('4'), findsWidgets);
     expect(find.text('Пройти маршрут'), findsOneWidget);
-    expect(find.text('В черновик'), findsOneWidget);
-    expect(find.text('Уточнить'), findsOneWidget);
+    expect(find.text('Сохранить маршрут в черновик'), findsOneWidget);
+    expect(find.text('Указать агенту на ошибку'), findsOneWidget);
     await tester.tap(find.text('Пройти маршрут'));
     expect(created, isTrue);
   });
@@ -62,12 +62,13 @@ void main() {
     );
 
     expect(find.text('4.9'), findsOneWidget);
-    expect(find.text('8.6 км'), findsWidgets);
-    expect(find.text('Бахчисарай'), findsWidgets);
+    expect(find.textContaining('8.6 км'), findsWidgets);
+    expect(find.textContaining('Бахчисарай'), findsWidgets);
     expect(find.text('Горы'), findsOneWidget);
     expect(find.text('С детьми'), findsOneWidget);
-    expect(find.text('2 500 ₽'), findsOneWidget);
-    expect(find.text('3/5'), findsOneWidget);
+    // Param rows render as one rich "label value" line (design screen 2).
+    expect(find.textContaining('2 500 ₽'), findsOneWidget);
+    expect(find.textContaining('3/5'), findsOneWidget);
   });
 
   testWidgets(
@@ -103,9 +104,16 @@ void main() {
         ),
       );
 
+      // Design-spec screen 3: labeled start/finish sections, no separate
+      // route title under the gallery.
+      expect(find.text('Точка старта:'), findsOneWidget);
+      expect(find.text('Точка финиша:'), findsOneWidget);
+      expect(find.text('Крым · собранный маршрут'), findsNothing);
       expect(find.text('Локации собранного маршрута:'), findsOneWidget);
       expect(find.text('Ласточкино гнездо'), findsOneWidget);
       expect(find.text('Посмотреть на карте'), findsOneWidget);
+      await tester.ensureVisible(find.text('Посмотреть на карте'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Посмотреть на карте'));
       expect(viewedMap, isTrue);
     },
