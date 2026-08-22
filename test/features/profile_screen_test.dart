@@ -62,7 +62,10 @@ void main() {
     final rankRect = tester.getRect(
       find.byKey(const ValueKey('profile-rank-card')),
     );
-    expect(coverRect.bottom - rankRect.top, closeTo(26, 0.5));
+    // Card tucks under the cover photo — nudged up a bit further per user
+    // feedback so it overlaps the background more than the raw Frame
+    // 146/147 measurement.
+    expect(coverRect.bottom - rankRect.top, closeTo(41, 0.5));
     final statImages = tester
         .widgetList<Image>(
           find.descendant(
@@ -186,5 +189,11 @@ void main() {
       greaterThan(300),
     );
     expect(find.byKey(const ValueKey('profile-following-stat')), findsNothing);
+    // Experts carry an admin-granted rank, not a points-based one — no
+    // progress bar / leaderboard row, and the "Звание" value is the expert
+    // label rather than the points rank title.
+    expect(find.text('Эксперт КрымТрип'), findsOneWidget);
+    expect(find.textContaining(' тп'), findsNothing);
+    expect(find.textContaining('Топ '), findsNothing);
   });
 }

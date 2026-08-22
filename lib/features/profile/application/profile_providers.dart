@@ -62,6 +62,7 @@ final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
         nextRankPoints: 15000,
         leaderboardPlace: 2,
         isExpert: true,
+        expertTitle: 'Эксперт КрымТрип',
       ),
       PublicUserProfile(
         id: 'mock-artem',
@@ -99,6 +100,7 @@ const _mockLeaderboard = [
     nextRankPoints: 10000,
     leaderboardPlace: 2,
     isExpert: true,
+    expertTitle: 'Эксперт КрымТрип',
   ),
   PublicUserProfile(
     id: 'mock-artem',
@@ -182,6 +184,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
           .where((route) => route.ownerUserId == userId)
           .toList(),
       isExpert: userId == 'mock-maria',
+      expertTitle: userId == 'mock-maria' ? 'Эксперт КрымТрип' : null,
     );
   }
 
@@ -205,6 +208,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       publishedRoutes: ownRoutes.items,
       likedByMe: false,
       isExpert: bundle.user.isExpert,
+      expertTitle: bundle.user.expertTitle,
       travelPoints: bundle.user.travelPoints,
       followersCount: bundle.user.followersCount,
       followingCount: bundle.user.followingCount,
@@ -222,6 +226,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     publishedRoutes: bundle.routes,
     likedByMe: bundle.user.likedByMe,
     isExpert: bundle.user.isExpert,
+    expertTitle: bundle.user.expertTitle,
     travelPoints: bundle.user.travelPoints,
     followersCount: bundle.user.followersCount,
     followingCount: bundle.user.followingCount,

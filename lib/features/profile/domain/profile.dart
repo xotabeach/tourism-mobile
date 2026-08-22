@@ -44,6 +44,7 @@ class ProfileSnapshot {
     this.coverImageUrl,
     this.likedByMe = false,
     this.isExpert = false,
+    this.expertTitle,
     this.travelPoints,
     this.followersCount = 0,
     this.followingCount = 0,
@@ -59,6 +60,9 @@ class ProfileSnapshot {
   final List<RouteSummary> publishedRoutes;
   final bool likedByMe;
   final bool isExpert;
+  /// Admin-granted expert label (e.g. "Эксперт КрымТрип"). Independent of
+  /// the points-based [rank] — experts don't need travel points progression.
+  final String? expertTitle;
   final int? travelPoints;
   final int followersCount;
   final int followingCount;

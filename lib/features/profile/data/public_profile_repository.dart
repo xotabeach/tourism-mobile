@@ -17,6 +17,7 @@ class PublicUserProfile {
     this.leaderboardPlace = 0,
     this.likedByMe = false,
     this.isExpert = false,
+    this.expertTitle,
     this.followersCount = 0,
     this.followingCount = 0,
   });
@@ -32,6 +33,7 @@ class PublicUserProfile {
   final int leaderboardPlace;
   final bool likedByMe;
   final bool isExpert;
+  final String? expertTitle;
   final int followersCount;
   final int followingCount;
 
@@ -48,6 +50,7 @@ class PublicUserProfile {
       leaderboardPlace: (json['leaderboard_place'] as num?)?.toInt() ?? 0,
       likedByMe: json['liked_by_me'] as bool? ?? false,
       isExpert: json['is_expert'] as bool? ?? false,
+      expertTitle: json['expert_title'] as String?,
       followersCount: _nonNegativeCount(json['followers_count']),
       followingCount: _nonNegativeCount(json['following_count']),
     );
