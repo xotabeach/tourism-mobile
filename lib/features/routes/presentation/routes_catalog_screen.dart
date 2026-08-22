@@ -67,30 +67,38 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   }
 
   Future<void> _openFilters() async {
-    final selected = await showModalBottomSheet<String>(
+    // Filters must apply the instant a filter is tapped — not after some
+    // separate confirm step — so update the screen's own state directly
+    // from the sheet's onTap instead of waiting on the sheet's pop result.
+    await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) {
+      builder: (sheetContext) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final filter in routeCatalogFilters)
-                ListTile(
-                  title: Text(filter),
-                  trailing: filter == _selectedChip
-                      ? const Icon(Icons.check_rounded)
-                      : null,
-                  onTap: () => Navigator.of(context).pop(filter),
-                ),
-            ],
+          child: StatefulBuilder(
+            builder: (sheetContext, setSheetState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final filter in routeCatalogFilters)
+                    ListTile(
+                      title: Text(filter),
+                      trailing: filter == _selectedChip
+                          ? const Icon(Icons.check_rounded)
+                          : null,
+                      onTap: () {
+                        setState(() => _selectedChip = filter);
+                        setSheetState(() {});
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                ],
+              );
+            },
           ),
         );
       },
     );
-    if (mounted && selected != null) {
-      setState(() => _selectedChip = selected);
-    }
   }
 
   void _handleSwipe(RouteSummary route, RouteSwipeAction action) {
