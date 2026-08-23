@@ -469,6 +469,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       catalogMatch: _catalogMatchFromBlocks(result.blocks),
       actions: _actionsFromBlocks(result.blocks),
       actionsLayout: _actionsLayoutFromBlocks(result.blocks),
+      actionsSheetTitle: _actionsSheetTitleFromBlocks(result.blocks),
       recommendations: _recommendationsFromBlocks(result.blocks),
       sliders: _slidersFromBlocks(result.blocks),
       toggles: _togglesFromBlocks(result.blocks),
@@ -526,6 +527,15 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       }
     }
     return ChatActionsLayout.wrap;
+  }
+
+  String? _actionsSheetTitleFromBlocks(List<RouteChatBlock> blocks) {
+    for (final block in blocks) {
+      if (block is ActionsBlock) {
+        return block.sheetTitle;
+      }
+    }
+    return null;
   }
 
   List<Map<String, String>> _actionsFromBlocks(List<RouteChatBlock> blocks) {

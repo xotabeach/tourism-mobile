@@ -378,20 +378,29 @@ final class RouteProposalCardBlock extends RouteChatBlock {
   }
 }
 
-enum ChatActionsLayout { wrap, stack }
+enum ChatActionsLayout { wrap, stack, sheet }
 
 ChatActionsLayout _parseActionsLayout(String? raw) {
-  return raw == 'stack' ? ChatActionsLayout.stack : ChatActionsLayout.wrap;
+  switch (raw) {
+    case 'stack':
+      return ChatActionsLayout.stack;
+    case 'sheet':
+      return ChatActionsLayout.sheet;
+    default:
+      return ChatActionsLayout.wrap;
+  }
 }
 
 final class ActionsBlock extends RouteChatBlock {
   const ActionsBlock({
     required this.actions,
     this.layout = ChatActionsLayout.wrap,
+    this.sheetTitle,
   });
 
   final List<Map<String, String>> actions;
   final ChatActionsLayout layout;
+  final String? sheetTitle;
 
   factory ActionsBlock.fromJson(Map<String, dynamic> json) {
     final raw = json['actions'] as List<dynamic>? ?? const [];
@@ -406,6 +415,7 @@ final class ActionsBlock extends RouteChatBlock {
           )
           .toList(),
       layout: _parseActionsLayout(json['layout'] as String?),
+      sheetTitle: json['sheet_title'] as String?,
     );
   }
 }

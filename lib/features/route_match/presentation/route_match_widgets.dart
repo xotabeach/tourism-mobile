@@ -44,6 +44,7 @@ class RouteChatMessage {
     this.placeChips = const [],
     this.actions = const [],
     this.actionsLayout = ChatActionsLayout.wrap,
+    this.actionsSheetTitle,
     this.recommendations = const [],
     this.sliders = const [],
     this.toggles = const [],
@@ -68,6 +69,7 @@ class RouteChatMessage {
   final List<RouteChatPlaceChipData> placeChips;
   final List<Map<String, String>> actions;
   final ChatActionsLayout actionsLayout;
+  final String? actionsSheetTitle;
   final List<RouteChatRecommendationData> recommendations;
   final List<RouteChatSliderData> sliders;
   final List<RouteChatToggleData> toggles;
@@ -2425,8 +2427,8 @@ class AgentMessageBubble extends StatelessWidget {
                             Text(
                               'Тревел Агент',
                               style: RouteBuilderDesignTokens.rubik(
-                                fontSize: px(13),
-                                weight: FontWeight.w600,
+                                fontSize: px(12),
+                                weight: FontWeight.w400,
                                 color: RouteBuilderDesignTokens.deepBlue,
                                 height: 1.1,
                               ),
@@ -2443,7 +2445,7 @@ class AgentMessageBubble extends StatelessWidget {
                           child: Text(
                             message.text,
                             style: RouteBuilderDesignTokens.rubik(
-                              fontSize: px(15),
+                              fontSize: px(14),
                               color: RouteBuilderDesignTokens.textPrimary,
                               height: 1.15,
                             ),
@@ -2527,6 +2529,7 @@ class AgentMessageBubble extends StatelessWidget {
                             px: px,
                             actions: message.actions,
                             layout: message.actionsLayout,
+                            sheetTitle: message.actionsSheetTitle,
                             onAction: _handleAction,
                           ),
                           SizedBox(height: px(14)),

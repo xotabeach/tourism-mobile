@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
@@ -12,6 +14,7 @@ class ChatActionChips extends StatelessWidget {
     required this.actions,
     required this.onAction,
     this.layout = ChatActionsLayout.wrap,
+    this.sheetTitle,
     super.key,
   });
 
@@ -19,6 +22,69 @@ class ChatActionChips extends StatelessWidget {
   final List<Map<String, String>> actions;
   final void Function(String id, String label) onAction;
   final ChatActionsLayout layout;
+  final String? sheetTitle;
+
+  Future<void> _openSheet(BuildContext context, List<Map<String, String>> visible) async {
+    final selected = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      backgroundColor: RouteBuilderDesignTokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(px(20))),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: px(12)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.fromLTRB(px(20), px(4), px(20), px(12)),
+                  child: Text(
+                    sheetTitle ?? 'Выбрать',
+                    style: RouteBuilderDesignTokens.rubik(
+                      fontSize: px(16),
+                      weight: FontWeight.w600,
+                      color: RouteBuilderDesignTokens.textPrimary,
+                    ),
+                  ),
+                ),
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: visible.length,
+                    separatorBuilder: (_, _) => Divider(
+                      height: px(1),
+                      color: RouteBuilderDesignTokens.deepBlue.withValues(
+                        alpha: 0.08,
+                      ),
+                    ),
+                    itemBuilder: (_, index) {
+                      final item = visible[index];
+                      return ListTile(
+                        title: Text(
+                          item['label']!,
+                          style: RouteBuilderDesignTokens.rubik(
+                            fontSize: px(15),
+                            color: RouteBuilderDesignTokens.textPrimary,
+                          ),
+                        ),
+                        onTap: () => Navigator.of(sheetContext).pop(item),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (selected != null) {
+      onAction(selected['id']!, selected['label']!);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +96,15 @@ class ChatActionChips extends StatelessWidget {
         .toList(growable: false);
     if (visible.isEmpty) {
       return const SizedBox.shrink();
+    }
+
+    if (layout == ChatActionsLayout.sheet) {
+      return _StackActionButton(
+        px: px,
+        label: sheetTitle ?? 'Выбрать',
+        icon: Icons.expand_more,
+        onPressed: () => unawaited(_openSheet(context, visible)),
+      );
     }
 
     if (layout == ChatActionsLayout.stack) {
@@ -59,7 +134,7 @@ class ChatActionChips extends StatelessWidget {
             label: Text(
               action['label']!,
               style: RouteBuilderDesignTokens.rubik(
-                fontSize: px(13),
+                fontSize: px(12),
                 color: RouteBuilderDesignTokens.deepBlue,
                 height: 1.1,
               ),
@@ -80,14 +155,21 @@ class _StackActionButton extends StatelessWidget {
     required this.px,
     required this.label,
     required this.onPressed,
+    this.icon,
   });
 
   final RoutePx px;
   final String label;
   final VoidCallback onPressed;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
+    final textStyle = RouteBuilderDesignTokens.rubik(
+      fontSize: px(12),
+      weight: FontWeight.w400,
+      height: 1.1,
+    );
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
@@ -101,13 +183,18 @@ class _StackActionButton extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(px(8)),
         ),
-        textStyle: RouteBuilderDesignTokens.rubik(
-          fontSize: px(13),
-          weight: FontWeight.w400,
-          height: 1.1,
-        ),
+        textStyle: textStyle,
       ),
-      child: Text(label),
+      child: icon == null
+          ? Text(label)
+          : Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label),
+                SizedBox(width: px(2)),
+                Icon(icon, size: px(16)),
+              ],
+            ),
     );
   }
 }

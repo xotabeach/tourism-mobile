@@ -62,6 +62,44 @@ void main() {
     expect(tappedId, 'interest_sea');
   });
 
+  testWidgets('ChatActionChips sheet layout opens a picker with all options', (
+    tester,
+  ) async {
+    String? tappedId;
+    String? tappedLabel;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatActionChips(
+            px: (value) => value,
+            layout: ChatActionsLayout.sheet,
+            sheetTitle: 'Выбрать город',
+            actions: const [
+              {'id': 'city_yalta', 'label': 'Ялта'},
+              {'id': 'city_sevastopol', 'label': 'Севастополь'},
+            ],
+            onAction: (id, label) {
+              tappedId = id;
+              tappedLabel = label;
+            },
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Ялта'), findsNothing);
+    await tester.tap(find.text('Выбрать город'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ялта'), findsOneWidget);
+    expect(find.text('Севастополь'), findsOneWidget);
+    await tester.tap(find.text('Севастополь'));
+    await tester.pumpAndSettle();
+
+    expect(tappedId, 'city_sevastopol');
+    expect(tappedLabel, 'Севастополь');
+  });
+
   testWidgets('RouteAiChatView shows dynamic chips', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
