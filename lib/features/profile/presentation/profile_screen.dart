@@ -970,9 +970,7 @@ class _RankCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         decoration: BoxDecoration(
                           color: AppColors.pageSurface,
-                          borderRadius: BorderRadius.circular(
-                            AppRadii.capsule,
-                          ),
+                          borderRadius: BorderRadius.circular(AppRadii.capsule),
                         ),
                         child: Text(
                           'Топ ${rank.leaderboardPlace}',
