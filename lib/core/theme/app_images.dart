@@ -170,7 +170,10 @@ abstract final class AppImages {
       if (resolvedUrl.startsWith('file://')) {
         return FileImage(File(Uri.parse(resolvedUrl).toFilePath()));
       }
-      return CachedNetworkImageProvider(resolvedUrl, cacheManager: cacheManager);
+      return CachedNetworkImageProvider(
+        resolvedUrl,
+        cacheManager: cacheManager,
+      );
     }
     return AssetImage(assetFallback);
   }

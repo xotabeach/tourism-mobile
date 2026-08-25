@@ -458,7 +458,11 @@ class _PlaceInformationSheet extends ConsumerWidget {
           if (place.safetyWarnings.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
+              child: Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.hairline,
+              ),
             ),
             const Text(
               'Перед посещением:',

@@ -138,7 +138,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(RouteMatchScreen), findsOneWidget);
 
-      tester.widget<AppEdgeBackGesture>(find.byType(AppEdgeBackGesture)).onBack();
+      tester
+          .widget<AppEdgeBackGesture>(find.byType(AppEdgeBackGesture))
+          .onBack();
       await tester.pumpAndSettle();
 
       expect(find.byType(ChatHistoryScreen), findsOneWidget);

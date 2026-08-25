@@ -697,9 +697,9 @@ class _DeckExhaustedView extends StatelessWidget {
               Text(
                 'Новые подборки появляются каждый день',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppColors.secondaryInk,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: AppColors.secondaryInk),
               ),
               if (onOpenAllRoutes != null) ...[
                 const SizedBox(height: AppSpacing.lg),

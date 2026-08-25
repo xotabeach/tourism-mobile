@@ -71,7 +71,9 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   ) {
     // Already-favorited routes have nothing left to decide — swiping on one
     // again is pointless, so keep them out of the deck entirely.
-    final undecided = items.where((route) => !favoriteRouteIds.contains(route.id));
+    final undecided = items.where(
+      (route) => !favoriteRouteIds.contains(route.id),
+    );
     return filterRouteCatalog(undecided.toList(), _selectedChip);
   }
 

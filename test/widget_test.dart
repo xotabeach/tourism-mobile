@@ -383,55 +383,56 @@ void main() {
     expect(find.byType(DiscoveryProfileCard), findsNWidgets(2));
   });
 
-  testWidgets('home shows seven featured routes and "Смотреть все" opens the full list', (
-    tester,
-  ) async {
-    tester.view
-      ..devicePixelRatio = 1
-      ..physicalSize = const Size(393, 5000);
-    addTearDown(() {
+  testWidgets(
+    'home shows seven featured routes and "Смотреть все" opens the full list',
+    (tester) async {
       tester.view
-        ..resetDevicePixelRatio()
-        ..resetPhysicalSize();
-    });
-    final routes = List.generate(
-      9,
-      (index) => RouteSummary(
-        id: 'featured-$index',
-        name: 'Популярный маршрут $index',
-        slug: 'featured-$index',
-        shortDescription: 'Море и горы',
-        stopsCount: 2,
-        publicationStatus: 'published',
-        visibility: 'public',
-      ),
-    );
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 5000);
+      addTearDown(() {
+        tester.view
+          ..resetDevicePixelRatio()
+          ..resetPhysicalSize();
+      });
+      final routes = List.generate(
+        9,
+        (index) => RouteSummary(
+          id: 'featured-$index',
+          name: 'Популярный маршрут $index',
+          slug: 'featured-$index',
+          shortDescription: 'Море и горы',
+          stopsCount: 2,
+          publicationStatus: 'published',
+          visibility: 'public',
+        ),
+      );
 
-    await tester.pumpWidget(
-      appWithCompletedOnboarding(
-        overrides: [
-          homeRoutesProvider.overrideWith(
-            (ref) async => RouteListPage(
-              items: routes,
-              total: routes.length,
-              limit: 100,
-              offset: 0,
+      await tester.pumpWidget(
+        appWithCompletedOnboarding(
+          overrides: [
+            homeRoutesProvider.overrideWith(
+              (ref) async => RouteListPage(
+                items: routes,
+                total: routes.length,
+                limit: 100,
+                offset: 0,
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-    await tester.pumpAndSettle();
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byType(RouteHeroCard), findsNWidgets(7));
-    expect(find.text('Популярный маршрут 7'), findsNothing);
+      expect(find.byType(RouteHeroCard), findsNWidgets(7));
+      expect(find.text('Популярный маршрут 7'), findsNothing);
 
-    await tester.tap(find.text('Смотреть все'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Смотреть все'));
+      await tester.pumpAndSettle();
 
-    expect(find.byType(AllListScreen), findsOneWidget);
-    expect(find.byType(AppSegmentedToggle), findsOneWidget);
-  });
+      expect(find.byType(AllListScreen), findsOneWidget);
+      expect(find.byType(AppSegmentedToggle), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'home caps Локации at 7 cards, same as Маршруты, and keeps the toggle '
@@ -480,7 +481,12 @@ void main() {
       expect(find.byType(PlaceHeroCard), findsNothing);
 
       placesCompleter.complete(
-        PlaceListPage(items: places, total: places.length, limit: 20, offset: 0),
+        PlaceListPage(
+          items: places,
+          total: places.length,
+          limit: 20,
+          offset: 0,
+        ),
       );
       await tester.pumpAndSettle();
 

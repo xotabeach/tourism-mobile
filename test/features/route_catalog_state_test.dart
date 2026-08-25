@@ -165,10 +165,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('route-layer-sea')), findsNothing);
-      expect(
-        find.text('Вы разобрали все маршруты на сегодня'),
-        findsOneWidget,
-      );
+      expect(find.text('Вы разобрали все маршруты на сегодня'), findsOneWidget);
 
       await tester.tap(find.text('Открыть список маршрутов'));
       expect(openedAllRoutes, isTrue);

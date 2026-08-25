@@ -61,10 +61,9 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     super.dispose();
   }
 
-  bool get _hasMore =>
-      _mode == HomeListMode.routes
-          ? _routeItems.length < _total
-          : _placeItems.length < _total;
+  bool get _hasMore => _mode == HomeListMode.routes
+      ? _routeItems.length < _total
+      : _placeItems.length < _total;
 
   void _onScroll() {
     if (!_scrollController.hasClients || _loading || !_hasMore) {
@@ -196,7 +195,10 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: _mode == HomeListMode.routes
-                            ? RouteHeroCard(route: _routeItems[index], height: 304)
+                            ? RouteHeroCard(
+                                route: _routeItems[index],
+                                height: 304,
+                              )
                             : PlaceHeroCard(place: _placeItems[index]),
                       );
                     },

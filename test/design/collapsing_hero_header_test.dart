@@ -36,9 +36,10 @@ void main() {
     );
 
     for (var offset = 40.0; offset <= 320; offset += 40) {
-      tester.state<ScrollableState>(find.byType(Scrollable)).position.jumpTo(
-        offset,
-      );
+      tester
+          .state<ScrollableState>(find.byType(Scrollable))
+          .position
+          .jumpTo(offset);
       await tester.pump();
     }
 

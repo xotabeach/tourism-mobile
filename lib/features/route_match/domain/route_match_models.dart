@@ -759,7 +759,8 @@ class RoutePlanningSessionListResult {
     return RoutePlanningSessionListResult(
       items: itemsJson
           .map(
-            (item) => RoutePlanningSession.fromJson(item as Map<String, dynamic>),
+            (item) =>
+                RoutePlanningSession.fromJson(item as Map<String, dynamic>),
           )
           .toList(growable: false),
       total: json['total'] as int? ?? itemsJson.length,
@@ -847,8 +848,9 @@ class RoutePlanningMessageListResult {
     return RoutePlanningMessageListResult(
       items: itemsJson
           .map(
-            (item) =>
-                RoutePlanningMessageResult.fromJson(item as Map<String, dynamic>),
+            (item) => RoutePlanningMessageResult.fromJson(
+              item as Map<String, dynamic>,
+            ),
           )
           .toList(growable: false),
       total: json['total'] as int? ?? itemsJson.length,

@@ -199,7 +199,12 @@ class MockPlacesRepository implements PlacesRepository {
     }
     final total = items.length;
     final page = items.skip(offset).take(limit).toList(growable: false);
-    return PlaceListPage(items: page, total: total, limit: limit, offset: offset);
+    return PlaceListPage(
+      items: page,
+      total: total,
+      limit: limit,
+      offset: offset,
+    );
   }
 
   @override
