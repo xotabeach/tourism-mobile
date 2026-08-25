@@ -8,11 +8,12 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
-import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
+import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
+import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -56,7 +57,7 @@ class PlaceDetailsScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
         data: (place) => _PlaceDetailsBody(place: place),
-        loading: () => const _PlaceDetailsLoading(),
+        loading: () => DetailsHeroLoadingView(onBack: () => context.pop()),
         error: (_, _) => AppAsyncErrorView(
           onRetry: () => ref.invalidate(placeDetailProvider(placeId)),
         ),
@@ -204,8 +205,9 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
         ),
       ),
       builder: (context, t, shrinkOffset, currentExtent) {
-        final expanded = CollapseProgress.fadeOut(t, start: 0.02, end: 0.64);
-        final collapsed = CollapseProgress.fadeIn(t, start: 0.55, end: 0.92);
+        const spec = HeroCollapseSpec.place;
+        final expanded = spec.expandedVisibility(t);
+        final collapsed = spec.collapsedVisibility(t);
         return Stack(
           fit: StackFit.expand,
           children: [
@@ -219,7 +221,7 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
             // has never had a full-bleed gradient).
             CollapseLayer(
               visibility: expanded,
-              scale: false,
+              scale: spec.scale,
               child: Stack(
                 children: [
                   Positioned(
@@ -301,6 +303,7 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
             CollapsingSheetLip(progress: t),
             CollapseLayer(
               visibility: collapsed,
+              scale: spec.scale,
               child: Padding(
                 padding: EdgeInsets.only(top: topInset),
                 child: SizedBox(
@@ -416,7 +419,7 @@ class _PlaceInformationSheet extends ConsumerWidget {
             ),
           ],
           const SizedBox(height: 16),
-          _PlaceAudioGuideCard(
+          AudioGuideCard(
             title: place.name,
             image: cover,
             onPlay: () {
@@ -525,117 +528,6 @@ class _PlaceInfoTag extends StatelessWidget {
             color: AppColors.primaryInk,
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _PlaceAudioGuideCard extends StatelessWidget {
-  const _PlaceAudioGuideCard({
-    required this.title,
-    required this.image,
-    required this.onPlay,
-  });
-
-  final String title;
-  final ImageProvider image;
-  final VoidCallback onPlay;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 76,
-      decoration: BoxDecoration(
-        color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        border: Border.all(color: AppColors.hairline),
-        boxShadow: AppShadows.tile,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Image(
-              image: image,
-              width: 44,
-              height: 44,
-              fit: BoxFit.cover,
-              errorBuilder: (context, _, _) => const SizedBox.square(
-                dimension: 44,
-                child: ColoredBox(color: AppColors.controlSurface),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    height: 1.2,
-                    color: AppColors.primaryInk,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'КрымТрип',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    height: 1.2,
-                    color: AppColors.secondaryInk,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Text(
-            '48м 17с',
-            style: TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.2,
-              color: AppColors.secondaryInk,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Semantics(
-            button: true,
-            label: 'Слушать аудиогид',
-            child: SizedBox.square(
-              dimension: 44,
-              child: Material(
-                color: AppColors.elevatedSurface,
-                shape: const CircleBorder(
-                  side: BorderSide(color: Color(0xFFE0E0E2)),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: InkWell(
-                  onTap: onPlay,
-                  child: const Icon(
-                    Icons.play_arrow_rounded,
-                    size: 26,
-                    color: AppColors.primaryInk,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -842,39 +734,6 @@ class _InlineError extends StatelessWidget {
           label: Text(label),
         ),
       ),
-    );
-  }
-}
-
-class _PlaceDetailsLoading extends StatelessWidget {
-  const _PlaceDetailsLoading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Expanded(flex: 6, child: Container(color: AppColors.controlSurface)),
-        Expanded(
-          flex: 4,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            color: AppColors.elevatedSurface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 210,
-                  height: 24,
-                  color: AppColors.controlSurface,
-                ),
-                const SizedBox(height: 12),
-                Container(height: 90, color: AppColors.controlSurface),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

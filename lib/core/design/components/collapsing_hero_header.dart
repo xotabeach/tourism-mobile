@@ -42,6 +42,45 @@ abstract final class CollapseProgress {
   }
 }
 
+/// Fade/scale contract for place vs route collapsing heroes.
+class HeroCollapseSpec {
+  const HeroCollapseSpec({
+    required this.scale,
+    required this.fadeOutStart,
+    required this.fadeOutEnd,
+    required this.fadeInStart,
+    required this.fadeInEnd,
+  });
+
+  final bool scale;
+  final double fadeOutStart;
+  final double fadeOutEnd;
+  final double fadeInStart;
+  final double fadeInEnd;
+
+  static const place = HeroCollapseSpec(
+    scale: false,
+    fadeOutStart: 0.02,
+    fadeOutEnd: 0.64,
+    fadeInStart: 0.55,
+    fadeInEnd: 0.92,
+  );
+
+  static const route = HeroCollapseSpec(
+    scale: true,
+    fadeOutStart: 0.0,
+    fadeOutEnd: 0.55,
+    fadeInStart: 0.4,
+    fadeInEnd: 0.9,
+  );
+
+  double expandedVisibility(double t) =>
+      CollapseProgress.fadeOut(t, start: fadeOutStart, end: fadeOutEnd);
+
+  double collapsedVisibility(double t) =>
+      CollapseProgress.fadeIn(t, start: fadeInStart, end: fadeInEnd);
+}
+
 typedef CollapsingHeroBuilder =
     Widget Function(
       BuildContext context,
