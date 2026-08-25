@@ -19,7 +19,7 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 import '../support/test_overrides.dart';
 
 void main() {
-  Widget _app(Widget home) {
+  Widget app(Widget home) {
     return MaterialApp(
       theme: AppTheme.light,
       builder: (context, child) {
@@ -53,7 +53,7 @@ void main() {
             throw Exception('secret-db-url');
           }),
         ],
-        child: _app(const Scaffold(body: HomeScreen())),
+        child: app(const Scaffold(body: HomeScreen())),
       ),
     );
     await tester.pumpAndSettle();
@@ -86,7 +86,7 @@ void main() {
           ),
           profileSubscriptionsProvider.overrideWith((ref) async => []),
         ],
-        child: _app(const Scaffold(body: MyRoutesScreen())),
+        child: app(const Scaffold(body: MyRoutesScreen())),
       ),
     );
     await tester.pump();
@@ -118,7 +118,7 @@ void main() {
           ),
           profileSubscriptionsProvider.overrideWith((ref) async => []),
         ],
-        child: _app(const Scaffold(body: MyRoutesScreen())),
+        child: app(const Scaffold(body: MyRoutesScreen())),
       ),
     );
     await tester.pumpAndSettle();
@@ -146,7 +146,7 @@ void main() {
             (ref, userId) => Completer<List<ProfileAchievement>>().future,
           ),
         ],
-        child: _app(const AchievementsScreen()),
+        child: app(const AchievementsScreen()),
       ),
     );
     await tester.pump();
