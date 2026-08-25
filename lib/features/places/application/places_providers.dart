@@ -24,6 +24,14 @@ final placesListProvider = FutureProvider<PlaceListPage>((ref) {
   return ref.watch(placesRepositoryProvider).listPlaces(regionSlug: 'crimea');
 });
 
+/// Mirrors `homeRoutesProvider` — a small, independent fetch for the home
+/// feed's Локации mode so it can warm separately from the places catalog tab.
+final homePlacesProvider = FutureProvider<PlaceListPage>((ref) {
+  return ref
+      .watch(placesRepositoryProvider)
+      .listPlaces(regionSlug: 'crimea', limit: 20);
+});
+
 final placesSearchProvider = FutureProvider.autoDispose
     .family<PlaceListPage, String>((ref, query) {
       return ref

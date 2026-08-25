@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
@@ -18,6 +20,8 @@ import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/places/presentation/place_reviews_section.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart'
+    show difficultyLabel;
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -42,7 +46,12 @@ class PlaceDetailsScreen extends ConsumerWidget {
     final placeAsync = ref.watch(placeDetailProvider(placeId));
 
     return Scaffold(
-      backgroundColor: AppColors.pageSurface,
+      // White, not pageSurface: everything on this screen is photo-then-white
+      // sheet, no gray anywhere by design (matches RouteDetailsScreen). A
+      // gray Scaffold behind it means any seam — sub-pixel rounding, an
+      // overscroll bounce, a dropped frame — shows gray instead of just
+      // disappearing into the sheet.
+      backgroundColor: AppColors.elevatedSurface,
       body: placeAsync.when(
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
@@ -66,10 +75,17 @@ class _PlaceDetailsBody extends ConsumerWidget {
     final isFavorite = ref.watch(
       favoritesProvider.select((state) => state.placeIds.contains(place.id)),
     );
-    final heroHeight = (MediaQuery.sizeOf(context).height * 0.57).clamp(
+    final rawHeroHeight = (MediaQuery.sizeOf(context).height * 0.57).clamp(
       430.0,
       590.0,
     );
+    // Round to a whole physical pixel. A fractional sliver boundary put the
+    // header/sheet seam between two sub-pixels instead of on one, leaving a
+    // hairline gap (the page's gray background showing through) even at
+    // rest, before any scrolling. RouteCollapsingHeader never hit this
+    // because its expandedHeight (320) is already a clean whole number.
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    final heroHeight = (rawHeroHeight * dpr).round() / dpr;
 
     Future<void> toggleFavorite() async {
       try {
@@ -114,12 +130,7 @@ class _PlaceDetailsBody extends ConsumerWidget {
             onShare: () => unawaited(sharePlace()),
             onMap: () => _showPlaceMap(context, place),
           ),
-          SliverToBoxAdapter(
-            child: Transform.translate(
-              offset: const Offset(0, -18),
-              child: _PlaceInformationSheet(place: place),
-            ),
-          ),
+          SliverToBoxAdapter(child: _PlaceInformationSheet(place: place)),
         ],
       ),
     );
@@ -177,14 +188,19 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
     return CollapsingHeroSliver(
       expandedHeight: widget.expandedHeight,
       collapsedHeight: topInset + 56,
-      collapsedColor: AppColors.pageSurface,
-      background: PageView.builder(
-        itemCount: images.length,
-        onPageChanged: (value) => setState(() => _page = value),
-        itemBuilder: (_, index) => AppImages.coverImage(
-          config: config,
-          coverImageUrl: images[index],
-          fallbackSeed: '${widget.place.slug}-$index',
+      // White (not pageSurface) — the photo crossfades into this color as
+      // the header collapses, and the info sheet right below is white too
+      // (see the lip in the builder below), so this reads as "the sheet
+      // rising up" instead of "the photo fading to a flat gray slab".
+      background: RepaintBoundary(
+        child: PageView.builder(
+          itemCount: images.length,
+          onPageChanged: (value) => setState(() => _page = value),
+          itemBuilder: (_, index) => AppImages.coverImage(
+            config: config,
+            coverImageUrl: images[index],
+            fallbackSeed: '${widget.place.slug}-$index',
+          ),
         ),
       ),
       builder: (context, t, shrinkOffset, currentExtent) {
@@ -193,22 +209,14 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
         return Stack(
           fit: StackFit.expand,
           children: [
-            IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.30),
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.24),
-                    ],
-                    stops: const [0, 0.42, 1],
-                  ),
-                ),
-              ),
-            ),
+            // No always-on darkening gradient here (unlike an earlier
+            // version): it painted on every frame regardless of scroll
+            // progress, so it tinted the fully-collapsed white bar and the
+            // sheet lip too — a visible seam where the tinted lip met the
+            // untinted info sheet below, and a shadow-like band across the
+            // "pinned" bar. Icon contrast comes from each control's own
+            // glass/black fill (matches route_collapsing_header.dart, which
+            // has never had a full-bleed gradient).
             CollapseLayer(
               visibility: expanded,
               scale: false,
@@ -250,13 +258,14 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: 22,
+                      // Sit above the sheet lip so dots stay on the photo.
+                      bottom: 36,
                       child: _PageDots(count: images.length, selected: _page),
                     ),
                   Positioned(
                     left: 14,
                     right: 14,
-                    bottom: images.length > 1 ? 42 : 24,
+                    bottom: images.length > 1 ? 56 : 38,
                     child: SizedBox(
                       height: 44,
                       child: FilledButton(
@@ -265,7 +274,9 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
                           backgroundColor: Colors.black.withValues(alpha: 0.48),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(999),
+                            borderRadius: BorderRadius.circular(
+                              AppRadii.capsule,
+                            ),
                             side: BorderSide(
                               color: Colors.white.withValues(alpha: 0.38),
                             ),
@@ -278,6 +289,16 @@ class _PlacePhotoHeaderState extends ConsumerState<_PlacePhotoHeader> {
                 ],
               ),
             ),
+            // Rounded sheet lip painted with the header so the body sheet
+            // below can stay flat (see route_collapsing_header.dart for the
+            // pattern this mirrors) — a Transform-translated body radius
+            // gets clipped at the sliver boundary instead of showing.
+            //
+            // It is the top edge of the sheet, not an overlay: it must never
+            // fade or scale out (that read as a white bar detaching mid
+            // scroll). Only the corner radius eases to 0 as the hero turns
+            // into the collapsed bar, which is white anyway by then.
+            CollapsingSheetLip(progress: t),
             CollapseLayer(
               visibility: collapsed,
               child: Padding(
@@ -353,10 +374,7 @@ class _PlaceInformationSheet extends ConsumerWidget {
         18,
         112 + MediaQuery.paddingOf(context).bottom,
       ),
-      decoration: const BoxDecoration(
-        color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
+      decoration: const BoxDecoration(color: AppColors.elevatedSurface),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -368,6 +386,22 @@ class _PlaceInformationSheet extends ConsumerWidget {
               color: AppColors.primaryInk,
             ),
           ),
+          if (place.categories.isNotEmpty ||
+              place.difficulty != null ||
+              place.isPaid) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final category in place.categories.take(3))
+                  _PlaceInfoTag(label: category.name),
+                if (place.difficulty != null)
+                  _PlaceInfoTag(label: difficultyLabel(place.difficulty)),
+                if (place.isPaid) const _PlaceInfoTag(label: 'Платно'),
+              ],
+            ),
+          ],
           if (description != null && description.isNotEmpty) ...[
             const SizedBox(height: 12),
             Text(
@@ -395,7 +429,7 @@ class _PlaceInformationSheet extends ConsumerWidget {
           ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+            child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
           const Text(
             'Маршруты с этим местом:',
@@ -421,7 +455,7 @@ class _PlaceInformationSheet extends ConsumerWidget {
           if (place.safetyWarnings.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 16),
-              child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+              child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
             ),
             const Text(
               'Перед посещением:',
@@ -459,10 +493,38 @@ class _PlaceInformationSheet extends ConsumerWidget {
           ],
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+            child: Divider(height: 1, thickness: 1, color: AppColors.hairline),
           ),
           PlaceReviewsSection(placeId: place.id),
         ],
+      ),
+    );
+  }
+}
+
+class _PlaceInfoTag extends StatelessWidget {
+  const _PlaceInfoTag({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.controlSurface,
+        borderRadius: BorderRadius.circular(AppRadii.chip),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryInk,
+          ),
+        ),
       ),
     );
   }
@@ -485,15 +547,9 @@ class _PlaceAudioGuideCard extends StatelessWidget {
       height: 76,
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFEDEDEE)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(color: AppColors.hairline),
+        boxShadow: AppShadows.tile,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
@@ -642,7 +698,7 @@ class _RelatedRouteRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     return InkWell(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(AppRadii.tile),
       onTap: () => context.pushNamed(
         AppRouteNames.routeDetails,
         pathParameters: {'id': route.id},
@@ -653,7 +709,7 @@ class _RelatedRouteRow extends ConsumerWidget {
         child: Row(
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppRadii.tile),
               child: SizedBox(
                 width: 48,
                 height: 42,
@@ -760,7 +816,7 @@ class _RelatedRoutesLoading extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: AppColors.controlSurface,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppRadii.tile),
               ),
             ),
           ),
@@ -831,7 +887,9 @@ void _showPlaceMap(BuildContext context, PlaceDetail place) {
       useSafeArea: true,
       backgroundColor: AppColors.elevatedSurface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.modal),
+        ),
       ),
       builder: (sheetContext) => SizedBox(
         height: MediaQuery.sizeOf(sheetContext).height * 0.72,
@@ -843,7 +901,7 @@ void _showPlaceMap(BuildContext context, PlaceDetail place) {
               height: 5,
               decoration: BoxDecoration(
                 color: AppColors.controlSurface,
-                borderRadius: BorderRadius.circular(999),
+                borderRadius: BorderRadius.circular(AppRadii.capsule),
               ),
             ),
             Padding(

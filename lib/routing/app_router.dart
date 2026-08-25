@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
+import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -15,6 +16,8 @@ import 'package:tourism_mobile/features/places/presentation/places_catalog_scree
 import 'package:tourism_mobile/features/profile/presentation/achievements_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/travelers_leaderboard_screen.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
+import 'package:tourism_mobile/features/route_match/presentation/chat_history_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_results_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
@@ -46,12 +49,15 @@ abstract final class AppRouteNames {
   static const favorites = 'favorites'; // legacy alias → routeMatch
   static const routeMatch = 'route-match';
   static const routeMatchResults = 'route-match-results';
+  static const routeMatchResume = 'route-match-resume';
+  static const chatHistory = 'chat-history';
   static const routePublish = 'route-publish';
   static const myRoutes = 'my-routes';
   static const profile = 'profile';
   static const achievements = 'achievements';
   static const userProfile = 'user-profile';
   static const travelersLeaderboard = 'travelers-leaderboard';
+  static const homeAllList = 'home-all-list';
   static const settings = 'settings';
   static const settingsAccount = 'settings-account';
   static const settingsChangeName = 'settings-change-name';
@@ -130,6 +136,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) =>
             _appTransitionPage(state, const SearchScreen()),
       ),
+      GoRoute(
+        name: AppRouteNames.routeMatchResume,
+        path: '${RouteMatchScreen.routePath}/resume',
+        pageBuilder: (context, state) {
+          return _appTransitionPage(
+            state,
+            RouteMatchScreen(
+              resumeSession: state.extra is RoutePlanningSession
+                  ? state.extra! as RoutePlanningSession
+                  : null,
+            ),
+          );
+        },
+      ),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return AppShellScreen(navigationShell: navigationShell);
@@ -168,6 +188,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       return CupertinoPage<void>(
                         key: state.pageKey,
                         child: const TravelersLeaderboardScreen(),
+                      );
+                    },
+                  ),
+                  GoRoute(
+                    name: AppRouteNames.homeAllList,
+                    path: AllListScreen.routePath,
+                    pageBuilder: (context, state) {
+                      final mode = state.extra is HomeListMode
+                          ? state.extra! as HomeListMode
+                          : HomeListMode.routes;
+                      return CupertinoPage<void>(
+                        key: state.pageKey,
+                        child: AllListScreen(initialMode: mode),
                       );
                     },
                   ),
@@ -292,6 +325,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       child: const SettingsScreen(),
                     ),
                     routes: [
+                      GoRoute(
+                        name: AppRouteNames.chatHistory,
+                        path: ChatHistoryScreen.routePath,
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const ChatHistoryScreen(),
+                        ),
+                      ),
                       GoRoute(
                         name: AppRouteNames.settingsAccount,
                         path: 'account',

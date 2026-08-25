@@ -80,6 +80,35 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
   }
 
   @override
+  Future<RoutePlanningSessionListResult> listSessions({
+    int limit = 20,
+    int offset = 0,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/route-builder/sessions',
+        queryParameters: {'limit': limit, 'offset': offset},
+      );
+      return RoutePlanningSessionListResult.fromJson(response.data!);
+    });
+  }
+
+  @override
+  Future<RoutePlanningMessageListResult> listMessages(
+    String sessionId, {
+    int limit = 50,
+    int offset = 0,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/route-builder/sessions/$sessionId/messages',
+        queryParameters: {'limit': limit, 'offset': offset},
+      );
+      return RoutePlanningMessageListResult.fromJson(response.data!);
+    });
+  }
+
+  @override
   Future<RoutePlanningMessageResult> postMessage({
     required String sessionId,
     required String text,
@@ -105,6 +134,51 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
 /// Local fallback when DATA_SOURCE=mock (no backend).
 class MockRouteMatchRepository implements RouteMatchRepository {
   int _mockSessionSeq = 0;
+
+  // Keyed insertion order = most-recent-last; listSessions reverses it so
+  // the history screen (like the real API, ordered by updated_at desc)
+  // shows the latest session first.
+  final _mockSessions = <String, RoutePlanningSession>{
+    'mock-session-history-1': const RoutePlanningSession(
+      sessionId: 'mock-session-history-1',
+      status: 'closed',
+      constraints: RouteMatchParams(
+        city: 'Ялта',
+        duration: RouteDurationOption.d3_5,
+        people: 2,
+        interests: ['Море', 'Романтика'],
+        pace: RoutePace.calm,
+      ),
+      aiPlanningEnabled: true,
+    ),
+  };
+  final _mockMessages = <String, List<RoutePlanningMessageResult>>{
+    'mock-session-history-1': const [
+      RoutePlanningMessageResult(
+        messageId: 'mock-hist-1',
+        sessionId: 'mock-session-history-1',
+        role: 'assistant',
+        text: 'Здравствуйте! Подберём маршрут по Ялте?',
+        blocks: [],
+      ),
+      RoutePlanningMessageResult(
+        messageId: 'mock-hist-2',
+        sessionId: 'mock-session-history-1',
+        role: 'user',
+        text: 'Подбери спокойный маршрут по Ялте на выходные',
+        blocks: [],
+      ),
+      RoutePlanningMessageResult(
+        messageId: 'mock-hist-3',
+        sessionId: 'mock-session-history-1',
+        role: 'assistant',
+        text:
+            'Собрал черновик маршрута из Ялты. Можно создать маршрут, '
+            'сохранить в черновик или уточнить параметры.',
+        blocks: [],
+      ),
+    ],
+  };
 
   @override
   Future<RouteMatchResult> match(RouteMatchParams params) async {
@@ -223,13 +297,18 @@ class MockRouteMatchRepository implements RouteMatchRepository {
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 80));
     _mockSessionSeq += 1;
-    return RoutePlanningSession(
+    final session = RoutePlanningSession(
       sessionId: 'mock-session-$_mockSessionSeq',
       status: 'active',
       constraints: params,
       confirmedFields: confirmedFields,
       aiPlanningEnabled: false,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
     );
+    _mockSessions[session.sessionId] = session;
+    _mockMessages[session.sessionId] = [];
+    return session;
   }
 
   @override
@@ -273,15 +352,19 @@ class MockRouteMatchRepository implements RouteMatchRepository {
           pace: RoutePace.calm,
         ),
       );
-      return RoutePlanningMessageResult(
-        messageId: 'mock-msg-gen',
-        sessionId: sessionId,
-        role: 'assistant',
-        text: generated.proposal.assistantText,
-        intent: 'generate',
-        proposal: generated.proposal,
-        blocks: generated.proposal.blocks,
-        provider: 'deterministic_generate',
+      return _recordExchange(
+        sessionId,
+        text,
+        RoutePlanningMessageResult(
+          messageId: 'mock-msg-gen',
+          sessionId: sessionId,
+          role: 'assistant',
+          text: generated.proposal.assistantText,
+          intent: 'generate',
+          proposal: generated.proposal,
+          blocks: generated.proposal.blocks,
+          provider: 'deterministic_generate',
+        ),
       );
     }
     final lowered = text.toLowerCase();
@@ -330,16 +413,93 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       reply = 'Что важнее — море, горы или романтика?';
       askField = 'interests';
     }
-    return RoutePlanningMessageResult(
-      messageId: 'mock-msg-1',
-      sessionId: sessionId,
-      role: 'assistant',
-      text: reply,
-      intent: 'on_topic_travel',
-      askField: askField,
-      blocks: [ActionsBlock(actions: actions)],
-      provider: 'mock',
-      fallback: true,
+    return _recordExchange(
+      sessionId,
+      text,
+      RoutePlanningMessageResult(
+        messageId: 'mock-msg-${_mockMessages[sessionId]?.length ?? 0}',
+        sessionId: sessionId,
+        role: 'assistant',
+        text: reply,
+        intent: 'on_topic_travel',
+        askField: askField,
+        blocks: [ActionsBlock(actions: actions)],
+        provider: 'mock',
+        fallback: true,
+      ),
+    );
+  }
+
+  /// Appends the user turn + agent reply to the in-memory transcript so
+  /// [listMessages] (chat history resume) sees the same conversation the
+  /// live UI just had, and bumps the session's `updatedAt` for sorting.
+  RoutePlanningMessageResult _recordExchange(
+    String sessionId,
+    String userText,
+    RoutePlanningMessageResult agentReply,
+  ) {
+    final transcript = _mockMessages.putIfAbsent(sessionId, () => []);
+    transcript
+      ..add(
+        RoutePlanningMessageResult(
+          messageId: 'mock-user-${transcript.length}',
+          sessionId: sessionId,
+          role: 'user',
+          text: userText,
+          blocks: const [],
+        ),
+      )
+      ..add(agentReply);
+    final session = _mockSessions[sessionId];
+    if (session != null) {
+      _mockSessions[sessionId] = RoutePlanningSession(
+        sessionId: session.sessionId,
+        status: session.status,
+        constraints: session.constraints,
+        aiPlanningEnabled: session.aiPlanningEnabled,
+        confirmedFields: session.confirmedFields,
+        createdAt: session.createdAt,
+        updatedAt: DateTime.now(),
+      );
+    }
+    return agentReply;
+  }
+
+  @override
+  Future<RoutePlanningSessionListResult> listSessions({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final sorted = _mockSessions.values.toList()
+      ..sort((a, b) {
+        final aTime = a.updatedAt ?? a.createdAt ?? DateTime(0);
+        final bTime = b.updatedAt ?? b.createdAt ?? DateTime(0);
+        return bTime.compareTo(aTime);
+      });
+    final page = sorted.skip(offset).take(limit).toList(growable: false);
+    return RoutePlanningSessionListResult(
+      items: page,
+      total: sorted.length,
+      limit: limit,
+      offset: offset,
+    );
+  }
+
+  @override
+  Future<RoutePlanningMessageListResult> listMessages(
+    String sessionId, {
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 80));
+    final all = _mockMessages[sessionId] ?? const [];
+    final page = all.skip(offset).take(limit).toList(growable: false);
+    return RoutePlanningMessageListResult(
+      items: page,
+      total: all.length,
+      limit: limit,
+      offset: offset,
     );
   }
 }

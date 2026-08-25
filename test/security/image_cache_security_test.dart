@@ -4,6 +4,8 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   const config = AppConfig(
     environment: AppEnvironment.local,
     apiBaseUrl: 'http://127.0.0.1:8000',

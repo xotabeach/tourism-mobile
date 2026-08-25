@@ -625,6 +625,17 @@ abstract class RouteMatchRepository {
 
   Future<RoutePlanningSession> closeSession(String sessionId);
 
+  Future<RoutePlanningSessionListResult> listSessions({
+    int limit = 20,
+    int offset = 0,
+  });
+
+  Future<RoutePlanningMessageListResult> listMessages(
+    String sessionId, {
+    int limit = 50,
+    int offset = 0,
+  });
+
   Future<RoutePlanningMessageResult> postMessage({
     required String sessionId,
     required String text,
@@ -641,6 +652,8 @@ class RoutePlanningSession {
     required this.constraints,
     required this.aiPlanningEnabled,
     this.confirmedFields = const [],
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String sessionId;
@@ -648,6 +661,8 @@ class RoutePlanningSession {
   final RouteMatchParams constraints;
   final bool aiPlanningEnabled;
   final List<String> confirmedFields;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   factory RoutePlanningSession.fromJson(Map<String, dynamic> json) {
     final rawConstraints =
@@ -684,6 +699,36 @@ class RoutePlanningSession {
           .map((item) => item as String)
           .toList(growable: false),
       aiPlanningEnabled: json['ai_planning_enabled'] as bool? ?? false,
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
+    );
+  }
+}
+
+class RoutePlanningSessionListResult {
+  const RoutePlanningSessionListResult({
+    required this.items,
+    required this.total,
+    required this.limit,
+    required this.offset,
+  });
+
+  final List<RoutePlanningSession> items;
+  final int total;
+  final int limit;
+  final int offset;
+
+  factory RoutePlanningSessionListResult.fromJson(Map<String, dynamic> json) {
+    final itemsJson = json['items'] as List<dynamic>? ?? const [];
+    return RoutePlanningSessionListResult(
+      items: itemsJson
+          .map(
+            (item) => RoutePlanningSession.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false),
+      total: json['total'] as int? ?? itemsJson.length,
+      limit: json['limit'] as int? ?? itemsJson.length,
+      offset: json['offset'] as int? ?? 0,
     );
   }
 }
@@ -701,6 +746,7 @@ class RoutePlanningMessageResult {
     this.fallback = false,
     this.confirmedFields = const [],
     this.askField,
+    this.createdAt,
   });
 
   final String messageId;
@@ -714,6 +760,10 @@ class RoutePlanningMessageResult {
   final bool fallback;
   final List<String> confirmedFields;
   final String? askField;
+
+  /// Only present on stored (history) rows — a fresh reply from `postMessage`
+  /// is timestamped locally instead (see `_nowTime()` at the call site).
+  final DateTime? createdAt;
 
   factory RoutePlanningMessageResult.fromJson(Map<String, dynamic> json) {
     final proposalJson = json['proposal'] as Map<String, dynamic>?;
@@ -733,6 +783,41 @@ class RoutePlanningMessageResult {
           .map((item) => item as String)
           .toList(growable: false),
       askField: json['ask_field'] as String?,
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+    );
+  }
+}
+
+/// A stored message row (`GET .../sessions/{id}/messages`) parses through
+/// the exact same shape as a live reply — every field [RoutePlanningMessageResult]
+/// reads defaults safely when absent (no `proposal`/`provider`/`fallback` in
+/// the stored form), so history replay reuses it as-is instead of a second
+/// model.
+class RoutePlanningMessageListResult {
+  const RoutePlanningMessageListResult({
+    required this.items,
+    required this.total,
+    required this.limit,
+    required this.offset,
+  });
+
+  final List<RoutePlanningMessageResult> items;
+  final int total;
+  final int limit;
+  final int offset;
+
+  factory RoutePlanningMessageListResult.fromJson(Map<String, dynamic> json) {
+    final itemsJson = json['items'] as List<dynamic>? ?? const [];
+    return RoutePlanningMessageListResult(
+      items: itemsJson
+          .map(
+            (item) =>
+                RoutePlanningMessageResult.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false),
+      total: json['total'] as int? ?? itemsJson.length,
+      limit: json['limit'] as int? ?? itemsJson.length,
+      offset: json['offset'] as int? ?? 0,
     );
   }
 }

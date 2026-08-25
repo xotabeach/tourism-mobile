@@ -9,6 +9,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
@@ -195,7 +197,7 @@ class _PlaceRatingRow extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
             color: AppColors.primaryInk,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(AppRadii.tile),
           ),
           child: Row(
             children: [
@@ -339,8 +341,8 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE4E4E6)),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(color: AppColors.hairline),
       ),
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
       child: Column(
@@ -352,7 +354,7 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
               padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
                 color: AppColors.controlSurface,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppRadii.tile),
                 border: const Border(left: BorderSide(width: 3)),
               ),
               child: Row(
@@ -456,15 +458,15 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
                   filled: true,
                   fillColor: const Color(0xFFF0F0F0),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                    borderRadius: BorderRadius.circular(AppRadii.tile),
+                    borderSide: const BorderSide(color: AppColors.hairline),
                   ),
                   enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                    borderRadius: BorderRadius.circular(AppRadii.tile),
+                    borderSide: const BorderSide(color: AppColors.hairline),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(AppRadii.tile),
                     borderSide: const BorderSide(color: AppColors.primaryInk),
                   ),
                   counterText: '',
@@ -496,7 +498,7 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
                 itemBuilder: (_, index) => Stack(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppRadii.tile),
                       child: Image.file(
                         File(_images[index].path),
                         width: 82,
@@ -541,9 +543,9 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
                   : _pick,
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primaryInk,
-                side: const BorderSide(color: Color(0xFFD9D9DB)),
+                side: const BorderSide(color: AppColors.hairline),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadii.tile),
                 ),
               ),
               icon: const Icon(Icons.add_rounded, size: 20),
@@ -560,7 +562,7 @@ class _PlaceReviewComposerState extends ConsumerState<_PlaceReviewComposer> {
                 foregroundColor: AppColors.primaryInk,
                 side: const BorderSide(color: AppColors.primaryInk),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppRadii.tile),
                 ),
               ),
               child: Text(_sending ? 'Отправка…' : 'Отправить'),
@@ -606,15 +608,9 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
       child: Container(
         decoration: BoxDecoration(
           color: AppColors.elevatedSurface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEDEDEE)),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 10,
-              offset: Offset(0, 3),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(AppRadii.card),
+          border: Border.all(color: AppColors.hairline),
+          boxShadow: AppShadows.tile,
         ),
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
         child: Column(
@@ -707,7 +703,7 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: AppColors.controlSurface,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(AppRadii.tile),
                   border: const Border(left: BorderSide(width: 3)),
                 ),
                 child: Text(
@@ -752,7 +748,7 @@ class _PlaceReviewCardState extends ConsumerState<_PlaceReviewCard> {
                   itemBuilder: (_, index) => GestureDetector(
                     onTap: () => _openGallery(index),
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppRadii.tile),
                       child: Image(
                         width: 108,
                         fit: BoxFit.cover,

@@ -6,8 +6,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
+import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
+import 'package:tourism_mobile/features/places/application/places_providers.dart';
+import 'package:tourism_mobile/features/places/domain/place.dart';
+import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_card.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -377,7 +383,7 @@ void main() {
     expect(find.byType(DiscoveryProfileCard), findsNWidgets(2));
   });
 
-  testWidgets('home shows seven featured routes and expands in place', (
+  testWidgets('home shows seven featured routes and "Смотреть все" opens the full list', (
     tester,
   ) async {
     tester.view
@@ -420,13 +426,68 @@ void main() {
     expect(find.byType(RouteHeroCard), findsNWidgets(7));
     expect(find.text('Популярный маршрут 7'), findsNothing);
 
-    await tester.tap(find.text('Листать все'));
+    await tester.tap(find.text('Смотреть все'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(RouteHeroCard), findsNWidgets(9));
-    expect(find.text('Популярный маршрут 8'), findsOneWidget);
-    expect(find.text('Свернуть'), findsOneWidget);
+    expect(find.byType(AllListScreen), findsOneWidget);
+    expect(find.byType(AppSegmentedToggle), findsOneWidget);
   });
+
+  testWidgets(
+    'home caps Локации at 7 cards, same as Маршруты, and keeps the toggle '
+    'visible (skeletons, not a blank flash) while places are still loading',
+    (tester) async {
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 5000);
+      addTearDown(() {
+        tester.view
+          ..resetDevicePixelRatio()
+          ..resetPhysicalSize();
+      });
+      final places = List.generate(
+        9,
+        (index) => PlaceSummary(
+          id: 'featured-place-$index',
+          name: 'Место $index',
+          slug: 'featured-place-$index',
+          shortDescription: 'Крым',
+          lat: 44.5,
+          lng: 34.1,
+          categories: const [],
+        ),
+      );
+      // Resolves only after the toggle tap so the loading frame is
+      // actually observable instead of settling before we can inspect it.
+      final placesCompleter = Completer<PlaceListPage>();
+
+      await tester.pumpWidget(
+        appWithCompletedOnboarding(
+          overrides: [
+            homePlacesProvider.overrideWith((ref) => placesCompleter.future),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Локации'));
+      await tester.pump();
+
+      // Toggle (and the rest of the header) stays on screen during the
+      // fetch — the old behaviour replaced the whole page with a spinner.
+      expect(find.byType(AppSegmentedToggle), findsOneWidget);
+      expect(find.byType(AppShimmer), findsWidgets);
+      expect(find.byType(PlaceHeroCard), findsNothing);
+
+      placesCompleter.complete(
+        PlaceListPage(items: places, total: places.length, limit: 20, offset: 0),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PlaceHeroCard), findsNWidgets(7));
+      expect(find.text('Место 7'), findsNothing);
+    },
+  );
 
   testWidgets('places search queries matching places and clears', (
     WidgetTester tester,

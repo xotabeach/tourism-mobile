@@ -43,6 +43,12 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsOffline),
         ),
         SettingsNavTile(
+          title: 'История чатов с ИИ',
+          subtitle: 'Прошлые подборки маршрутов',
+          icon: Icons.forum_outlined,
+          onTap: () => context.pushNamed(AppRouteNames.chatHistory),
+        ),
+        SettingsNavTile(
           title: travelPlus.active ? 'Поддержка и обратная связь' : 'Поддержка',
           subtitle: 'Поможем с любым вопросом',
           iconAsset: AppIconography.settingsSupport,

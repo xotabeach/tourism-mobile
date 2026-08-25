@@ -3,11 +3,24 @@ import 'dart:typed_data';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 
 /// Bundled design photos (Figma export) + helpers for API `/media` URLs.
 abstract final class AppImages {
+  /// The package's `DefaultCacheManager` caps disk cache at 200 objects,
+  /// which a catalog of 5000+ places plus routes/avatars/review photos
+  /// blows past in normal use — older entries get evicted and genuinely
+  /// re-downloaded on revisit. This raises the cap; every helper below that
+  /// builds a network image provider/widget must pass it explicitly.
+  static final cacheManager = CacheManager(
+    Config(
+      'appImageCache',
+      stalePeriod: const Duration(days: 60),
+      maxNrOfCacheObjects: 2000,
+    ),
+  );
   static const welcomeSunset = 'assets/images/welcome-sunset.jpg';
   static const coastPineTwilight = 'assets/images/coast-pine-twilight.jpg';
   static const capeFiolentFog = 'assets/images/cape-fiolent-fog.jpg';
@@ -157,7 +170,7 @@ abstract final class AppImages {
       if (resolvedUrl.startsWith('file://')) {
         return FileImage(File(Uri.parse(resolvedUrl).toFilePath()));
       }
-      return CachedNetworkImageProvider(resolvedUrl);
+      return CachedNetworkImageProvider(resolvedUrl, cacheManager: cacheManager);
     }
     return AssetImage(assetFallback);
   }
@@ -185,7 +198,7 @@ abstract final class AppImages {
     return ResizeImage.resizeIfNeeded(
       cacheWidth,
       null,
-      CachedNetworkImageProvider(resolved),
+      CachedNetworkImageProvider(resolved, cacheManager: cacheManager),
     );
   }
 
@@ -234,19 +247,24 @@ abstract final class AppImages {
     return LayoutBuilder(
       builder: (context, constraints) {
         final pixelRatio = MediaQuery.devicePixelRatioOf(context);
+        // The decode size is part of the image key, so it must NOT track live
+        // constraints: inside a collapsing hero the slot shrinks every frame,
+        // which re-resolved the provider on each pixel of scroll and dropped
+        // the widget back to [placeholder] mid-gesture. Key on width only
+        // (height follows from [fit]) and quantise it into coarse buckets so
+        // ordinary resizes reuse the same decoded frame.
+        const bucket = 256;
         final cacheWidth = constraints.maxWidth.isFinite
-            ? (constraints.maxWidth * pixelRatio).ceil().clamp(1, 2048)
-            : null;
-        final cacheHeight = constraints.maxHeight.isFinite
-            ? (constraints.maxHeight * pixelRatio).ceil().clamp(1, 2048)
+            ? (((constraints.maxWidth * pixelRatio) / bucket).ceil() * bucket)
+                  .clamp(bucket, 2048)
             : null;
 
         return CachedNetworkImage(
           imageUrl: networkUrl,
+          cacheManager: cacheManager,
           fit: fit,
           alignment: alignment is Alignment ? alignment : Alignment.center,
           memCacheWidth: cacheWidth,
-          memCacheHeight: cacheHeight,
           errorWidget: (_, _, _) => const ColoredBox(color: loadingFill),
           placeholder: (_, _) => const ColoredBox(color: loadingFill),
         );

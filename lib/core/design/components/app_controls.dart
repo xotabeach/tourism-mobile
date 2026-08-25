@@ -475,6 +475,83 @@ class AppFilterChipBar extends StatelessWidget {
   }
 }
 
+/// Compact 2+-option segmented pill (e.g. Маршруты/Локации on Home), distinct
+/// from [AppFilterChipBar]'s N equal-width category chips: a single rounded
+/// track with one filled selected segment, not independently bordered chips.
+class AppSegmentedToggle extends StatelessWidget {
+  const AppSegmentedToggle({
+    required this.labels,
+    required this.selected,
+    required this.onSelected,
+    super.key,
+  });
+
+  final List<String> labels;
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return Container(
+      height: 40,
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(
+        color: AppColors.controlSurface,
+        borderRadius: BorderRadius.circular(AppRadii.capsule),
+      ),
+      child: Row(
+        children: [
+          for (var index = 0; index < labels.length; index++) ...[
+            if (index > 0) const SizedBox(width: 3),
+            Expanded(
+              child: Semantics(
+                selected: labels[index] == selected,
+                button: true,
+                label: labels[index],
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(AppRadii.capsule),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadii.capsule),
+                    onTap: () => onSelected(labels[index]),
+                    child: AnimatedContainer(
+                      duration: reduceMotion
+                          ? AppMotion.reduced
+                          : AppMotion.normal,
+                      curve: AppMotion.standard,
+                      alignment: Alignment.center,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        color: labels[index] == selected
+                            ? AppColors.primaryInk
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(AppRadii.capsule),
+                      ),
+                      child: Text(
+                        labels[index],
+                        maxLines: 1,
+                        overflow: TextOverflow.fade,
+                        softWrap: false,
+                        style: AppTypography.chip.copyWith(
+                          color: labels[index] == selected
+                              ? Colors.white
+                              : AppColors.primaryInk,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class AppPressableScale extends StatefulWidget {
   const AppPressableScale({
     required this.child,

@@ -5,6 +5,8 @@ abstract class PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    int limit = 50,
+    int offset = 0,
   });
 
   Future<PlaceDetail> getPlace(String id);

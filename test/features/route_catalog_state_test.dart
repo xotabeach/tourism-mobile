@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/routes/application/favorite_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
+import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 
 import '../support/test_overrides.dart';
@@ -90,6 +92,88 @@ void main() {
 
     expect(container.read(favoriteRouteIdsProvider), {_seaRoute.id});
   });
+
+  testWidgets(
+    'catalog screen never deals an already-favorited route into the deck',
+    (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          ...testSessionOverrides(onboardingCompleted: true),
+          routesListProvider.overrideWith(
+            (ref) async => const RouteListPage(
+              items: [_seaRoute, _mountainRoute],
+              total: 2,
+              limit: 50,
+              offset: 0,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      await container.read(favoritesProvider.notifier).addRoute(_seaRoute.id);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const Scaffold(body: RoutesCatalogScreen()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final deck = tester.widget<RouteSwipeDeck>(find.byType(RouteSwipeDeck));
+      expect(deck.routes.map((route) => route.id), [_mountainRoute.id]);
+    },
+  );
+
+  testWidgets(
+    'skipped cards are dropped, not requeued, so the deck ends and offers '
+    'the full list',
+    (tester) async {
+      final container = ProviderContainer(
+        overrides: testSessionOverrides(onboardingCompleted: true),
+      );
+      addTearDown(container.dispose);
+      var openedAllRoutes = false;
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: RouteSwipeDeck(
+                routes: const [_seaRoute, _mountainRoute],
+                onSwipe: (_, _) {},
+                onOpenAllRoutes: () => openedAllRoutes = true,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final cardKey = find.byKey(
+        const ValueKey('route-swipe-card-translation'),
+      );
+      // Skip left twice: a recycling deck would show the sea route again
+      // after the second skip instead of running out.
+      await tester.drag(cardKey, const Offset(-180, 0));
+      await tester.pumpAndSettle();
+      await tester.drag(cardKey, const Offset(-180, 0));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('route-layer-sea')), findsNothing);
+      expect(
+        find.text('Вы разобрали все маршруты на сегодня'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Открыть список маршрутов'));
+      expect(openedAllRoutes, isTrue);
+    },
+  );
 
   testWidgets('dismissing coach promotes first card without jump', (
     tester,

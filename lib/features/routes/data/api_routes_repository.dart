@@ -15,6 +15,7 @@ class ApiRoutesRepository implements RoutesRepository {
     String? placeId,
     String? query,
     int limit = 50,
+    int offset = 0,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) {
     return guardApiCall(() async {
@@ -25,6 +26,7 @@ class ApiRoutesRepository implements RoutesRepository {
           'place_id': ?placeId,
           'q': ?query,
           'limit': limit,
+          'offset': offset,
           'sort': sort.apiValue,
         },
       );

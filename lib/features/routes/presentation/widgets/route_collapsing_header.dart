@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -251,26 +250,7 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
             ),
             // Rounded sheet lip painted with the header so body content is
             // not covered by the pinned media (author stays in the body).
-            CollapseLayer(
-              visibility: expandedVis,
-              child: const IgnorePointer(
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SizedBox(
-                    height: 24,
-                    width: double.infinity,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: AppColors.elevatedSurface,
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(24),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            CollapsingSheetLip(progress: t),
             CollapseLayer(
               visibility: collapsedVis,
               scaleAlignment: Alignment.center,

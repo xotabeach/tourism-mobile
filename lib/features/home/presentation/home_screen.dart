@@ -17,9 +17,13 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/places/application/places_providers.dart';
+import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_card.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -49,7 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Timer? _searchDebounce;
   var _selectedChip = 'Все';
   var _showPinnedBrand = false;
-  var _showAllRoutes = false;
+  var _mode = HomeListMode.routes;
   var _searchQuery = '';
   var _searchFocused = false;
   SearchFilters _searchFilters = const SearchFilters();
@@ -143,10 +147,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }).toList();
   }
 
-  void _toggleAllRoutes() {
-    setState(() => _showAllRoutes = !_showAllRoutes);
-  }
-
   void _warmRouteCovers(
     BuildContext context,
     AppConfig config,
@@ -172,6 +172,215 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         unawaited(precacheImage(provider, context).catchError((_) {}));
       }
     });
+  }
+
+  void _seeAll() {
+    unawaited(
+      context.pushNamed(AppRouteNames.homeAllList, extra: _mode),
+    );
+  }
+
+  /// Same header (toggle, search bar, chips) both modes and the loading
+  /// skeleton render at index 0 — extracted so switching modes or waiting
+  /// on a first fetch never has to rebuild this row differently.
+  Widget _homeHeader({required String name, required bool searchActive}) {
+    return _HomeHeader(
+      name: name,
+      mode: _mode,
+      onModeChanged: (mode) => setState(() => _mode = mode),
+      onSeeAll: _seeAll,
+      selectedChip: _selectedChip,
+      chips: _chips,
+      onChipSelected: (chip) {
+        setState(() => _selectedChip = chip);
+      },
+      searchController: _searchController,
+      searchFocus: _searchFocus,
+      searchActive: searchActive,
+      filterApplied: _searchFilters.isActive,
+      onSearchChanged: _onSearchChanged,
+      onSearchClear: () {
+        _searchDebounce?.cancel();
+        setState(() => _searchQuery = '');
+      },
+      onFilterTap: () => unawaited(_openFilters()),
+    );
+  }
+
+  /// Keeps the header (and therefore the Маршруты/Локации toggle) on screen
+  /// while a mode's data is still loading, instead of replacing the whole
+  /// page with a centered spinner — that used to read as the entire Home
+  /// screen flashing blank on the first switch to Локации.
+  Widget _buildLoadingList({
+    required String name,
+    required double topInset,
+    required bool searchActive,
+  }) {
+    const skeletonCount = 3;
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.page,
+        topInset + AppSpacing.lg,
+        AppSpacing.page,
+        AppSpacing.shellBottomContent,
+      ),
+      itemCount: 1 + skeletonCount,
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _homeHeader(name: name, searchActive: searchActive);
+        }
+        return const Padding(
+          padding: EdgeInsets.only(bottom: 16),
+          child: AppShimmer(
+            child: AppSkeleton(
+              width: double.infinity,
+              height: 304,
+              borderRadius: AppRadii.card,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRoutesList(
+    BuildContext context, {
+    required AppConfig config,
+    required String name,
+    required double topInset,
+    required bool searchActive,
+  }) {
+    final routesAsync = ref.watch(homeRoutesProvider);
+    return routesAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      data: (page) {
+        final items = _filtered(page.items);
+        final visibleItems = items.take(7).toList(growable: false);
+        _warmRouteCovers(context, config, visibleItems);
+        return RefreshIndicator(
+          onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.home),
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              topInset + AppSpacing.lg,
+              AppSpacing.page,
+              AppSpacing.shellBottomContent,
+            ),
+            itemCount: searchActive
+                ? 2
+                : 1 + (items.isEmpty ? 1 : visibleItems.length),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _homeHeader(name: name, searchActive: searchActive);
+              }
+              if (searchActive) {
+                return InPlaceSearchBody(
+                  query: _searchQuery,
+                  filters: _searchFilters,
+                  onQueryFromHistory: _applyHistoryQuery,
+                );
+              }
+              if (items.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: Center(child: Text('Маршруты не найдены')),
+                );
+              }
+              final route = visibleItems[index - 1];
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: RouteHeroCard(
+                  route: route,
+                  height: 304,
+                  tags: index == 1
+                      ? const ['Горы', 'С детьми', 'Пешком']
+                      : const [],
+                ),
+              );
+            },
+          ),
+        );
+      },
+      loading: () =>
+          _buildLoadingList(name: name, topInset: topInset, searchActive: searchActive),
+      error: (_, _) => AppAsyncErrorView(
+        onRetry: () =>
+            unawaited(refreshAppData(ref, scope: AppDataRefreshScope.home)),
+      ),
+    );
+  }
+
+  Widget _buildPlacesList(
+    BuildContext context, {
+    required String name,
+    required double topInset,
+    required bool searchActive,
+  }) {
+    final placesAsync = ref.watch(homePlacesProvider);
+    return placesAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      data: (page) {
+        // Same 7-card cap as routes — Локации shouldn't feel like a longer
+        // list just because the /places page size differs from routes'.
+        final items = page.items.take(7).toList(growable: false);
+        return RefreshIndicator(
+          onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.home),
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.page,
+              topInset + AppSpacing.lg,
+              AppSpacing.page,
+              AppSpacing.shellBottomContent,
+            ),
+            itemCount: searchActive ? 2 : 1 + (items.isEmpty ? 1 : items.length),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _homeHeader(name: name, searchActive: searchActive);
+              }
+              if (searchActive) {
+                return InPlaceSearchBody(
+                  query: _searchQuery,
+                  filters: _searchFilters,
+                  onQueryFromHistory: _applyHistoryQuery,
+                );
+              }
+              if (items.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: Center(child: Text('Локации не найдены')),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: PlaceHeroCard(place: items[index - 1]),
+              );
+            },
+          ),
+        );
+      },
+      loading: () =>
+          _buildLoadingList(name: name, topInset: topInset, searchActive: searchActive),
+      error: (_, _) => AppAsyncErrorView(
+        onRetry: () =>
+            unawaited(refreshAppData(ref, scope: AppDataRefreshScope.home)),
+      ),
+    );
   }
 
   @override
@@ -202,104 +411,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       );
     });
     final session = ref.watch(sessionProvider);
-    final routesAsync = ref.watch(homeRoutesProvider);
     final config = ref.watch(appConfigProvider);
     final name = (session.displayName?.trim().isNotEmpty ?? false)
         ? session.displayName!.trim()
         : 'путник';
     final topInset = MediaQuery.paddingOf(context).top;
+    final searchActive = _searchFocused || _searchQuery.isNotEmpty;
 
     return ColoredBox(
       color: AppColors.mist,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          routesAsync.when(
-            skipLoadingOnReload: true,
-            skipLoadingOnRefresh: true,
-            skipError: true,
-            data: (page) {
-              final items = _filtered(page.items);
-              final visibleItems = _showAllRoutes
-                  ? items
-                  : items.take(7).toList(growable: false);
-              _warmRouteCovers(context, config, visibleItems);
-              final searchActive = _searchFocused || _searchQuery.isNotEmpty;
-              return RefreshIndicator(
-                onRefresh: () =>
-                    refreshAppData(ref, scope: AppDataRefreshScope.home),
-                child: ListView.builder(
-                  controller: _scrollController,
-                  physics: const BouncingScrollPhysics(
-                    parent: AlwaysScrollableScrollPhysics(),
-                  ),
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.page,
-                    topInset + AppSpacing.lg,
-                    AppSpacing.page,
-                    AppSpacing.shellBottomContent,
-                  ),
-                  itemCount: searchActive
-                      ? 2
-                      : 1 + (items.isEmpty ? 1 : visibleItems.length),
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      return _HomeHeader(
-                        name: name,
-                        selectedChip: _selectedChip,
-                        chips: _chips,
-                        onChipSelected: (chip) {
-                          setState(() => _selectedChip = chip);
-                        },
-                        showAllRoutes: _showAllRoutes,
-                        onToggleAllRoutes: _toggleAllRoutes,
-                        searchController: _searchController,
-                        searchFocus: _searchFocus,
-                        searchActive: searchActive,
-                        filterApplied: _searchFilters.isActive,
-                        onSearchChanged: _onSearchChanged,
-                        onSearchClear: () {
-                          _searchDebounce?.cancel();
-                          setState(() => _searchQuery = '');
-                        },
-                        onFilterTap: () => unawaited(_openFilters()),
-                      );
-                    }
-                    if (searchActive) {
-                      return InPlaceSearchBody(
-                        query: _searchQuery,
-                        filters: _searchFilters,
-                        onQueryFromHistory: _applyHistoryQuery,
-                      );
-                    }
-                    if (items.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.only(top: 32),
-                        child: Center(child: Text('Маршруты не найдены')),
-                      );
-                    }
-                    final route = visibleItems[index - 1];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: RouteHeroCard(
-                        route: route,
-                        height: 304,
-                        tags: index == 1
-                            ? const ['Горы', 'С детьми', 'Пешком']
-                            : const [],
-                      ),
-                    );
-                  },
+          _mode == HomeListMode.routes
+              ? _buildRoutesList(
+                  context,
+                  config: config,
+                  name: name,
+                  topInset: topInset,
+                  searchActive: searchActive,
+                )
+              : _buildPlacesList(
+                  context,
+                  name: name,
+                  topInset: topInset,
+                  searchActive: searchActive,
                 ),
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => AppAsyncErrorView(
-              onRetry: () => unawaited(
-                refreshAppData(ref, scope: AppDataRefreshScope.home),
-              ),
-            ),
-          ),
           Positioned(
             left: 0,
             right: 0,
@@ -330,8 +467,9 @@ class _HomeHeader extends ConsumerWidget {
     required this.selectedChip,
     required this.chips,
     required this.onChipSelected,
-    required this.showAllRoutes,
-    required this.onToggleAllRoutes,
+    required this.mode,
+    required this.onModeChanged,
+    required this.onSeeAll,
     required this.searchController,
     required this.searchFocus,
     required this.searchActive,
@@ -345,8 +483,9 @@ class _HomeHeader extends ConsumerWidget {
   final String selectedChip;
   final List<String> chips;
   final ValueChanged<String> onChipSelected;
-  final bool showAllRoutes;
-  final VoidCallback onToggleAllRoutes;
+  final HomeListMode mode;
+  final ValueChanged<HomeListMode> onModeChanged;
+  final VoidCallback onSeeAll;
   final TextEditingController searchController;
   final FocusNode searchFocus;
   final bool searchActive;
@@ -462,31 +601,44 @@ class _HomeHeader extends ConsumerWidget {
           const SizedBox(height: AppSpacing.lg),
           const _TopTravelersRow(),
           const SizedBox(height: 30),
+          AppSegmentedToggle(
+            labels: const ['Маршруты', 'Локации'],
+            selected: mode == HomeListMode.routes ? 'Маршруты' : 'Локации',
+            onSelected: (label) => onModeChanged(
+              label == 'Маршруты' ? HomeListMode.routes : HomeListMode.places,
+            ),
+          ),
+          const SizedBox(height: 22),
           Row(
             children: [
-              const Expanded(
-                child: Text('Маршруты', style: AppTypography.sectionTitle),
+              Expanded(
+                child: Text(
+                  mode == HomeListMode.routes ? 'Маршруты' : 'Локации',
+                  style: AppTypography.sectionTitle,
+                ),
               ),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onToggleAllRoutes,
-                child: AnimatedSwitcher(
-                  duration: AppMotion.fast,
-                  child: Text(
-                    showAllRoutes ? 'Свернуть' : 'Листать все',
-                    key: ValueKey(showAllRoutes),
+              Semantics(
+                button: true,
+                label: 'Смотреть все',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onSeeAll,
+                  child: const Text(
+                    'Смотреть все',
                     style: AppTypography.sectionAction,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 17),
-          AppFilterChipBar(
-            labels: chips,
-            selected: selectedChip,
-            onSelected: onChipSelected,
-          ),
+          if (mode == HomeListMode.routes) ...[
+            const SizedBox(height: 17),
+            AppFilterChipBar(
+              labels: chips,
+              selected: selectedChip,
+              onSelected: onChipSelected,
+            ),
+          ],
           const SizedBox(height: 14),
         ],
       ],

@@ -20,3 +20,10 @@ final lastRouteMatchResultProvider = StateProvider<RouteMatchResult?>(
 final lastRouteMatchParamsProvider = StateProvider<RouteMatchParams?>(
   (ref) => null,
 );
+
+/// Past chat sessions for the "История чатов" settings entry point.
+final chatSessionsProvider = FutureProvider<RoutePlanningSessionListResult>((
+  ref,
+) {
+  return ref.watch(routeMatchRepositoryProvider).listSessions(limit: 50);
+});

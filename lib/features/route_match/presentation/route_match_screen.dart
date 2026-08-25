@@ -26,6 +26,7 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
     super.key,
     this.pixelReference = false,
     this.initialMode = RouteMatchMode.params,
+    this.resumeSession,
   });
 
   static const routePath = '/match';
@@ -34,6 +35,10 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
   final bool pixelReference;
 
   final RouteMatchMode initialMode;
+
+  /// Set from [ChatHistoryScreen]: opens straight into chat mode on this
+  /// existing session and replays its transcript instead of the params form.
+  final RoutePlanningSession? resumeSession;
 
   @override
   ConsumerState<RouteMatchScreen> createState() => _RouteMatchScreenState();
@@ -121,7 +126,12 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     _aiFocus.addListener(_onAiFocusChanged);
     _paramsScroll.addListener(_syncAppBarFromActiveScroll);
     _aiScroll.addListener(_syncAppBarFromActiveScroll);
-    _mode = widget.initialMode;
+    final resume = widget.resumeSession;
+    _mode = resume != null ? RouteMatchMode.ai : widget.initialMode;
+    if (resume != null) {
+      _chatSessionId = resume.sessionId;
+      _sessionConstraints = resume.constraints;
+    }
     _messages = widget.pixelReference
         ? [
             const RouteChatMessage(
@@ -140,6 +150,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
               time: '17:53',
             ),
           ]
+        : resume != null
+        ? const []
         : [
             const RouteChatMessage(
               fromAgent: true,
@@ -154,13 +166,71 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       if (widget.pixelReference && _mode == RouteMatchMode.ai) {
         _scrollAiToDemoOffset();
       }
+      if (resume != null) {
+        unawaited(_loadResumeHistory(resume.sessionId));
+      }
     });
+  }
+
+  Future<void> _loadResumeHistory(String sessionId) async {
+    if (!ref.read(sessionProvider).travelPlusActive) {
+      unawaited(context.push('/profile/settings/travel-plus'));
+      return;
+    }
+    setState(() => _sessionStarting = true);
+    try {
+      final page = await ref
+          .read(routeMatchRepositoryProvider)
+          .listMessages(sessionId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _messages = [
+          for (final item in page.items)
+            item.role == 'user'
+                ? RouteChatMessage(
+                    fromAgent: false,
+                    text: item.text,
+                    time: _timeLabel(item.createdAt),
+                  )
+                : _agentMessageFromResult(item),
+        ];
+        _sessionStarting = false;
+      });
+      _scrollAiToEnd(animate: false);
+    } on AppFailure catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _sessionStarting = false);
+      _showChatFailure(error);
+    }
+  }
+
+  String _timeLabel(DateTime? createdAt) {
+    final local = createdAt?.toLocal();
+    if (local == null) {
+      return _nowTime();
+    }
+    final h = local.hour.toString().padLeft(2, '0');
+    final m = local.minute.toString().padLeft(2, '0');
+    return '$h:$m';
   }
 
   @override
   void deactivate() {
     if (ref.read(routeMatchAiModeProvider)) {
-      ref.read(routeMatchAiModeProvider.notifier).state = false;
+      // deactivate() can run mid widget-tree-finalization (popping a
+      // pushed instance, e.g. a resumed session leaving the AI mode flag
+      // set) — Riverpod forbids writing a provider from inside that pass.
+      // Capture the notifier now (still valid) and write on a microtask.
+      final notifier = ref.read(routeMatchAiModeProvider.notifier);
+      scheduleMicrotask(() {
+        if (notifier.mounted) {
+          notifier.state = false;
+        }
+      });
     }
     super.deactivate();
   }
@@ -356,6 +426,15 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _goBack() {
+    // Two very different homes for this screen: the tab-root instance has
+    // no Navigator route beneath it (go to the Home tab is the only
+    // meaningful "back"), but resumeSession pushes it as a real page from
+    // ChatHistoryScreen — there, back must pop to that page, not jump to
+    // the Home tab and strand it.
+    if (widget.resumeSession != null && context.canPop()) {
+      context.pop();
+      return;
+    }
     context.go('/');
   }
 

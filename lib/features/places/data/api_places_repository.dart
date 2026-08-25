@@ -14,6 +14,8 @@ class ApiPlacesRepository implements PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    int limit = 50,
+    int offset = 0,
   }) {
     return guardApiCall(() async {
       final response = await _dio.get<Map<String, dynamic>>(
@@ -22,7 +24,8 @@ class ApiPlacesRepository implements PlacesRepository {
           'region_slug': ?regionSlug,
           'category': ?category,
           if (query != null && query.isNotEmpty) 'q': query,
-          'limit': 50,
+          'limit': limit,
+          'offset': offset,
         },
       );
       return PlaceListPage.fromJson(response.data!);

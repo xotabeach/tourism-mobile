@@ -6,6 +6,7 @@ abstract interface class RoutesRepository {
     String? placeId,
     String? query,
     int limit = 50,
+    int offset = 0,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   });
 

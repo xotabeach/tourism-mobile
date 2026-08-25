@@ -241,6 +241,7 @@ class MockRoutesRepository implements RoutesRepository {
     String? placeId,
     String? query,
     int limit = 50,
+    int offset = 0,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 40));
@@ -265,10 +266,10 @@ class MockRoutesRepository implements RoutesRepository {
         })
         .toList(growable: false);
     return RouteListPage(
-      items: filtered.take(limit).toList(growable: false),
+      items: filtered.skip(offset).take(limit).toList(growable: false),
       total: filtered.length,
       limit: limit,
-      offset: 0,
+      offset: offset,
     );
   }
 

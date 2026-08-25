@@ -63,6 +63,7 @@ class RouteSwipeDeck extends StatefulWidget {
   const RouteSwipeDeck({
     required this.routes,
     required this.onSwipe,
+    this.onOpenAllRoutes,
     this.showCoach = false,
     this.onCoachDismiss,
     this.debugProgress,
@@ -71,6 +72,10 @@ class RouteSwipeDeck extends StatefulWidget {
 
   final List<RouteSummary> routes;
   final void Function(RouteSummary route, RouteSwipeAction action) onSwipe;
+
+  /// "Открыть список маршрутов" on the deck-exhausted panel. Optional so
+  /// goldens/tests can render the deck without wiring navigation.
+  final VoidCallback? onOpenAllRoutes;
   final bool showCoach;
   final VoidCallback? onCoachDismiss;
 
@@ -374,9 +379,9 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     final route = _deck.removeAt(0);
     final action = _pendingAction!;
     widget.onSwipe(route, action);
-    if (action == RouteSwipeAction.skip) {
-      _deck.add(route);
-    }
+    // Skipped cards are dropped, not requeued: a deck that recycles "not
+    // interested" swipes back to the end never actually ends, and re-showing
+    // a card the user just rejected isn't a recommendation, it's a loop.
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
     setState(() {
       _motionController.reset();
@@ -411,7 +416,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   @override
   Widget build(BuildContext context) {
     if (_deck.isEmpty) {
-      return const Center(child: Text('Маршруты закончились'));
+      return _DeckExhaustedView(onOpenAllRoutes: widget.onOpenAllRoutes);
     }
 
     return LayoutBuilder(
@@ -633,6 +638,60 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
 }
 
 void _noop() {}
+
+/// Shown once every candidate for the day has been swiped through.
+///
+/// The deck is finite by design (see [RouteSwipeDeck._finishSwipe]): skipped
+/// cards are dropped, not requeued, and favorited routes never appear here
+/// (filtered before the deck is built). This is the natural rest state, not
+/// an error — no retry, just a way out to the plain list.
+class _DeckExhaustedView extends StatelessWidget {
+  const _DeckExhaustedView({this.onOpenAllRoutes});
+
+  final VoidCallback? onOpenAllRoutes;
+
+  @override
+  Widget build(BuildContext context) {
+    const message = 'Вы разобрали все маршруты на сегодня';
+    return Semantics(
+      liveRegion: true,
+      label: message,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.task_alt_rounded, size: 32),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                'Новые подборки появляются каждый день',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: AppColors.secondaryInk,
+                ),
+              ),
+              if (onOpenAllRoutes != null) ...[
+                const SizedBox(height: AppSpacing.lg),
+                FilledButton.icon(
+                  onPressed: onOpenAllRoutes,
+                  icon: const Icon(Icons.list_rounded),
+                  label: const Text('Открыть список маршрутов'),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _BackCard extends StatelessWidget {
   const _BackCard({

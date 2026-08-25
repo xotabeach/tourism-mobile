@@ -151,17 +151,18 @@ class _CollapsingHeroDelegate extends SliverPersistentHeaderDelegate {
         child: Stack(
           fit: StackFit.expand,
           children: [
+            // Positioned (not a SizedBox child of an expanding Stack) so the
+            // media keeps a constant [maxExtent] slot while the header
+            // shrinks: under StackFit.expand the SizedBox was force-fit to
+            // the current extent, and any child that keys its decode size on
+            // its constraints (see AppImages.coverImage) reloaded every frame.
             if (background != null)
-              Opacity(
-                opacity: mediaFade,
-                child: Transform.translate(
-                  offset: Offset(0, parallaxY),
-                  child: SizedBox(
-                    height: maxExtent,
-                    width: double.infinity,
-                    child: background,
-                  ),
-                ),
+              Positioned(
+                left: 0,
+                right: 0,
+                top: parallaxY,
+                height: maxExtent,
+                child: Opacity(opacity: mediaFade, child: background),
               ),
             IgnorePointer(
               ignoring: barFade < 0.05,
@@ -260,6 +261,57 @@ class CollapsingHeroAction extends StatelessWidget {
             onTap: onPressed,
             customBorder: const CircleBorder(),
             child: Center(child: child),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Top edge of the body sheet, painted at the bottom of a collapsing hero.
+///
+/// The body sheet itself must stay square: a radius translated up out of its
+/// own sliver is clipped at the sliver boundary and never shows. Painting the
+/// lip here instead puts it inside the hero's own paint bounds.
+///
+/// It is structure, not an overlay — never fade or scale it out, or it reads
+/// as a white bar detaching from the sheet mid-scroll. Only the radius eases,
+/// flattening into the collapsed bar (which is [AppColors.elevatedSurface]
+/// too, so the strip becomes invisible rather than disappearing).
+///
+/// Place it as a direct child of the hero builder's [Stack].
+class CollapsingSheetLip extends StatelessWidget {
+  const CollapsingSheetLip({
+    required this.progress,
+    this.height = 24,
+    this.radius = 24,
+    this.flattenAt = 0.55,
+    this.color = AppColors.elevatedSurface,
+    super.key,
+  });
+
+  /// Collapse progress `t` handed to the hero builder.
+  final double progress;
+  final double height;
+  final double radius;
+
+  /// Fraction of the collapse range over which the radius reaches 0.
+  final double flattenAt;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = radius * CollapseProgress.fadeOut(progress, end: flattenAt);
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      height: height,
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(r)),
           ),
         ),
       ),

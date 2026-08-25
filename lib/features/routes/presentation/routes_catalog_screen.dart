@@ -2,17 +2,20 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/routes/application/favorite_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class RoutesCatalogScreen extends ConsumerStatefulWidget {
   const RoutesCatalogScreen({super.key});
@@ -62,8 +65,14 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
     });
   }
 
-  List<RouteSummary> _visibleRoutes(List<RouteSummary> items) {
-    return filterRouteCatalog(items, _selectedChip);
+  List<RouteSummary> _visibleRoutes(
+    List<RouteSummary> items,
+    Set<String> favoriteRouteIds,
+  ) {
+    // Already-favorited routes have nothing left to decide — swiping on one
+    // again is pointless, so keep them out of the deck entirely.
+    final undecided = items.where((route) => !favoriteRouteIds.contains(route.id));
+    return filterRouteCatalog(undecided.toList(), _selectedChip);
   }
 
   Future<void> _openFilters() async {
@@ -110,6 +119,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     final routesAsync = ref.watch(routesListProvider);
+    final favoriteRouteIds = ref.watch(favoriteRouteIdsProvider);
     final topInset = MediaQuery.paddingOf(context).top;
 
     return ColoredBox(
@@ -175,13 +185,22 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                     skipLoadingOnRefresh: true,
                     skipError: true,
                     data: (page) {
-                      final visibleRoutes = _visibleRoutes(page.items);
+                      final visibleRoutes = _visibleRoutes(
+                        page.items,
+                        favoriteRouteIds,
+                      );
                       if (visibleRoutes.isEmpty) {
                         return const Center(child: Text('Маршруты не найдены'));
                       }
                       return RouteSwipeDeck(
                         routes: visibleRoutes,
                         onSwipe: _handleSwipe,
+                        onOpenAllRoutes: () => unawaited(
+                          context.pushNamed(
+                            AppRouteNames.homeAllList,
+                            extra: HomeListMode.routes,
+                          ),
+                        ),
                         showCoach: _showCoach,
                         onCoachDismiss: () =>
                             setState(() => _showCoach = false),

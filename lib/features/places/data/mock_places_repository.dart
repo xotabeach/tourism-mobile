@@ -170,6 +170,8 @@ class MockPlacesRepository implements PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    int limit = 50,
+    int offset = 0,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 50));
     var items = List<PlaceSummary>.from(_items);
@@ -195,12 +197,9 @@ class MockPlacesRepository implements PlacesRepository {
         return haystack.contains(needle);
       }).toList();
     }
-    return PlaceListPage(
-      items: items,
-      total: items.length,
-      limit: 20,
-      offset: 0,
-    );
+    final total = items.length;
+    final page = items.skip(offset).take(limit).toList(growable: false);
+    return PlaceListPage(items: page, total: total, limit: limit, offset: offset);
   }
 
   @override

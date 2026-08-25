@@ -24,10 +24,11 @@ class CachingRoutesRepository implements RoutesRepository {
     String? placeId,
     String? query,
     int limit = 50,
+    int offset = 0,
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) async {
     final key =
-        '${regionSlug ?? ''}|${placeId ?? ''}|${query ?? ''}|$limit|${sort.apiValue}';
+        '${regionSlug ?? ''}|${placeId ?? ''}|${query ?? ''}|$limit|$offset|${sort.apiValue}';
     final cached = _listCache.get(key);
     if (cached != null) return cached;
     final result = await _inner.listRoutes(
@@ -35,6 +36,7 @@ class CachingRoutesRepository implements RoutesRepository {
       placeId: placeId,
       query: query,
       limit: limit,
+      offset: offset,
       sort: sort,
     );
     _listCache.set(key, result);
