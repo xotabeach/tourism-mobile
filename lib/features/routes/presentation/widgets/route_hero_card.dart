@@ -148,7 +148,15 @@ class RouteHeroCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final session = ref.watch(sessionProvider);
+    final session = ref.watch(
+      sessionProvider.select(
+        (s) => (
+          userId: s.userId,
+          displayName: s.displayName,
+          avatarUrl: s.avatarUrl,
+        ),
+      ),
+    );
     final resolvedAuthorAvatar = authorAvatarUrl ?? route.authorAvatarUrl;
     final authorName = route.authorLabel ?? '';
     final sessionName = session.displayName?.trim() ?? '';
@@ -168,6 +176,7 @@ class RouteHeroCard extends ConsumerWidget {
     final resolvedAuthorIsExpert = authorIsExpert ?? route.authorIsExpert;
     final card = RepaintBoundary(
       child: _RouteCardContent(
+        key: ValueKey<String>('route-content-${route.id}'),
         route: route,
         config: config,
         height: height,
@@ -198,8 +207,9 @@ class RouteHeroCard extends ConsumerWidget {
   }
 }
 
-class _RouteCardContent extends StatelessWidget {
+class _RouteCardContent extends StatefulWidget {
   const _RouteCardContent({
+    super.key,
     required this.route,
     required this.config,
     required this.height,
@@ -224,6 +234,61 @@ class _RouteCardContent extends StatelessWidget {
   final VoidCallback? onAuthorTap;
   final Future<void> Function()? onFavoriteToggle;
   final VoidCallback? onEdit;
+
+  @override
+  State<_RouteCardContent> createState() => _RouteCardContentState();
+}
+
+class _RouteCardContentState extends State<_RouteCardContent> {
+  Widget? _cachedCover;
+  double? _cachedDpr;
+
+  RouteSummary get route => widget.route;
+  AppConfig get config => widget.config;
+  double get height => widget.height;
+  List<String> get tags => widget.tags;
+  RouteCardVariant get variant => widget.variant;
+  double get visualProgress => widget.visualProgress;
+  ImageProvider get authorAvatar => widget.authorAvatar;
+  bool get authorIsExpert => widget.authorIsExpert;
+  VoidCallback? get onAuthorTap => widget.onAuthorTap;
+  Future<void> Function()? get onFavoriteToggle => widget.onFavoriteToggle;
+  VoidCallback? get onEdit => widget.onEdit;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final dpr = MediaQuery.devicePixelRatioOf(context);
+    if (_cachedDpr != dpr) {
+      _cachedDpr = dpr;
+      _cachedCover = null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _RouteCardContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.route.id != widget.route.id ||
+        oldWidget.route.coverImageUrl != widget.route.coverImageUrl ||
+        oldWidget.route.slug != widget.route.slug ||
+        oldWidget.config.apiBaseUrl != widget.config.apiBaseUrl) {
+      _cachedCover = null;
+    }
+  }
+
+  Widget _cover() {
+    return _cachedCover ??= KeyedSubtree(
+      key: ValueKey<String>('route-cover-${route.id}'),
+      child: AppImages.coverImage(
+        config: config,
+        coverImageUrl: route.coverImageUrl,
+        fallbackSeed: route.slug,
+        alignment: route.slug.contains('south-coast')
+            ? const Alignment(-0.12, 0)
+            : Alignment.center,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,14 +317,7 @@ class _RouteCardContent extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              AppImages.coverImage(
-                config: config,
-                coverImageUrl: route.coverImageUrl,
-                fallbackSeed: route.slug,
-                alignment: route.slug.contains('south-coast')
-                    ? const Alignment(-0.12, 0)
-                    : Alignment.center,
-              ),
+              _cover(),
               const DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(

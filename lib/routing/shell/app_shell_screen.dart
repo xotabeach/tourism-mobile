@@ -167,7 +167,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
       return false;
     }
     final viewedId = segments[2];
-    final selfId = ref.watch(sessionProvider).userId;
+    final selfId = ref.watch(sessionProvider.select((s) => s.userId));
     return viewedId.isNotEmpty && viewedId != selfId;
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,7 +13,11 @@ Future<void> main() async {
   AppPerf.configureImageCache();
   if (AppPush.isConfigured) {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-    await AppPush.bootstrap();
   }
   runApp(const ProviderScope(child: TourismApp()));
+  if (AppPush.isConfigured) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(AppPush.bootstrap());
+    });
+  }
 }

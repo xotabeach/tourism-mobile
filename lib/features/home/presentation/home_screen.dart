@@ -175,17 +175,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   void _seeAll() {
-    unawaited(
-      context.pushNamed(AppRouteNames.homeAllList, extra: _mode),
-    );
+    unawaited(context.pushNamed(AppRouteNames.homeAllList, extra: _mode));
   }
 
   /// Same header (toggle, search bar, chips) both modes and the loading
   /// skeleton render at index 0 — extracted so switching modes or waiting
   /// on a first fetch never has to rebuild this row differently.
-  Widget _homeHeader({required String name, required bool searchActive}) {
+  Widget _homeHeader({
+    required String name,
+    required String? avatarUrl,
+    required bool searchActive,
+  }) {
     return _HomeHeader(
       name: name,
+      avatarUrl: avatarUrl,
       mode: _mode,
       onModeChanged: (mode) => setState(() => _mode = mode),
       onSeeAll: _seeAll,
@@ -213,6 +216,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// screen flashing blank on the first switch to Локации.
   Widget _buildLoadingList({
     required String name,
+    required String? avatarUrl,
     required double topInset,
     required bool searchActive,
   }) {
@@ -224,7 +228,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         padding: _homeScrollPadding(topInset),
         children: [
-          _homeHeader(name: name, searchActive: searchActive),
+          _homeHeader(
+            name: name,
+            avatarUrl: avatarUrl,
+            searchActive: searchActive,
+          ),
           const SizedBox(height: 16),
           const _HomeFeedSkeleton(),
         ],
@@ -237,6 +245,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// search bar, so the user cannot even switch modes to get out of it.
   Widget _buildErrorList({
     required String name,
+    required String? avatarUrl,
     required double topInset,
     required bool searchActive,
   }) {
@@ -248,7 +257,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         padding: _homeScrollPadding(topInset),
         children: [
-          _homeHeader(name: name, searchActive: searchActive),
+          _homeHeader(
+            name: name,
+            avatarUrl: avatarUrl,
+            searchActive: searchActive,
+          ),
           AppAsyncErrorView(
             onRetry: () =>
                 unawaited(refreshAppData(ref, scope: AppDataRefreshScope.home)),
@@ -262,6 +275,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     BuildContext context, {
     required AppConfig config,
     required String name,
+    required String? avatarUrl,
     required double topInset,
     required bool searchActive,
   }) {
@@ -286,7 +300,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 : 1 + (items.isEmpty ? 1 : visibleItems.length),
             itemBuilder: (context, index) {
               if (index == 0) {
-                return _homeHeader(name: name, searchActive: searchActive);
+                return _homeHeader(
+                  name: name,
+                  avatarUrl: avatarUrl,
+                  searchActive: searchActive,
+                );
               }
               if (searchActive) {
                 return InPlaceSearchBody(
@@ -318,11 +336,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       loading: () => _buildLoadingList(
         name: name,
+        avatarUrl: avatarUrl,
         topInset: topInset,
         searchActive: searchActive,
       ),
       error: (_, _) => _buildErrorList(
         name: name,
+        avatarUrl: avatarUrl,
         topInset: topInset,
         searchActive: searchActive,
       ),
@@ -332,6 +352,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildPlacesList(
     BuildContext context, {
     required String name,
+    required String? avatarUrl,
     required double topInset,
     required bool searchActive,
   }) {
@@ -351,10 +372,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               parent: AlwaysScrollableScrollPhysics(),
             ),
             padding: _homeScrollPadding(topInset),
-            itemCount: searchActive ? 2 : 1 + (items.isEmpty ? 1 : items.length),
+            itemCount: searchActive
+                ? 2
+                : 1 + (items.isEmpty ? 1 : items.length),
             itemBuilder: (context, index) {
               if (index == 0) {
-                return _homeHeader(name: name, searchActive: searchActive);
+                return _homeHeader(
+                  name: name,
+                  avatarUrl: avatarUrl,
+                  searchActive: searchActive,
+                );
               }
               if (searchActive) {
                 return InPlaceSearchBody(
@@ -379,11 +406,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       },
       loading: () => _buildLoadingList(
         name: name,
+        avatarUrl: avatarUrl,
         topInset: topInset,
         searchActive: searchActive,
       ),
       error: (_, _) => _buildErrorList(
         name: name,
+        avatarUrl: avatarUrl,
         topInset: topInset,
         searchActive: searchActive,
       ),
@@ -417,10 +446,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     });
-    final session = ref.watch(sessionProvider);
+    final sessionBits = ref.watch(
+      sessionProvider.select(
+        (s) => (displayName: s.displayName, avatarUrl: s.avatarUrl),
+      ),
+    );
     final config = ref.watch(appConfigProvider);
-    final name = (session.displayName?.trim().isNotEmpty ?? false)
-        ? session.displayName!.trim()
+    final name = (sessionBits.displayName?.trim().isNotEmpty ?? false)
+        ? sessionBits.displayName!.trim()
         : 'путник';
     final topInset = MediaQuery.paddingOf(context).top;
     final searchActive = _searchActive;
@@ -435,12 +468,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   context,
                   config: config,
                   name: name,
+                  avatarUrl: sessionBits.avatarUrl,
                   topInset: topInset,
                   searchActive: searchActive,
                 )
               : _buildPlacesList(
                   context,
                   name: name,
+                  avatarUrl: sessionBits.avatarUrl,
                   topInset: topInset,
                   searchActive: searchActive,
                 ),
@@ -484,7 +519,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: child,
     );
   }
-
 }
 
 class _HomeFeedSkeleton extends StatelessWidget {
@@ -512,6 +546,7 @@ class _HomeFeedSkeleton extends StatelessWidget {
 class _HomeHeader extends ConsumerWidget {
   const _HomeHeader({
     required this.name,
+    required this.avatarUrl,
     required this.selectedChip,
     required this.chips,
     required this.onChipSelected,
@@ -528,6 +563,7 @@ class _HomeHeader extends ConsumerWidget {
   });
 
   final String name;
+  final String? avatarUrl;
   final String selectedChip;
   final List<String> chips;
   final ValueChanged<String> onChipSelected;
@@ -545,11 +581,10 @@ class _HomeHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final session = ref.watch(sessionProvider);
     final unread = ref.watch(notificationsUnreadCountProvider);
     final avatar = AppImages.avatarProvider(
       config: config,
-      avatarUrl: session.avatarUrl,
+      avatarUrl: avatarUrl,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
