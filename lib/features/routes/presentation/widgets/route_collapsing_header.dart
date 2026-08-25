@@ -181,8 +181,9 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
         ),
       ),
       builder: (context, t, shrinkOffset, currentExtent) {
-        final expandedVis = CollapseProgress.fadeOut(t, start: 0.0, end: 0.55);
-        final collapsedVis = CollapseProgress.fadeIn(t, start: 0.4, end: 0.9);
+        const spec = HeroCollapseSpec.route;
+        final expandedVis = spec.expandedVisibility(t);
+        final collapsedVis = spec.collapsedVisibility(t);
 
         // Keep overlays sparse: empty regions must miss hit tests so the
         // background PageView can receive horizontal drags.
@@ -191,6 +192,7 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
           children: [
             CollapseLayer(
               visibility: expandedVis,
+              scale: spec.scale,
               scaleAlignment: Alignment.topCenter,
               child: Stack(
                 fit: StackFit.expand,
@@ -253,6 +255,7 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
             // not covered by the pinned media (author stays in the body).
             CollapseLayer(
               visibility: expandedVis,
+              scale: spec.scale,
               child: const IgnorePointer(
                 child: Align(
                   alignment: Alignment.bottomCenter,
@@ -273,6 +276,7 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
             ),
             CollapseLayer(
               visibility: collapsedVis,
+              scale: spec.scale,
               scaleAlignment: Alignment.center,
               child: Padding(
                 padding: EdgeInsets.only(top: topInset),
