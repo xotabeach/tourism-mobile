@@ -62,8 +62,7 @@ class _ChatCatalogMatchCarouselState extends State<ChatCatalogMatchCarousel> {
               // overflow at any bubble width.
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final photoHeight =
-                      constraints.maxWidth * 0.94 * 7 / 16;
+                  final photoHeight = constraints.maxWidth * 0.94 * 7 / 16;
                   return SizedBox(
                     height: photoHeight + 226,
                     child: PageView.builder(
