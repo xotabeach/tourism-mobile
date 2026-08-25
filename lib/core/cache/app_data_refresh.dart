@@ -115,11 +115,13 @@ void _invalidateScope(
   switch (scope) {
     case AppDataRefreshScope.home:
       container.invalidate(homeRoutesProvider);
+      container.invalidate(homePlacesProvider);
       container.invalidate(topTravelersProvider);
     case AppDataRefreshScope.routesCatalog:
       container.invalidate(routesListProvider);
     case AppDataRefreshScope.myRoutes:
       container.invalidate(routesListProvider);
+      container.invalidate(placesListProvider);
       container.invalidate(profileSubscriptionsProvider);
     case AppDataRefreshScope.profile:
       invalidateProfile();
@@ -130,6 +132,7 @@ void _invalidateScope(
       container.invalidate(placesListProvider);
     case AppDataRefreshScope.all:
       container.invalidate(homeRoutesProvider);
+      container.invalidate(homePlacesProvider);
       container.invalidate(routesListProvider);
       container.invalidate(placesListProvider);
       container.invalidate(topTravelersProvider);
@@ -151,12 +154,16 @@ Future<void> _awaitPrimary(
 
   switch (scope) {
     case AppDataRefreshScope.home:
-      await container.refresh(homeRoutesProvider.future);
+      await Future.wait([
+        container.refresh(homeRoutesProvider.future),
+        container.refresh(homePlacesProvider.future),
+      ]);
     case AppDataRefreshScope.routesCatalog:
       await container.refresh(routesListProvider.future);
     case AppDataRefreshScope.myRoutes:
       await Future.wait([
         container.refresh(routesListProvider.future),
+        container.refresh(placesListProvider.future),
         container.refresh(profileSubscriptionsProvider.future),
       ]);
     case AppDataRefreshScope.profile:
@@ -168,6 +175,7 @@ Future<void> _awaitPrimary(
     case AppDataRefreshScope.all:
       final jobs = <Future<Object?>>[
         container.refresh(homeRoutesProvider.future),
+        container.refresh(homePlacesProvider.future),
         container.refresh(routesListProvider.future),
         container.refresh(placesListProvider.future),
       ];

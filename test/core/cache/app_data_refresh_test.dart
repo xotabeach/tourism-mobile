@@ -3,12 +3,34 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
+import 'package:tourism_mobile/features/places/application/places_providers.dart';
+import 'package:tourism_mobile/features/places/domain/place.dart';
+import 'package:tourism_mobile/features/places/domain/places_repository.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 import '../../support/test_overrides.dart';
+
+class _CountingPlacesRepository implements PlacesRepository {
+  var listCalls = 0;
+
+  @override
+  Future<PlaceListPage> listPlaces({
+    String? regionSlug,
+    String? category,
+    String? query,
+  }) async {
+    listCalls += 1;
+    return const PlaceListPage(items: [], total: 0, limit: 20, offset: 0);
+  }
+
+  @override
+  Future<PlaceDetail> getPlace(String id) {
+    throw UnimplementedError();
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -112,6 +134,32 @@ void main() {
 
       final after = await container.read(homeRoutesProvider.future);
       expect(after.items, isNotEmpty);
+    });
+
+    test('home and myRoutes scopes refetch places', () async {
+      final repo = _CountingPlacesRepository();
+      final container = ProviderContainer(
+        overrides: [
+          ...testSessionOverrides(onboardingCompleted: true),
+          placesRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(homePlacesProvider.future);
+      expect(repo.listCalls, 1);
+
+      await refreshAppDataInContainer(
+        container,
+        scope: AppDataRefreshScope.home,
+      );
+      expect(repo.listCalls, 2);
+
+      await refreshAppDataInContainer(
+        container,
+        scope: AppDataRefreshScope.myRoutes,
+      );
+      expect(repo.listCalls, 3);
     });
   });
 }

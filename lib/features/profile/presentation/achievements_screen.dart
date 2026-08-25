@@ -7,7 +7,9 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
@@ -42,53 +44,19 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
   Widget build(BuildContext context) {
     final userId = ref.watch(sessionProvider).userId ?? 'mock-user';
     final catalog = ref.watch(userAchievementsProvider(userId));
-
-    return catalog.when(
-      skipLoadingOnReload: true,
-      skipLoadingOnRefresh: true,
-      skipError: true,
-      loading: () => const SettingsScaffold(
-        title: 'Достижения:',
-        pinTopBar: true,
-        children: [
-          Padding(
-            padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-        ],
-      ),
-      error: (_, _) => SettingsScaffold(
-        title: 'Достижения:',
-        pinTopBar: true,
-        children: [
-          const Text('Не удалось загрузить достижения'),
-          TextButton(
-            onPressed: () => ref.invalidate(userAchievementsProvider(userId)),
-            child: const Text('Повторить'),
-          ),
-        ],
-      ),
-      data: _buildCatalog,
-    );
-  }
-
-  Widget _buildCatalog(List<ProfileAchievement> all) {
     final query = _searchController.text.trim().toLowerCase();
-    final visible = [
-      for (final achievement in all)
-        if (_filter == _AchievementFilter.all || achievement.isUnlocked)
-          if (query.isEmpty ||
-              achievement.title.toLowerCase().contains(query) ||
-              achievement.description.toLowerCase().contains(query))
-            achievement,
-    ];
-    final unlockedCount = all
-        .where((achievement) => achievement.isUnlocked)
-        .length;
 
     return SettingsScaffold(
       title: 'Достижения:',
-      subtitle: 'Получено $unlockedCount из ${all.length}',
+      subtitle: catalog.maybeWhen(
+        data: (all) {
+          final unlockedCount = all
+              .where((achievement) => achievement.isUnlocked)
+              .length;
+          return 'Получено $unlockedCount из ${all.length}';
+        },
+        orElse: () => null,
+      ),
       pinTopBar: true,
       spaceChildren: false,
       children: [
@@ -110,15 +78,60 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
           onClear: () => setState(() {}),
         ),
         const SizedBox(height: SettingsMetrics.rowGap),
-        if (visible.isEmpty)
-          _EmptyAchievements(query: query)
-        else
-          for (var i = 0; i < visible.length; i++) ...[
-            if (i > 0) const SizedBox(height: 6),
-            _AchievementBadgeRow(achievement: visible[i]),
+        ...catalog.when(
+          skipLoadingOnReload: true,
+          skipLoadingOnRefresh: true,
+          skipError: true,
+          loading: () => const [_AchievementsListSkeleton()],
+          error: (_, _) => [
+            AppAsyncErrorView(
+              message: 'Не удалось загрузить достижения',
+              onRetry: () => ref.invalidate(userAchievementsProvider(userId)),
+            ),
           ],
+          data: (all) => _catalogRows(all, query),
+        ),
         const SizedBox(height: AppSpacing.shellBottomContent),
       ],
+    );
+  }
+
+  List<Widget> _catalogRows(List<ProfileAchievement> all, String query) {
+    final visible = [
+      for (final achievement in all)
+        if (_filter == _AchievementFilter.all || achievement.isUnlocked)
+          if (query.isEmpty ||
+              achievement.title.toLowerCase().contains(query) ||
+              achievement.description.toLowerCase().contains(query))
+            achievement,
+    ];
+    if (visible.isEmpty) {
+      return [_EmptyAchievements(query: query)];
+    }
+    return [
+      for (var i = 0; i < visible.length; i++) ...[
+        if (i > 0) const SizedBox(height: 6),
+        _AchievementBadgeRow(achievement: visible[i]),
+      ],
+    ];
+  }
+}
+
+class _AchievementsListSkeleton extends StatelessWidget {
+  const _AchievementsListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AppShimmer(
+      child: Column(
+        children: [
+          AppSkeleton(width: double.infinity, height: 72),
+          SizedBox(height: 6),
+          AppSkeleton(width: double.infinity, height: 72),
+          SizedBox(height: 6),
+          AppSkeleton(width: double.infinity, height: 72),
+        ],
+      ),
     );
   }
 }

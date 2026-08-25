@@ -24,6 +24,11 @@ final placesListProvider = FutureProvider<PlaceListPage>((ref) {
   return ref.watch(placesRepositoryProvider).listPlaces(regionSlug: 'crimea');
 });
 
+/// Home «Локации» feed. On this revision it is the same fetch as
+/// [placesListProvider] (no separate limit query yet); the alias exists so
+/// refresh scopes can target it the way they target [homeRoutesProvider].
+final homePlacesProvider = placesListProvider;
+
 final placesSearchProvider = FutureProvider.autoDispose
     .family<PlaceListPage, String>((ref, query) {
       return ref

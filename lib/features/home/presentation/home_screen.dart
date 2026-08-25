@@ -17,6 +17,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -224,46 +225,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ? items
                   : items.take(7).toList(growable: false);
               _warmRouteCovers(context, config, visibleItems);
-              final searchActive = _searchFocused || _searchQuery.isNotEmpty;
-              return RefreshIndicator(
-                onRefresh: () =>
-                    refreshAppData(ref, scope: AppDataRefreshScope.home),
+              final searchActive = _searchActive;
+              return _homeRefreshScroll(
                 child: ListView.builder(
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(
                     parent: AlwaysScrollableScrollPhysics(),
                   ),
-                  padding: EdgeInsets.fromLTRB(
-                    AppSpacing.page,
-                    topInset + AppSpacing.lg,
-                    AppSpacing.page,
-                    AppSpacing.shellBottomContent,
-                  ),
+                  padding: _homeScrollPadding(topInset),
                   itemCount: searchActive
                       ? 2
                       : 1 + (items.isEmpty ? 1 : visibleItems.length),
                   itemBuilder: (context, index) {
                     if (index == 0) {
-                      return _HomeHeader(
-                        name: name,
-                        selectedChip: _selectedChip,
-                        chips: _chips,
-                        onChipSelected: (chip) {
-                          setState(() => _selectedChip = chip);
-                        },
-                        showAllRoutes: _showAllRoutes,
-                        onToggleAllRoutes: _toggleAllRoutes,
-                        searchController: _searchController,
-                        searchFocus: _searchFocus,
-                        searchActive: searchActive,
-                        filterApplied: _searchFilters.isActive,
-                        onSearchChanged: _onSearchChanged,
-                        onSearchClear: () {
-                          _searchDebounce?.cancel();
-                          setState(() => _searchQuery = '');
-                        },
-                        onFilterTap: () => unawaited(_openFilters()),
-                      );
+                      return _header(name: name, searchActive: searchActive);
                     }
                     if (searchActive) {
                       return InPlaceSearchBody(
@@ -293,10 +268,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, _) => AppAsyncErrorView(
-              onRetry: () => unawaited(
-                refreshAppData(ref, scope: AppDataRefreshScope.home),
+            loading: () => _homeRefreshScroll(
+              child: ListView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                padding: _homeScrollPadding(topInset),
+                children: [
+                  _header(name: name, searchActive: _searchActive),
+                  const SizedBox(height: 16),
+                  const _HomeFeedSkeleton(),
+                ],
+              ),
+            ),
+            error: (_, _) => _homeRefreshScroll(
+              child: ListView(
+                controller: _scrollController,
+                physics: const BouncingScrollPhysics(
+                  parent: AlwaysScrollableScrollPhysics(),
+                ),
+                padding: _homeScrollPadding(topInset),
+                children: [
+                  _header(name: name, searchActive: _searchActive),
+                  AppAsyncErrorView(
+                    onRetry: () => unawaited(
+                      refreshAppData(ref, scope: AppDataRefreshScope.home),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -320,6 +320,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
+
+  EdgeInsets _homeScrollPadding(double topInset) {
+    return EdgeInsets.fromLTRB(
+      AppSpacing.page,
+      topInset + AppSpacing.lg,
+      AppSpacing.page,
+      AppSpacing.shellBottomContent,
+    );
+  }
+
+  Widget _homeRefreshScroll({required Widget child}) {
+    return RefreshIndicator(
+      onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.home),
+      child: child,
+    );
+  }
+
+  Widget _header({required String name, required bool searchActive}) {
+    return _HomeHeader(
+      name: name,
+      selectedChip: _selectedChip,
+      chips: _chips,
+      onChipSelected: (chip) {
+        setState(() => _selectedChip = chip);
+      },
+      showAllRoutes: _showAllRoutes,
+      onToggleAllRoutes: _toggleAllRoutes,
+      searchController: _searchController,
+      searchFocus: _searchFocus,
+      searchActive: searchActive,
+      filterApplied: _searchFilters.isActive,
+      onSearchChanged: _onSearchChanged,
+      onSearchClear: () {
+        _searchDebounce?.cancel();
+        setState(() => _searchQuery = '');
+      },
+      onFilterTap: () => unawaited(_openFilters()),
+    );
+  }
+}
+
+class _HomeFeedSkeleton extends StatelessWidget {
+  const _HomeFeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return AppShimmer(
+          child: Column(
+            children: [
+              AppSkeleton(width: width, height: 304),
+              const SizedBox(height: 16),
+              AppSkeleton(width: width, height: 304),
+            ],
+          ),
+        );
+      },
     );
   }
 }
