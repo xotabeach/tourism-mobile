@@ -145,6 +145,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
   Offset _dragOffset = Offset.zero;
   RouteSwipeAction? _pendingAction;
   var _dragging = false;
+  final Map<String, Widget> _backHeroCache = {};
 
   @override
   void initState() {
@@ -179,11 +180,13 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
     }
     if (_sameRouteSet(oldWidget.routes, widget.routes)) {
       _deck = _reconcileDeck(widget.routes);
+      _pruneBackHeroCache();
       _precacheDeckImages();
       return;
     }
     if (!listEquals(oldWidget.routes, widget.routes)) {
       _deck = _reconcileDeck(widget.routes);
+      _pruneBackHeroCache();
       _resetMotion();
       _precacheDeckImages();
     }
@@ -233,6 +236,24 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
         unawaited(precacheImage(AssetImage(path!), context));
       }
     }
+  }
+
+  void _pruneBackHeroCache() {
+    final ids = _deck.map((route) => route.id).toSet();
+    _backHeroCache.removeWhere((id, _) => !ids.contains(id));
+  }
+
+  Widget _cachedBackHero(RouteSummary route) {
+    return _backHeroCache.putIfAbsent(
+      route.id,
+      () => RouteHeroCard(
+        key: ValueKey<String>('deck-back-hero-${route.id}'),
+        route: route,
+        height: double.infinity,
+        interactive: false,
+        variant: RouteCardVariant.deck,
+      ),
+    );
   }
 
   @override
@@ -514,10 +535,10 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                           right: farGeometry.right,
                           height: cardHeight,
                           child: _BackCard(
-                            route: _deck[farBackIndex],
                             scale: farGeometry.scale,
                             opacity: farGeometry.opacity,
                             angle: farGeometry.angle,
+                            child: _cachedBackHero(_deck[farBackIndex]),
                           ),
                         ),
                       if (_deck.length > backIndex)
@@ -528,10 +549,10 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                           right: backGeometry.right,
                           height: cardHeight,
                           child: _BackCard(
-                            route: _deck[backIndex],
                             scale: backGeometry.scale,
                             opacity: backGeometry.opacity,
                             angle: backGeometry.angle,
+                            child: _cachedBackHero(_deck[backIndex]),
                           ),
                         ),
                       Positioned(
@@ -582,6 +603,9 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                                           fit: StackFit.expand,
                                           children: [
                                             RouteHeroCard(
+                                              key: ValueKey<String>(
+                                                'deck-front-hero-${_deck.first.id}',
+                                              ),
                                               route: _deck.first,
                                               height: cardHeight,
                                               interactive: false,
@@ -636,16 +660,16 @@ void _noop() {}
 
 class _BackCard extends StatelessWidget {
   const _BackCard({
-    required this.route,
     required this.scale,
     required this.opacity,
     required this.angle,
+    required this.child,
   });
 
-  final RouteSummary route;
   final double scale;
   final double opacity;
   final double angle;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
@@ -663,12 +687,7 @@ class _BackCard extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadii.card),
                   boxShadow: AppShadows.deck,
                 ),
-                child: RouteHeroCard(
-                  route: route,
-                  height: double.infinity,
-                  interactive: false,
-                  variant: RouteCardVariant.deck,
-                ),
+                child: child,
               ),
             ),
           ),

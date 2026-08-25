@@ -201,11 +201,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       );
     });
-    final session = ref.watch(sessionProvider);
+    final sessionBits = ref.watch(
+      sessionProvider.select(
+        (s) => (displayName: s.displayName, avatarUrl: s.avatarUrl),
+      ),
+    );
     final routesAsync = ref.watch(homeRoutesProvider);
     final config = ref.watch(appConfigProvider);
-    final name = (session.displayName?.trim().isNotEmpty ?? false)
-        ? session.displayName!.trim()
+    final name = (sessionBits.displayName?.trim().isNotEmpty ?? false)
+        ? sessionBits.displayName!.trim()
         : 'путник';
     final topInset = MediaQuery.paddingOf(context).top;
 
@@ -246,6 +250,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     if (index == 0) {
                       return _HomeHeader(
                         name: name,
+                        avatarUrl: sessionBits.avatarUrl,
                         selectedChip: _selectedChip,
                         chips: _chips,
                         onChipSelected: (chip) {
@@ -327,6 +332,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 class _HomeHeader extends ConsumerWidget {
   const _HomeHeader({
     required this.name,
+    required this.avatarUrl,
     required this.selectedChip,
     required this.chips,
     required this.onChipSelected,
@@ -342,6 +348,7 @@ class _HomeHeader extends ConsumerWidget {
   });
 
   final String name;
+  final String? avatarUrl;
   final String selectedChip;
   final List<String> chips;
   final ValueChanged<String> onChipSelected;
@@ -358,11 +365,10 @@ class _HomeHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
-    final session = ref.watch(sessionProvider);
     final unread = ref.watch(notificationsUnreadCountProvider);
     final avatar = AppImages.avatarProvider(
       config: config,
-      avatarUrl: session.avatarUrl,
+      avatarUrl: avatarUrl,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
