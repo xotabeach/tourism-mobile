@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
+
+import '../../support/test_overrides.dart';
+
+Widget _app({required Widget home}) {
+  return ProviderScope(
+    overrides: [appConfigProvider.overrideWithValue(testAppConfig)],
+    child: MaterialApp(home: home),
+  );
+}
 
 void main() {
   testWidgets('ChatRouteProposalCard shows actions without HTML', (
@@ -10,7 +21,7 @@ void main() {
   ) async {
     var created = false;
     await tester.pumpWidget(
-      MaterialApp(
+      _app(
         home: Scaffold(
           body: ChatRouteProposalCard(
             card: const RouteProposalCardData(
@@ -40,8 +51,8 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
+      _app(
+        home: const Scaffold(
           body: ChatRouteProposalCard(
             card: RouteProposalCardData(
               proposalId: 'p2',
@@ -76,7 +87,7 @@ void main() {
     (tester) async {
       var viewedMap = false;
       await tester.pumpWidget(
-        MaterialApp(
+        _app(
           home: SingleChildScrollView(
             child: ChatRouteProposalCard(
               card: const RouteProposalCardData(

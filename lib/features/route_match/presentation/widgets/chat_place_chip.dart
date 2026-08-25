@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';
 
 /// Compact place chip inside AI chat (allowlisted fields only — no HTML).
-class ChatPlaceChip extends StatelessWidget {
+class ChatPlaceChip extends ConsumerWidget {
   const ChatPlaceChip({
     required this.title,
     this.subtitle,
@@ -19,12 +22,13 @@ class ChatPlaceChip extends StatelessWidget {
   final String? imageUrl;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final duration = durationMinutes;
     final meta = <String>[
       if (subtitle != null && subtitle!.trim().isNotEmpty) subtitle!.trim(),
       if (duration != null && duration > 0) '$duration мин',
     ].join(' · ');
+    final config = ref.watch(appConfigProvider);
 
     return Material(
       color: AppColors.controlSurface,
@@ -37,14 +41,11 @@ class ChatPlaceChip extends StatelessWidget {
           children: [
             SizedBox(
               height: 72,
-              child: imageUrl != null && imageUrl!.isNotEmpty
-                  ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) =>
-                          const ColoredBox(color: AppColors.elevatedSurface),
-                    )
-                  : const ColoredBox(color: AppColors.elevatedSurface),
+              child: AppImages.coverImage(
+                config: config,
+                coverImageUrl: imageUrl,
+                fallbackSeed: title,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),

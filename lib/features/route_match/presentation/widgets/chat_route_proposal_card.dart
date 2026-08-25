@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 
@@ -156,7 +159,7 @@ class _CompactProposalCard extends StatelessWidget {
   }
 }
 
-class _AssembledProposalCard extends StatefulWidget {
+class _AssembledProposalCard extends ConsumerStatefulWidget {
   const _AssembledProposalCard({
     required this.card,
     this.onCreate,
@@ -176,10 +179,12 @@ class _AssembledProposalCard extends StatefulWidget {
   final void Function(String pointId)? onPointEdit;
 
   @override
-  State<_AssembledProposalCard> createState() => _AssembledProposalCardState();
+  ConsumerState<_AssembledProposalCard> createState() =>
+      _AssembledProposalCardState();
 }
 
-class _AssembledProposalCardState extends State<_AssembledProposalCard> {
+class _AssembledProposalCardState
+    extends ConsumerState<_AssembledProposalCard> {
   late final PageController _galleryController;
   int _galleryPage = 0;
 
@@ -238,11 +243,10 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
                       padding: const EdgeInsets.only(right: 8),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          gallery[index],
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) =>
-                              const ColoredBox(color: AppColors.controlSurface),
+                        child: AppImages.coverImage(
+                          config: ref.watch(appConfigProvider),
+                          coverImageUrl: gallery[index],
+                          fallbackSeed: widget.card.title,
                         ),
                       ),
                     );
@@ -273,13 +277,8 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
                 ),
               ),
             const SizedBox(height: 12),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: AppColors.hairline,
-            ),
-          ]
-          else if (card.coverUrl != null && card.coverUrl!.isNotEmpty)
+            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          ] else if (card.coverUrl != null && card.coverUrl!.isNotEmpty)
             AspectRatio(
               aspectRatio: 16 / 7,
               child: CatalogRoutePreviewHeader(
@@ -903,7 +902,7 @@ class _MetaPill extends StatelessWidget {
 }
 
 /// Shared photo header for catalog carousel cards and compact proposal cards.
-class CatalogRoutePreviewHeader extends StatelessWidget {
+class CatalogRoutePreviewHeader extends ConsumerWidget {
   const CatalogRoutePreviewHeader({
     required this.title,
     this.coverUrl,
@@ -928,23 +927,20 @@ class CatalogRoutePreviewHeader extends StatelessWidget {
   final VoidCallback? onOpen;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final distanceLabel = distanceKm != null
         ? '${distanceKm!.toStringAsFixed(1)} км'
         : null;
+    final config = ref.watch(appConfigProvider);
 
     return Stack(
       fit: StackFit.expand,
       children: [
-        if (coverUrl != null && coverUrl!.isNotEmpty)
-          Image.network(
-            coverUrl!,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) =>
-                const ColoredBox(color: AppColors.controlSurface),
-          )
-        else
-          const ColoredBox(color: AppColors.controlSurface),
+        AppImages.coverImage(
+          config: config,
+          coverImageUrl: coverUrl,
+          fallbackSeed: title,
+        ),
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
