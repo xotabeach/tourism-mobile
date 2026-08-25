@@ -53,6 +53,42 @@ class RouteMatchParams {
     if (avoidCrowds != null) 'avoid_crowds': avoidCrowds,
     'region_slug': regionSlug,
   };
+
+  RouteMatchParams copyWith({
+    String? city,
+    RouteTripType? tripType,
+    RouteDurationOption? duration,
+    int? people,
+    List<String>? interests,
+    RoutePace? pace,
+    String? season,
+    String? transportMode,
+    String? dayKind,
+    int? budgetAmount,
+    bool? paidOk,
+    bool? withChildren,
+    bool? withPets,
+    bool? avoidCrowds,
+    String? regionSlug,
+  }) {
+    return RouteMatchParams(
+      city: city ?? this.city,
+      tripType: tripType ?? this.tripType,
+      duration: duration ?? this.duration,
+      people: people ?? this.people,
+      interests: interests ?? this.interests,
+      pace: pace ?? this.pace,
+      season: season ?? this.season,
+      transportMode: transportMode ?? this.transportMode,
+      dayKind: dayKind ?? this.dayKind,
+      budgetAmount: budgetAmount ?? this.budgetAmount,
+      paidOk: paidOk ?? this.paidOk,
+      withChildren: withChildren ?? this.withChildren,
+      withPets: withPets ?? this.withPets,
+      avoidCrowds: avoidCrowds ?? this.avoidCrowds,
+      regionSlug: regionSlug ?? this.regionSlug,
+    );
+  }
 }
 
 class RouteMatchHit {
