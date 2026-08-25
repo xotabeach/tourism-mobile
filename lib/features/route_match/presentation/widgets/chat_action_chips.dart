@@ -24,7 +24,10 @@ class ChatActionChips extends StatelessWidget {
   final ChatActionsLayout layout;
   final String? sheetTitle;
 
-  Future<void> _openSheet(BuildContext context, List<Map<String, String>> visible) async {
+  Future<void> _openSheet(
+    BuildContext context,
+    List<Map<String, String>> visible,
+  ) async {
     final selected = await showModalBottomSheet<Map<String, String>>(
       context: context,
       backgroundColor: RouteBuilderDesignTokens.surface,

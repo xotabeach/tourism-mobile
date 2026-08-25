@@ -2223,6 +2223,7 @@ class RouteAiChatView extends StatelessWidget {
   final void Function(String proposalId)? onProposalViewMap;
   final void Function(String id, String label)? onChatAction;
   final void Function(String routeId)? onOpenCatalogRoute;
+
   /// Close-and-start-a-new-session action. Currently has **no UI entry
   /// point**: the design exports show no «Новый чат» control in the chat, so
   /// it was removed during the 1:1 design pass. Keep this wired — where the

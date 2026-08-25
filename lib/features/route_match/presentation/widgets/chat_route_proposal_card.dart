@@ -273,13 +273,8 @@ class _AssembledProposalCardState extends State<_AssembledProposalCard> {
                 ),
               ),
             const SizedBox(height: 12),
-            const Divider(
-              height: 1,
-              thickness: 1,
-              color: AppColors.hairline,
-            ),
-          ]
-          else if (card.coverUrl != null && card.coverUrl!.isNotEmpty)
+            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+          ] else if (card.coverUrl != null && card.coverUrl!.isNotEmpty)
             AspectRatio(
               aspectRatio: 16 / 7,
               child: CatalogRoutePreviewHeader(
