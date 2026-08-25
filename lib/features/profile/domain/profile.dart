@@ -60,6 +60,7 @@ class ProfileSnapshot {
   final List<RouteSummary> publishedRoutes;
   final bool likedByMe;
   final bool isExpert;
+
   /// Admin-granted expert label (e.g. "Эксперт КрымТрип"). Independent of
   /// the points-based [rank] — experts don't need travel points progression.
   final String? expertTitle;
