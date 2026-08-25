@@ -11,7 +11,9 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -107,148 +109,166 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
           .toList(growable: false),
     );
     final placesAsync = ref.watch(placesListProvider);
+    final routes = routesAsync.valueOrNull?.items ?? const <RouteSummary>[];
+    final favoriteRoutes = routes
+        .where((r) => favorites.routeIds.contains(r.id))
+        .toList();
+    final historyRoutes = routes.take(6).toList();
+    final favoritePlaces =
+        placesAsync.valueOrNull?.items
+            .where((p) => favorites.placeIds.contains(p.id))
+            .toList() ??
+        const <PlaceSummary>[];
+    final filtered = switch (_tab) {
+      MyRoutesTab.favorites => favoriteRoutes,
+      MyRoutesTab.history => historyRoutes,
+      MyRoutesTab.places => const <RouteSummary>[],
+      MyRoutesTab.subscriptions => const <RouteSummary>[],
+    };
 
     return ColoredBox(
       color: AppColors.pageSurface,
-      child: routesAsync.when(
-        skipLoadingOnReload: true,
-        skipLoadingOnRefresh: true,
-        skipError: true,
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) =>
-            Center(child: Text('Не удалось загрузить: $error')),
-        data: (page) {
-          final routes = page.items;
-          final favoriteRoutes = routes
-              .where((r) => favorites.routeIds.contains(r.id))
-              .toList();
-          final historyRoutes = routes.take(6).toList();
-          final favoritePlaces =
-              placesAsync.valueOrNull?.items
-                  .where((p) => favorites.placeIds.contains(p.id))
-                  .toList() ??
-              const <PlaceSummary>[];
-          final filtered = switch (_tab) {
-            MyRoutesTab.favorites => favoriteRoutes,
-            MyRoutesTab.history => historyRoutes,
-            MyRoutesTab.places => const <RouteSummary>[],
-            MyRoutesTab.subscriptions => const <RouteSummary>[],
-          };
-
-          return RefreshIndicator(
-            onRefresh: () =>
-                refreshAppData(ref, scope: AppDataRefreshScope.myRoutes),
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              slivers: [
-                SliverPadding(
-                  padding: EdgeInsets.fromLTRB(16, top + 12, 16, 0),
-                  sliver: SliverToBoxAdapter(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Моё избранное:',
-                          style: AppTypography.sectionTitle.copyWith(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        AppSearchFilterRow(
-                          hintText: 'Маршрут или профиль',
-                          controller: _searchController,
-                          focusNode: _searchFocus,
-                          onSearchChanged: _onSearchChanged,
-                          onSearchClear: () {
-                            _searchDebounce?.cancel();
-                            setState(() => _searchQuery = '');
-                          },
-                          onFilterTap: () {},
-                        ),
-                        const SizedBox(height: 14),
-                        _TabRow(
-                          selected: _tab,
-                          onChanged: (tab) => setState(() => _tab = tab),
-                        ),
-                        const SizedBox(height: 16),
-                      ],
+      child: RefreshIndicator(
+        onRefresh: () =>
+            refreshAppData(ref, scope: AppDataRefreshScope.myRoutes),
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: const BouncingScrollPhysics(
+            parent: AlwaysScrollableScrollPhysics(),
+          ),
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(16, top + 12, 16, 0),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Моё избранное:',
+                      style: AppTypography.sectionTitle.copyWith(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                    const SizedBox(height: 14),
+                    AppSearchFilterRow(
+                      hintText: 'Маршрут или профиль',
+                      controller: _searchController,
+                      focusNode: _searchFocus,
+                      onSearchChanged: _onSearchChanged,
+                      onSearchClear: () {
+                        _searchDebounce?.cancel();
+                        setState(() => _searchQuery = '');
+                      },
+                      onFilterTap: () {},
+                    ),
+                    const SizedBox(height: 14),
+                    _TabRow(
+                      selected: _tab,
+                      onChanged: (tab) => setState(() => _tab = tab),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+            if (_searchActive)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+                sliver: SliverToBoxAdapter(
+                  child: InPlaceSearchBody(
+                    query: _searchQuery,
+                    scope: switch (_tab) {
+                      MyRoutesTab.subscriptions => SearchScope.profiles,
+                      MyRoutesTab.places => SearchScope.places,
+                      MyRoutesTab.favorites ||
+                      MyRoutesTab.history => SearchScope.routes,
+                    },
+                    localRoutes: switch (_tab) {
+                      MyRoutesTab.favorites => favoriteRoutes,
+                      MyRoutesTab.history => historyRoutes,
+                      MyRoutesTab.places || MyRoutesTab.subscriptions => null,
+                    },
+                    localPlaces: _tab == MyRoutesTab.places
+                        ? favoritePlaces
+                        : null,
+                    localProfiles: _tab == MyRoutesTab.subscriptions
+                        ? (visibleSubscriptionsAsync.valueOrNull ??
+                              const <PublicUserProfile>[])
+                        : null,
+                    onQueryFromHistory: (value) {
+                      _searchController.text = value;
+                      _onSearchChanged(value);
+                    },
                   ),
                 ),
-                if (_searchActive)
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                    sliver: SliverToBoxAdapter(
-                      child: InPlaceSearchBody(
-                        query: _searchQuery,
-                        scope: switch (_tab) {
-                          MyRoutesTab.subscriptions => SearchScope.profiles,
-                          MyRoutesTab.places => SearchScope.places,
-                          MyRoutesTab.favorites ||
-                          MyRoutesTab.history => SearchScope.routes,
-                        },
-                        localRoutes: switch (_tab) {
-                          MyRoutesTab.favorites => favoriteRoutes,
-                          MyRoutesTab.history => historyRoutes,
-                          MyRoutesTab.places ||
-                          MyRoutesTab.subscriptions => null,
-                        },
-                        localPlaces: _tab == MyRoutesTab.places
-                            ? favoritePlaces
-                            : null,
-                        localProfiles: _tab == MyRoutesTab.subscriptions
-                            ? (visibleSubscriptionsAsync.valueOrNull ??
-                                  const <PublicUserProfile>[])
-                            : null,
-                        onQueryFromHistory: (value) {
-                          _searchController.text = value;
-                          _onSearchChanged(value);
-                        },
-                      ),
-                    ),
-                  )
-                else if (_tab == MyRoutesTab.subscriptions)
-                  ..._subscriptionSlivers(visibleSubscriptionsAsync)
-                else if (_tab == MyRoutesTab.places)
-                  ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
-                else if (filtered.isEmpty)
-                  const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: Text(
-                        'Пока пусто',
-                        style: AppTypography.settingsRowSubtitle,
-                      ),
-                    ),
-                  )
-                else
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
-                    sliver: SliverList.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        final route = filtered[index];
-                        if (_tab == MyRoutesTab.favorites) {
-                          return _FavoriteRouteTile(
-                            key: ValueKey('favorite-route-${route.id}'),
-                            route: route,
-                            onRemove: () => _removeFavorite(route),
-                          );
-                        }
-                        return RouteHeroCard(route: route, height: 295);
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
+              )
+            else if (_tab == MyRoutesTab.subscriptions)
+              ..._subscriptionSlivers(visibleSubscriptionsAsync)
+            else if (_tab == MyRoutesTab.places)
+              ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
+            else
+              ..._routeListSlivers(routesAsync, filtered: filtered),
+          ],
+        ),
       ),
+    );
+  }
+
+  List<Widget> _routeListSlivers(
+    AsyncValue<RouteListPage> routesAsync, {
+    required List<RouteSummary> filtered,
+  }) {
+    return routesAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      loading: () => const [_MyRoutesListSkeleton()],
+      error: (_, _) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: AppAsyncErrorView(
+            onRetry: () => unawaited(
+              refreshAppData(ref, scope: AppDataRefreshScope.myRoutes),
+            ),
+          ),
+        ),
+      ],
+      data: (_) {
+        if (filtered.isEmpty) {
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  'Пока пусто',
+                  style: AppTypography.settingsRowSubtitle,
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+            sliver: SliverList.separated(
+              itemCount: filtered.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 16),
+              itemBuilder: (context, index) {
+                final route = filtered[index];
+                if (_tab == MyRoutesTab.favorites) {
+                  return _FavoriteRouteTile(
+                    key: ValueKey('favorite-route-${route.id}'),
+                    route: route,
+                    onRemove: () => _removeFavorite(route),
+                  );
+                }
+                return RouteHeroCard(route: route, height: 295);
+              },
+            ),
+          ),
+        ];
+      },
     );
   }
 
@@ -259,16 +279,16 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
       skipError: true,
-      loading: () => const [
+      loading: () => const [_MyRoutesListSkeleton()],
+      error: (_, _) => [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ],
-      error: (error, _) => [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(child: Text('Не удалось загрузить подписки: $error')),
+          child: AppAsyncErrorView(
+            message: 'Не удалось загрузить подписки',
+            onRetry: () => unawaited(
+              refreshAppData(ref, scope: AppDataRefreshScope.myRoutes),
+            ),
+          ),
         ),
       ],
       data: (items) {
@@ -331,16 +351,16 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
       skipError: true,
-      loading: () => const [
+      loading: () => const [_MyRoutesListSkeleton()],
+      error: (_, _) => [
         SliverFillRemaining(
           hasScrollBody: false,
-          child: Center(child: CircularProgressIndicator()),
-        ),
-      ],
-      error: (error, _) => [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(child: Text('Не удалось загрузить места: $error')),
+          child: AppAsyncErrorView(
+            message: 'Не удалось загрузить места',
+            onRetry: () => unawaited(
+              refreshAppData(ref, scope: AppDataRefreshScope.myRoutes),
+            ),
+          ),
         ),
       ],
       data: (_) {
@@ -506,6 +526,33 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
         const SnackBar(content: Text('Не удалось вернуть подписку')),
       );
     }
+  }
+}
+
+class _MyRoutesListSkeleton extends StatelessWidget {
+  const _MyRoutesListSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+      sliver: SliverToBoxAdapter(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            return AppShimmer(
+              child: Column(
+                children: [
+                  AppSkeleton(width: width, height: 295),
+                  const SizedBox(height: 16),
+                  AppSkeleton(width: width, height: 295),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
   }
 }
 

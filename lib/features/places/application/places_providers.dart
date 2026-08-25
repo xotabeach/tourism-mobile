@@ -26,6 +26,7 @@ final placesListProvider = FutureProvider<PlaceListPage>((ref) {
 
 /// Mirrors `homeRoutesProvider` — a small, independent fetch for the home
 /// feed's Локации mode so it can warm separately from the places catalog tab.
+/// Refresh scopes invalidate this the way they invalidate `homeRoutesProvider`.
 final homePlacesProvider = FutureProvider<PlaceListPage>((ref) {
   return ref
       .watch(placesRepositoryProvider)

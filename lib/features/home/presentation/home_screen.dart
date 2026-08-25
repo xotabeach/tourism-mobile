@@ -216,34 +216,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required double topInset,
     required bool searchActive,
   }) {
-    const skeletonCount = 3;
-    return ListView.builder(
-      controller: _scrollController,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
+    return _homeRefreshScroll(
+      child: ListView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: _homeScrollPadding(topInset),
+        children: [
+          _homeHeader(name: name, searchActive: searchActive),
+          const SizedBox(height: 16),
+          const _HomeFeedSkeleton(),
+        ],
       ),
-      padding: EdgeInsets.fromLTRB(
-        AppSpacing.page,
-        topInset + AppSpacing.lg,
-        AppSpacing.page,
-        AppSpacing.shellBottomContent,
-      ),
-      itemCount: 1 + skeletonCount,
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _homeHeader(name: name, searchActive: searchActive);
-        }
-        return const Padding(
-          padding: EdgeInsets.only(bottom: 16),
-          child: AppShimmer(
-            child: AppSkeleton(
-              width: double.infinity,
-              height: 304,
-              borderRadius: AppRadii.card,
-            ),
+    );
+  }
+
+  /// Error path keeps the header for the same reason the loading path does —
+  /// a bare error view swapped for the whole page loses the toggle and the
+  /// search bar, so the user cannot even switch modes to get out of it.
+  Widget _buildErrorList({
+    required String name,
+    required double topInset,
+    required bool searchActive,
+  }) {
+    return _homeRefreshScroll(
+      child: ListView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        padding: _homeScrollPadding(topInset),
+        children: [
+          _homeHeader(name: name, searchActive: searchActive),
+          AppAsyncErrorView(
+            onRetry: () =>
+                unawaited(refreshAppData(ref, scope: AppDataRefreshScope.home)),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 
@@ -263,19 +274,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         final items = _filtered(page.items);
         final visibleItems = items.take(7).toList(growable: false);
         _warmRouteCovers(context, config, visibleItems);
-        return RefreshIndicator(
-          onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.home),
+        return _homeRefreshScroll(
           child: ListView.builder(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.page,
-              topInset + AppSpacing.lg,
-              AppSpacing.page,
-              AppSpacing.shellBottomContent,
-            ),
+            padding: _homeScrollPadding(topInset),
             itemCount: searchActive
                 ? 2
                 : 1 + (items.isEmpty ? 1 : visibleItems.length),
@@ -311,11 +316,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         );
       },
-      loading: () =>
-          _buildLoadingList(name: name, topInset: topInset, searchActive: searchActive),
-      error: (_, _) => AppAsyncErrorView(
-        onRetry: () =>
-            unawaited(refreshAppData(ref, scope: AppDataRefreshScope.home)),
+      loading: () => _buildLoadingList(
+        name: name,
+        topInset: topInset,
+        searchActive: searchActive,
+      ),
+      error: (_, _) => _buildErrorList(
+        name: name,
+        topInset: topInset,
+        searchActive: searchActive,
       ),
     );
   }
@@ -335,19 +344,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // Same 7-card cap as routes — Локации shouldn't feel like a longer
         // list just because the /places page size differs from routes'.
         final items = page.items.take(7).toList(growable: false);
-        return RefreshIndicator(
-          onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.home),
+        return _homeRefreshScroll(
           child: ListView.builder(
             controller: _scrollController,
             physics: const BouncingScrollPhysics(
               parent: AlwaysScrollableScrollPhysics(),
             ),
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.page,
-              topInset + AppSpacing.lg,
-              AppSpacing.page,
-              AppSpacing.shellBottomContent,
-            ),
+            padding: _homeScrollPadding(topInset),
             itemCount: searchActive ? 2 : 1 + (items.isEmpty ? 1 : items.length),
             itemBuilder: (context, index) {
               if (index == 0) {
@@ -374,11 +377,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         );
       },
-      loading: () =>
-          _buildLoadingList(name: name, topInset: topInset, searchActive: searchActive),
-      error: (_, _) => AppAsyncErrorView(
-        onRetry: () =>
-            unawaited(refreshAppData(ref, scope: AppDataRefreshScope.home)),
+      loading: () => _buildLoadingList(
+        name: name,
+        topInset: topInset,
+        searchActive: searchActive,
+      ),
+      error: (_, _) => _buildErrorList(
+        name: name,
+        topInset: topInset,
+        searchActive: searchActive,
       ),
     );
   }
@@ -416,7 +423,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? session.displayName!.trim()
         : 'путник';
     final topInset = MediaQuery.paddingOf(context).top;
-    final searchActive = _searchFocused || _searchQuery.isNotEmpty;
+    final searchActive = _searchActive;
 
     return ColoredBox(
       color: AppColors.mist,
@@ -457,6 +464,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
+
+  EdgeInsets _homeScrollPadding(double topInset) {
+    return EdgeInsets.fromLTRB(
+      AppSpacing.page,
+      topInset + AppSpacing.lg,
+      AppSpacing.page,
+      AppSpacing.shellBottomContent,
+    );
+  }
+
+  Widget _homeRefreshScroll({required Widget child}) {
+    return RefreshIndicator(
+      onRefresh: () => refreshAppData(ref, scope: AppDataRefreshScope.home),
+      child: child,
+    );
+  }
+
+}
+
+class _HomeFeedSkeleton extends StatelessWidget {
+  const _HomeFeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        return AppShimmer(
+          child: Column(
+            children: [
+              AppSkeleton(width: width, height: 304),
+              const SizedBox(height: 16),
+              AppSkeleton(width: width, height: 304),
+            ],
+          ),
+        );
+      },
     );
   }
 }
