@@ -54,6 +54,68 @@ String transportLabel(String? mode) {
   };
 }
 
+/// Chips describing a route, built from data the backend actually sends.
+///
+/// Order is by how much it narrows a choice: transport and difficulty apply
+/// to every route, the audience flags only to some, season last since most
+/// routes are year-round and the label adds little. Callers normally show
+/// the first three.
+///
+/// There is deliberately no thematic chip («Горы», «Море»): routes carry no
+/// categories of their own, so one would have to be derived from the stops'
+/// place categories — a separate change, not a label.
+List<String> routeTagLabels(RouteSummary route) {
+  final season = seasonalityLabel(route.seasonality);
+  return [
+    transportLabel(route.transportMode),
+    difficultyLabel(route.difficulty),
+    if (route.suitableForChildren ?? false) 'С детьми',
+    if (route.petsAllowed ?? false) 'С питомцем',
+    ?season,
+  ];
+}
+
+/// `null` when the season list says nothing useful (empty, or so broad it
+/// is not worth a chip).
+String? seasonalityLabel(List<String> seasonality) {
+  if (seasonality.isEmpty) {
+    return null;
+  }
+  const names = {
+    'winter': 'Зимой',
+    'spring': 'Весной',
+    'summer': 'Летом',
+    'autumn': 'Осенью',
+    'fall': 'Осенью',
+    'all_year': 'Круглый год',
+    'year_round': 'Круглый год',
+  };
+  final mapped = seasonality
+      .map((value) => names[value.trim().toLowerCase()])
+      .nonNulls
+      .toSet();
+  if (mapped.isEmpty) {
+    return null;
+  }
+  // Every season listed separately means the same thing as year-round.
+  if (mapped.length >= 4 || mapped.contains('Круглый год')) {
+    return 'Круглый год';
+  }
+  return mapped.join(' / ');
+}
+
+/// Line under the author's name on a route card.
+///
+/// Editorial routes have no owning user and therefore no travel rank, so
+/// they show how the route is travelled instead.
+String authorSubtitle(RouteSummary route) {
+  final rank = route.authorRankTitle?.trim();
+  if (rank != null && rank.isNotEmpty) {
+    return rank;
+  }
+  return transportLabel(route.transportMode);
+}
+
 String? routeStatusLabel(RouteSummary route) {
   return switch (route.publicationStatus) {
     'draft' => 'Черновик',
@@ -293,12 +355,7 @@ class _RouteCardContentState extends State<_RouteCardContent> {
   @override
   Widget build(BuildContext context) {
     final bolts = difficultyBolts(route.difficulty);
-    final chipTags = tags.isNotEmpty
-        ? tags
-        : [
-            difficultyLabel(route.difficulty),
-            transportLabel(route.transportMode),
-          ];
+    final chipTags = tags.isNotEmpty ? tags : routeTagLabels(route);
     final actionOpacity = (1 - visualProgress * 1.35).clamp(0.0, 1.0);
     final compact = variant == RouteCardVariant.list;
     final publiclyAvailable =
@@ -394,14 +451,7 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                                       ),
                                       const SizedBox(height: 1),
                                       Text(
-                                        route.authorLabel?.contains(
-                                                  'редакция',
-                                                ) ??
-                                                false
-                                            ? transportLabel(
-                                                route.transportMode,
-                                              )
-                                            : 'Продвинутый пешеход',
+                                        authorSubtitle(route),
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: AppTypography.routeMetadata

@@ -616,11 +616,6 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                                               interactive: false,
                                               variant: RouteCardVariant.deck,
                                               visualProgress: progress.abs(),
-                                              tags: const [
-                                                'Горы',
-                                                'С детьми',
-                                                'Пешком',
-                                              ],
                                             ),
                                             _SwipeOverlay(progress: progress),
                                           ],

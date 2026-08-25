@@ -322,13 +322,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               final route = visibleItems[index - 1];
               return Padding(
                 padding: const EdgeInsets.only(bottom: 16),
-                child: RouteHeroCard(
-                  route: route,
-                  height: 304,
-                  tags: index == 1
-                      ? const ['Горы', 'С детьми', 'Пешком']
-                      : const [],
-                ),
+                child: RouteHeroCard(route: route, height: 304),
               );
             },
           ),

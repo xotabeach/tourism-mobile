@@ -217,7 +217,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                     children: [
                       _AuthorRow(
                         name: authorName,
-                        subtitle: 'Продвинутый пешеход',
+                        subtitle: authorSubtitle(route),
                         avatar: AppImages.avatarProvider(
                           config: config,
                           avatarUrl: route.authorAvatarUrl,
@@ -278,9 +278,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           onPlay: () => _showSoon('Аудиогид'),
                         ),
                         const SizedBox(height: 16),
-                        const _RouteTagsRow(
-                          tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
-                        ),
+                        _RouteTagsRow(tags: routeTagLabels(route)),
                         const SizedBox(height: 16),
                         _RouteFacts(route: route),
                         const _SectionDivider(),

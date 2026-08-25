@@ -61,11 +61,15 @@ class RouteSummary {
     this.difficulty,
     this.transportMode,
     this.isRoundTrip = false,
+    this.suitableForChildren,
+    this.petsAllowed,
+    this.seasonality = const [],
     this.authorLabel,
     this.coverImageUrl,
     this.ownerUserId,
     this.authorAvatarUrl,
     this.authorIsExpert = false,
+    this.authorRankTitle,
     this.source,
     this.visibility,
     this.lifecycleStatus,
@@ -82,7 +86,15 @@ class RouteSummary {
   final String? difficulty;
   final String? transportMode;
   final bool isRoundTrip;
+
+  /// Backend already sends these; the card builds its chips from them.
+  final bool? suitableForChildren;
+  final bool? petsAllowed;
+  final List<String> seasonality;
   final String? authorLabel;
+
+  /// Owner's travel rank. `null` for editorial routes (no owning user).
+  final String? authorRankTitle;
   final String? coverImageUrl;
   final String? ownerUserId;
   final String? authorAvatarUrl;
@@ -104,11 +116,17 @@ class RouteSummary {
       difficulty: json['difficulty'] as String?,
       transportMode: json['transport_mode'] as String?,
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
+      suitableForChildren: json['suitable_for_children'] as bool?,
+      petsAllowed: json['pets_allowed'] as bool?,
+      seasonality: (json['seasonality'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
       authorLabel: json['author_label'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
+      authorRankTitle: json['author_rank_title'] as String?,
       source: json['source'] as String?,
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,
@@ -154,11 +172,15 @@ class RouteDetail extends RouteSummary {
     super.difficulty,
     super.transportMode,
     super.isRoundTrip,
+    super.suitableForChildren,
+    super.petsAllowed,
+    super.seasonality,
     super.authorLabel,
     super.coverImageUrl,
     super.ownerUserId,
     super.authorAvatarUrl,
     super.authorIsExpert,
+    super.authorRankTitle,
     super.source,
     super.visibility,
     super.lifecycleStatus,
@@ -186,11 +208,17 @@ class RouteDetail extends RouteSummary {
       difficulty: json['difficulty'] as String?,
       transportMode: json['transport_mode'] as String?,
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
+      suitableForChildren: json['suitable_for_children'] as bool?,
+      petsAllowed: json['pets_allowed'] as bool?,
+      seasonality: (json['seasonality'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
       authorLabel: json['author_label'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
+      authorRankTitle: json['author_rank_title'] as String?,
       source: json['source'] as String?,
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,

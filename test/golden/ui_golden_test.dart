@@ -51,7 +51,10 @@ const _routes = [
     distanceMeters: 12000,
     difficulty: 'moderate',
     transportMode: 'car',
+    suitableForChildren: true,
+    seasonality: ['summer', 'autumn'],
     authorLabel: 'Никита',
+    authorRankTitle: 'Продвинутый пешеход',
     coverImageUrl: AppImages.coastPineTwilight,
   ),
   RouteSummary(
@@ -137,7 +140,6 @@ void main() {
                 route: _routes[1],
                 height: 304,
                 interactive: false,
-                tags: ['Горы', 'С детьми', 'Пешком'],
               ),
             ),
           ),
