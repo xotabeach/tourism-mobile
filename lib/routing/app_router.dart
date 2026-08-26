@@ -27,6 +27,7 @@ import 'package:tourism_mobile/features/routes/presentation/routes_catalog_scree
 import 'package:tourism_mobile/features/search/presentation/search_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_preferences_quiz_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_support_screens.dart';
@@ -63,6 +64,7 @@ abstract final class AppRouteNames {
   static const settingsChangeName = 'settings-change-name';
   static const settingsChangePhoto = 'settings-change-photo';
   static const settingsChangePhone = 'settings-change-phone';
+  static const settingsChangePreferences = 'settings-change-preferences';
   static const settingsNotifications = 'settings-notifications';
   static const settingsNotificationsInbox = 'settings-notifications-inbox';
   static const settingsOffline = 'settings-offline';
@@ -366,6 +368,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                                 CupertinoPage<void>(
                                   key: state.pageKey,
                                   child: const SettingsChangePhoneScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsChangePreferences,
+                            path: 'preferences',
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsPreferencesQuizScreen(),
                                 ),
                           ),
                         ],

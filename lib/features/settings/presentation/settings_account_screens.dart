@@ -53,13 +53,10 @@ class SettingsAccountScreen extends ConsumerWidget {
         ),
         SettingsNavTile(
           title: 'Сменить предпочтения',
-          subtitle: 'Пройти текст по интересам сначала',
+          subtitle: 'Пройти тест по интересам заново',
           iconAsset: AppIconography.settingsChangePreferences,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Тест предпочтений появится позже')),
-            );
-          },
+          onTap: () =>
+              context.pushNamed(AppRouteNames.settingsChangePreferences),
         ),
         SettingsChatCta(
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),
