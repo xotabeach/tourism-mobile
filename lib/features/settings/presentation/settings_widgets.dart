@@ -1343,9 +1343,16 @@ class SettingsFormCard extends StatelessWidget {
 }
 
 class SettingsDashedUpload extends StatelessWidget {
-  const SettingsDashedUpload({super.key, required this.onTap});
+  const SettingsDashedUpload({
+    super.key,
+    required this.onTap,
+    this.label = 'Добавить скриншот',
+    this.subtitle = 'Это поможет лучше понять проблему',
+  });
 
   final VoidCallback onTap;
+  final String label;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1389,12 +1396,9 @@ class SettingsDashedUpload extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Добавить скриншот',
-                          style: AppTypography.settingsRowTitle,
-                        ),
+                        Text(label, style: AppTypography.settingsRowTitle),
                         Text(
-                          'Это поможет лучше понять проблему',
+                          subtitle,
                           style: AppTypography.settingsRowSubtitle.copyWith(
                             fontSize: 11,
                           ),

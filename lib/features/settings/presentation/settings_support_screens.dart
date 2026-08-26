@@ -1,14 +1,17 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/device/device_info.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/settings/application/support_providers.dart';
@@ -885,6 +888,7 @@ class SettingsReportAppFormScreen extends ConsumerStatefulWidget {
 class _SettingsReportAppFormScreenState
     extends ConsumerState<SettingsReportAppFormScreen> {
   final _description = TextEditingController();
+  final _images = <XFile>[];
   String? _problemType;
   var _problemTypeOpen = false;
   var _busy = false;
@@ -914,13 +918,13 @@ class _SettingsReportAppFormScreenState
     }
     setState(() => _busy = true);
     try {
-      await ref
-          .read(supportRepositoryProvider)
-          .createTicket(
-            kind: 'app_error',
-            subject: 'Ошибка в приложении: $_problemType',
-            body: body,
-          );
+      final repo = ref.read(supportRepositoryProvider);
+      final ticket = await repo.createTicket(
+        kind: 'app_error',
+        subject: 'Ошибка в приложении: $_problemType',
+        body: body,
+      );
+      await uploadReportAttachments(repo, ticketId: ticket.id, images: _images);
       if (!mounted) {
         return;
       }
@@ -962,7 +966,21 @@ class _SettingsReportAppFormScreenState
         const SizedBox(height: 12),
         _ReportDescriptionCard(controller: _description),
         const SizedBox(height: 12),
-        const _ReportScreenshotCard(),
+        _ReportScreenshotCard(
+          isPhoto: false,
+          images: _images,
+          busy: _busy,
+          onPick: () => pickReportImages(
+            context,
+            images: _images,
+            onChanged: (next) => setState(() {
+              _images
+                ..clear()
+                ..addAll(next);
+            }),
+          ),
+          onRemove: (image) => setState(() => _images.remove(image)),
+        ),
         const SizedBox(height: 12),
         const _ReportDeviceCard(),
         const SizedBox(height: 16),
@@ -996,6 +1014,7 @@ class SettingsReportRouteFormScreen extends ConsumerStatefulWidget {
 class _SettingsReportRouteFormScreenState
     extends ConsumerState<SettingsReportRouteFormScreen> {
   final _description = TextEditingController();
+  final _images = <XFile>[];
   int? _selectedRouteIndex;
   var _routePickerOpen = false;
   String? _problemType;
@@ -1035,13 +1054,13 @@ class _SettingsReportRouteFormScreenState
     setState(() => _busy = true);
     final routeName = _mockReportRoutes[routeIndex].$1;
     try {
-      await ref
-          .read(supportRepositoryProvider)
-          .createTicket(
-            kind: 'route_error',
-            subject: 'Ошибка на маршруте: $routeName ($_problemType)',
-            body: body,
-          );
+      final repo = ref.read(supportRepositoryProvider);
+      final ticket = await repo.createTicket(
+        kind: 'route_error',
+        subject: 'Ошибка на маршруте: $routeName ($_problemType)',
+        body: body,
+      );
+      await uploadReportAttachments(repo, ticketId: ticket.id, images: _images);
       if (!mounted) {
         return;
       }
@@ -1120,7 +1139,21 @@ class _SettingsReportRouteFormScreenState
         const SizedBox(height: 12),
         _ReportDescriptionCard(controller: _description),
         const SizedBox(height: 12),
-        const _ReportScreenshotCard(),
+        _ReportScreenshotCard(
+          isPhoto: true,
+          images: _images,
+          busy: _busy,
+          onPick: () => pickReportImages(
+            context,
+            images: _images,
+            onChanged: (next) => setState(() {
+              _images
+                ..clear()
+                ..addAll(next);
+            }),
+          ),
+          onRemove: (image) => setState(() => _images.remove(image)),
+        ),
         const SizedBox(height: 12),
         const _ReportDeviceCard(),
         const SizedBox(height: 16),
@@ -1442,38 +1475,160 @@ class _ReportDescriptionCard extends StatelessWidget {
   }
 }
 
+const _reportMaxImages = 3;
+const _reportMaxImageBytes = 10 * 1024 * 1024;
+
+/// Shared picker for both report screens — enforces the same per-file size
+/// cap and total-count cap the backend enforces (3 attachments/ticket).
+Future<void> pickReportImages(
+  BuildContext context, {
+  required List<XFile> images,
+  required ValueChanged<List<XFile>> onChanged,
+}) async {
+  final available = _reportMaxImages - images.length;
+  if (available <= 0) {
+    return;
+  }
+  try {
+    final picked = await ImagePicker().pickMultiImage(
+      maxWidth: 2048,
+      maxHeight: 2048,
+      imageQuality: 86,
+      limit: available,
+      requestFullMetadata: false,
+    );
+    final accepted = <XFile>[];
+    for (final image in picked) {
+      if (await image.length() <= _reportMaxImageBytes) {
+        accepted.add(image);
+      }
+    }
+    onChanged([...images, ...accepted.take(available)]);
+    if (accepted.length != picked.length && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Фото больше 10 МБ не добавлены')),
+      );
+    }
+  } on Object {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось выбрать фотографии')),
+      );
+    }
+  }
+}
+
+/// Uploads every picked photo to the just-created ticket. Attachment
+/// failures are swallowed — the ticket itself was already created
+/// successfully, and a missing photo isn't worth blocking the report on.
+Future<void> uploadReportAttachments(
+  SupportRepository repo, {
+  required String ticketId,
+  required List<XFile> images,
+}) async {
+  for (final image in images) {
+    try {
+      await repo.uploadAttachment(ticketId: ticketId, filePath: image.path);
+    } on Object {
+      // Best-effort: the report itself already succeeded.
+    }
+  }
+}
+
 class _ReportScreenshotCard extends StatelessWidget {
-  const _ReportScreenshotCard();
+  const _ReportScreenshotCard({
+    required this.isPhoto,
+    required this.images,
+    required this.busy,
+    required this.onPick,
+    required this.onRemove,
+  });
+
+  final bool isPhoto;
+  final List<XFile> images;
+  final bool busy;
+  final VoidCallback onPick;
+  final ValueChanged<XFile> onRemove;
 
   @override
   Widget build(BuildContext context) {
+    final noun = isPhoto ? 'Фото' : 'Скриншот';
+    final nounLower = isPhoto ? 'фото' : 'скриншот';
     return SettingsFormCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Скриншот проблемы (рекомендуется):',
+            '$noun проблемы (рекомендуется):',
             style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
           ),
           const SizedBox(height: 10),
-          SettingsDashedUpload(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Вложение скриншота — позже')),
-              );
-            },
-          ),
+          if (images.isNotEmpty) ...[
+            SizedBox(
+              height: 64,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: images.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final image = images[index];
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.file(
+                          File(image.path),
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                      Positioned(
+                        top: -6,
+                        right: -6,
+                        child: Material(
+                          color: Colors.black54,
+                          shape: const CircleBorder(),
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: busy ? null : () => onRemove(image),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+          if (images.length < _reportMaxImages)
+            SettingsDashedUpload(
+              label: 'Добавить $nounLower',
+              subtitle: 'Это поможет лучше понять проблему',
+              onTap: busy ? () {} : onPick,
+            ),
         ],
       ),
     );
   }
 }
 
-class _ReportDeviceCard extends StatelessWidget {
+class _ReportDeviceCard extends ConsumerWidget {
   const _ReportDeviceCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final labelAsync = ref.watch(deviceAndVersionLabelProvider);
     return SettingsFormCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1483,8 +1638,8 @@ class _ReportDeviceCard extends StatelessWidget {
             style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Версия 0.32.1 (Бета). Iphone 16, IOS 27.',
+          Text(
+            labelAsync.valueOrNull ?? 'Определяем устройство…',
             style: AppTypography.settingsRowSubtitle,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,

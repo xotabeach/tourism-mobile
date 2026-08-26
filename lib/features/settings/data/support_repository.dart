@@ -26,6 +26,29 @@ class SupportMessage {
   }
 }
 
+class SupportAttachment {
+  const SupportAttachment({
+    required this.id,
+    required this.url,
+    this.width,
+    this.height,
+  });
+
+  final String id;
+  final String url;
+  final int? width;
+  final int? height;
+
+  factory SupportAttachment.fromJson(Map<String, dynamic> json) {
+    return SupportAttachment(
+      id: json['id'] as String,
+      url: json['url'] as String,
+      width: json['width'] as int?,
+      height: json['height'] as int?,
+    );
+  }
+}
+
 class SupportTicket {
   const SupportTicket({
     required this.id,
@@ -36,6 +59,7 @@ class SupportTicket {
     required this.updatedAt,
     required this.messages,
     this.routeId,
+    this.attachments = const [],
   });
 
   final String id;
@@ -46,9 +70,11 @@ class SupportTicket {
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<SupportMessage> messages;
+  final List<SupportAttachment> attachments;
 
   factory SupportTicket.fromJson(Map<String, dynamic> json) {
     final rawMessages = json['messages'];
+    final rawAttachments = json['attachments'];
     return SupportTicket(
       id: json['id'] as String,
       kind: json['kind'] as String,
@@ -61,6 +87,13 @@ class SupportTicket {
           ? [
               for (final item in rawMessages)
                 if (item is Map<String, dynamic>) SupportMessage.fromJson(item),
+            ]
+          : const [],
+      attachments: rawAttachments is List
+          ? [
+              for (final item in rawAttachments)
+                if (item is Map<String, dynamic>)
+                  SupportAttachment.fromJson(item),
             ]
           : const [],
     );
@@ -82,6 +115,11 @@ abstract interface class SupportRepository {
   Future<SupportMessage> addMessage({
     required String ticketId,
     required String body,
+  });
+
+  Future<SupportAttachment> uploadAttachment({
+    required String ticketId,
+    required String filePath,
   });
 }
 
@@ -161,6 +199,26 @@ final class ApiSupportRepository implements SupportRepository {
         throw const UnexpectedFailure();
       }
       return SupportMessage.fromJson(data);
+    });
+  }
+
+  @override
+  Future<SupportAttachment> uploadAttachment({
+    required String ticketId,
+    required String filePath,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/support/tickets/$ticketId/attachments',
+        data: FormData.fromMap({
+          'file': await MultipartFile.fromFile(filePath),
+        }),
+      );
+      final data = response.data;
+      if (data == null) {
+        throw const UnexpectedFailure();
+      }
+      return SupportAttachment.fromJson(data);
     });
   }
 }
@@ -247,5 +305,33 @@ final class MockSupportRepository implements SupportRepository {
       messages: [...ticket.messages, message],
     );
     return message;
+  }
+
+  @override
+  Future<SupportAttachment> uploadAttachment({
+    required String ticketId,
+    required String filePath,
+  }) async {
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index < 0) {
+      throw const NotFoundFailure();
+    }
+    final ticket = _tickets[index];
+    final attachment = SupportAttachment(
+      id: 'a-${ticket.id}-${ticket.attachments.length}',
+      url: filePath,
+    );
+    _tickets[index] = SupportTicket(
+      id: ticket.id,
+      kind: ticket.kind,
+      subject: ticket.subject,
+      status: ticket.status,
+      routeId: ticket.routeId,
+      createdAt: ticket.createdAt,
+      updatedAt: DateTime.now().toUtc(),
+      messages: ticket.messages,
+      attachments: [...ticket.attachments, attachment],
+    );
+    return attachment;
   }
 }

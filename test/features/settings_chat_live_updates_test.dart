@@ -212,4 +212,10 @@ final class _LiveChatRepository implements SupportRepository {
 
   @override
   Future<List<SupportTicket>> listTickets() async => [_ticket];
+
+  @override
+  Future<SupportAttachment> uploadAttachment({
+    required String ticketId,
+    required String filePath,
+  }) async => throw UnimplementedError();
 }
