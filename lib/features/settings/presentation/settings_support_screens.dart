@@ -96,7 +96,7 @@ class SettingsSupportScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
-      title: 'Поддерка и обратная связь:',
+      title: 'Поддержка и обратная связь:',
       spaceChildren: false,
       children: [
         SettingsNavTile(

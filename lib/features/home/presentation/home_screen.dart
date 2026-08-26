@@ -200,7 +200,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       searchController: _searchController,
       searchFocus: _searchFocus,
       searchActive: searchActive,
-      filterApplied: _searchFilters.isActive,
       onSearchChanged: _onSearchChanged,
       onSearchClear: () {
         _searchDebounce?.cancel();
@@ -550,7 +549,6 @@ class _HomeHeader extends ConsumerWidget {
     required this.searchController,
     required this.searchFocus,
     required this.searchActive,
-    required this.filterApplied,
     required this.onSearchChanged,
     required this.onSearchClear,
     required this.onFilterTap,
@@ -567,7 +565,6 @@ class _HomeHeader extends ConsumerWidget {
   final TextEditingController searchController;
   final FocusNode searchFocus;
   final bool searchActive;
-  final bool filterApplied;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onSearchClear;
   final VoidCallback onFilterTap;
@@ -641,7 +638,6 @@ class _HomeHeader extends ConsumerWidget {
           hintText: 'Искать маршруты и места',
           controller: searchController,
           focusNode: searchFocus,
-          filterApplied: filterApplied,
           onSearchChanged: onSearchChanged,
           onSearchClear: onSearchClear,
           onFilterTap: onFilterTap,

@@ -144,7 +144,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Моё избранное:',
+                      'Избранное:',
                       style: AppTypography.sectionTitle.copyWith(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,

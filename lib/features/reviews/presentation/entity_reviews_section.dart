@@ -717,19 +717,24 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
           const SizedBox(height: 7),
           Row(
             children: [
-              for (var index = 1; index <= 5; index++) ...[
-                InkResponse(
-                  radius: 22,
-                  onTap: () => setState(() => _rating = index),
-                  child: Icon(
-                    index <= _rating
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    color: AppColors.rating,
-                    size: 32,
+              // A reply has no rating of its own — the top-level review it
+              // answers already carries one, and replies never display a
+              // score (RouteReviewReply has no rating field).
+              if (widget.replyTo == null) ...[
+                for (var index = 1; index <= 5; index++) ...[
+                  InkResponse(
+                    radius: 22,
+                    onTap: () => setState(() => _rating = index),
+                    child: Icon(
+                      index <= _rating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
+                      color: AppColors.rating,
+                      size: 32,
+                    ),
                   ),
-                ),
-                if (index != 5) const SizedBox(width: 2),
+                  if (index != 5) const SizedBox(width: 2),
+                ],
               ],
               const Spacer(),
               Material(

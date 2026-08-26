@@ -78,6 +78,9 @@ final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
   return ref.watch(publicProfileRepositoryProvider).subscriptions();
 });
 
+// Experts are excluded from the real leaderboard query (they'd dominate
+// every slot on points alone) — mock mode mirrors that so it does not show
+// behaviour the API never actually has.
 const _mockLeaderboard = [
   PublicUserProfile(
     id: 'mock-user',
@@ -99,8 +102,6 @@ const _mockLeaderboard = [
     rankTitle: 'Исследователь',
     nextRankPoints: 10000,
     leaderboardPlace: 2,
-    isExpert: true,
-    expertTitle: 'Эксперт КрымТрип',
   ),
   PublicUserProfile(
     id: 'mock-artem',

@@ -149,7 +149,6 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                     setState(() => _searchQuery = '');
                   },
                   onFilterTap: () => unawaited(_openFilters()),
-                  filterApplied: _selectedChip != 'Все',
                 ),
                 const SizedBox(height: AppSpacing.md),
                 if (!(_searchFocused || _searchQuery.isNotEmpty))
