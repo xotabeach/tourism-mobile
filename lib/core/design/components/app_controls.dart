@@ -9,7 +9,8 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
-    required this.onFilterTap,
+    this.onFilterTap,
+    this.showFilterButton = true,
     this.onSearchTap,
     this.controller,
     this.focusNode,
@@ -21,9 +22,11 @@ class AppSearchFilterRow extends StatelessWidget {
     this.filterApplied = false,
     this.hintText = 'Искать маршруты и места',
     super.key,
-  }) : assert(onSearchTap != null || onSearchChanged != null);
+  }) : assert(onSearchTap != null || onSearchChanged != null),
+       assert(!showFilterButton || onFilterTap != null);
 
-  final VoidCallback onFilterTap;
+  final VoidCallback? onFilterTap;
+  final bool showFilterButton;
   final VoidCallback? onSearchTap;
   final TextEditingController? controller;
   final FocusNode? focusNode;
@@ -69,13 +72,15 @@ class AppSearchFilterRow extends StatelessWidget {
               child: searchField,
             ),
           ),
-          const SizedBox(width: AppSpacing.xs),
-          AppFlatIconButton(
-            iconAsset: AppIconography.filter,
-            semanticLabel: 'Фильтры',
-            onPressed: onFilterTap,
-            iconOverride: filterApplied ? Icons.check_rounded : null,
-          ),
+          if (showFilterButton) ...[
+            const SizedBox(width: AppSpacing.xs),
+            AppFlatIconButton(
+              iconAsset: AppIconography.filter,
+              semanticLabel: 'Фильтры',
+              onPressed: onFilterTap!,
+              iconOverride: filterApplied ? Icons.check_rounded : null,
+            ),
+          ],
         ],
       ),
     );

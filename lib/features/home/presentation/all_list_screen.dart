@@ -13,6 +13,7 @@ import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_c
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 
 /// What the Home feed (and this screen) is currently listing.
 enum HomeListMode { routes, places }
@@ -37,6 +38,9 @@ class AllListScreen extends ConsumerStatefulWidget {
 
 class _AllListScreenState extends ConsumerState<AllListScreen> {
   final _scrollController = ScrollController();
+  final _searchController = TextEditingController();
+  final _searchFocus = FocusNode(debugLabel: 'all-list-search');
+  Timer? _searchDebounce;
   late HomeListMode _mode;
   final _routeItems = <RouteSummary>[];
   final _placeItems = <PlaceSummary>[];
@@ -44,12 +48,21 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
   var _total = 0;
   var _loading = false;
   var _error = false;
+  var _searchQuery = '';
+  var _searchFocused = false;
+
+  bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
 
   @override
   void initState() {
     super.initState();
     _mode = widget.initialMode;
     _scrollController.addListener(_onScroll);
+    _searchFocus.addListener(() {
+      if (mounted) {
+        setState(() => _searchFocused = _searchFocus.hasFocus);
+      }
+    });
     unawaited(_loadNextPage());
   }
 
@@ -58,7 +71,20 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
+    _searchDebounce?.cancel();
+    _searchFocus.dispose();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _searchQuery = value.trim());
+    });
   }
 
   bool get _hasMore => _mode == HomeListMode.routes
@@ -118,6 +144,8 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
 
   void _switchMode(HomeListMode mode) {
     if (mode == _mode) return;
+    _searchDebounce?.cancel();
+    _searchController.clear();
     setState(() {
       _mode = mode;
       _routeItems.clear();
@@ -125,6 +153,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
       _offset = 0;
       _total = 0;
       _error = false;
+      _searchQuery = '';
     });
     unawaited(_loadNextPage());
   }
@@ -154,16 +183,57 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
               AppSpacing.page,
               14,
             ),
-            child: AppSegmentedToggle(
-              labels: const ['Маршруты', 'Локации'],
-              selected: _mode == HomeListMode.routes ? 'Маршруты' : 'Локации',
-              onSelected: (label) => _switchMode(
-                label == 'Маршруты' ? HomeListMode.routes : HomeListMode.places,
-              ),
+            child: Column(
+              children: [
+                AppSegmentedToggle(
+                  labels: const ['Маршруты', 'Локации'],
+                  selected: _mode == HomeListMode.routes
+                      ? 'Маршруты'
+                      : 'Локации',
+                  onSelected: (label) => _switchMode(
+                    label == 'Маршруты'
+                        ? HomeListMode.routes
+                        : HomeListMode.places,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                AppSearchFilterRow(
+                  showFilterButton: false,
+                  hintText: _mode == HomeListMode.routes
+                      ? 'Искать маршруты'
+                      : 'Искать локации',
+                  controller: _searchController,
+                  focusNode: _searchFocus,
+                  onSearchChanged: _onSearchChanged,
+                  onSearchClear: () {
+                    _searchDebounce?.cancel();
+                    setState(() => _searchQuery = '');
+                  },
+                ),
+              ],
             ),
           ),
           Expanded(
-            child: itemCount == 0 && _loading
+            child: _searchActive
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      0,
+                      AppSpacing.page,
+                      AppSpacing.shellBottomContent,
+                    ),
+                    child: InPlaceSearchBody(
+                      query: _searchQuery,
+                      scope: _mode == HomeListMode.routes
+                          ? SearchScope.routes
+                          : SearchScope.places,
+                      onQueryFromHistory: (value) {
+                        _searchController.text = value;
+                        _onSearchChanged(value);
+                      },
+                    ),
+                  )
+                : itemCount == 0 && _loading
                 ? const Center(child: CircularProgressIndicator())
                 : itemCount == 0 && _error
                 ? Center(

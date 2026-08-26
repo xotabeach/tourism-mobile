@@ -434,6 +434,40 @@ void main() {
     },
   );
 
+  testWidgets('search on the full list screen narrows results by query', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 5000);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(appWithCompletedOnboarding());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Смотреть все'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AllListScreen), findsOneWidget);
+    expect(find.bySemanticsLabel('Фильтры'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'Бахчисар');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Бахчисарая'), findsOneWidget);
+    expect(find.text('Классика Южного берега'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.close_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Классика Южного берега'), findsOneWidget);
+  });
+
   testWidgets(
     'home caps Локации at 7 cards, same as Маршруты, and keeps the toggle '
     'visible (skeletons, not a blank flash) while places are still loading',
