@@ -110,6 +110,7 @@ void main() {
               ),
               onViewMap: () => viewedMap = true,
               onCreate: () {},
+              onSaveDraft: () {},
             ),
           ),
         ),
@@ -127,6 +128,26 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Посмотреть на карте'));
       expect(viewedMap, isTrue);
+
+      // The design export renders every outlined button in this card at one
+      // visual weight — "Посмотреть на карте" must match the secondary
+      // action buttons below it (height/radius/border color), not the
+      // smaller/gray style it used to have.
+      final mapButton = tester.widget<OutlinedButton>(
+        find.ancestor(
+          of: find.text('Посмотреть на карте'),
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      final draftButton = tester.widget<OutlinedButton>(
+        find.ancestor(
+          of: find.text('Сохранить маршрут в черновик'),
+          matching: find.byType(OutlinedButton),
+        ),
+      );
+      expect(mapButton.style?.minimumSize, draftButton.style?.minimumSize);
+      expect(mapButton.style?.side, draftButton.style?.side);
+      expect(mapButton.style?.shape, draftButton.style?.shape);
     },
   );
 }

@@ -335,21 +335,20 @@ class _AssembledProposalCardState
                 ],
                 if (widget.onViewMap != null) ...[
                   const SizedBox(height: 8),
+                  // Same outlined-pill weight as the secondary action buttons
+                  // below (height 42 / radius 10 / primaryBlue border) — the
+                  // design export renders every button in this card at one
+                  // visual weight, not two.
                   OutlinedButton(
                     onPressed: widget.onViewMap,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: RouteBuilderDesignTokens.primaryBlue,
-                      side: const BorderSide(color: AppColors.hairline),
-                      minimumSize: const Size.fromHeight(34),
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(
+                        color: RouteBuilderDesignTokens.primaryBlue,
                       ),
-                      textStyle: RouteBuilderDesignTokens.rubik(
-                        fontSize: 13,
-                        weight: FontWeight.w400,
-                        height: 1.1,
+                      minimumSize: const Size.fromHeight(42),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
                     child: const Text('Посмотреть на карте'),
