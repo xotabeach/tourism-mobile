@@ -75,7 +75,7 @@ void main() {
     await tester.tap(find.text('Места'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Избранное:'), findsOneWidget);
+    expect(find.text('Избранное'), findsOneWidget);
     expect(find.text('Маршруты'), findsOneWidget);
     expect(find.byType(DiscoveryPlaceCard), findsWidgets);
     expect(find.text('Ласточкино гнездо'), findsWidgets);

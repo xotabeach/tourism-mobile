@@ -91,7 +91,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Избранное:'), findsOneWidget);
+    expect(find.text('Избранное'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
   });
 
@@ -123,7 +123,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Избранное:'), findsOneWidget);
+    expect(find.text('Избранное'), findsOneWidget);
     expect(find.textContaining('secret-token'), findsNothing);
     expect(find.byType(AppAsyncErrorView), findsOneWidget);
   });
