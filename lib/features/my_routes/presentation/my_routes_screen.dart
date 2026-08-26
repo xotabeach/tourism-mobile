@@ -20,6 +20,7 @@ import 'package:tourism_mobile/features/places/application/places_providers.dart
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
+import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -50,9 +51,45 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   MyRoutesTab _tab = MyRoutesTab.favorites;
   var _searchQuery = '';
   var _searchFocused = false;
+  var _selectedChip = 'Все';
   final _removedSubscriptionIds = <String>{};
 
   bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
+
+  Future<void> _openFilters() async {
+    // Filters must apply the instant a filter is tapped — not after some
+    // separate confirm step — so update the screen's own state directly
+    // from the sheet's onTap instead of waiting on the sheet's pop result.
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: StatefulBuilder(
+            builder: (sheetContext, setSheetState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final filter in routeCatalogFilters)
+                    ListTile(
+                      title: Text(filter),
+                      trailing: filter == _selectedChip
+                          ? const Icon(Icons.check_rounded)
+                          : null,
+                      onTap: () {
+                        setState(() => _selectedChip = filter);
+                        setSheetState(() {});
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -119,12 +156,12 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
             .where((p) => favorites.placeIds.contains(p.id))
             .toList() ??
         const <PlaceSummary>[];
-    final filtered = switch (_tab) {
+    final filtered = filterRouteCatalog(switch (_tab) {
       MyRoutesTab.favorites => favoriteRoutes,
       MyRoutesTab.history => historyRoutes,
       MyRoutesTab.places => const <RouteSummary>[],
       MyRoutesTab.subscriptions => const <RouteSummary>[],
-    };
+    }, _selectedChip);
 
     return ColoredBox(
       color: AppColors.pageSurface,
@@ -160,7 +197,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                         _searchDebounce?.cancel();
                         setState(() => _searchQuery = '');
                       },
-                      onFilterTap: () {},
+                      onFilterTap: () => unawaited(_openFilters()),
+                      filterApplied: _selectedChip != 'Все',
                     ),
                     const SizedBox(height: 14),
                     _TabRow(

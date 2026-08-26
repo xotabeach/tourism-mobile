@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
+import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
@@ -35,6 +36,7 @@ class _RouteMatchResultsScreenState
   var _searchQuery = '';
   var _searchFocused = false;
   var _generating = false;
+  var _selectedChip = 'Все';
 
   bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
 
@@ -65,6 +67,41 @@ class _RouteMatchResultsScreenState
       final query = value.trim();
       setState(() => _searchQuery = query);
     });
+  }
+
+  Future<void> _openFilters() async {
+    // Filters must apply the instant a filter is tapped — not after some
+    // separate confirm step — so update the screen's own state directly
+    // from the sheet's onTap instead of waiting on the sheet's pop result.
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: StatefulBuilder(
+            builder: (sheetContext, setSheetState) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final filter in routeCatalogFilters)
+                    ListTile(
+                      title: Text(filter),
+                      trailing: filter == _selectedChip
+                          ? const Icon(Icons.check_rounded)
+                          : null,
+                      onTap: () {
+                        setState(() => _selectedChip = filter);
+                        setSheetState(() {});
+                        Navigator.of(sheetContext).pop();
+                      },
+                    ),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _onGeneratePressed() async {
@@ -156,8 +193,8 @@ class _RouteMatchResultsScreenState
       );
     }
 
-    final ideal = match.idealRoutes;
-    final close = match.closeRoutes;
+    final ideal = filterRouteCatalog(match.idealRoutes, _selectedChip);
+    final close = filterRouteCatalog(match.closeRoutes, _selectedChip);
     final filtered = [...ideal, ...close];
     final totalLabel = filtered.length;
 
@@ -198,7 +235,8 @@ class _RouteMatchResultsScreenState
                       _searchDebounce?.cancel();
                       setState(() => _searchQuery = '');
                     },
-                    onFilterTap: () {},
+                    onFilterTap: () => unawaited(_openFilters()),
+                    filterApplied: _selectedChip != 'Все',
                   ),
                   if (match.offerGenerate) ...[
                     const SizedBox(height: 14),

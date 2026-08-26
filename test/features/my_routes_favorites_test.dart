@@ -22,8 +22,22 @@ const _route = RouteSummary(
   transportMode: 'walk',
 );
 
+const _mountainRoute = RouteSummary(
+  id: 'favorite-route-mountain',
+  name: 'Тропа на Ай-Петри',
+  slug: 'mountain-favorite',
+  shortDescription: 'Горный маршрут со скалами',
+  stopsCount: 4,
+  distanceMeters: 5100,
+  difficulty: 'hard',
+  transportMode: 'walk',
+);
+
 void main() {
-  Future<ProviderContainer> pumpFavorites(WidgetTester tester) async {
+  Future<ProviderContainer> pumpFavorites(
+    WidgetTester tester, {
+    List<RouteSummary> extraRoutes = const [],
+  }) async {
     tester.view
       ..devicePixelRatio = 1
       ..physicalSize = const Size(393, 900);
@@ -37,9 +51,9 @@ void main() {
       overrides: [
         ...testSessionOverrides(onboardingCompleted: true),
         routesListProvider.overrideWith(
-          (ref) async => const RouteListPage(
-            items: [_route],
-            total: 1,
+          (ref) async => RouteListPage(
+            items: [_route, ...extraRoutes],
+            total: 1 + extraRoutes.length,
             limit: 20,
             offset: 0,
           ),
@@ -48,6 +62,9 @@ void main() {
     );
     addTearDown(container.dispose);
     await container.read(favoritesProvider.notifier).addRoute(_route.id);
+    for (final route in extraRoutes) {
+      await container.read(favoritesProvider.notifier).addRoute(route.id);
+    }
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -114,5 +131,28 @@ void main() {
 
     expect(container.read(favoritesProvider).routeIds, isEmpty);
     expect(find.textContaining('удалён из избранного'), findsOneWidget);
+  });
+
+  testWidgets('filter tap narrows favorites by category', (tester) async {
+    await pumpFavorites(tester, extraRoutes: [_mountainRoute]);
+
+    expect(find.text(_route.name), findsOneWidget);
+    expect(find.text(_mountainRoute.name), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Горы'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_mountainRoute.name), findsOneWidget);
+    expect(find.text(_route.name), findsNothing);
+
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Все'));
+    await tester.pumpAndSettle();
+
+    expect(find.text(_route.name), findsOneWidget);
+    expect(find.text(_mountainRoute.name), findsOneWidget);
   });
 }
