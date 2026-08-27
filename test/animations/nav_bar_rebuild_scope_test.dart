@@ -64,6 +64,35 @@ void main() {
     }
   });
 
+  testWidgets('press feedback lands on the touch frame, with no ripple', (
+    tester,
+  ) async {
+    await _pumpNav(tester);
+    final resting = _iconAlpha(tester, AppIconography.profile);
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.bySemanticsLabel('Профиль')),
+    );
+    // A single zero-duration frame: the feedback must already be there. An
+    // ink ripple only starts spreading here and needs ~200 ms to read.
+    await tester.pump();
+    expect(_iconAlpha(tester, AppIconography.profile), lessThan(resting));
+
+    // And the ripple really is off, rather than merely hidden under the dim.
+    expect(
+      tester
+          .widgetList<InkResponse>(find.byType(InkResponse))
+          .every((ink) => ink.splashFactory == NoSplash.splashFactory),
+      isTrue,
+    );
+
+    // Cancelled rather than released, so the selection does not move and the
+    // icon has a resting value to come back to.
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(_iconAlpha(tester, AppIconography.profile), resting);
+  });
+
   testWidgets('icon tint lands well before the indicator finishes travelling', (
     tester,
   ) async {
@@ -104,6 +133,9 @@ Future<List<List<String>>> _recordFrames(
   debugOnRebuildDirtyWidget = null;
   return perFrame;
 }
+
+double _iconAlpha(WidgetTester tester, String asset) =>
+    _selectedIconAlpha(tester, asset);
 
 double _selectedIconAlpha(WidgetTester tester, String asset) {
   final icon = tester.widget<AppAssetIcon>(

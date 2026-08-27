@@ -124,7 +124,11 @@ class AppGlassSurface extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           child: effectiveBlur <= 0
               ? surface
-              : BackdropFilter(
+              // `grouped` shares one backdrop sample with every sibling glass
+              // surface under the same [BackdropGroup] — without an enclosing
+              // group it resolves to a null key and behaves exactly like a
+              // plain BackdropFilter, so this is safe everywhere.
+              : BackdropFilter.grouped(
                   filter: ImageFilter.blur(
                     sigmaX: effectiveBlur,
                     sigmaY: effectiveBlur,

@@ -262,6 +262,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
       });
     }
     final scrolledDown = ref.watch(tabScrolledDownProvider(currentIndex));
+    final navCollapsed = ref.watch(tabNavCollapsedProvider(currentIndex));
     // Route + place details share the Home-parked compact chrome and CTA.
     final showRouteAction = detailNavigationIndex == 0;
     final onTravelPlus = path.contains('/travel-plus');
@@ -314,6 +315,11 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
                 currentIndex: currentIndex,
                 onTap: (index) => _onDestinationSelected(context, index),
                 detailMode: showDetailsChrome,
+                // Detail chrome already collapses the bar and parks it on its
+                // own destination; guest profile needs the full nav for its
+                // back slot. Scroll collapse only applies to the plain tabs.
+                scrollCollapsed:
+                    navCollapsed && !showDetailsChrome && !guestProfile,
                 // Guest profile keeps the full nav; Home slot becomes history back.
                 historyBackMode: guestProfile,
                 scrollToTopMode: scrolledDown && !guestProfile,
@@ -347,6 +353,7 @@ class AppFloatingNavBar extends StatefulWidget {
     required this.currentIndex,
     required this.onTap,
     this.detailMode = false,
+    this.scrollCollapsed = false,
     this.historyBackMode = false,
     this.scrollToTopMode = false,
     this.compactDestinationIndex = 0,
@@ -365,6 +372,10 @@ class AppFloatingNavBar extends StatefulWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
   final bool detailMode;
+
+  /// The current tab's list is being scrolled downwards, so the bar folds away
+  /// onto its compact droplet until the user scrolls back up or taps it open.
+  final bool scrollCollapsed;
   final bool historyBackMode;
   final bool scrollToTopMode;
   final int compactDestinationIndex;
@@ -375,8 +386,9 @@ class AppFloatingNavBar extends StatefulWidget {
   final VoidCallback? onPublishRoute;
   final VoidCallback? onMatchRoute;
 
-  /// Only detail/settings chrome collapses the bar. Guest back keeps full nav.
-  bool get compactChrome => detailMode;
+  /// Detail/settings chrome and downward scrolling both collapse the bar onto
+  /// the compact droplet. Guest back keeps the full nav.
+  bool get compactChrome => detailMode || scrollCollapsed;
 
   @override
   State<AppFloatingNavBar> createState() => _AppFloatingNavBarState();
@@ -404,6 +416,11 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   /// stacked icons inside a slot, so it drives its own nested builder instead
   /// of re-laying-out the whole bar.
   late final Listenable _shellMotion;
+
+  /// Shared by both glass capsules so the engine samples and blurs the content
+  /// behind the bar once per frame instead of once per capsule — the capsules
+  /// resize on every frame of a collapse, which is the expensive case.
+  final _backdropKey = BackdropKey();
 
   /// What a destination slot's icon stack listens to — [_shellMotion] plus the
   /// tint. Scoped to the icons so the gesture target above them never rebuilds.
@@ -543,6 +560,9 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
 
   void _scheduleAutoCollapse() {
     _cancelAutoCollapse();
+    // Detail chrome only. A scroll-collapsed bar already has a natural driver
+    // — the next downward scroll — so timing it out from under a user who
+    // just deliberately opened it would only fight them.
     if (!widget.detailMode || _detailExpansionController.value < 0.99) {
       return;
     }
@@ -639,7 +659,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _expandDetailNavigation() {
-    if (!widget.detailMode || _detailExpansionController.value >= 1) {
+    if (!widget.compactChrome || _detailExpansionController.value >= 1) {
       return;
     }
     _cancelAutoCollapse();
@@ -650,7 +670,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     unawaited(AppHaptics.selectionClick());
     unawaited(
       _detailExpansionController.forward().then((_) {
-        if (!mounted || !widget.detailMode) {
+        if (!mounted || !widget.compactChrome) {
           return;
         }
         _compactExitArmed = true;
@@ -661,7 +681,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   }
 
   void _collapseDetailNavigation() {
-    if (!mounted || !widget.detailMode) {
+    if (!mounted || !widget.compactChrome) {
       return;
     }
     if (_detailExpansionController.value <= 0) {
@@ -731,7 +751,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     // Home must navigate immediately once the bar is open.
     final parkedOnCurrentBranch =
         widget.compactDestinationIndex == widget.currentIndex;
-    if (widget.detailMode &&
+    if (widget.compactChrome &&
         _detailExpansionController.value < 1 &&
         index == widget.compactDestinationIndex &&
         parkedOnCurrentBranch) {
@@ -739,7 +759,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
       return;
     }
     // Any tap on the expanded menu postpones auto-collapse.
-    if (widget.detailMode && _detailExpansionController.value > 0.5) {
+    if (widget.compactChrome && _detailExpansionController.value > 0.5) {
       _scheduleAutoCollapse();
     }
     if (index != widget.currentIndex) {
@@ -769,28 +789,31 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
 
     return Material(
       color: Colors.transparent,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final width = constraints.maxWidth;
-          // Built once per *real* rebuild and then handed to the per-frame
-          // builder already instantiated. Flutter short-circuits `updateChild`
-          // on an identical widget instance, so these subtrees — semantics,
-          // tooltip, ink target — are not rebuilt 60×/s while the bar
-          // animates. Only the Transform around them and, inside them, the
-          // icon stack's own builder run per frame.
-          final slots = <Widget>[
-            for (var index = 0; index < _appNavDestinations.length; index++)
-              _buildNavSlot(index),
-          ];
-          return AnimatedBuilder(
-            animation: _shellMotion,
-            builder: (context, _) => _buildBar(
-              width: width,
-              slots: slots,
-              reduceMotion: reduceMotion,
-            ),
-          );
-        },
+      child: BackdropGroup(
+        backdropKey: _backdropKey,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final width = constraints.maxWidth;
+            // Built once per *real* rebuild and then handed to the per-frame
+            // builder already instantiated. Flutter short-circuits `updateChild`
+            // on an identical widget instance, so these subtrees — semantics,
+            // tooltip, ink target — are not rebuilt 60×/s while the bar
+            // animates. Only the Transform around them and, inside them, the
+            // icon stack's own builder run per frame.
+            final slots = <Widget>[
+              for (var index = 0; index < _appNavDestinations.length; index++)
+                _buildNavSlot(index),
+            ];
+            return AnimatedBuilder(
+              animation: _shellMotion,
+              builder: (context, _) => _buildBar(
+                width: width,
+                slots: slots,
+                reduceMotion: reduceMotion,
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -1505,7 +1528,7 @@ class _NavDestination {
 /// outside (see `_modulateNavSlot`); the only thing that animates *inside* is
 /// the icon tint, and it rebuilds nothing but the two-icon stack, for the
 /// ~70 ms the crossfade lasts.
-class _NavSlot extends StatelessWidget {
+class _NavSlot extends StatefulWidget {
   const _NavSlot({
     required super.key,
     required this.destination,
@@ -1530,65 +1553,103 @@ class _NavSlot extends StatelessWidget {
   final ValueChanged<int> onTap;
 
   @override
+  State<_NavSlot> createState() => _NavSlotState();
+}
+
+class _NavSlotState extends State<_NavSlot> {
+  /// Pressed-down scale and dim. On the reference capture the pressed control
+  /// changes on the very first frame of the touch and holds until release —
+  /// an ink ripple instead spends ~200 ms spreading, which is what made taps
+  /// here feel behind the finger.
+  static const _pressedScale = 0.88;
+  static const _pressedDim = 0.62;
+
+  var _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) {
+      return;
+    }
+    setState(() => _pressed = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final label = showHistoryBack
+    final label = widget.showHistoryBack
         ? 'Назад'
-        : showScrollToTop
+        : widget.showScrollToTop
         ? 'Наверх'
-        : destination.label;
+        : widget.destination.label;
+    final press = _pressed ? _pressedDim : 1.0;
 
     return Semantics(
       label: label,
       button: true,
-      selected: selected,
-      sortKey: OrdinalSortKey(index.toDouble()),
+      selected: widget.selected,
+      sortKey: OrdinalSortKey(widget.index.toDouble()),
       child: Tooltip(
         message: label,
-        child: InkResponse(
-          onTap: () => onTap(index),
-          radius: 30,
-          containedInkWell: true,
-          highlightShape: BoxShape.circle,
-          child: Center(
-            child: AnimatedBuilder(
-              animation: motion,
-              builder: (context, _) {
-                final fade = visibility().clamp(0.0, 1.0);
-                if (showHistoryBack) {
-                  return Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    size: 20,
-                    color: AppColors.inactiveNavigationIcon.withValues(
-                      alpha: 0.92 * fade,
-                    ),
-                  );
-                }
-                final weight = activeWeight();
-                if (showScrollToTop) {
-                  return Icon(
-                    Icons.keyboard_arrow_up_rounded,
-                    size: 28,
-                    color: Colors.white.withValues(alpha: weight * fade),
-                  );
-                }
-                return Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    AppAssetIcon(
-                      destination.icon,
-                      size: AppIconography.navigation,
-                      color: AppColors.inactiveNavigationIcon.withValues(
-                        alpha: 0.84 * fade * (1 - weight),
-                      ),
-                    ),
-                    AppAssetIcon(
-                      destination.selectedIcon,
-                      size: AppIconography.navigation,
-                      color: Colors.white.withValues(alpha: weight * fade),
-                    ),
-                  ],
-                );
-              },
+        // Raw pointer events, not `InkResponse.onHighlightChanged`: the tap
+        // recognizer only reports a down once it has won the arena or the
+        // 100 ms press deadline has passed, so routing the visual through it
+        // would put the feedback a tenth of a second behind the finger. The
+        // InkResponse below still owns the tap itself, focus and traversal.
+        child: Listener(
+          onPointerDown: (_) => _setPressed(true),
+          onPointerUp: (_) => _setPressed(false),
+          onPointerCancel: (_) => _setPressed(false),
+          child: InkResponse(
+            onTap: () => widget.onTap(widget.index),
+            // The feedback is drawn below, synchronously with the touch.
+            splashFactory: NoSplash.splashFactory,
+            highlightColor: Colors.transparent,
+            radius: 30,
+            containedInkWell: true,
+            highlightShape: BoxShape.circle,
+            child: Center(
+              child: Transform.scale(
+                scale: _pressed ? _pressedScale : 1.0,
+                child: AnimatedBuilder(
+                  animation: widget.motion,
+                  builder: (context, _) {
+                    final fade = widget.visibility().clamp(0.0, 1.0) * press;
+                    if (widget.showHistoryBack) {
+                      return Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        size: 20,
+                        color: AppColors.inactiveNavigationIcon.withValues(
+                          alpha: 0.92 * fade,
+                        ),
+                      );
+                    }
+                    final weight = widget.activeWeight();
+                    if (widget.showScrollToTop) {
+                      return Icon(
+                        Icons.keyboard_arrow_up_rounded,
+                        size: 28,
+                        color: Colors.white.withValues(alpha: weight * fade),
+                      );
+                    }
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        AppAssetIcon(
+                          widget.destination.icon,
+                          size: AppIconography.navigation,
+                          color: AppColors.inactiveNavigationIcon.withValues(
+                            alpha: 0.84 * fade * (1 - weight),
+                          ),
+                        ),
+                        AppAssetIcon(
+                          widget.destination.selectedIcon,
+                          size: AppIconography.navigation,
+                          color: Colors.white.withValues(alpha: weight * fade),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
             ),
           ),
         ),
@@ -1623,9 +1684,6 @@ class _DropletPainter extends CustomPainter {
       ..color = Colors.white.withValues(alpha: 0.9)
       ..strokeWidth = 1
       ..style = PaintingStyle.stroke;
-    final shadow = Paint()
-      ..color = Colors.black.withValues(alpha: 0.12)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
 
     if (!reduceMotion && phase < 0.3 && fromCenterX != centerX) {
       final neckStrength = 1 - phase / 0.3;
@@ -1663,10 +1721,32 @@ class _DropletPainter extends CustomPainter {
       height: height,
     );
     final droplet = RRect.fromRectAndRadius(rect, Radius.circular(height / 2));
+    _paintLift(canvas, rect, height / 2);
     canvas
-      ..drawRRect(droplet.shift(const Offset(0, 3)), shadow)
       ..drawRRect(droplet, fill)
       ..drawRRect(droplet, stroke);
+  }
+
+  /// Ambient lift under the droplet, as three stacked translucent rounded
+  /// rects rather than a blurred one.
+  ///
+  /// `MaskFilter.blur` is a real blur pass, and it runs on every frame here:
+  /// the droplet squashes and stretches as it travels, so its geometry never
+  /// repeats and nothing downstream can cache the blurred mask. At this size
+  /// and opacity a stepped falloff is indistinguishable and costs three fills.
+  static void _paintLift(Canvas canvas, Rect rect, double radius) {
+    const grow = [12.0, 8.0, 4.5, 1.5];
+    const alpha = [0.016, 0.02, 0.024, 0.028];
+    final base = rect.shift(const Offset(0, 3));
+    for (var step = 0; step < grow.length; step++) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          base.inflate(grow[step]),
+          Radius.circular(radius + grow[step]),
+        ),
+        Paint()..color = Colors.black.withValues(alpha: alpha[step]),
+      );
+    }
   }
 
   @override

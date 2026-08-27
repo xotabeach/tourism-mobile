@@ -91,9 +91,17 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     );
   }
 
+  void _onScroll() {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+    syncTabScrolledDown(ref, 3, _scrollController.offset);
+  }
+
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _searchFocus.addListener(() {
       if (mounted) {
         setState(() => _searchFocused = _searchFocus.hasFocus);
@@ -106,7 +114,9 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     _searchDebounce?.cancel();
     _searchFocus.dispose();
     _searchController.dispose();
-    _scrollController.dispose();
+    _scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
     super.dispose();
   }
 

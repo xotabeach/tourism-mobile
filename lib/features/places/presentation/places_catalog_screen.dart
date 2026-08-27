@@ -63,7 +63,8 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
     if (!_scrollController.hasClients) {
       return;
     }
-    syncTabScrolledDown(ref, 3, _scrollController.offset);
+    // Places sit inside the Home branch, so their scroll drives Home's chrome.
+    syncTabScrolledDown(ref, 0, _scrollController.offset);
   }
 
   @override
