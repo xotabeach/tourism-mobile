@@ -53,11 +53,16 @@ abstract final class AppPerf {
   }
 
   /// Scale motion durations down on Android without killing the feel entirely.
+  ///
+  /// The 80 ms floor only applies to tokens that are already longer than it —
+  /// a token below the floor (e.g. the 70 ms nav tint) is left alone rather
+  /// than clamped upwards, which would otherwise invert the clamp bounds.
   static Duration motion(Duration desired) {
     if (!preferCheapEffects) return desired;
     final ms = desired.inMilliseconds;
     if (ms <= 0) return desired;
-    return Duration(milliseconds: (ms * 0.72).round().clamp(80, ms));
+    final floor = ms < 80 ? ms : 80;
+    return Duration(milliseconds: (ms * 0.72).round().clamp(floor, ms));
   }
 
   static void configureImageCache() {

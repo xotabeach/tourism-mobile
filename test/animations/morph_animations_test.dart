@@ -4,12 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 const _navSurfaceKey = ValueKey('compose-motion-surface');
 const _modeSurfaceKey = ValueKey('mode-motion-surface');
 const _durationSurfaceKey = ValueKey('duration-motion-surface');
+
+/// Roughly half of [AppMotion.composeMorph] — the frame where the two droplets
+/// are in flight. Tied to the token so a retimed morph fails loudly here
+/// instead of silently sampling the settled end state.
+final _composeMidpoint = Duration(
+  milliseconds: AppMotion.composeMorph.inMilliseconds ~/ 2,
+);
 
 final _skipPixelGoldens =
     !Platform.isMacOS || Platform.environment['SKIP_PIXEL_GOLDENS'] == '1';
@@ -29,7 +37,7 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Создать'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 360));
+    await tester.pump(_composeMidpoint);
 
     final midHeight = tester
         .getSize(find.byKey(const ValueKey('app-shell-bottom-bar')))
@@ -161,7 +169,7 @@ void main() {
     await _pumpNav(tester);
     await tester.tap(find.bySemanticsLabel('Создать'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 360));
+    await tester.pump(_composeMidpoint);
     await expectLater(
       find.byKey(_navSurfaceKey),
       matchesGoldenFile('../golden/goldens/nav_compose_morph_mid.png'),

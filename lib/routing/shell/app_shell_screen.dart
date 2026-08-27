@@ -392,51 +392,95 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   static const _autoCollapseDelay = Duration(seconds: 5);
 
   late final AnimationController _positionController;
+  late final AnimationController _tintController;
   late final AnimationController _detailPresenceController;
   late final AnimationController _detailExpansionController;
   late final AnimationController _composeController;
-  late double _position;
+
+  /// Every controller the per-frame layout reads, merged so a frame advancing
+  /// two of them still schedules exactly one rebuild.
+  ///
+  /// [_tintController] is deliberately *not* in here: it only repaints the two
+  /// stacked icons inside a slot, so it drives its own nested builder instead
+  /// of re-laying-out the whole bar.
+  late final Listenable _shellMotion;
+
+  /// What a destination slot's icon stack listens to — [_shellMotion] plus the
+  /// tint. Scoped to the icons so the gesture target above them never rebuilds.
+  late final Listenable _slotMotion;
+
   late double _fromPosition;
   late int _targetIndex;
+  Curve _positionCurve = AppMotion.navTravel;
+  late int _tintFrom;
+  late int _tintTo;
   Timer? _autoCollapseTimer;
 
   /// After the user expands detail chrome once, a second tap on the parked
   /// compact droplet (Home on route details) exits to that destination.
   bool _compactExitArmed = false;
 
+  /// Live slot position, derived instead of stored: with no per-tick
+  /// `setState` there is nothing to write it back to between frames.
+  double get _position {
+    final t = _positionController.value;
+    if (t >= 1) {
+      return _targetIndex.toDouble();
+    }
+    return lerpDouble(
+      _fromPosition,
+      _targetIndex.toDouble(),
+      _positionCurve.transform(t),
+    )!;
+  }
+
   @override
   void initState() {
     super.initState();
-    _position = widget.currentIndex.toDouble();
-    _fromPosition = _position;
-    _targetIndex = widget.currentIndex;
-    _positionController =
-        AnimationController(vsync: this, duration: AppMotion.droplet)
-          ..addListener(_tick)
-          ..addStatusListener((status) {
-            if (status == AnimationStatus.completed) {
-              _position = _targetIndex.toDouble();
-            }
-          });
+    final start = widget.compactChrome
+        ? widget.compactDestinationIndex
+        : widget.currentIndex;
+    _fromPosition = start.toDouble();
+    _targetIndex = start;
+    _tintFrom = start;
+    _tintTo = start;
+    // Value 1 == "settled on _targetIndex"; `forward(from: 0)` starts a travel.
+    // No settle listener here on purpose: the only thing this controller gates
+    // is the droplet's `phase`, and its final notification already carries
+    // value 1, so a rebuild on completion would be pure waste.
+    _positionController = AnimationController(
+      vsync: this,
+      duration: AppMotion.droplet,
+      value: 1,
+    );
+    _tintController = AnimationController(
+      vsync: this,
+      duration: AppMotion.navTint,
+      value: 1,
+    );
     _detailPresenceController = AnimationController(
       vsync: this,
       duration: AppMotion.detailMorph,
       value: widget.compactChrome ? 1 : 0,
-    )..addListener(_rebuild);
+    )..addStatusListener(_onMotionSettled);
     _detailExpansionController = AnimationController(
       vsync: this,
       duration: AppMotion.detailMorph,
-    )..addListener(_rebuild);
+    )..addStatusListener(_onMotionSettled);
     _composeController = AnimationController(
       vsync: this,
       duration: AppMotion.composeMorph,
       reverseDuration: AppMotion.composeClose,
-    )..addListener(_rebuild);
-    if (widget.compactChrome) {
-      _position = widget.compactDestinationIndex.toDouble();
-      _fromPosition = _position;
-      _targetIndex = widget.compactDestinationIndex;
-    }
+    )..addStatusListener(_onMotionSettled);
+    _shellMotion = Listenable.merge([
+      _positionController,
+      _detailPresenceController,
+      _detailExpansionController,
+      _composeController,
+    ]);
+    // A slot's icons fade with the collapse and tint with the selection, so
+    // their builder needs both. Everything above the icons stays stable.
+    _slotMotion = Listenable.merge([_tintController, _shellMotion]);
   }
 
   @override
@@ -472,22 +516,25 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   @override
   void dispose() {
     _cancelAutoCollapse();
-    _positionController
-      ..removeListener(_tick)
-      ..dispose();
-    _detailPresenceController
-      ..removeListener(_rebuild)
-      ..dispose();
-    _detailExpansionController
-      ..removeListener(_rebuild)
-      ..dispose();
-    _composeController
-      ..removeListener(_rebuild)
-      ..dispose();
+    _positionController.dispose();
+    _tintController.dispose();
+    _detailPresenceController.dispose();
+    _detailExpansionController.dispose();
+    _composeController.dispose();
     super.dispose();
   }
 
-  void _rebuild() => setState(() {});
+  /// The layout reads `isAnimating` to decide whether the compose/detail
+  /// subtrees exist at all, and that flag flips *after* the final value
+  /// notification. One rebuild per settle keeps the resting frame honest.
+  void _onMotionSettled(AnimationStatus status) {
+    if (!mounted ||
+        (status != AnimationStatus.completed &&
+            status != AnimationStatus.dismissed)) {
+      return;
+    }
+    setState(() {});
+  }
 
   void _cancelAutoCollapse() {
     _autoCollapseTimer?.cancel();
@@ -502,28 +549,76 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     _autoCollapseTimer = Timer(_autoCollapseDelay, _collapseDetailNavigation);
   }
 
-  void _tick() {
-    final reduceMotion = MediaQuery.disableAnimationsOf(context);
-    final curve = reduceMotion
-        ? Curves.easeOut
-        : Curves.easeInOutCubicEmphasized;
-    final eased = curve.transform(_positionController.value);
-    setState(() {
-      _position = lerpDouble(_fromPosition, _targetIndex.toDouble(), eased)!;
-    });
+  /// How "active" a slot's icon looks right now, 0..1.
+  ///
+  /// Driven by [_tintController] rather than by [_position]: on the reference
+  /// capture the tint lands long before the indicator arrives, so tying the
+  /// two together (as a `1 - |position - index|` weight does) smears a 70 ms
+  /// crossfade across the whole travel.
+  double _activeWeight(int index) {
+    final t = _tintController.value.clamp(0.0, 1.0);
+    final from = index == _tintFrom ? 1.0 : 0.0;
+    final to = index == _tintTo ? 1.0 : 0.0;
+    return lerpDouble(from, to, t)!;
+  }
+
+  /// How visible a slot is during a collapse/expand, 0..1.
+  ///
+  /// Width-independent on purpose, so the slot's own icon builder can call it
+  /// per frame without the bar having to rebuild and hand the value down.
+  double _slotVisibility(int index) {
+    if (index == widget.compactDestinationIndex) {
+      return 1;
+    }
+    final compactProgress =
+        _detailPresenceController.value *
+        (1 - _detailExpansionController.value);
+    if (widget.centerCompactMode && widget.compactChrome) {
+      final groupCollapse = Curves.easeInOutCubic.transform(
+        (compactProgress / 0.68).clamp(0.0, 1.0),
+      );
+      return (1 - groupCollapse).clamp(0.0, 1.0);
+    }
+    final revealProgress = 1 - compactProgress;
+    return ((revealProgress -
+                (index - widget.compactDestinationIndex).abs() * 0.04) /
+            0.78)
+        .clamp(0.0, 1.0);
   }
 
   void _animateTo(int index) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    _animateTint(index, reduceMotion: reduceMotion);
     if (index == _targetIndex && !_positionController.isAnimating) {
       return;
     }
     _positionController.stop();
     _fromPosition = _position;
     _targetIndex = index;
-    _positionController.duration = MediaQuery.disableAnimationsOf(context)
+    _positionCurve = reduceMotion ? Curves.easeOut : AppMotion.navTravel;
+    _positionController.duration = reduceMotion
         ? AppMotion.reduced
         : AppPerf.motion(AppMotion.droplet);
     unawaited(_positionController.forward(from: 0));
+  }
+
+  void _animateTint(int index, {required bool reduceMotion}) {
+    if (_tintTo == index && !_tintController.isAnimating) {
+      return;
+    }
+    _tintController.stop();
+    _tintFrom = _tintTo;
+    _tintTo = index;
+    _tintController.duration = reduceMotion
+        ? AppMotion.reduced
+        : AppPerf.motion(AppMotion.navTint);
+    unawaited(_tintController.forward(from: 0));
+    // Selected-state semantics live outside the tint builder, so the slots
+    // themselves need one rebuild here. This runs once per navigation, not
+    // once per frame.
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _animateDetailPresence(double target) {
@@ -533,9 +628,12 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     unawaited(
       _detailPresenceController.animateTo(
         target,
+        // `emphasizedCurve` is a 500 ms Material curve; at the reference's
+        // ~230 ms collapse its slow ramp reads as lag, so use the fast-out
+        // liquid curve the droplet already uses.
         curve: MediaQuery.disableAnimationsOf(context)
             ? Curves.easeOut
-            : AppMotion.emphasizedCurve,
+            : AppMotion.liquidOut,
       ),
     );
   }
@@ -668,6 +766,90 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
+
+    return Material(
+      color: Colors.transparent,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          // Built once per *real* rebuild and then handed to the per-frame
+          // builder already instantiated. Flutter short-circuits `updateChild`
+          // on an identical widget instance, so these subtrees — semantics,
+          // tooltip, ink target — are not rebuilt 60×/s while the bar
+          // animates. Only the Transform around them and, inside them, the
+          // icon stack's own builder run per frame.
+          final slots = <Widget>[
+            for (var index = 0; index < _appNavDestinations.length; index++)
+              _buildNavSlot(index),
+          ];
+          return AnimatedBuilder(
+            animation: _shellMotion,
+            builder: (context, _) => _buildBar(
+              width: width,
+              slots: slots,
+              reduceMotion: reduceMotion,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNavSlot(int index) {
+    final historyBack = widget.historyBackMode && index == 0;
+    return _NavSlot(
+      key: ValueKey('nav-slot-$index'),
+      destination: _appNavDestinations[index],
+      index: index,
+      selected: index == _tintTo && !historyBack,
+      motion: _slotMotion,
+      activeWeight: () => _activeWeight(index),
+      visibility: () => _slotVisibility(index),
+      showHistoryBack: historyBack,
+      showScrollToTop:
+          widget.scrollToTopMode &&
+          index == widget.currentIndex &&
+          !widget.compactChrome &&
+          !historyBack,
+      onTap: _handleTap,
+    );
+  }
+
+  /// Per-frame placement of an already-built slot.
+  ///
+  /// Everything here is a wrapper the framework can apply without touching
+  /// [slot] itself, so a frame of collapse/expand costs one translation per
+  /// slot. [visibility] only gates pointers and semantics here — the fade
+  /// itself is applied to the icon colors inside the slot.
+  Widget _modulateNavSlot(
+    Widget slot, {
+    required double visibility,
+    required double translationX,
+  }) {
+    final hidden = visibility < 0.99;
+    // The chain is unconditional on purpose: dropping a wrapper once its value
+    // goes neutral changes the shape of the tree, which re-inflates [slot] —
+    // and with it the ink and tooltip state — the moment a collapse first
+    // moves a slot sideways. A pure translation adds no layer, so this is free.
+    // The fade is *not* here: `Opacity` composites a layer even at 1.0, which
+    // shifts icon antialiasing; it lives in the slot's icon colors instead.
+    return ExcludeSemantics(
+      excluding: hidden,
+      child: IgnorePointer(
+        ignoring: hidden,
+        child: Transform.translate(
+          offset: Offset(translationX, 0),
+          child: slot,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBar({
+    required double width,
+    required List<Widget> slots,
+    required bool reduceMotion,
+  }) {
     final phase = _positionController.isAnimating
         ? _positionController.value
         : 1.0;
@@ -691,144 +873,136 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                   Curves.easeOutCubic.transform(composeT)
         : _height;
 
-    return Material(
-      color: Colors.transparent,
-      child: SizedBox(
-        key: const ValueKey('app-shell-bottom-bar'),
-        height: totalHeight,
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final compactOnRight = widget.compactDestinationIndex >= 3;
-            // Expand: mostly rise first, then widen — soft overlap, no expo snap.
-            final expandT = (1 - compactProgress).clamp(0.0, 1.0);
-            final riseT = Curves.easeInOutCubic.transform(
-              (expandT / 0.58).clamp(0.0, 1.0),
-            );
-            final widenT = expandT <= 0.28
-                ? 0.0
-                : Curves.easeInOutCubic.transform(
-                    ((expandT - 0.28) / 0.72).clamp(0.0, 1.0),
-                  );
-            final ctaInset = (_activeDiameter + _segmentGap) * (1 - widenT);
-            final ctaTop = (_detailHeight - _height) * (1 - riseT);
-            // ~13% narrower than the track next to the compact droplet.
-            final ctaTrack = math.max(0.0, width - ctaInset);
-            final ctaSidePad = ctaTrack * 0.065;
-            // Two droplets rise out of the live "+" center, split, then settle
-            // into capsules. Keep phase linear here; the painter owns motion
-            // timing so geometry, hit targets and labels never double-ease.
-            final composeTClamped = composeT.clamp(0.0, 1.0);
-            final leftPhase = reduceMotion
-                ? Curves.easeOut.transform(composeTClamped)
-                : (composeTClamped / 0.94).clamp(0.0, 1.0);
-            final rightPhase = reduceMotion
-                ? leftPhase
-                : ((composeTClamped - 0.055) / 0.945).clamp(0.0, 1.0);
-            const composeGap = 8.0;
-            const composeBtnHeight = 48.0;
-            final composeBtnWidth = (width - composeGap) / 2;
-            final plusCenterX =
-                (_composeNavIndex + 0.5) * (width / _appNavDestinationCount);
-            final plusCenterY = totalHeight - _height / 2;
+    final compactOnRight = widget.compactDestinationIndex >= 3;
+    // Expand: mostly rise first, then widen — soft overlap, no expo snap.
+    final expandT = (1 - compactProgress).clamp(0.0, 1.0);
+    final riseT = Curves.easeInOutCubic.transform(
+      (expandT / 0.58).clamp(0.0, 1.0),
+    );
+    final widenT = expandT <= 0.28
+        ? 0.0
+        : Curves.easeInOutCubic.transform(
+            ((expandT - 0.28) / 0.72).clamp(0.0, 1.0),
+          );
+    final ctaInset = (_activeDiameter + _segmentGap) * (1 - widenT);
+    final ctaTop = (_detailHeight - _height) * (1 - riseT);
+    // ~13% narrower than the track next to the compact droplet.
+    final ctaTrack = math.max(0.0, width - ctaInset);
+    final ctaSidePad = ctaTrack * 0.065;
+    // Two droplets rise out of the live "+" center, split, then settle
+    // into capsules. Keep phase linear here; the painter owns motion
+    // timing so geometry, hit targets and labels never double-ease.
+    final composeTClamped = composeT.clamp(0.0, 1.0);
+    final leftPhase = reduceMotion
+        ? Curves.easeOut.transform(composeTClamped)
+        : (composeTClamped / 0.94).clamp(0.0, 1.0);
+    final rightPhase = reduceMotion
+        ? leftPhase
+        : ((composeTClamped - 0.055) / 0.945).clamp(0.0, 1.0);
+    const composeGap = 8.0;
+    const composeBtnHeight = 48.0;
+    final composeBtnWidth = (width - composeGap) / 2;
+    final plusCenterX =
+        (_composeNavIndex + 0.5) * (width / _appNavDestinationCount);
+    final plusCenterY = totalHeight - _height / 2;
 
-            return Stack(
-              clipBehavior: Clip.none,
-              children: [
-                if (showCompose)
+    return SizedBox(
+      key: const ValueKey('app-shell-bottom-bar'),
+      height: totalHeight,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (showCompose)
+            Positioned.fill(
+              key: const ValueKey('nav-compose-actions'),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
                   Positioned.fill(
-                    key: const ValueKey('nav-compose-actions'),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: CustomPaint(
-                              painter: _ComposeLiquidPainter(
-                                leftProgress: leftPhase,
-                                rightProgress: rightPhase,
-                                origin: Offset(plusCenterX, plusCenterY),
-                                leftTarget: Offset(
-                                  composeBtnWidth / 2,
-                                  composeBtnHeight / 2,
-                                ),
-                                rightTarget: Offset(
-                                  composeBtnWidth +
-                                      composeGap +
-                                      composeBtnWidth / 2,
-                                  composeBtnHeight / 2,
-                                ),
-                                buttonWidth: composeBtnWidth,
-                                buttonHeight: composeBtnHeight,
-                                // Match nav active fill so compose CTAs sit with the bar.
-                                color: AppColors.activeNavigationFill,
-                                reduceMotion: reduceMotion,
-                              ),
-                            ),
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ComposeLiquidPainter(
+                          leftProgress: leftPhase,
+                          rightProgress: rightPhase,
+                          origin: Offset(plusCenterX, plusCenterY),
+                          leftTarget: Offset(
+                            composeBtnWidth / 2,
+                            composeBtnHeight / 2,
                           ),
+                          rightTarget: Offset(
+                            composeBtnWidth + composeGap + composeBtnWidth / 2,
+                            composeBtnHeight / 2,
+                          ),
+                          buttonWidth: composeBtnWidth,
+                          buttonHeight: composeBtnHeight,
+                          // Match nav active fill so compose CTAs sit with the bar.
+                          color: AppColors.activeNavigationFill,
+                          reduceMotion: reduceMotion,
                         ),
-                        _ComposeDropletHitTarget(
-                          label: 'Опубликовать',
-                          progress: leftPhase,
-                          width: composeBtnWidth,
-                          height: composeBtnHeight,
-                          left: 0,
-                          onTap: () {
-                            _closeComposeMenu();
-                            widget.onPublishRoute?.call();
-                          },
-                        ),
-                        _ComposeDropletHitTarget(
-                          label: 'Подобрать',
-                          progress: rightPhase,
-                          width: composeBtnWidth,
-                          height: composeBtnHeight,
-                          left: composeBtnWidth + composeGap,
-                          onTap: () {
-                            _closeComposeMenu();
-                            widget.onMatchRoute?.call();
-                          },
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                if (widget.detailMode && widget.onStartRoute != null)
-                  Positioned(
-                    key: const ValueKey('route-start-button-position'),
-                    left: (compactOnRight ? 0.0 : ctaInset) + ctaSidePad,
-                    right: (compactOnRight ? ctaInset : 0.0) + ctaSidePad,
-                    top: ctaTop,
-                    height: _height,
-                    child: RouteStartButton(
-                      visibility: presence,
-                      morphProgress: 1 - widenT,
-                      onPressed: widget.onStartRoute!,
-                      label: widget.startRouteLabel,
-                      compactAlignedRight: compactOnRight,
-                    ),
+                  _ComposeDropletHitTarget(
+                    label: 'Опубликовать',
+                    progress: leftPhase,
+                    width: composeBtnWidth,
+                    height: composeBtnHeight,
+                    left: 0,
+                    onTap: () {
+                      _closeComposeMenu();
+                      widget.onPublishRoute?.call();
+                    },
                   ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: _height,
-                  child: _buildNavigation(
-                    width: width,
-                    compactProgress: compactProgress,
-                    phase: phase,
-                    reduceMotion: reduceMotion,
+                  _ComposeDropletHitTarget(
+                    label: 'Подобрать',
+                    progress: rightPhase,
+                    width: composeBtnWidth,
+                    height: composeBtnHeight,
+                    left: composeBtnWidth + composeGap,
+                    onTap: () {
+                      _closeComposeMenu();
+                      widget.onMatchRoute?.call();
+                    },
                   ),
-                ),
-              ],
-            );
-          },
-        ),
+                ],
+              ),
+            ),
+          if (widget.detailMode && widget.onStartRoute != null)
+            Positioned(
+              key: const ValueKey('route-start-button-position'),
+              left: (compactOnRight ? 0.0 : ctaInset) + ctaSidePad,
+              right: (compactOnRight ? ctaInset : 0.0) + ctaSidePad,
+              top: ctaTop,
+              height: _height,
+              child: RouteStartButton(
+                visibility: presence,
+                morphProgress: 1 - widenT,
+                onPressed: widget.onStartRoute!,
+                label: widget.startRouteLabel,
+                compactAlignedRight: compactOnRight,
+              ),
+            ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: _height,
+            child: _buildNavigation(
+              width: width,
+              slots: slots,
+              compactProgress: compactProgress,
+              phase: phase,
+              reduceMotion: reduceMotion,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildNavigation({
     required double width,
+    required List<Widget> slots,
     required double compactProgress,
     required double phase,
     required bool reduceMotion,
@@ -886,7 +1060,6 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
     final trailingEnd = centerCompact
         ? lerpDouble(width, trailingFoldX, groupCollapse)!
         : lerpDouble(width, compactCenterX, compactProgress)!;
-    final revealProgress = 1 - compactProgress;
     final compactLeft = compactCenterX - _activeDiameter / 2;
 
     return FocusTraversalGroup(
@@ -896,6 +1069,10 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
         children: [
           if ((leadingEnd - leadingStart).abs() > 1)
             Positioned(
+              // Keyed: the leading capsule only exists once the indicator has
+              // left slot 0, and without a key its appearance shifts every
+              // later child's positional match, re-inflating a whole slot.
+              key: const ValueKey('nav-glass-leading'),
               left: math.min(leadingStart, leadingEnd),
               top: 0,
               width: (leadingEnd - leadingStart).abs(),
@@ -910,6 +1087,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
             ),
           if ((trailingEnd - trailingStart).abs() > 1)
             Positioned(
+              key: const ValueKey('nav-glass-trailing'),
               left: math.min(trailingStart, trailingEnd),
               width: (trailingEnd - trailingStart).abs(),
               top: 0,
@@ -923,6 +1101,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
               ),
             ),
           Positioned.fill(
+            key: const ValueKey('nav-droplet-layer'),
             child: IgnorePointer(
               child: RepaintBoundary(
                 child: CustomPaint(
@@ -939,6 +1118,7 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
             ),
           ),
           Positioned.fill(
+            key: const ValueKey('nav-destinations-row'),
             child: IgnorePointer(
               ignoring: compactProgress > 0.995,
               child: Row(
@@ -951,23 +1131,9 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                     SizedBox(
                       width: slotWidth,
                       height: _height,
-                      child: _NavItem(
-                        destination: _appNavDestinations[index],
-                        index: index,
-                        activeWeight: (1 - (_position - index).abs()).clamp(
-                          0,
-                          1,
-                        ),
-                        visibility: index == widget.compactDestinationIndex
-                            ? 1
-                            : centerCompact
-                            ? (1 - groupCollapse).clamp(0.0, 1.0)
-                            : ((revealProgress -
-                                          (index - widget.compactDestinationIndex)
-                                                  .abs() *
-                                              0.04) /
-                                      0.78)
-                                  .clamp(0, 1),
+                      child: _modulateNavSlot(
+                        slots[index],
+                        visibility: _slotVisibility(index),
                         translationX: centerCompact
                             ? index == widget.compactDestinationIndex
                                   ? activeCenterX - (index + 0.5) * slotWidth
@@ -978,13 +1144,6 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                                         groupCollapse
                             : (compactCenterX - (index + 0.5) * slotWidth) *
                                   compactProgress,
-                        showHistoryBack: widget.historyBackMode && index == 0,
-                        showScrollToTop:
-                            widget.scrollToTopMode &&
-                            index == widget.currentIndex &&
-                            !widget.compactChrome &&
-                            !(widget.historyBackMode && index == 0),
-                        onTap: _handleTap,
                       ),
                     ),
                 ],
@@ -1340,95 +1499,96 @@ class _NavDestination {
   final String selectedIcon;
 }
 
-class _NavItem extends StatelessWidget {
-  const _NavItem({
+/// One destination slot: gesture target, semantics and icons.
+///
+/// Built once per real rebuild of the bar. Position and fade are applied from
+/// outside (see `_modulateNavSlot`); the only thing that animates *inside* is
+/// the icon tint, and it rebuilds nothing but the two-icon stack, for the
+/// ~70 ms the crossfade lasts.
+class _NavSlot extends StatelessWidget {
+  const _NavSlot({
+    required super.key,
     required this.destination,
     required this.index,
+    required this.selected,
+    required this.motion,
     required this.activeWeight,
-    this.visibility = 1,
-    this.translationX = 0,
-    this.showHistoryBack = false,
-    this.showScrollToTop = false,
+    required this.visibility,
+    required this.showHistoryBack,
+    required this.showScrollToTop,
     required this.onTap,
   });
 
   final _NavDestination destination;
   final int index;
-  final double activeWeight;
-  final double visibility;
-  final double translationX;
+  final bool selected;
+  final Listenable motion;
+  final double Function() activeWeight;
+  final double Function() visibility;
   final bool showHistoryBack;
   final bool showScrollToTop;
   final ValueChanged<int> onTap;
 
   @override
   Widget build(BuildContext context) {
-    final selected = activeWeight > 0.99 && !showHistoryBack;
-    final inactiveColor = AppColors.inactiveNavigationIcon.withValues(
-      alpha: 0.84 * visibility,
-    );
     final label = showHistoryBack
         ? 'Назад'
         : showScrollToTop
         ? 'Наверх'
         : destination.label;
 
-    return ExcludeSemantics(
-      excluding: visibility < 0.99,
-      child: IgnorePointer(
-        ignoring: visibility < 0.99,
-        child: Transform.translate(
-          offset: Offset(translationX, 0),
-          child: Semantics(
-            label: label,
-            button: true,
-            selected: selected,
-            sortKey: OrdinalSortKey(index.toDouble()),
-            child: Tooltip(
-              message: label,
-              child: InkResponse(
-                onTap: () => onTap(index),
-                radius: 30,
-                containedInkWell: true,
-                highlightShape: BoxShape.circle,
-                child: Center(
-                  child: showHistoryBack
-                      ? Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 20,
-                          color: AppColors.inactiveNavigationIcon.withValues(
-                            alpha: 0.92 * visibility,
-                          ),
-                        )
-                      : showScrollToTop
-                      ? Icon(
-                          Icons.keyboard_arrow_up_rounded,
-                          size: 28,
-                          color: Colors.white.withValues(
-                            alpha: activeWeight * visibility,
-                          ),
-                        )
-                      : Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            AppAssetIcon(
-                              destination.icon,
-                              size: AppIconography.navigation,
-                              color: inactiveColor.withValues(
-                                alpha: inactiveColor.a * (1 - activeWeight),
-                              ),
-                            ),
-                            AppAssetIcon(
-                              destination.selectedIcon,
-                              size: AppIconography.navigation,
-                              color: Colors.white.withValues(
-                                alpha: activeWeight * visibility,
-                              ),
-                            ),
-                          ],
-                        ),
-                ),
-              ),
+    return Semantics(
+      label: label,
+      button: true,
+      selected: selected,
+      sortKey: OrdinalSortKey(index.toDouble()),
+      child: Tooltip(
+        message: label,
+        child: InkResponse(
+          onTap: () => onTap(index),
+          radius: 30,
+          containedInkWell: true,
+          highlightShape: BoxShape.circle,
+          child: Center(
+            child: AnimatedBuilder(
+              animation: motion,
+              builder: (context, _) {
+                final fade = visibility().clamp(0.0, 1.0);
+                if (showHistoryBack) {
+                  return Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    size: 20,
+                    color: AppColors.inactiveNavigationIcon.withValues(
+                      alpha: 0.92 * fade,
+                    ),
+                  );
+                }
+                final weight = activeWeight();
+                if (showScrollToTop) {
+                  return Icon(
+                    Icons.keyboard_arrow_up_rounded,
+                    size: 28,
+                    color: Colors.white.withValues(alpha: weight * fade),
+                  );
+                }
+                return Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    AppAssetIcon(
+                      destination.icon,
+                      size: AppIconography.navigation,
+                      color: AppColors.inactiveNavigationIcon.withValues(
+                        alpha: 0.84 * fade * (1 - weight),
+                      ),
+                    ),
+                    AppAssetIcon(
+                      destination.selectedIcon,
+                      size: AppIconography.navigation,
+                      color: Colors.white.withValues(alpha: weight * fade),
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ),

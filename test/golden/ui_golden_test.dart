@@ -14,6 +14,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
+import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
@@ -27,6 +28,15 @@ import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 import '../support/test_overrides.dart';
 
 const _goldenKey = ValueKey('golden-surface');
+
+/// A quarter into the indicator travel — inside the `phase < 0.3` window where
+/// `_DropletPainter` still draws the neck bridging the two slots. Derived from
+/// the token (and its per-platform scaling) so retiming the droplet moves this
+/// sample with it instead of quietly landing on the settled end state.
+final _navTravelMidpoint = Duration(
+  milliseconds: (AppPerf.motion(AppMotion.droplet).inMilliseconds * 0.25)
+      .round(),
+);
 const _phoneSize = Size(393, 852);
 
 const _routes = [
@@ -309,7 +319,7 @@ void main() {
     await _pumpGolden(tester, const _NavHarness());
     await tester.tap(find.bySemanticsLabel('Профиль'));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(_navTravelMidpoint);
 
     await expectLater(
       find.byKey(_goldenKey),
