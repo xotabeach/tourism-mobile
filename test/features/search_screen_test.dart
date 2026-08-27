@@ -32,6 +32,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final _welcomeCta = find.text('Начать путешествие');
+    if (_welcomeCta.evaluate().isNotEmpty) {
+      await tester.tap(_welcomeCta);
+      await tester.pumpAndSettle();
+    }
+
   }
 
   testWidgets('search field on home shows in-place results', (tester) async {

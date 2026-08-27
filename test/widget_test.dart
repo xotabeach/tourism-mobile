@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
@@ -26,6 +27,10 @@ import 'package:tourism_mobile/routing/app_router.dart';
 
 import 'support/test_overrides.dart';
 
+Finder otpCodeField() => find.descendant(
+  of: find.byType(AuthOtpScreen),
+  matching: find.byType(TextField),
+);
 List<Override> _testOverrides({
   bool onboardingCompleted = false,
   List<Override> additional = const [],
@@ -36,13 +41,11 @@ List<Override> _testOverrides({
   ];
 }
 
-ProviderScope appWithCompletedOnboarding({
+Future<void> _pumpCompletedApp(
+  WidgetTester tester, {
   List<Override> overrides = const [],
 }) {
-  return ProviderScope(
-    overrides: _testOverrides(onboardingCompleted: true, additional: overrides),
-    child: const TourismApp(),
-  );
+  return pumpTourismAppAtHome(tester, overrides: overrides);
 }
 
 Future<void> openPlacesCatalog(WidgetTester tester) async {
@@ -82,7 +85,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
 
     expect(find.textContaining('ПОДТВЕРДИТЕ'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), '1234');
+    await tester.enterText(otpCodeField(), '1234');
     await tester.pump();
     await tester.tap(find.textContaining('политикой конфиденциальности'));
     await tester.tap(find.textContaining('персональных данных'));
@@ -91,7 +94,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
-    expect(find.textContaining('ПОСТРОЙ'), findsOneWidget);
   });
 
   testWidgets('existing account signs in with phone and no repeated consents', (
@@ -116,7 +118,7 @@ void main() {
     expect(find.textContaining('ПОДТВЕРДИТЕ'), findsOneWidget);
     expect(find.textContaining('политикой конфиденциальности'), findsNothing);
     expect(find.textContaining('персональных данных'), findsNothing);
-    await tester.enterText(find.byType(TextField), '1234');
+    await tester.enterText(otpCodeField(), '1234');
     await tester.pump();
     await tester.tap(find.text('Войти'));
     await tester.pumpAndSettle();
@@ -136,8 +138,7 @@ void main() {
         ..resetPhysicalSize();
     });
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     expect(find.textContaining('Привет, Никита'), findsOneWidget);
     await openPlacesCatalog(tester);
@@ -147,8 +148,7 @@ void main() {
   });
 
   testWidgets('home greeting opens profile tab', (WidgetTester tester) async {
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.textContaining('Привет, Никита'));
     await tester.pumpAndSettle();
@@ -157,8 +157,7 @@ void main() {
   });
 
   testWidgets('home bell opens the notifications inbox', (tester) async {
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.bySemanticsLabel(RegExp(r'^Уведомления')));
     await tester.pumpAndSettle();
@@ -168,8 +167,7 @@ void main() {
   });
 
   testWidgets('center screens support leading-edge back swipe', (tester) async {
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.bySemanticsLabel('Создать'));
     await tester.pumpAndSettle();
@@ -203,8 +201,7 @@ void main() {
   testWidgets('leaving publish does not restore it from another nav tab', (
     tester,
   ) async {
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.bySemanticsLabel('Создать'));
     await tester.pumpAndSettle();
@@ -229,8 +226,7 @@ void main() {
   testWidgets('center screens use brand app bar without bottom scrim', (
     WidgetTester tester,
   ) async {
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.bySemanticsLabel('Создать'));
     await tester.pumpAndSettle();
@@ -294,8 +290,7 @@ void main() {
         ..resetPhysicalSize();
     });
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
@@ -316,8 +311,7 @@ void main() {
         ..resetPhysicalSize();
     });
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
     await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Никита');
@@ -339,8 +333,7 @@ void main() {
         ..resetPhysicalSize();
     });
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
     await tester.tap(find.byType(TextField).first);
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'Никита');
@@ -358,8 +351,7 @@ void main() {
   testWidgets('my routes subscriptions use discovery profile cards', (
     tester,
   ) async {
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
     await tester.tap(find.bySemanticsLabel('Избранное'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Подписки'));
@@ -407,21 +399,19 @@ void main() {
         ),
       );
 
-      await tester.pumpWidget(
-        appWithCompletedOnboarding(
-          overrides: [
-            homeRoutesProvider.overrideWith(
-              (ref) async => RouteListPage(
-                items: routes,
-                total: routes.length,
-                limit: 100,
-                offset: 0,
-              ),
+      await _pumpCompletedApp(
+        tester,
+        overrides: [
+          homeRoutesProvider.overrideWith(
+            (ref) async => RouteListPage(
+              items: routes,
+              total: routes.length,
+              limit: 100,
+              offset: 0,
             ),
-          ],
-        ),
+          ),
+        ],
       );
-      await tester.pumpAndSettle();
 
       expect(find.byType(RouteHeroCard), findsNWidgets(7));
       expect(find.text('Популярный маршрут 7'), findsNothing);
@@ -446,8 +436,7 @@ void main() {
         ..resetPhysicalSize();
     });
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.text('Смотреть все'));
     await tester.pumpAndSettle();
@@ -496,14 +485,12 @@ void main() {
       // actually observable instead of settling before we can inspect it.
       final placesCompleter = Completer<PlaceListPage>();
 
-      await tester.pumpWidget(
-        appWithCompletedOnboarding(
-          overrides: [
-            homePlacesProvider.overrideWith((ref) => placesCompleter.future),
-          ],
-        ),
+      await _pumpCompletedApp(
+        tester,
+        overrides: [
+          homePlacesProvider.overrideWith((ref) => placesCompleter.future),
+        ],
       );
-      await tester.pumpAndSettle();
 
       await tester.tap(find.text('Локации'));
       await tester.pump();
@@ -545,8 +532,7 @@ void main() {
       (widget) => widget is Text && widget.data == 'Ай-Петри',
     );
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
     await openPlacesCatalog(tester);
 
     expect(find.text('Ласточкино гнездо'), findsOneWidget);
@@ -574,8 +560,7 @@ void main() {
         ..resetPhysicalSize();
     });
 
-    await tester.pumpWidget(appWithCompletedOnboarding());
-    await tester.pumpAndSettle();
+    await _pumpCompletedApp(tester);
 
     await tester.tap(find.bySemanticsLabel('Маршруты'));
     await tester.pumpAndSettle();

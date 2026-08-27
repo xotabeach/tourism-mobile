@@ -79,12 +79,13 @@ CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
 **API при `DATA_SOURCE=api`:** auth OTP, каталог мест/маршрутов, избранное,
 публикация черновика → модерация, отдельные отзывы маршрутов и локаций (фото,
 закреплённый собственный отзыв, ответы с цитатой, fullscreen viewer), профиль
-(тп/звания/лидерборд/лайки/эксперт/достижения, цельный pull-to-refresh), support tickets, inbox,
+(тп/звания/лидерборд/лайки/эксперт/достижения, цельный pull-to-refresh), support tickets с фото,
+тест пользовательских предпочтений, inbox,
 FCM token (Android и сконфигурированный iOS-клиент; APNs key всё ещё нужен).
 
-**UI-only / stub:** подбор маршрута (срез каталога до Phase 8A), «Пройти
-маршрут», Travel+ billing, аудиогид, offline download,
-история в «Моём избранном». Чат ИИ не ходит в Gemma/Gemini.
+**UI-only / stub:** «Пройти маршрут», Travel+ billing, аудиогид, offline download,
+история в «Моём избранном». В `DATA_SOURCE=mock` чат использует сценарии;
+в API-режиме работает через backend planning sessions.
 
 ## Структура
 
@@ -104,7 +105,7 @@ lib/
 │   ├── places/
 │   ├── routes/
 │   ├── route_publish/
-│   ├── route_match/  # form UI; builder = Phase 8A
+│   ├── route_match/  # form + interactive AI chat; builder = Phase 8B
 │   ├── my_routes/
 │   ├── profile/
 │   ├── settings/     # support, inbox, Travel+ mock

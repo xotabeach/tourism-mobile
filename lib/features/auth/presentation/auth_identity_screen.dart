@@ -80,7 +80,8 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
       if (!mounted) {
         return;
       }
-      context.goNamed(AppRouteNames.authOtp);
+      // Push so the OTP screen can swipe / pop back to phone entry.
+      await context.pushNamed(AppRouteNames.authOtp);
     } on Object {
       if (!mounted) {
         return;

@@ -35,6 +35,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final _welcomeCta = find.text('Начать путешествие');
+    if (_welcomeCta.evaluate().isNotEmpty) {
+      await tester.tap(_welcomeCta);
+      await tester.pumpAndSettle();
+    }
+
 
     await tester.tap(find.bySemanticsLabel('Профиль'));
     await tester.pumpAndSettle();
@@ -136,6 +142,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final _welcomeCta = find.text('Начать путешествие');
+    if (_welcomeCta.evaluate().isNotEmpty) {
+      await tester.tap(_welcomeCta);
+      await tester.pumpAndSettle();
+    }
+
     await tester.tap(find.bySemanticsLabel('Профиль'));
     await tester.pumpAndSettle();
 
@@ -167,6 +179,12 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final _welcomeCta = find.text('Начать путешествие');
+    if (_welcomeCta.evaluate().isNotEmpty) {
+      await tester.tap(_welcomeCta);
+      await tester.pumpAndSettle();
+    }
+
     await tester.tap(find.bySemanticsLabel('Профиль'));
     await tester.pumpAndSettle();
     final context = tester.element(find.byType(ProfileScreen));

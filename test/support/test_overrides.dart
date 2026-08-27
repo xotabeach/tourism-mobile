@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/storage/memory_secure_storage.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
@@ -17,6 +19,7 @@ const testAppConfig = AppConfig(
 List<Override> testSessionOverrides({
   bool onboardingCompleted = false,
   String displayName = 'Никита',
+  String? avatarUrl,
   bool travelPlusActive = false,
   String? travelPlusPlan,
   DateTime? travelPlusExpiresAt,
@@ -38,6 +41,7 @@ List<Override> testSessionOverrides({
           phone: onboardingCompleted ? '+79001234567' : null,
           userId: onboardingCompleted ? 'mock-user' : null,
           accessToken: onboardingCompleted ? 'mock-access' : null,
+          avatarUrl: onboardingCompleted ? avatarUrl : null,
           travelPlusActive: travelPlusActive,
           travelPlusPlan: travelPlusPlan,
           travelPlusExpiresAt: travelPlusExpiresAt,
@@ -46,4 +50,35 @@ List<Override> testSessionOverrides({
     ),
     searchHistoryStoreProvider.overrideWithValue(MemorySearchHistoryStore()),
   ];
+}
+
+/// Pumps [TourismApp] and, when the session is already signed in, enters the
+/// shell from the branded welcome screen (avatar / CTA → home).
+Future<void> pumpTourismAppAtHome(
+  WidgetTester tester, {
+  List<Override> overrides = const [],
+  bool onboardingCompleted = true,
+  String? avatarUrl,
+}) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...testSessionOverrides(
+          onboardingCompleted: onboardingCompleted,
+          avatarUrl: avatarUrl,
+        ),
+        ...overrides,
+      ],
+      child: const TourismApp(),
+    ),
+  );
+  await tester.pumpAndSettle();
+  if (!onboardingCompleted) {
+    return;
+  }
+  final start = find.text('Начать путешествие');
+  if (start.evaluate().isNotEmpty) {
+    await tester.tap(start);
+    await tester.pumpAndSettle();
+  }
 }

@@ -122,6 +122,14 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
     _openKeyboard(caretAt: index);
   }
 
+  void _goBackToPhone() {
+    if (context.canPop()) {
+      context.pop();
+      return;
+    }
+    context.goNamed(AppRouteNames.authIdentity);
+  }
+
   Future<void> _startJourney() async {
     if (!_canSubmit || _submitting) {
       return;
@@ -164,10 +172,18 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
       backgroundColor: AppColors.mist,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 38, 16, 24),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              AppGlassIconButton(
+                semanticLabel: 'Назад',
+                icon: Icons.arrow_back_ios_new_rounded,
+                dimension: 44,
+                iconSize: 18,
+                onPressed: _goBackToPhone,
+              ),
+              const SizedBox(height: 16),
               Text(
                 'КРЫМТРИП',
                 style: AppTextStyles.logo(

@@ -129,8 +129,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         name: AppRouteNames.authOtp,
         path: AuthOtpScreen.routePath,
-        pageBuilder: (context, state) =>
-            _appTransitionPage(state, const AuthOtpScreen()),
+        // CupertinoPage enables iOS edge-swipe back to phone entry.
+        pageBuilder: (context, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: const AuthOtpScreen(),
+        ),
       ),
       GoRoute(
         name: AppRouteNames.search,
