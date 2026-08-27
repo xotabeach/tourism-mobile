@@ -47,6 +47,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
   var _offset = 0;
   var _total = 0;
   var _loading = false;
+  var _loadGeneration = 0;
   var _error = false;
   var _searchQuery = '';
   var _searchFocused = false;
@@ -102,20 +103,24 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
   }
 
   Future<void> _loadNextPage() async {
+    final generation = _loadGeneration;
+    final mode = _mode;
+    final offset = _offset;
     setState(() {
       _loading = true;
       _error = false;
     });
     try {
-      if (_mode == HomeListMode.routes) {
+      if (mode == HomeListMode.routes) {
         final page = await ref
             .read(routesRepositoryProvider)
             .listRoutes(
               regionSlug: 'crimea',
               limit: _pageSize,
-              offset: _offset,
+              offset: offset,
               sort: RouteCatalogSort.popular,
             );
+        if (!mounted || generation != _loadGeneration || mode != _mode) return;
         setState(() {
           _routeItems.addAll(page.items);
           _total = page.total;
@@ -124,11 +129,8 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
       } else {
         final page = await ref
             .read(placesRepositoryProvider)
-            .listPlaces(
-              regionSlug: 'crimea',
-              limit: _pageSize,
-              offset: _offset,
-            );
+            .listPlaces(regionSlug: 'crimea', limit: _pageSize, offset: offset);
+        if (!mounted || generation != _loadGeneration || mode != _mode) return;
         setState(() {
           _placeItems.addAll(page.items);
           _total = page.total;
@@ -136,9 +138,13 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
         });
       }
     } on Object {
-      if (mounted) setState(() => _error = true);
+      if (mounted && generation == _loadGeneration && mode == _mode) {
+        setState(() => _error = true);
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _loadGeneration && mode == _mode) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -146,6 +152,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     if (mode == _mode) return;
     _searchDebounce?.cancel();
     _searchController.clear();
+    _loadGeneration++;
     setState(() {
       _mode = mode;
       _routeItems.clear();

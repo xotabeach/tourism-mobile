@@ -28,12 +28,11 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final _welcomeCta = find.text('Начать путешествие');
-    if (_welcomeCta.evaluate().isNotEmpty) {
-      await tester.tap(_welcomeCta);
+    final welcomeCta = find.text('Начать путешествие');
+    if (welcomeCta.evaluate().isNotEmpty) {
+      await tester.tap(welcomeCta);
       await tester.pumpAndSettle();
     }
-
 
     await tester.tap(find.bySemanticsLabel('Профиль'));
     await tester.pumpAndSettle();

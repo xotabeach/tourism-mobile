@@ -27,12 +27,11 @@ Future<void> _openRouteDetails(WidgetTester tester) async {
     ),
   );
   await tester.pumpAndSettle();
-    final _welcomeCta = find.text('Начать путешествие');
-    if (_welcomeCta.evaluate().isNotEmpty) {
-      await tester.tap(_welcomeCta);
-      await tester.pumpAndSettle();
-    }
-
+  final welcomeCta = find.text('Начать путешествие');
+  if (welcomeCta.evaluate().isNotEmpty) {
+    await tester.tap(welcomeCta);
+    await tester.pumpAndSettle();
+  }
 
   await tester.tap(find.bySemanticsLabel('Маршруты'));
   await tester.pumpAndSettle();
