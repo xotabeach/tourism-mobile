@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/data/api_routes_repository.dart';
 import 'package:tourism_mobile/features/routes/data/caching_routes_repository.dart';
 import 'package:tourism_mobile/features/routes/data/mock_routes_repository.dart';
@@ -37,9 +38,7 @@ final homeRoutesProvider = FutureProvider<RouteListPage>((ref) {
 });
 
 final routeDetailProvider = FutureProvider.autoDispose
-    .family<RouteDetail, String>((ref, id) {
-      return ref.watch(routesRepositoryProvider).getRoute(id);
-    });
+    .family<RouteDetail, String>(_getRouteWithOfflineFallback);
 
 final routesForPlaceProvider = FutureProvider.autoDispose
     .family<RouteListPage, String>((ref, placeId) {
@@ -49,6 +48,28 @@ final routesForPlaceProvider = FutureProvider.autoDispose
     });
 
 final ownRouteDetailProvider = FutureProvider.autoDispose
-    .family<RouteDetail, String>((ref, id) {
-      return ref.watch(routesRepositoryProvider).getMyRoute(id);
-    });
+    .family<RouteDetail, String>(_getOwnRouteWithOfflineFallback);
+
+Future<RouteDetail> _getRouteWithOfflineFallback(Ref ref, String id) async {
+  try {
+    return await ref.watch(routesRepositoryProvider).getRoute(id);
+  } on Object {
+    final cached = await ref.read(offlineRouteStoreProvider).get(id);
+    if (cached != null) {
+      return cached.route;
+    }
+    rethrow;
+  }
+}
+
+Future<RouteDetail> _getOwnRouteWithOfflineFallback(Ref ref, String id) async {
+  try {
+    return await ref.watch(routesRepositoryProvider).getMyRoute(id);
+  } on Object {
+    final cached = await ref.read(offlineRouteStoreProvider).get(id);
+    if (cached != null) {
+      return cached.route;
+    }
+    rethrow;
+  }
+}

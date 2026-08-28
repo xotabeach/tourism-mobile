@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/storage/secure_storage_port.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/auth/data/auth_repository_impl.dart';
 import 'package:tourism_mobile/features/auth/domain/auth_repository.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 
 class SessionState {
   const SessionState({
@@ -126,7 +127,7 @@ class SessionController extends StateNotifier<SessionState> {
   final AuthRepository _auth;
   final SecureStoragePort _storage;
   final bool useMockData;
-  final void Function()? onSessionCleared;
+  final FutureOr<void> Function()? onSessionCleared;
   Future<String?>? _refreshInFlight;
   Future<OtpStartResult>? _otpRequestInFlight;
 
@@ -468,7 +469,7 @@ class SessionController extends StateNotifier<SessionState> {
     }
     await _storage.delete(key: SecureStorageKeys.refreshToken);
     state = const SessionState(isHydrated: true);
-    onSessionCleared?.call();
+    await onSessionCleared?.call();
   }
 
   void resetOnboarding() {
@@ -494,7 +495,16 @@ final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
     authRepository: ref.watch(authRepositoryProvider),
     secureStorage: ref.watch(secureStorageProvider),
     useMockData: ref.watch(appConfigProvider).useMockData,
-    onSessionCleared: cacheRegistry.invalidateAll,
+    onSessionCleared: () async {
+      cacheRegistry.invalidateAll();
+      // Offline snapshots may contain private/user-created route data. Do
+      // not leave the previous account's content available after logout.
+      try {
+        await clearOfflineRouteData(ref.read(offlineRouteStoreProvider));
+      } on Object {
+        // Token deletion and session reset still win if local cleanup fails.
+      }
+    },
   );
   unawaited(controller.hydrate());
   return controller;

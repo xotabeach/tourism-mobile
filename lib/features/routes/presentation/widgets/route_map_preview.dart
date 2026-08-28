@@ -17,6 +17,7 @@ class RouteMapPreview extends StatelessWidget {
     required this.onPinTap,
     this.height = 260,
     this.footerLabel,
+    this.geometry,
     super.key,
   });
 
@@ -25,6 +26,7 @@ class RouteMapPreview extends StatelessWidget {
   final ValueChanged<int> onPinTap;
   final double height;
   final String? footerLabel;
+  final RouteGeometry? geometry;
 
   @override
   Widget build(BuildContext context) {
@@ -34,14 +36,20 @@ class RouteMapPreview extends StatelessWidget {
         height: height,
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final points = _pinOffsets(constraints.biggest);
+            final projected = _project(constraints.biggest);
+            final points = projected.pins;
 
             return Stack(
               children: [
                 const Positioned.fill(child: _MapBackdrop()),
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: CustomPaint(painter: _RouteLinePainter(points)),
+                    child: CustomPaint(
+                      painter: _RouteLinePainter(
+                        points,
+                        geometryPoints: projected.geometry,
+                      ),
+                    ),
                   ),
                 ),
                 for (var index = 0; index < points.length; index++)
@@ -75,40 +83,50 @@ class RouteMapPreview extends StatelessWidget {
     );
   }
 
-  List<Offset> _pinOffsets(Size size) {
+  ({List<Offset> pins, List<Offset> geometry}) _project(Size size) {
     const inset = 44.0;
     final width = size.width - inset * 2;
     // Keeps pins clear of the «N точек маршрута» caption at the bottom.
     final usableHeight = size.height - inset - 64;
     if (stops.isEmpty) {
-      return const [];
-    }
-    if (stops.length == 1) {
-      return [Offset(size.width / 2, inset + usableHeight / 2)];
+      return (pins: const [], geometry: const []);
     }
 
     final lats = stops.map((stop) => stop.lat).whereType<double>().toList();
     final lngs = stops.map((stop) => stop.lng).whereType<double>().toList();
     final hasGeo = lats.length == stops.length && lngs.length == stops.length;
+    final routeCoordinates = geometry?.coordinates ?? const <RouteCoordinate>[];
+    final allLats = [...lats, ...routeCoordinates.map((point) => point.lat)];
+    final allLngs = [...lngs, ...routeCoordinates.map((point) => point.lng)];
 
-    if (!hasGeo) {
-      return [
-        for (var index = 0; index < stops.length; index++)
-          Offset(
-            inset + width * index / (stops.length - 1),
-            inset + usableHeight * (index.isEven ? 0.28 : 0.72),
-          ),
-      ];
+    if (stops.length == 1) {
+      return (
+        pins: [Offset(size.width / 2, inset + usableHeight / 2)],
+        geometry: const [],
+      );
     }
 
-    final minLat = lats.reduce((a, b) => a < b ? a : b);
-    final maxLat = lats.reduce((a, b) => a > b ? a : b);
-    final minLng = lngs.reduce((a, b) => a < b ? a : b);
-    final maxLng = lngs.reduce((a, b) => a > b ? a : b);
+    if (!hasGeo || allLats.length < 2 || allLngs.length < 2) {
+      return (
+        pins: [
+          for (var index = 0; index < stops.length; index++)
+            Offset(
+              inset + width * index / (stops.length - 1),
+              inset + usableHeight * (index.isEven ? 0.28 : 0.72),
+            ),
+        ],
+        geometry: const [],
+      );
+    }
+
+    final minLat = allLats.reduce((a, b) => a < b ? a : b);
+    final maxLat = allLats.reduce((a, b) => a > b ? a : b);
+    final minLng = allLngs.reduce((a, b) => a < b ? a : b);
+    final maxLng = allLngs.reduce((a, b) => a > b ? a : b);
     final latSpan = (maxLat - minLat).abs() < 1e-6 ? 1.0 : maxLat - minLat;
     final lngSpan = (maxLng - minLng).abs() < 1e-6 ? 1.0 : maxLng - minLng;
 
-    return [
+    final pins = [
       for (final stop in stops)
         Offset(
           inset + width * ((stop.lng! - minLng) / lngSpan),
@@ -116,6 +134,14 @@ class RouteMapPreview extends StatelessWidget {
           inset + usableHeight * (1 - (stop.lat! - minLat) / latSpan),
         ),
     ];
+    final geometryPoints = [
+      for (final point in routeCoordinates)
+        Offset(
+          inset + width * ((point.lng - minLng) / lngSpan),
+          inset + usableHeight * (1 - (point.lat - minLat) / latSpan),
+        ),
+    ];
+    return (pins: pins, geometry: geometryPoints);
   }
 
   static String _pointsLabel(int count) {
@@ -234,19 +260,21 @@ class _MapGridPainter extends CustomPainter {
 }
 
 class _RouteLinePainter extends CustomPainter {
-  const _RouteLinePainter(this.points);
+  const _RouteLinePainter(this.points, {this.geometryPoints = const []});
 
   final List<Offset> points;
+  final List<Offset> geometryPoints;
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (points.length < 2) {
+    final line = geometryPoints.length >= 2 ? geometryPoints : points;
+    if (line.length < 2) {
       return;
     }
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var index = 1; index < points.length; index++) {
-      final previous = points[index - 1];
-      final current = points[index];
+    final path = Path()..moveTo(line.first.dx, line.first.dy);
+    for (var index = 1; index < line.length; index++) {
+      final previous = line[index - 1];
+      final current = line[index];
       final controlX = (previous.dx + current.dx) / 2;
       path.cubicTo(
         controlX,
@@ -269,6 +297,7 @@ class _RouteLinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RouteLinePainter oldDelegate) {
-    return oldDelegate.points != points;
+    return oldDelegate.points != points ||
+        oldDelegate.geometryPoints != geometryPoints;
   }
 }

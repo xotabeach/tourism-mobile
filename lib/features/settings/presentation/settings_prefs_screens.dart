@@ -12,6 +12,8 @@ import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_permission.dart';
 import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
+import 'package:tourism_mobile/features/routes/data/offline_route_store.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -240,8 +242,11 @@ class SettingsOfflineScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final prefs = ref.watch(settingsPreferencesProvider);
     final controller = ref.read(settingsPreferencesProvider.notifier);
+    final downloaded = ref.watch(offlineRoutesProvider);
+    final downloadedItems = downloaded.valueOrNull ?? const [];
     return SettingsScaffold(
       title: 'Оффлайн маршруты:',
+      subtitle: 'Сохраняйте маршрут и его остановки, чтобы открыть их без сети',
       showSave: true,
       children: [
         SettingsToggleTile(
@@ -271,6 +276,29 @@ class SettingsOfflineScreen extends ConsumerWidget {
             iconSize: 18,
           ),
         ),
+        SettingsNavTile(
+          title: 'Скачанные маршруты',
+          subtitle: downloaded.when(
+            loading: () => 'Проверяем сохранённые маршруты…',
+            error: (_, _) => 'Не удалось прочитать локальное хранилище',
+            data: (items) => items.isEmpty
+                ? 'Пока нет маршрутов без сети'
+                : '${items.length} ${_routeWord(items.length)} доступно без сети',
+          ),
+          icon: Icons.download_done_rounded,
+          onTap: downloadedItems.isEmpty
+              ? null
+              : () => _showDownloadedSheet(context, ref, downloadedItems),
+          trailing: SettingsCircleIconButton(
+            icon: Icons.delete_sweep_outlined,
+            onTap: downloadedItems.isEmpty
+                ? () {}
+                : () => _clearDownloaded(context, ref),
+            background: SettingsColors.circleButton,
+            size: 40,
+            iconSize: 18,
+          ),
+        ),
       ],
     );
   }
@@ -285,5 +313,103 @@ class SettingsOfflineScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(const SnackBar(content: Text('Кеш API очищен')));
+  }
+
+  Future<void> _clearDownloaded(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Удалить скачанные маршруты?'),
+        content: const Text(
+          'Сами маршруты в аккаунте останутся. Удалятся только локальные копии.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+    await clearDownloadedRoutes(ref);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Скачанные маршруты удалены')),
+      );
+    }
+  }
+
+  void _showDownloadedSheet(
+    BuildContext context,
+    WidgetRef ref,
+    List<OfflineRouteRecord> items,
+  ) {
+    unawaited(
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: ListView.separated(
+            shrinkWrap: true,
+            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+            itemCount: items.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final item = items[index];
+              return ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.route_rounded),
+                title: Text(item.route.name),
+                subtitle: Text(
+                  '${item.route.stops.length} остановок · ${_downloadDate(item.downloadedAt)}',
+                ),
+                trailing: IconButton(
+                  tooltip: 'Удалить скачанную копию',
+                  icon: const Icon(Icons.delete_outline_rounded),
+                  onPressed: () async {
+                    await removeDownloadedRoute(ref, item.id);
+                    if (sheetContext.mounted) {
+                      Navigator.of(sheetContext).pop();
+                    }
+                  },
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(
+                    context.pushNamed(
+                      AppRouteNames.routeDetails,
+                      pathParameters: {'id': item.id},
+                      extra: item.route,
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _routeWord(int count) {
+    final mod100 = count % 100;
+    final mod10 = count % 10;
+    if (mod100 >= 11 && mod100 <= 14) return 'маршрутов';
+    if (mod10 == 1) return 'маршрут';
+    if (mod10 >= 2 && mod10 <= 4) return 'маршрута';
+    return 'маршрутов';
+  }
+
+  static String _downloadDate(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = value.month.toString().padLeft(2, '0');
+    return 'скачан $day.$month.${value.year}';
   }
 }

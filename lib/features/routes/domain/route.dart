@@ -37,6 +37,19 @@ class RouteStop {
       lng: (json['lng'] as num?)?.toDouble(),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'position': position,
+    'place_id': placeId,
+    'place_name': placeName,
+    'place_slug': placeSlug,
+    'visit_duration_minutes': visitDurationMinutes,
+    'note': note,
+    'is_optional': isOptional,
+    'lat': lat,
+    'lng': lng,
+  };
 }
 
 enum RouteCatalogSort {
@@ -133,6 +146,32 @@ class RouteSummary {
       publicationStatus: json['publication_status'] as String?,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'name': name,
+    'slug': slug,
+    'short_description': shortDescription,
+    'stops_count': stopsCount,
+    'estimated_duration_minutes': estimatedDurationMinutes,
+    'distance_meters': distanceMeters,
+    'difficulty': difficulty,
+    'transport_mode': transportMode,
+    'is_round_trip': isRoundTrip,
+    'suitable_for_children': suitableForChildren,
+    'pets_allowed': petsAllowed,
+    'seasonality': seasonality,
+    'author_label': authorLabel,
+    'cover_image_url': coverImageUrl,
+    'owner_user_id': ownerUserId,
+    'author_avatar_url': authorAvatarUrl,
+    'author_is_expert': authorIsExpert,
+    'author_rank_title': authorRankTitle,
+    'source': source,
+    'visibility': visibility,
+    'lifecycle_status': lifecycleStatus,
+    'publication_status': publicationStatus,
+  };
 }
 
 class RouteDetailMedia {
@@ -158,6 +197,132 @@ class RouteDetailMedia {
       position: json['position'] as int,
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'url': url,
+    'kind': kind,
+    'position': position,
+  };
+}
+
+class RouteGeometry {
+  const RouteGeometry({required this.coordinates});
+
+  final List<RouteCoordinate> coordinates;
+
+  factory RouteGeometry.fromJson(Map<String, dynamic> json) {
+    final raw = json['coordinates'];
+    final coordinates = raw is List
+        ? raw
+              .whereType<List<dynamic>>()
+              .where((pair) => pair.length >= 2)
+              .map(
+                (pair) => RouteCoordinate(
+                  lng: (pair[0] as num).toDouble(),
+                  lat: (pair[1] as num).toDouble(),
+                ),
+              )
+              .toList(growable: false)
+        : const <RouteCoordinate>[];
+    return RouteGeometry(coordinates: coordinates);
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': 'LineString',
+    'coordinates': [
+      for (final point in coordinates) [point.lng, point.lat],
+    ],
+  };
+}
+
+class RouteCoordinate {
+  const RouteCoordinate({required this.lng, required this.lat});
+
+  final double lng;
+  final double lat;
+}
+
+class RouteRoutingInfo {
+  const RouteRoutingInfo({
+    this.provider,
+    this.synthetic = false,
+    this.qualityStatus = 'unknown',
+    this.qualityPolicyVersion,
+    this.warnings = const [],
+    this.movementDurationSeconds,
+    this.visitDurationMinutes,
+    this.transferDurationSeconds,
+    this.bufferDurationSeconds,
+    this.totalDurationSeconds,
+    this.elevationGainMeters,
+    this.elevationLossMeters,
+    this.minAltitudeMeters,
+    this.maxAltitudeMeters,
+    this.maxRoadAngleDegrees,
+    this.roadTypes = const [],
+  });
+
+  final String? provider;
+  final bool synthetic;
+  final String qualityStatus;
+  final String? qualityPolicyVersion;
+  final List<String> warnings;
+  final int? movementDurationSeconds;
+  final int? visitDurationMinutes;
+  final int? transferDurationSeconds;
+  final int? bufferDurationSeconds;
+  final int? totalDurationSeconds;
+  final int? elevationGainMeters;
+  final int? elevationLossMeters;
+  final int? minAltitudeMeters;
+  final int? maxAltitudeMeters;
+  final double? maxRoadAngleDegrees;
+  final List<String> roadTypes;
+
+  factory RouteRoutingInfo.fromJson(Map<String, dynamic> json) {
+    return RouteRoutingInfo(
+      provider: json['provider'] as String?,
+      synthetic: json['synthetic'] as bool? ?? false,
+      qualityStatus: json['quality_status'] as String? ?? 'unknown',
+      qualityPolicyVersion: json['quality_policy_version'] as String?,
+      warnings: (json['warnings'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
+      movementDurationSeconds: json['movement_duration_seconds'] as int?,
+      visitDurationMinutes: json['visit_duration_minutes'] as int?,
+      transferDurationSeconds: json['transfer_duration_seconds'] as int?,
+      bufferDurationSeconds: json['buffer_duration_seconds'] as int?,
+      totalDurationSeconds: json['total_duration_seconds'] as int?,
+      elevationGainMeters: json['elevation_gain_meters'] as int?,
+      elevationLossMeters: json['elevation_loss_meters'] as int?,
+      minAltitudeMeters: json['min_altitude_meters'] as int?,
+      maxAltitudeMeters: json['max_altitude_meters'] as int?,
+      maxRoadAngleDegrees: (json['max_road_angle_degrees'] as num?)?.toDouble(),
+      roadTypes: (json['road_types'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'provider': provider,
+    'synthetic': synthetic,
+    'quality_status': qualityStatus,
+    'quality_policy_version': qualityPolicyVersion,
+    'warnings': warnings,
+    'movement_duration_seconds': movementDurationSeconds,
+    'visit_duration_minutes': visitDurationMinutes,
+    'transfer_duration_seconds': transferDurationSeconds,
+    'buffer_duration_seconds': bufferDurationSeconds,
+    'total_duration_seconds': totalDurationSeconds,
+    'elevation_gain_meters': elevationGainMeters,
+    'elevation_loss_meters': elevationLossMeters,
+    'min_altitude_meters': minAltitudeMeters,
+    'max_altitude_meters': maxAltitudeMeters,
+    'max_road_angle_degrees': maxRoadAngleDegrees,
+    'road_types': roadTypes,
+  };
 }
 
 class RouteDetail extends RouteSummary {
@@ -188,11 +353,17 @@ class RouteDetail extends RouteSummary {
     required this.description,
     required this.stops,
     this.media = const [],
+    this.freshnessStatus,
+    this.geometry,
+    this.routing,
   });
 
   final String? description;
   final List<RouteStop> stops;
   final List<RouteDetailMedia> media;
+  final String? freshnessStatus;
+  final RouteGeometry? geometry;
+  final RouteRoutingInfo? routing;
 
   factory RouteDetail.fromJson(Map<String, dynamic> json) {
     final stopsJson = json['stops'] as List<dynamic>? ?? const [];
@@ -232,8 +403,26 @@ class RouteDetail extends RouteSummary {
             (item) => RouteDetailMedia.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
+      freshnessStatus: json['freshness_status'] as String?,
+      geometry: json['geometry'] is Map<String, dynamic>
+          ? RouteGeometry.fromJson(json['geometry'] as Map<String, dynamic>)
+          : null,
+      routing: json['routing'] is Map<String, dynamic>
+          ? RouteRoutingInfo.fromJson(json['routing'] as Map<String, dynamic>)
+          : null,
     );
   }
+
+  @override
+  Map<String, dynamic> toJson() => {
+    ...super.toJson(),
+    'description': description,
+    'freshness_status': freshnessStatus,
+    'geometry': geometry?.toJson(),
+    'routing': routing?.toJson(),
+    'stops': [for (final stop in stops) stop.toJson()],
+    'media': [for (final item in media) item.toJson()],
+  };
 }
 
 class RouteListPage {

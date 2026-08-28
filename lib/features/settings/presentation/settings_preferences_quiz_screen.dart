@@ -17,6 +17,19 @@ const _difficultyOptions = [
   ('hard', 'Сложный'),
 ];
 
+const _categoryIcons = <String, IconData>{
+  'Море': Icons.waves_rounded,
+  'Горы': Icons.terrain_rounded,
+  'Еда': Icons.restaurant_rounded,
+  'Лес': Icons.forest_rounded,
+};
+
+const _difficultyIcons = <String, IconData>{
+  'easy': Icons.directions_walk_rounded,
+  'moderate': Icons.hiking_rounded,
+  'hard': Icons.trending_up_rounded,
+};
+
 /// "Сменить предпочтения" — a short quiz (interest categories, difficulty,
 /// travel companions) that used to be a pure stub with nowhere for an
 /// answer to go. Answers reuse the same taxonomy the route catalog already
@@ -111,6 +124,18 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
     }
   }
 
+  void _reset() {
+    setState(() {
+      _categories.clear();
+      _difficulty = null;
+      _kids = false;
+      _pets = false;
+    });
+  }
+
+  bool get _hasSelections =>
+      _categories.isNotEmpty || _difficulty != null || _kids || _pets;
+
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
@@ -119,20 +144,54 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
       showSave: true,
       onSave: _busy ? null : _submit,
       children: [
+        const _PreferencesIntroCard(),
         SettingsFormCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Что вам интересно:',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Что вам интересно:',
+                          style: AppTypography.settingsRowTitle.copyWith(
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _categories.isEmpty
+                              ? 'Выберите хотя бы один интерес'
+                              : '${_categories.length} ${_interestWord(_categories.length)} выбрано',
+                          style: AppTypography.settingsRowSubtitle.copyWith(
+                            fontSize: 11,
+                            color: _categories.isEmpty
+                                ? AppColors.settingsSecondaryInk
+                                : AppColors.accentBlueIcon,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (_categories.isNotEmpty)
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(_categories.clear),
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        minimumSize: const Size(0, 32),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Очистить'),
+                    ),
+                ],
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Можно выбрать несколько вариантов',
-                style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 11),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -140,6 +199,7 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
                   for (final category in preferenceCategories)
                     _QuizChip(
                       label: category,
+                      icon: _categoryIcons[category],
                       selected: _categories.contains(category),
                       onTap: () => setState(() {
                         if (!_categories.remove(category)) {
@@ -161,6 +221,11 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
                 'Предпочитаемая сложность:',
                 style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
               ),
+              const SizedBox(height: 4),
+              Text(
+                'Подстроим темп и длину подсказок под вас',
+                style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 11),
+              ),
               const SizedBox(height: 10),
               Wrap(
                 spacing: 8,
@@ -169,6 +234,7 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
                   for (final (value, label) in _difficultyOptions)
                     _QuizChip(
                       label: label,
+                      icon: _difficultyIcons[value],
                       selected: _difficulty == value,
                       onTap: () => setState(
                         () => _difficulty = _difficulty == value ? null : value,
@@ -195,7 +261,75 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
           value: _pets,
           onChanged: (value) => setState(() => _pets = value),
         ),
+        if (_hasSelections) ...[
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton.icon(
+              onPressed: _busy ? null : _reset,
+              icon: const Icon(Icons.restart_alt_rounded, size: 18),
+              label: const Text('Сбросить все ответы'),
+            ),
+          ),
+        ],
       ],
+    );
+  }
+
+  static String _interestWord(int count) {
+    final mod100 = count % 100;
+    final mod10 = count % 10;
+    if (mod100 >= 11 && mod100 <= 14) return 'интересов';
+    if (mod10 == 1) return 'интерес';
+    if (mod10 >= 2 && mod10 <= 4) return 'интереса';
+    return 'интересов';
+  }
+}
+
+class _PreferencesIntroCard extends StatelessWidget {
+  const _PreferencesIntroCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            AppColors.accentBlue.withValues(alpha: 0.14),
+            AppColors.accentBlue.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(AppRadii.settingsTile),
+        border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.16)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: AppColors.elevatedSurface.withValues(alpha: 0.85),
+                shape: BoxShape.circle,
+              ),
+              child: const Padding(
+                padding: EdgeInsets.all(11),
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  color: AppColors.accentBlue,
+                  size: 23,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'Ответьте на несколько вопросов — рекомендации станут точнее, '
+                'а лента не превратится в однообразный фильтр.',
+                style: AppTypography.settingsRowSubtitle,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -203,36 +337,56 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
 class _QuizChip extends StatelessWidget {
   const _QuizChip({
     required this.label,
+    this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
+  final IconData? icon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.accentBlue : AppColors.elevatedSurface,
-      borderRadius: BorderRadius.circular(AppRadii.capsule),
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: '$label${selected ? ', выбрано' : ''}',
+      child: Material(
+        color: selected ? AppColors.accentBlue : AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(AppRadii.capsule),
-        child: Container(
-          height: 36,
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.capsule),
-            border: selected ? null : Border.all(color: AppColors.hairline),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.settingsRowTitle.copyWith(
-              fontSize: 14,
-              color: selected ? Colors.white : AppColors.primaryInk,
-              fontWeight: FontWeight.w600,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppRadii.capsule),
+          child: Container(
+            height: 40,
+            padding: const EdgeInsets.symmetric(horizontal: 13),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(AppRadii.capsule),
+              border: selected ? null : Border.all(color: AppColors.hairline),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (icon != null) ...[
+                  Icon(
+                    icon,
+                    size: 17,
+                    color: selected ? Colors.white : AppColors.accentBlueIcon,
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  label,
+                  style: AppTypography.settingsRowTitle.copyWith(
+                    fontSize: 14,
+                    color: selected ? Colors.white : AppColors.primaryInk,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

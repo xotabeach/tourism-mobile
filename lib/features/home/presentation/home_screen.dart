@@ -32,6 +32,7 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_c
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 import 'package:tourism_mobile/features/search/presentation/search_filters_sheet.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
+import 'package:tourism_mobile/features/settings/presentation/personalization_prompt.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
@@ -451,46 +452,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final topInset = MediaQuery.paddingOf(context).top;
     final searchActive = _searchActive;
 
-    return ColoredBox(
-      color: AppColors.mist,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _mode == HomeListMode.routes
-              ? _buildRoutesList(
-                  context,
-                  config: config,
-                  name: name,
-                  avatarUrl: sessionBits.avatarUrl,
-                  topInset: topInset,
-                  searchActive: searchActive,
-                )
-              : _buildPlacesList(
-                  context,
-                  name: name,
-                  avatarUrl: sessionBits.avatarUrl,
-                  topInset: topInset,
-                  searchActive: searchActive,
-                ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            child: IgnorePointer(
-              ignoring: !_showPinnedBrand,
-              child: AnimatedSlide(
-                duration: AppMotion.normal,
-                curve: Curves.easeOutCubic,
-                offset: _showPinnedBrand ? Offset.zero : const Offset(0, -1),
-                child: AnimatedOpacity(
+    return PersonalizationPromptHost(
+      child: ColoredBox(
+        color: AppColors.mist,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _mode == HomeListMode.routes
+                ? _buildRoutesList(
+                    context,
+                    config: config,
+                    name: name,
+                    avatarUrl: sessionBits.avatarUrl,
+                    topInset: topInset,
+                    searchActive: searchActive,
+                  )
+                : _buildPlacesList(
+                    context,
+                    name: name,
+                    avatarUrl: sessionBits.avatarUrl,
+                    topInset: topInset,
+                    searchActive: searchActive,
+                  ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: IgnorePointer(
+                ignoring: !_showPinnedBrand,
+                child: AnimatedSlide(
                   duration: AppMotion.normal,
-                  opacity: _showPinnedBrand ? 1 : 0,
-                  child: AppBrandBar(topInset: topInset),
+                  curve: Curves.easeOutCubic,
+                  offset: _showPinnedBrand ? Offset.zero : const Offset(0, -1),
+                  child: AnimatedOpacity(
+                    duration: AppMotion.normal,
+                    opacity: _showPinnedBrand ? 1 : 0,
+                    child: AppBrandBar(topInset: topInset),
+                  ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

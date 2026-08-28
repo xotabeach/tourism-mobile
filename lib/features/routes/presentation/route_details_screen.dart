@@ -19,6 +19,7 @@ import 'package:tourism_mobile/features/favorites/application/favorites_provider
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/reviews/presentation/entity_reviews_section.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
@@ -203,7 +204,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
               onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
               showFavorite: publiclyAvailable,
               onShare: () => _showSoon('Поделиться маршрутом'),
-              onDownload: () => _showSoon('Офлайн-режим'),
+              onDownload: () => unawaited(_toggleOffline(route)),
             ),
             // Lip lives in the header; body continues the sheet without
             // negative overlap (avoids author/photo z-fighting).
@@ -281,11 +282,17 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                         _RouteTagsRow(tags: routeTagLabels(route)),
                         const SizedBox(height: 16),
                         _RouteFacts(route: route),
+                        if (route.routing != null &&
+                            route.routing!.qualityStatus != 'unknown') ...[
+                          const SizedBox(height: 12),
+                          _RouteQualityNotice(routing: route.routing!),
+                        ],
                         const _SectionDivider(),
                         const _SectionTitle('Карта маршрута:'),
                         const SizedBox(height: 14),
                         RouteMapPreview(
                           stops: route.stops,
+                          geometry: route.geometry,
                           selectedIndex: _selectedStop,
                           onPinTap: _selectStop,
                         ),
@@ -360,10 +367,37 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     }
   }
 
-  void _showSoon(String feature) {
+  Future<void> _toggleOffline(RouteDetail route) async {
+    try {
+      final store = ref.read(offlineRouteStoreProvider);
+      final existing = await store.get(route.id);
+      if (existing != null) {
+        await removeDownloadedRoute(ref, route.id);
+        if (mounted) {
+          _showMessage('Маршрут удалён из офлайн');
+        }
+        return;
+      }
+
+      await downloadRouteSnapshot(ref, route);
+      if (mounted) {
+        _showMessage('Маршрут сохранён для офлайн-доступа');
+      }
+    } on Object {
+      if (mounted) {
+        _showMessage('Не удалось сохранить маршрут офлайн');
+      }
+    }
+  }
+
+  void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text('$feature появится позже')));
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showSoon(String feature) {
+    _showMessage('$feature появится позже');
   }
 
   List<ImageProvider> _galleryImages(AppConfig config, RouteDetail route) {
@@ -842,12 +876,11 @@ class _RouteFacts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = route.estimatedDurationMinutes;
-    final durationLabel = duration == null
-        ? '—'
-        : duration >= 60
-        ? '${duration ~/ 60} ч ${duration % 60} мин'
-        : '$duration мин';
+    final routing = route.routing;
+    final totalSeconds = routing?.totalDurationSeconds;
+    final durationLabel = totalSeconds != null
+        ? _formatDurationSeconds(totalSeconds)
+        : _formatDurationMinutes(route.estimatedDurationMinutes);
 
     return Column(
       children: [
@@ -856,9 +889,21 @@ class _RouteFacts extends StatelessWidget {
           label: 'Сложность:',
           value: '${difficultyBolts(route.difficulty)}/5',
         ),
+        if (routing?.movementDurationSeconds case final seconds?)
+          _FactRow(
+            icon: Icons.directions_walk_rounded,
+            label: 'В дороге:',
+            value: _formatDurationSeconds(seconds),
+          ),
+        if (routing?.visitDurationMinutes case final minutes?)
+          _FactRow(
+            icon: Icons.place_outlined,
+            label: 'На остановках:',
+            value: _formatDurationMinutes(minutes),
+          ),
         _FactRow(
           icon: Icons.schedule_outlined,
-          label: 'Время в пути:',
+          label: routing == null ? 'Время маршрута:' : 'Всего:',
           value: durationLabel,
         ),
         _FactRow(
@@ -871,8 +916,149 @@ class _RouteFacts extends StatelessWidget {
           label: 'Расстояние:',
           value: formatDistanceKm(route.distanceMeters),
         ),
+        if (routing?.elevationGainMeters case final gain?)
+          _FactRow(
+            icon: Icons.terrain_outlined,
+            label: 'Набор высоты:',
+            value: '$gain м',
+          ),
       ],
     );
+  }
+
+  static String _formatDurationMinutes(int? minutes) {
+    if (minutes == null) {
+      return '—';
+    }
+    return _formatDurationSeconds(minutes * 60);
+  }
+
+  static String _formatDurationSeconds(int seconds) {
+    final minutes = (seconds / 60).ceil();
+    if (minutes < 60) {
+      return '$minutes мин';
+    }
+    final remainder = minutes % 60;
+    return remainder == 0
+        ? '${minutes ~/ 60} ч'
+        : '${minutes ~/ 60} ч $remainder мин';
+  }
+}
+
+class _RouteQualityNotice extends StatelessWidget {
+  const _RouteQualityNotice({required this.routing});
+
+  final RouteRoutingInfo routing;
+
+  @override
+  Widget build(BuildContext context) {
+    final needsAttention =
+        routing.qualityStatus == 'needs_review' ||
+        routing.qualityStatus == 'unusable';
+    final background = needsAttention
+        ? const Color(0xFFFFF3E4)
+        : routing.synthetic || routing.qualityStatus == 'unverified'
+        ? const Color(0xFFF1F1F3)
+        : const Color(0xFFEAF2FF);
+    final foreground = needsAttention
+        ? const Color(0xFF875000)
+        : routing.synthetic || routing.qualityStatus == 'unverified'
+        ? AppColors.secondaryInk
+        : AppColors.accentBlue;
+    final details = _warningLabels(routing.warnings);
+    final title = switch (routing.qualityStatus) {
+      'verified' => 'Маршрут проверен',
+      'verified_with_warnings' => 'Путь построен по дорогам и тропам',
+      'needs_review' => 'Есть участок для дополнительной проверки',
+      'unusable' => 'Маршрут пока нельзя проходить',
+      _ => 'Маршрут пока ориентировочный',
+    };
+    final body = details.isNotEmpty
+        ? details.join(' ')
+        : switch (routing.qualityStatus) {
+            'verified' => 'Геометрия и ограничения подтверждены.',
+            'verified_with_warnings' =>
+              'Перед поездкой проверьте доступность и сезонные ограничения.',
+            'needs_review' =>
+              'Проверьте предупреждения перед началом прохождения.',
+            'unusable' => 'Выберите другой маршрут или режим движения.',
+            _ => 'Расстояние и линия могут быть приблизительными.',
+          };
+
+    return Semantics(
+      label: '$title. $body',
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(
+                needsAttention
+                    ? Icons.warning_amber_rounded
+                    : Icons.route_rounded,
+                size: 21,
+                color: foreground,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: AppTypography.button.copyWith(
+                        color: AppColors.primaryInk,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      body,
+                      style: AppTypography.greetingSubtitle.copyWith(
+                        fontSize: 12,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static List<String> _warningLabels(List<String> warnings) {
+    final labels = <String>[];
+    void add(String value) {
+      if (!labels.contains(value) && labels.length < 2) {
+        labels.add(value);
+      }
+    }
+
+    for (final warning in warnings) {
+      switch (warning) {
+        case 'slope_above_requested_pace':
+          add('Уклон выше выбранного темпа.');
+        case 'elevation_gain_above_requested_pace':
+          add('Набор высоты может оказаться слишком большим.');
+        case 'dirt_road_surface_requires_review':
+          add('Есть участок по грунтовой дороге.');
+        case 'ferry_schedule_and_access_unknown':
+          add('Есть паромный участок — проверьте расписание.');
+        case 'stairs_require_review':
+          add('На пути могут быть лестницы.');
+        case 'elevation_gain_unknown' || 'slope_unknown':
+          add('Высотный профиль ещё уточняется.');
+      }
+    }
+    return labels;
   }
 }
 

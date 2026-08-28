@@ -162,4 +162,28 @@ void main() {
     await expectLater(controller.requestOtp(), throwsA(isA<AuthFailure>()));
     expect(auth.requestOtpCalls, 0);
   });
+
+  test('clearSession awaits local account-data cleanup', () async {
+    var localDataCleared = false;
+    final controller = SessionController(
+      authRepository: MockAuthRepository(),
+      secureStorage: MemorySecureStorage(),
+      useMockData: true,
+      initial: const SessionState(
+        isHydrated: true,
+        onboardingCompleted: true,
+        userId: 'user-1',
+        accessToken: 'access-1',
+      ),
+      onSessionCleared: () async {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+        localDataCleared = true;
+      },
+    );
+
+    await controller.clearSession();
+
+    expect(localDataCleared, isTrue);
+    expect(controller.state.isAuthenticated, isFalse);
+  });
 }

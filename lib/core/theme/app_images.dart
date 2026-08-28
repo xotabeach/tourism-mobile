@@ -21,6 +21,20 @@ abstract final class AppImages {
       maxNrOfCacheObjects: 2000,
     ),
   );
+
+  /// Remove one remote image from both disk and Flutter's decoded image cache.
+  static Future<void> evictNetworkImage(String url) async {
+    await CachedNetworkImage.evictFromCache(url, cacheManager: cacheManager);
+  }
+
+  /// Logout/explicit offline cleanup must not leave private route media behind.
+  static Future<void> clearNetworkImageCache() async {
+    await cacheManager.emptyCache();
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  }
+
   static const welcomeSunset = 'assets/images/welcome-sunset.jpg';
   static const coastPineTwilight = 'assets/images/coast-pine-twilight.jpg';
   static const capeFiolentFog = 'assets/images/cape-fiolent-fog.jpg';

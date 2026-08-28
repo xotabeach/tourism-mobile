@@ -61,8 +61,40 @@ class SettingsAccountScreen extends ConsumerWidget {
         SettingsChatCta(
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),
         ),
+        SettingsNavTile(
+          title: 'Выйти из аккаунта',
+          subtitle: 'Удалить локальную сессию на этом устройстве',
+          icon: Icons.logout_rounded,
+          onTap: () => _confirmLogout(context, ref),
+        ),
       ],
     );
+  }
+
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Выйти из аккаунта?'),
+        content: const Text(
+          'Сессия на этом устройстве будет завершена. Локальные копии '
+          'маршрутов будут удалены, чтобы их не увидел следующий пользователь.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(sessionProvider.notifier).clearSession();
+    }
   }
 }
 
