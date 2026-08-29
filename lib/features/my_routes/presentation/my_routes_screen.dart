@@ -20,6 +20,8 @@ import 'package:tourism_mobile/features/places/application/places_providers.dart
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
+import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -156,11 +158,11 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
           .toList(growable: false),
     );
     final placesAsync = ref.watch(placesListProvider);
+    final historyAsync = ref.watch(routeExecutionHistoryProvider);
     final routes = routesAsync.valueOrNull?.items ?? const <RouteSummary>[];
     final favoriteRoutes = routes
         .where((r) => favorites.routeIds.contains(r.id))
         .toList();
-    final historyRoutes = routes.take(6).toList();
     final favoritePlaces =
         placesAsync.valueOrNull?.items
             .where((p) => favorites.placeIds.contains(p.id))
@@ -168,7 +170,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
         const <PlaceSummary>[];
     final filtered = filterRouteCatalog(switch (_tab) {
       MyRoutesTab.favorites => favoriteRoutes,
-      MyRoutesTab.history => historyRoutes,
+      MyRoutesTab.history => const <RouteSummary>[],
       MyRoutesTab.places => const <RouteSummary>[],
       MyRoutesTab.subscriptions => const <RouteSummary>[],
     }, _selectedChip);
@@ -234,7 +236,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                     },
                     localRoutes: switch (_tab) {
                       MyRoutesTab.favorites => favoriteRoutes,
-                      MyRoutesTab.history => historyRoutes,
+                      MyRoutesTab.history => null,
                       MyRoutesTab.places || MyRoutesTab.subscriptions => null,
                     },
                     localPlaces: _tab == MyRoutesTab.places
@@ -255,6 +257,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
               ..._subscriptionSlivers(visibleSubscriptionsAsync)
             else if (_tab == MyRoutesTab.places)
               ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
+            else if (_tab == MyRoutesTab.history)
+              ..._executionHistorySlivers(historyAsync)
             else
               ..._routeListSlivers(routesAsync, filtered: filtered),
           ],
@@ -313,6 +317,52 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                 }
                 return RouteHeroCard(route: route, height: 295);
               },
+            ),
+          ),
+        ];
+      },
+    );
+  }
+
+  List<Widget> _executionHistorySlivers(
+    AsyncValue<List<RouteExecution>> history,
+  ) {
+    return history.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      loading: () => const [_MyRoutesListSkeleton()],
+      error: (_, _) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: AppAsyncErrorView(
+            message: 'Не удалось загрузить историю прохождений',
+            onRetry: () => ref.invalidate(routeExecutionHistoryProvider),
+          ),
+        ),
+      ],
+      data: (items) {
+        if (items.isEmpty) {
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  'Здесь появятся пройденные маршруты',
+                  style: AppTypography.settingsRowSubtitle,
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+            sliver: SliverList.separated(
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) =>
+                  _ExecutionHistoryTile(execution: items[index]),
             ),
           ),
         ];
@@ -925,6 +975,97 @@ class _TabChip extends StatelessWidget {
               color: selected ? Colors.white : AppColors.primaryInk,
               fontWeight: FontWeight.w600,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExecutionHistoryTile extends StatelessWidget {
+  const _ExecutionHistoryTile({required this.execution});
+
+  final RouteExecution execution;
+
+  @override
+  Widget build(BuildContext context) {
+    final routeId = execution.routeId;
+    final statusColor = switch (execution.status) {
+      RouteExecutionStatus.completed => AppColors.positiveSwipeTint,
+      RouteExecutionStatus.cancelled => AppColors.secondaryInk,
+      RouteExecutionStatus.active => AppColors.accentBlue,
+    };
+    final statusLabel = switch (execution.status) {
+      RouteExecutionStatus.completed => 'Завершён',
+      RouteExecutionStatus.cancelled => 'Остановлен',
+      RouteExecutionStatus.active => 'В процессе',
+    };
+    final date = execution.startedAt;
+    final dateLabel =
+        '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
+
+    return Material(
+      color: AppColors.elevatedSurface,
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      child: InkWell(
+        onTap: routeId == null ? null : () => context.push('/routes/$routeId'),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: Icon(
+                    execution.status == RouteExecutionStatus.completed
+                        ? Icons.check_rounded
+                        : execution.status == RouteExecutionStatus.active
+                        ? Icons.directions_walk_rounded
+                        : Icons.pause_rounded,
+                    color: statusColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      execution.routeName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.settingsRowTitle.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$statusLabel · $dateLabel',
+                      style: AppTypography.settingsRowSubtitle,
+                    ),
+                    if (execution.totalStops > 0) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${execution.completedStops} из ${execution.totalStops} остановок',
+                        style: AppTypography.routeMetadata,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (routeId != null)
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.secondaryInk,
+                ),
+            ],
           ),
         ),
       ),

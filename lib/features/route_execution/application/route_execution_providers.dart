@@ -20,3 +20,8 @@ final activeRouteExecutionProvider =
     FutureProvider.autoDispose<RouteExecution?>(
       (ref) => ref.watch(routeExecutionRepositoryProvider).getActive(),
     );
+
+final routeExecutionHistoryProvider =
+    FutureProvider.autoDispose<List<RouteExecution>>(
+      (ref) => ref.watch(routeExecutionRepositoryProvider).list(),
+    );

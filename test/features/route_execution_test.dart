@@ -58,4 +58,18 @@ void main() {
     expect(cancelled.status, RouteExecutionStatus.cancelled);
     expect(cancelled.cancelledAt, isNotNull);
   });
+
+  test('mock repository exposes finished executions in history', () async {
+    final repository = MockRouteExecutionRepository();
+
+    final completed = await repository.start('route-completed');
+    await repository.complete(completed.id);
+    final cancelled = await repository.start('route-cancelled');
+    await repository.cancel(cancelled.id);
+
+    final history = await repository.list();
+    expect(history, hasLength(2));
+    expect(history[0].status, RouteExecutionStatus.cancelled);
+    expect(history[1].status, RouteExecutionStatus.completed);
+  });
 }

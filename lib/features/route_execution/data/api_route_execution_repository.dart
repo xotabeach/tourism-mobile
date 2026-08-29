@@ -10,6 +10,24 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
   final Dio _dio;
 
   @override
+  Future<List<RouteExecution>> list({int limit = 20, int offset = 0}) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/route-executions',
+        queryParameters: {'limit': limit, 'offset': offset},
+      );
+      final items = response.data?['items'];
+      if (items is! List) return const <RouteExecution>[];
+      return items
+          .whereType<Map<dynamic, dynamic>>()
+          .map(
+            (item) => RouteExecution.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .toList(growable: false);
+    });
+  }
+
+  @override
   Future<RouteExecution?> getActive() {
     return guardApiCall(() async {
       final response = await _dio.get<Map<String, dynamic>>(

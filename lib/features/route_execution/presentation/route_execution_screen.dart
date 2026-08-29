@@ -72,6 +72,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           .read(routeExecutionRepositoryProvider)
           .completeStop(execution.id, stop.id);
       if (mounted) setState(() => _execution = updated);
+      ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (mounted) _showError(_friendlyError(error));
     } finally {
@@ -88,6 +89,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           .read(routeExecutionRepositoryProvider)
           .complete(execution.id);
       if (mounted) setState(() => _execution = updated);
+      ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (mounted) _showError(_friendlyError(error));
     } finally {
@@ -121,6 +123,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           .read(routeExecutionRepositoryProvider)
           .cancel(execution.id);
       if (mounted) setState(() => _execution = updated);
+      ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (mounted) _showError(_friendlyError(error));
     }

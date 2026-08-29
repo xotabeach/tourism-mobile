@@ -3,6 +3,14 @@ import 'package:tourism_mobile/features/route_execution/domain/route_execution_r
 
 class MockRouteExecutionRepository implements RouteExecutionRepository {
   RouteExecution? _active;
+  final _history = <RouteExecution>[];
+
+  @override
+  Future<List<RouteExecution>> list({int limit = 20, int offset = 0}) async {
+    final start = offset.clamp(0, _history.length);
+    final end = (start + limit).clamp(start, _history.length);
+    return _history.sublist(start, end);
+  }
 
   @override
   Future<RouteExecution?> getActive() async => _active;
@@ -47,6 +55,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       stops: current.stops,
       routing: current.routing,
     );
+    _history.insert(0, _active!);
     return _active!;
   }
 
@@ -67,6 +76,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       stops: current.stops,
       routing: current.routing,
     );
+    _history.insert(0, _active!);
     return _active!;
   }
 
