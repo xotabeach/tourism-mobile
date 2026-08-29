@@ -13,7 +13,8 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution?> getActive() async => _active;
+  Future<RouteExecution?> getActive() async =>
+      _active?.isActive == true ? _active : null;
 
   @override
   Future<RouteExecution> start(String routeId) async {
@@ -82,7 +83,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
 
   Future<RouteExecution> _requireActive() async {
     final value = _active;
-    if (value == null) {
+    if (value == null || !value.isActive) {
       throw StateError('Нет активного маршрута');
     }
     return value;
