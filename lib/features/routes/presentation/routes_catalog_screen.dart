@@ -9,6 +9,8 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
+import 'package:tourism_mobile/features/recommendations/application/recommendation_providers.dart';
+import 'package:tourism_mobile/features/recommendations/domain/recommendation.dart';
 import 'package:tourism_mobile/features/routes/application/favorite_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -112,15 +114,30 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
     );
   }
 
-  void _handleSwipe(RouteSummary route, RouteSwipeAction action) {
+  void _handleSwipe(
+    RouteSummary route,
+    RouteSwipeAction action, {
+    RecommendationDeck? recommendationDeck,
+  }) {
     if (action == RouteSwipeAction.favorite) {
       unawaited(ref.read(favoritesProvider.notifier).addRoute(route.id));
+    } else if (recommendationDeck != null) {
+      unawaited(
+        submitRecommendationSkip(
+          ref,
+          routeId: route.id,
+          deckDate: recommendationDeck.deckDate,
+          rankerVersion: recommendationDeck.rankerVersion,
+        ).catchError((_) {}),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final routesAsync = ref.watch(routesListProvider);
+    final recommendationAsync = ref.watch(recommendationDeckProvider);
+    final recommendationDeck = recommendationAsync.valueOrNull;
     final favoriteRouteIds = ref.watch(favoriteRouteIdsProvider);
     final topInset = MediaQuery.paddingOf(context).top;
 
@@ -186,8 +203,13 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                     skipLoadingOnRefresh: true,
                     skipError: true,
                     data: (page) {
+                      final recommendedItems = recommendationDeck?.items
+                          .map((item) => item.route)
+                          .toList(growable: false);
                       final visibleRoutes = _visibleRoutes(
-                        page.items,
+                        recommendedItems != null && recommendedItems.isNotEmpty
+                            ? recommendedItems
+                            : page.items,
                         favoriteRouteIds,
                       );
                       if (visibleRoutes.isEmpty) {
@@ -195,7 +217,11 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                       }
                       return RouteSwipeDeck(
                         routes: visibleRoutes,
-                        onSwipe: _handleSwipe,
+                        onSwipe: (route, action) => _handleSwipe(
+                          route,
+                          action,
+                          recommendationDeck: recommendationDeck,
+                        ),
                         onOpenAllRoutes: () => unawaited(
                           context.pushNamed(
                             AppRouteNames.homeAllList,
