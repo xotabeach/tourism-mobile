@@ -83,8 +83,10 @@ CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
 тест пользовательских предпочтений, inbox,
 FCM token (Android и сконфигурированный iOS-клиент; APNs key всё ещё нужен).
 
-**UI-only / stub:** «Пройти маршрут», Travel+ billing, аудиогид, offline download,
-история в «Моём избранном». В `DATA_SOURCE=mock` чат использует сценарии;
+**UI-only / stub:** Travel+ billing, аудиогид и история завершённых маршрутов.
+«Пройти маршрут» уже подключён к route-executions API (start/resume,
+остановки, complete/cancel); offline download работает как read-only snapshot
+и не заявляет turn-by-turn навигацию. В `DATA_SOURCE=mock` чат использует сценарии;
 в API-режиме работает через backend planning sessions.
 
 ## Структура
