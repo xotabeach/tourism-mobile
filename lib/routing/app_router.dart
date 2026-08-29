@@ -176,17 +176,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     builder: (context, state) => const PlacesCatalogScreen(),
                     routes: [
                       GoRoute(
-                        name: AppRouteNames.routeExecution,
-                        path: 'execution',
-                        pageBuilder: (context, state) {
-                          final routeId = state.pathParameters['id']!;
-                          return CupertinoPage<void>(
-                            key: state.pageKey,
-                            child: RouteExecutionScreen(routeId: routeId),
-                          );
-                        },
-                      ),
-                      GoRoute(
                         name: AppRouteNames.placeDetails,
                         path: ':id',
                         pageBuilder: (context, state) {
@@ -250,6 +239,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       );
                     },
                     routes: [
+                      GoRoute(
+                        name: AppRouteNames.routeExecution,
+                        path: 'execution',
+                        pageBuilder: (context, state) {
+                          final routeId = state.pathParameters['id']!;
+                          return CupertinoPage<void>(
+                            key: state.pageKey,
+                            child: RouteExecutionScreen(routeId: routeId),
+                          );
+                        },
+                      ),
                       GoRoute(
                         name: AppRouteNames.routePlaceDetails,
                         path: 'place/:placeId',
