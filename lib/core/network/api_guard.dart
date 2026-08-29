@@ -23,6 +23,9 @@ AppFailure _mapDioFailure(DioException error) {
   if (status == 404) {
     return NotFoundFailure(apiMessage ?? 'Resource not found');
   }
+  if (_isFinalRejection(error)) {
+    return RejectedFailure(apiMessage ?? 'Request rejected');
+  }
   if (status != null && status >= 400 && status < 500 && apiMessage != null) {
     return UnexpectedFailure(apiMessage);
   }
@@ -39,6 +42,24 @@ AppFailure _mapDioFailure(DioException error) {
       apiMessage ?? 'Unexpected error',
     ),
   };
+}
+
+/// True when the API states that repeating this request cannot help.
+bool _isFinalRejection(DioException error) {
+  final status = error.response?.statusCode;
+  if (status != 409 && status != 422) {
+    return false;
+  }
+  final data = error.response?.data;
+  if (data is! Map) {
+    return false;
+  }
+  final envelope = data['error'];
+  if (envelope is! Map) {
+    return false;
+  }
+  final details = envelope['details'];
+  return details is Map && details['retryable'] == false;
 }
 
 /// Controlled API envelope message only — never request paths or raw bodies.

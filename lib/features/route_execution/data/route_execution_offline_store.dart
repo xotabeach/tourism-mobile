@@ -13,6 +13,7 @@ class RouteExecutionOutboxEntry {
     required this.executionId,
     required this.action,
     required this.createdAt,
+    this.clientEventId,
     this.stopId,
     this.attempts = 0,
   });
@@ -20,6 +21,10 @@ class RouteExecutionOutboxEntry {
   final String id;
   final String executionId;
   final String? stopId;
+
+  /// Sent to the API so a redelivery is deduped instead of applied twice.
+  /// Entries written before this field existed replay without it.
+  final String? clientEventId;
   final RouteExecutionAction action;
   final DateTime createdAt;
   final int attempts;
@@ -28,6 +33,7 @@ class RouteExecutionOutboxEntry {
     id: id,
     executionId: executionId,
     stopId: stopId,
+    clientEventId: clientEventId,
     action: action,
     createdAt: createdAt,
     attempts: attempts + 1,
@@ -37,6 +43,7 @@ class RouteExecutionOutboxEntry {
     'id': id,
     'execution_id': executionId,
     'stop_id': stopId,
+    'client_event_id': clientEventId,
     'action': action.name,
     'created_at': createdAt.toUtc().toIso8601String(),
     'attempts': attempts,
@@ -51,6 +58,7 @@ class RouteExecutionOutboxEntry {
       id: json['id'] as String,
       executionId: json['execution_id'] as String,
       stopId: json['stop_id'] as String?,
+      clientEventId: json['client_event_id'] as String?,
       action: action,
       createdAt:
           DateTime.tryParse(json['created_at'] as String? ?? '') ??

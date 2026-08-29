@@ -93,6 +93,16 @@ void main() {
     );
   });
 
+  test('prod is accepted as an alias for production', () {
+    expect(
+      AppConfig.resolveEnvironment(
+        configuredEnvironment: 'prod',
+        isRelease: true,
+      ),
+      AppEnvironment.production,
+    );
+  });
+
   test('unknown environment is rejected', () {
     expect(
       () => AppConfig.resolveEnvironment(

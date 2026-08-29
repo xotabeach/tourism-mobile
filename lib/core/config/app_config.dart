@@ -31,7 +31,7 @@ class AppConfig {
       'local' => AppEnvironment.local,
       'test' => AppEnvironment.test,
       'staging' => AppEnvironment.staging,
-      'production' => AppEnvironment.production,
+      'production' || 'prod' => AppEnvironment.production,
       _ => throw StateError('Unsupported APP_ENV: $configuredEnvironment'),
     };
   }

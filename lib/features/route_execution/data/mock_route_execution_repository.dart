@@ -36,11 +36,19 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution> completeStop(String executionId, String stopId) =>
-      _requireActive();
+  Future<RouteExecution> completeStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) => _requireActive();
 
   @override
-  Future<RouteExecution> complete(String executionId) async {
+  Future<RouteExecution> complete(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
     final current = await _requireActive();
     _active = RouteExecution(
       id: current.id,
@@ -48,7 +56,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       routeName: current.routeName,
       status: RouteExecutionStatus.completed,
       startedAt: current.startedAt,
-      completedAt: DateTime.now(),
+      completedAt: occurredAt ?? DateTime.now(),
       totalStops: current.totalStops,
       completedStops: current.completedStops,
       requiredStops: current.requiredStops,
@@ -61,7 +69,11 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution> cancel(String executionId) async {
+  Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
     final current = await _requireActive();
     _active = RouteExecution(
       id: current.id,
@@ -69,7 +81,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       routeName: current.routeName,
       status: RouteExecutionStatus.cancelled,
       startedAt: current.startedAt,
-      cancelledAt: DateTime.now(),
+      cancelledAt: occurredAt ?? DateTime.now(),
       totalStops: current.totalStops,
       completedStops: current.completedStops,
       requiredStops: current.requiredStops,

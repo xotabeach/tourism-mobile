@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
@@ -90,10 +91,19 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     final execution = _execution;
     if (execution == null || !execution.isActive || _busyStopId != null) return;
     setState(() => _busyStopId = stop.id);
+    // One key for the attempt and its queued retry: if the request reached the
+    // server before the connection dropped, the replay is deduped.
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
-          .completeStop(execution.id, stop.id);
+          .completeStop(
+            execution.id,
+            stop.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
@@ -102,11 +112,13 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (mounted) _showError(_friendlyError(error));
         return;
       }
-      final updated = _completeStopLocally(execution, stop.id);
+      final updated = _completeStopLocally(execution, stop.id, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.completeStop,
         stopId: stop.id,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
         updated: updated,
       );
       if (mounted) _showError(_friendlyError(error));
@@ -119,10 +131,16 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     final execution = _execution;
     if (execution == null || !execution.isActive || _finishing) return;
     setState(() => _finishing = true);
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
-          .complete(execution.id);
+          .complete(
+            execution.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
@@ -133,11 +151,13 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       }
       final updated = execution.copyWith(
         status: RouteExecutionStatus.completed,
-        completedAt: DateTime.now(),
+        completedAt: occurredAt,
       );
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.complete,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
         updated: updated,
       );
       if (mounted) _showError(_friendlyError(error));
@@ -167,10 +187,16 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       ),
     );
     if (confirmed != true || !mounted) return;
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
-          .cancel(execution.id);
+          .cancel(
+            execution.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
@@ -181,22 +207,28 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       }
       final updated = execution.copyWith(
         status: RouteExecutionStatus.cancelled,
-        cancelledAt: DateTime.now(),
+        cancelledAt: occurredAt,
       );
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.cancel,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
         updated: updated,
       );
       if (mounted) _showError(_friendlyError(error));
     }
   }
 
-  RouteExecution _completeStopLocally(RouteExecution execution, String stopId) {
+  RouteExecution _completeStopLocally(
+    RouteExecution execution,
+    String stopId,
+    DateTime completedAt,
+  ) {
     final stops = [
       for (final stop in execution.stops)
         stop.id == stopId && !stop.isCompleted
-            ? stop.copyWith(completedAt: DateTime.now())
+            ? stop.copyWith(completedAt: completedAt)
             : stop,
     ];
     final completed = stops.where((stop) => stop.isCompleted).length;
@@ -214,6 +246,8 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     required String executionId,
     required RouteExecutionAction action,
     required RouteExecution updated,
+    required String clientEventId,
+    required DateTime occurredAt,
     String? stopId,
   }) async {
     final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
@@ -222,6 +256,8 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       executionId: executionId,
       action: action,
       stopId: stopId,
+      clientEventId: clientEventId,
+      occurredAt: occurredAt,
     );
     await _refreshPendingActions();
     if (mounted) {

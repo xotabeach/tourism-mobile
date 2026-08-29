@@ -49,30 +49,58 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution> completeStop(String executionId, String stopId) {
+  Future<RouteExecution> completeStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) {
     return _mutate(
       () => _dio.put<Map<String, dynamic>>(
         '/api/v1/route-executions/$executionId/stops/$stopId/complete',
+        data: _eventBody(clientEventId, occurredAt),
       ),
     );
   }
 
   @override
-  Future<RouteExecution> complete(String executionId) {
+  Future<RouteExecution> complete(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) {
     return _mutate(
       () => _dio.post<Map<String, dynamic>>(
         '/api/v1/route-executions/$executionId/complete',
+        data: _eventBody(clientEventId, occurredAt),
       ),
     );
   }
 
   @override
-  Future<RouteExecution> cancel(String executionId) {
+  Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) {
     return _mutate(
       () => _dio.post<Map<String, dynamic>>(
         '/api/v1/route-executions/$executionId/cancel',
+        data: _eventBody(clientEventId, occurredAt),
       ),
     );
+  }
+
+  /// The API rejects unknown fields, so send only what the caller provided.
+  static Map<String, dynamic>? _eventBody(
+    String? clientEventId,
+    DateTime? occurredAt,
+  ) {
+    if (clientEventId == null && occurredAt == null) return null;
+    return {
+      'client_event_id': ?clientEventId,
+      'occurred_at': ?occurredAt?.toUtc().toIso8601String(),
+    };
   }
 
   Future<RouteExecution> _mutate(

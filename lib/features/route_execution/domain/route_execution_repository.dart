@@ -7,9 +7,24 @@ abstract interface class RouteExecutionRepository {
 
   Future<RouteExecution> start(String routeId);
 
-  Future<RouteExecution> completeStop(String executionId, String stopId);
+  /// [clientEventId] makes a retry safe and [occurredAt] reports when the
+  /// action really happened, which differs from now for a queued offline tap.
+  Future<RouteExecution> completeStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
 
-  Future<RouteExecution> complete(String executionId);
+  Future<RouteExecution> complete(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
 
-  Future<RouteExecution> cancel(String executionId);
+  Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
 }

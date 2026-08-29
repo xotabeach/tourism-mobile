@@ -63,6 +63,63 @@ void main() {
     );
   });
 
+  test('a final rejection is distinguishable from a retryable error', () async {
+    final options = RequestOptions(
+      path: '/api/v1/route-executions/secret/cancel',
+    );
+
+    await expectLater(
+      guardApiCall<void>(
+        () => throw DioException(
+          requestOptions: options,
+          response: Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 409,
+            data: const {
+              'error': {
+                'code': 'route_execution_not_active',
+                'message': 'Route execution is not active',
+                'details': {'status': 'completed', 'retryable': false},
+              },
+            },
+          ),
+          type: DioExceptionType.badResponse,
+        ),
+      ),
+      throwsA(
+        isA<RejectedFailure>().having(
+          (failure) => failure.toString(),
+          'safe message',
+          isNot(contains('secret')),
+        ),
+      ),
+    );
+  });
+
+  test('a conflict without a verdict stays retryable', () async {
+    final options = RequestOptions(path: '/api/v1/route-executions');
+
+    await expectLater(
+      guardApiCall<void>(
+        () => throw DioException(
+          requestOptions: options,
+          response: Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 409,
+            data: const {
+              'error': {
+                'code': 'active_route_execution_exists',
+                'message': 'Finish or cancel the active route first',
+              },
+            },
+          ),
+          type: DioExceptionType.badResponse,
+        ),
+      ),
+      throwsA(isA<UnexpectedFailure>()),
+    );
+  });
+
   test('transport details map to a generic network failure', () async {
     const secretUrl = 'https://secret.internal.example/token';
 

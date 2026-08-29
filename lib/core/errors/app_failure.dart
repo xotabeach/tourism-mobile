@@ -20,6 +20,14 @@ final class AuthFailure extends AppFailure {
   const AuthFailure([super.message = 'Authentication failed']);
 }
 
+/// A request the server refused for good: replaying it cannot succeed.
+///
+/// Used by the offline outbox to drop a queued action instead of retrying it
+/// forever, for example when the run was already finished on another device.
+final class RejectedFailure extends AppFailure {
+  const RejectedFailure([super.message = 'Request rejected']);
+}
+
 final class UnexpectedFailure extends AppFailure {
   const UnexpectedFailure([super.message = 'Unexpected error']);
 }

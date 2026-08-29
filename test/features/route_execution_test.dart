@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_offline_coordinator.dart';
 import 'package:tourism_mobile/features/route_execution/data/mock_route_execution_repository.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
+import 'package:tourism_mobile/features/route_execution/domain/route_execution_repository.dart';
 
 void main() {
   test('parses execution progress and immutable routing facts', () {
@@ -133,4 +135,145 @@ void main() {
       expect(await store.listOutbox(), isEmpty);
     },
   );
+
+  test('queued action carries an idempotency key and its own moment', () async {
+    final repository = MockRouteExecutionRepository();
+    final execution = await repository.start('route-keyed');
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    final occurredAt = DateTime.utc(2026, 8, 29, 8, 15);
+
+    await coordinator.enqueue(
+      executionId: execution.id,
+      action: RouteExecutionAction.complete,
+      occurredAt: occurredAt,
+    );
+
+    final entry = (await store.listOutbox()).single;
+    expect(entry.clientEventId, isNotNull);
+    expect(entry.clientEventId, hasLength(36));
+    expect(entry.createdAt, occurredAt);
+
+    final replayed = await coordinator.replayPending();
+    expect(replayed?.completedAt, occurredAt);
+    expect(await store.listOutbox(), isEmpty);
+  });
+
+  test('a rejected action is dropped instead of blocking the queue', () async {
+    final repository = _StubExecutionRepository(
+      failures: {'stop-blocked': const RejectedFailure('run already finished')},
+    );
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    for (final stopId in ['stop-blocked', 'stop-next']) {
+      await coordinator.enqueue(
+        executionId: 'execution-1',
+        action: RouteExecutionAction.completeStop,
+        stopId: stopId,
+      );
+    }
+
+    await coordinator.replayPending();
+
+    expect(await store.listOutbox(), isEmpty);
+    expect(repository.delivered, ['stop-blocked', 'stop-next']);
+  });
+
+  test('offline delivery keeps the queue and counts the attempt', () async {
+    final repository = _StubExecutionRepository(
+      failures: {'stop-offline': const NetworkFailure()},
+    );
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    await coordinator.enqueue(
+      executionId: 'execution-1',
+      action: RouteExecutionAction.completeStop,
+      stopId: 'stop-offline',
+    );
+
+    await coordinator.replayPending();
+
+    expect((await store.listOutbox()).single.attempts, 1);
+  });
+
+  test('an action that keeps failing is dropped after the last try', () async {
+    final repository = _StubExecutionRepository(
+      failures: {'stop-broken': StateError('server said no')},
+    );
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    await coordinator.enqueue(
+      executionId: 'execution-1',
+      action: RouteExecutionAction.completeStop,
+      stopId: 'stop-broken',
+    );
+
+    for (
+      var attempt = 0;
+      attempt < RouteExecutionOfflineCoordinator.maxAttempts;
+      attempt++
+    ) {
+      await coordinator.replayPending();
+    }
+
+    expect(await store.listOutbox(), isEmpty);
+  });
+}
+
+/// Repository that records deliveries and fails for chosen stop ids.
+class _StubExecutionRepository implements RouteExecutionRepository {
+  _StubExecutionRepository({required this.failures});
+
+  final Map<String, Object> failures;
+  final delivered = <String>[];
+
+  RouteExecution get _execution => RouteExecution(
+    id: 'execution-1',
+    routeId: 'route-1',
+    routeName: 'Тестовый маршрут',
+    status: RouteExecutionStatus.active,
+    startedAt: DateTime.utc(2026, 8, 29, 7),
+    totalStops: 2,
+    completedStops: 1,
+    requiredStops: 2,
+    completedRequiredStops: 1,
+    stops: const [],
+  );
+
+  @override
+  Future<RouteExecution> completeStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    delivered.add(stopId);
+    final failure = failures[stopId];
+    if (failure != null) throw failure;
+    return _execution;
+  }
+
+  @override
+  Future<RouteExecution> complete(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => _execution;
+
+  @override
+  Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => _execution;
+
+  @override
+  Future<RouteExecution?> getActive() async => _execution;
+
+  @override
+  Future<List<RouteExecution>> list({int limit = 20, int offset = 0}) async =>
+      const [];
+
+  @override
+  Future<RouteExecution> start(String routeId) async => _execution;
 }
