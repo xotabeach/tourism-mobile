@@ -233,11 +233,11 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
   }
 
   void _startRoute(BuildContext context) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        const SnackBar(content: Text('Прохождение маршрута появится позже')),
-      );
+    final segments = GoRouterState.of(context).uri.pathSegments;
+    if (segments.length < 2 || segments.first != 'routes') {
+      return;
+    }
+    unawaited(context.push('/routes/${segments[1]}/execution'));
   }
 
   @override
@@ -246,6 +246,7 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     final path = GoRouterState.of(context).uri.path;
     final aiChatActive = ref.watch(routeMatchAiModeProvider);
     final hideFloatingNav =
+        path.endsWith('/execution') ||
         path == '/profile/settings/support/chat' ||
         (path == RouteMatchScreen.routePath && aiChatActive);
     final detailNavigationIndex = _detailNavigationIndex(context);

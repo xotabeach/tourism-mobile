@@ -16,6 +16,7 @@ import 'package:tourism_mobile/features/places/presentation/places_catalog_scree
 import 'package:tourism_mobile/features/profile/presentation/achievements_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/travelers_leaderboard_screen.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/route_execution_screen.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/chat_history_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_results_screen.dart';
@@ -47,6 +48,7 @@ abstract final class AppRouteNames {
   static const routePlaceDetails = 'route-place-details';
   static const routes = 'routes';
   static const routeDetails = 'route-details';
+  static const routeExecution = 'route-execution';
   static const favorites = 'favorites'; // legacy alias → routeMatch
   static const routeMatch = 'route-match';
   static const routeMatchResults = 'route-match-results';
@@ -173,6 +175,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: 'places',
                     builder: (context, state) => const PlacesCatalogScreen(),
                     routes: [
+                      GoRoute(
+                        name: AppRouteNames.routeExecution,
+                        path: 'execution',
+                        pageBuilder: (context, state) {
+                          final routeId = state.pathParameters['id']!;
+                          return CupertinoPage<void>(
+                            key: state.pageKey,
+                            child: RouteExecutionScreen(routeId: routeId),
+                          );
+                        },
+                      ),
                       GoRoute(
                         name: AppRouteNames.placeDetails,
                         path: ':id',
