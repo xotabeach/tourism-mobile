@@ -293,6 +293,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                         RouteMapPreview(
                           stops: route.stops,
                           geometry: route.geometry,
+                          mapImage: _staticMapImage(config, route.staticMapUrl),
                           selectedIndex: _selectedStop,
                           onPinTap: _selectStop,
                         ),
@@ -411,6 +412,12 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     }
     return [_routeCover(config, route)];
   }
+}
+
+ImageProvider<Object>? _staticMapImage(AppConfig config, String? value) {
+  final resolved = AppImages.resolveMediaUrl(config, value);
+  if (resolved == null) return null;
+  return AppImages.imageProvider(resolvedUrl: resolved);
 }
 
 class _RouteDetailsTabs extends StatelessWidget {

@@ -356,6 +356,7 @@ class RouteDetail extends RouteSummary {
     this.freshnessStatus,
     this.geometry,
     this.routing,
+    this.staticMapUrl,
   });
 
   final String? description;
@@ -364,6 +365,9 @@ class RouteDetail extends RouteSummary {
   final String? freshnessStatus;
   final RouteGeometry? geometry;
   final RouteRoutingInfo? routing;
+
+  /// Backend proxy URL for a cached Static API image; never contains a vendor key.
+  final String? staticMapUrl;
 
   factory RouteDetail.fromJson(Map<String, dynamic> json) {
     final stopsJson = json['stops'] as List<dynamic>? ?? const [];
@@ -410,6 +414,7 @@ class RouteDetail extends RouteSummary {
       routing: json['routing'] is Map<String, dynamic>
           ? RouteRoutingInfo.fromJson(json['routing'] as Map<String, dynamic>)
           : null,
+      staticMapUrl: json['static_map_url'] as String?,
     );
   }
 
@@ -420,6 +425,7 @@ class RouteDetail extends RouteSummary {
     'freshness_status': freshnessStatus,
     'geometry': geometry?.toJson(),
     'routing': routing?.toJson(),
+    'static_map_url': staticMapUrl,
     'stops': [for (final stop in stops) stop.toJson()],
     'media': [for (final item in media) item.toJson()],
   };

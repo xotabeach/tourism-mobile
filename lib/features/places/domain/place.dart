@@ -82,6 +82,7 @@ class PlaceDetail extends PlaceSummary {
     required this.seasonality,
     required this.safetyWarnings,
     this.imageUrls = const [],
+    this.staticMapUrl,
   });
 
   final String? description;
@@ -89,6 +90,9 @@ class PlaceDetail extends PlaceSummary {
   final List<String> seasonality;
   final List<String> safetyWarnings;
   final List<String> imageUrls;
+
+  /// Backend proxy URL for a cached Static API image; never contains a vendor key.
+  final String? staticMapUrl;
 
   factory PlaceDetail.fromJson(Map<String, dynamic> json) {
     final summary = PlaceSummary.fromJson(json);
@@ -114,6 +118,7 @@ class PlaceDetail extends PlaceSummary {
       imageUrls: (json['image_urls'] as List<dynamic>? ?? const [])
           .whereType<String>()
           .toList(growable: false),
+      staticMapUrl: json['static_map_url'] as String?,
     );
   }
 }

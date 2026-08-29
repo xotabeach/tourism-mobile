@@ -18,6 +18,7 @@ class RouteMapPreview extends StatelessWidget {
     this.height = 260,
     this.footerLabel,
     this.geometry,
+    this.mapImage,
     super.key,
   });
 
@@ -27,6 +28,7 @@ class RouteMapPreview extends StatelessWidget {
   final double height;
   final String? footerLabel;
   final RouteGeometry? geometry;
+  final ImageProvider<Object>? mapImage;
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +43,7 @@ class RouteMapPreview extends StatelessWidget {
 
             return Stack(
               children: [
-                const Positioned.fill(child: _MapBackdrop()),
+                Positioned.fill(child: _MapBackdrop(image: mapImage)),
                 Positioned.fill(
                   child: IgnorePointer(
                     child: CustomPaint(
@@ -159,7 +161,9 @@ class RouteMapPreview extends StatelessWidget {
 }
 
 class _MapBackdrop extends StatelessWidget {
-  const _MapBackdrop();
+  const _MapBackdrop({this.image});
+
+  final ImageProvider<Object>? image;
 
   @override
   Widget build(BuildContext context) {
@@ -171,7 +175,14 @@ class _MapBackdrop extends StatelessWidget {
           colors: [Color(0xFF11556F), Color(0xFF0B3D55)],
         ),
       ),
-      child: CustomPaint(painter: _MapGridPainter()),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (image != null) Image(image: image!, fit: BoxFit.cover),
+          if (image != null) const ColoredBox(color: Color(0x33000000)),
+          CustomPaint(painter: _MapGridPainter()),
+        ],
+      ),
     );
   }
 }

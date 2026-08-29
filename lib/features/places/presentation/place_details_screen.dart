@@ -87,6 +87,7 @@ class _PlaceDetailsBody extends ConsumerWidget {
     // because its expandedHeight (320) is already a clean whole number.
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final heroHeight = (rawHeroHeight * dpr).round() / dpr;
+    final config = ref.watch(appConfigProvider);
 
     Future<void> toggleFavorite() async {
       try {
@@ -129,7 +130,7 @@ class _PlaceDetailsBody extends ConsumerWidget {
             onBack: context.pop,
             onFavorite: () => unawaited(toggleFavorite()),
             onShare: () => unawaited(sharePlace()),
-            onMap: () => _showPlaceMap(context, place),
+            onMap: () => _showPlaceMap(context, place, config),
           ),
           SliverToBoxAdapter(child: _PlaceInformationSheet(place: place)),
         ],
@@ -742,7 +743,7 @@ class _InlineError extends StatelessWidget {
   }
 }
 
-void _showPlaceMap(BuildContext context, PlaceDetail place) {
+void _showPlaceMap(BuildContext context, PlaceDetail place, AppConfig config) {
   unawaited(
     showModalBottomSheet<void>(
       context: context,
@@ -786,6 +787,7 @@ void _showPlaceMap(BuildContext context, PlaceDetail place) {
               child: LayoutBuilder(
                 builder: (context, constraints) => RouteMapPreview(
                   height: constraints.maxHeight,
+                  mapImage: _staticMapImage(config, place.staticMapUrl),
                   selectedIndex: 0,
                   onPinTap: (_) {},
                   footerLabel:
@@ -829,6 +831,12 @@ void _showPlaceMap(BuildContext context, PlaceDetail place) {
       ),
     ),
   );
+}
+
+ImageProvider<Object>? _staticMapImage(AppConfig config, String? value) {
+  final resolved = AppImages.resolveMediaUrl(config, value);
+  if (resolved == null) return null;
+  return AppImages.imageProvider(resolvedUrl: resolved);
 }
 
 void _showMessage(BuildContext context, String message) {
