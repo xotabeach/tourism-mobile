@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/storage/secure_storage_port.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/auth/data/auth_repository_impl.dart';
 import 'package:tourism_mobile/features/auth/domain/auth_repository.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 
 class SessionState {
@@ -500,7 +501,10 @@ final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
       // Offline snapshots may contain private/user-created route data. Do
       // not leave the previous account's content available after logout.
       try {
-        await clearOfflineRouteData(ref.read(offlineRouteStoreProvider));
+        await clearOfflineRouteData(
+          ref.read(offlineRouteStoreProvider),
+          executionStore: ref.read(routeExecutionOfflineStoreProvider),
+        );
       } on Object {
         // Token deletion and session reset still win if local cleanup fails.
       }

@@ -8,7 +8,9 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
+import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -30,6 +32,8 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   var _loading = true;
   String? _busyStopId;
   var _finishing = false;
+  var _offline = false;
+  var _pendingActions = 0;
 
   @override
   void initState() {
@@ -38,6 +42,8 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   }
 
   Future<void> _loadOrStart() async {
+    final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
+    await coordinator.replayPending();
     try {
       final repository = ref.read(routeExecutionRepositoryProvider);
       final active = await repository.getActive();
@@ -50,11 +56,28 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           ? active!
           : await repository.start(widget.routeId);
       if (!mounted) return;
+      await coordinator.save(execution);
+      await _refreshPendingActions();
       setState(() {
         _execution = execution;
         _loading = false;
+        _offline = false;
       });
     } on Object catch (error) {
+      final cached = await ref
+          .read(routeExecutionOfflineStoreProvider)
+          .getSnapshot();
+      if (cached?.routeId == widget.routeId) {
+        if (!mounted) return;
+        await _refreshPendingActions();
+        setState(() {
+          _execution = cached;
+          _loading = false;
+          _offline = true;
+          _error = null;
+        });
+        return;
+      }
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -71,9 +94,21 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
           .completeStop(execution.id, stop.id);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
+      if (error is! NetworkFailure) {
+        if (mounted) _showError(_friendlyError(error));
+        return;
+      }
+      final updated = _completeStopLocally(execution, stop.id);
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.completeStop,
+        stopId: stop.id,
+        updated: updated,
+      );
       if (mounted) _showError(_friendlyError(error));
     } finally {
       if (mounted) setState(() => _busyStopId = null);
@@ -88,9 +123,23 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
           .complete(execution.id);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
+      if (error is! NetworkFailure) {
+        if (mounted) _showError(_friendlyError(error));
+        return;
+      }
+      final updated = execution.copyWith(
+        status: RouteExecutionStatus.completed,
+        completedAt: DateTime.now(),
+      );
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.complete,
+        updated: updated,
+      );
       if (mounted) _showError(_friendlyError(error));
     } finally {
       if (mounted) setState(() => _finishing = false);
@@ -122,8 +171,89 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
           .cancel(execution.id);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
+    } on Object catch (error) {
+      if (error is! NetworkFailure) {
+        if (mounted) _showError(_friendlyError(error));
+        return;
+      }
+      final updated = execution.copyWith(
+        status: RouteExecutionStatus.cancelled,
+        cancelledAt: DateTime.now(),
+      );
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.cancel,
+        updated: updated,
+      );
+      if (mounted) _showError(_friendlyError(error));
+    }
+  }
+
+  RouteExecution _completeStopLocally(RouteExecution execution, String stopId) {
+    final stops = [
+      for (final stop in execution.stops)
+        stop.id == stopId && !stop.isCompleted
+            ? stop.copyWith(completedAt: DateTime.now())
+            : stop,
+    ];
+    final completed = stops.where((stop) => stop.isCompleted).length;
+    final required = stops
+        .where((stop) => stop.isCompleted && !stop.isOptional)
+        .length;
+    return execution.copyWith(
+      stops: stops,
+      completedStops: completed,
+      completedRequiredStops: required,
+    );
+  }
+
+  Future<void> _queueOfflineAction({
+    required String executionId,
+    required RouteExecutionAction action,
+    required RouteExecution updated,
+    String? stopId,
+  }) async {
+    final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
+    await coordinator.save(updated);
+    await coordinator.enqueue(
+      executionId: executionId,
+      action: action,
+      stopId: stopId,
+    );
+    await _refreshPendingActions();
+    if (mounted) {
+      setState(() {
+        _execution = updated;
+        _offline = true;
+      });
+    }
+  }
+
+  Future<void> _refreshPendingActions() async {
+    final count =
+        (await ref.read(routeExecutionOfflineStoreProvider).listOutbox())
+            .length;
+    if (mounted) setState(() => _pendingActions = count);
+  }
+
+  Future<void> _retryPending() async {
+    try {
+      final updated = await ref
+          .read(routeExecutionOfflineCoordinatorProvider)
+          .replayPending();
+      await _refreshPendingActions();
+      if (updated != null && mounted) {
+        setState(() {
+          _execution = updated;
+          _offline = _pendingActions > 0;
+        });
+      }
+      if (mounted && _pendingActions == 0) {
+        _showError('Прогресс синхронизирован');
+      }
     } on Object catch (error) {
       if (mounted) _showError(_friendlyError(error));
     }
@@ -190,6 +320,13 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ),
         const SizedBox(height: 18),
         _ProgressCard(execution: execution),
+        if (_offline) ...[
+          const SizedBox(height: 12),
+          _OfflineBanner(
+            pendingActions: _pendingActions,
+            onRetry: _retryPending,
+          ),
+        ],
         if (route != null) ...[
           const SizedBox(height: 18),
           RouteMapPreview(
@@ -324,6 +461,44 @@ class _ProgressCard extends StatelessWidget {
                 color: AppColors.secondaryInk,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineBanner extends StatelessWidget {
+  const _OfflineBanner({required this.pendingActions, required this.onRetry});
+
+  final int pendingActions;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.accentBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+        child: Row(
+          children: [
+            const Icon(Icons.cloud_off_rounded, color: AppColors.accentBlue),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                pendingActions == 0
+                    ? 'Офлайн-сеанс. Данные сохранены на устройстве.'
+                    : 'Офлайн-сеанс. Действий к синхронизации: $pendingActions.',
+                style: AppTypography.routeMetadata.copyWith(
+                  color: AppColors.primaryInk,
+                ),
+              ),
+            ),
+            TextButton(onPressed: onRetry, child: const Text('Повторить')),
           ],
         ),
       ),

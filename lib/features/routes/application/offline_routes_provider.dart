@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
+import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/routes/data/offline_route_store.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
@@ -61,15 +63,25 @@ Future<void> removeDownloadedRoute(WidgetRef ref, String routeId) async {
 }
 
 Future<void> clearDownloadedRoutes(WidgetRef ref) async {
-  await clearOfflineRouteData(ref.read(offlineRouteStoreProvider));
+  await clearOfflineRouteData(
+    ref.read(offlineRouteStoreProvider),
+    executionStore: ref.read(routeExecutionOfflineStoreProvider),
+  );
   ref.invalidate(offlineRoutesProvider);
 }
 
 /// Shared by the settings action and logout. Clearing the whole image cache is
 /// deliberate: route snapshots may contain private media and a corrupt/old
 /// snapshot cannot reliably tell us every cache key it previously referenced.
-Future<void> clearOfflineRouteData(OfflineRouteStore store) async {
+Future<void> clearOfflineRouteData(
+  OfflineRouteStore store, {
+  RouteExecutionOfflineStore? executionStore,
+}) async {
   await store.clear();
+  // Execution snapshots and pending mutations belong to the same account
+  // namespace and must not survive an explicit logout.
+  await (executionStore ?? SharedPreferencesRouteExecutionOfflineStore())
+      .clear();
   await AppImages.clearNetworkImageCache();
 }
 
