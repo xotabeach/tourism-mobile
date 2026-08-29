@@ -222,6 +222,14 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                           action,
                           recommendationDeck: recommendationDeck,
                         ),
+                        recommendationReasons: {
+                          for (final item
+                              in recommendationDeck?.items ??
+                                  const <RecommendationCard>[])
+                            item.route.id: recommendationExplanationLabel(
+                              item.explanation,
+                            ),
+                        },
                         onOpenAllRoutes: () => unawaited(
                           context.pushNamed(
                             AppRouteNames.homeAllList,

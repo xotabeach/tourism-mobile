@@ -66,6 +66,7 @@ class RouteSwipeDeck extends StatefulWidget {
     this.onOpenAllRoutes,
     this.showCoach = false,
     this.onCoachDismiss,
+    this.recommendationReasons = const {},
     this.debugProgress,
     super.key,
   });
@@ -78,6 +79,7 @@ class RouteSwipeDeck extends StatefulWidget {
   final VoidCallback? onOpenAllRoutes;
   final bool showCoach;
   final VoidCallback? onCoachDismiss;
+  final Map<String, String> recommendationReasons;
 
   /// Test-only visual state. Values are clamped to -1...1.
   final double? debugProgress;
@@ -615,6 +617,11 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
                                               height: cardHeight,
                                               interactive: false,
                                               variant: RouteCardVariant.deck,
+                                              recommendationReason:
+                                                  widget
+                                                      .recommendationReasons[_deck
+                                                      .first
+                                                      .id],
                                               visualProgress: progress.abs(),
                                             ),
                                             _SwipeOverlay(progress: progress),

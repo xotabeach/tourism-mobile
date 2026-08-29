@@ -8,6 +8,16 @@ enum RecommendationExplanation {
   coldStart,
 }
 
+String recommendationExplanationLabel(RecommendationExplanation value) {
+  return switch (value) {
+    RecommendationExplanation.matchesInterest => 'Подходит под ваши интересы',
+    RecommendationExplanation.nearbyExploration => 'Недалеко от вас',
+    RecommendationExplanation.freshRoute => 'Новый маршрут',
+    RecommendationExplanation.popularRoute => 'Популярен у путешественников',
+    RecommendationExplanation.coldStart => 'Хороший вариант для знакомства',
+  };
+}
+
 RecommendationExplanation recommendationExplanationFromJson(Object? value) {
   return switch (value) {
     'matches_interest' => RecommendationExplanation.matchesInterest,

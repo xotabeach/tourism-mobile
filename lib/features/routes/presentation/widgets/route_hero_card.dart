@@ -160,6 +160,7 @@ class RouteHeroCard extends ConsumerWidget {
     this.visualProgress = 0,
     this.authorAvatarUrl,
     this.authorIsExpert,
+    this.recommendationReason,
     this.onFavoriteToggle,
     this.onEdit,
     super.key,
@@ -181,6 +182,9 @@ class RouteHeroCard extends ConsumerWidget {
   /// Optional context override (for profile-owned carousels). API-backed
   /// catalogs normally use [RouteSummary.authorIsExpert].
   final bool? authorIsExpert;
+
+  /// Optional transparent explanation shown on recommendation cards.
+  final String? recommendationReason;
 
   /// Lets list owners coordinate a favorite change with their own removal
   /// animation. Other cards keep using [favoritesProvider] directly.
@@ -247,6 +251,7 @@ class RouteHeroCard extends ConsumerWidget {
         visualProgress: visualProgress.clamp(0, 1),
         authorAvatar: avatar,
         authorIsExpert: resolvedAuthorIsExpert,
+        recommendationReason: recommendationReason,
         onAuthorTap: canOpenAuthor ? () => _openAuthor(context, ref) : null,
         onFavoriteToggle: onFavoriteToggle,
         onEdit: onEdit,
@@ -280,6 +285,7 @@ class _RouteCardContent extends StatefulWidget {
     required this.visualProgress,
     required this.authorAvatar,
     required this.authorIsExpert,
+    this.recommendationReason,
     this.onAuthorTap,
     this.onFavoriteToggle,
     this.onEdit,
@@ -293,6 +299,7 @@ class _RouteCardContent extends StatefulWidget {
   final double visualProgress;
   final ImageProvider authorAvatar;
   final bool authorIsExpert;
+  final String? recommendationReason;
   final VoidCallback? onAuthorTap;
   final Future<void> Function()? onFavoriteToggle;
   final VoidCallback? onEdit;
@@ -313,6 +320,7 @@ class _RouteCardContentState extends State<_RouteCardContent> {
   double get visualProgress => widget.visualProgress;
   ImageProvider get authorAvatar => widget.authorAvatar;
   bool get authorIsExpert => widget.authorIsExpert;
+  String? get recommendationReason => widget.recommendationReason;
   VoidCallback? get onAuthorTap => widget.onAuthorTap;
   Future<void> Function()? get onFavoriteToggle => widget.onFavoriteToggle;
   VoidCallback? get onEdit => widget.onEdit;
@@ -394,6 +402,10 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (recommendationReason != null) ...[
+                      _RecommendationReason(label: recommendationReason!),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -555,6 +567,41 @@ class _RouteCardContentState extends State<_RouteCardContent> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _RecommendationReason extends StatelessWidget {
+  const _RecommendationReason({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppGlassPill(
+      blur: 8,
+      fillColor: AppColors.accentBlue.withValues(alpha: 0.78),
+      borderColor: Colors.white.withValues(alpha: 0.22),
+      contentColor: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.auto_awesome_rounded, size: 15),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.routeMetadata.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
