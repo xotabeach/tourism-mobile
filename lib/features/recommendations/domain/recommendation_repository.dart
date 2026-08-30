@@ -3,6 +3,9 @@ import 'package:tourism_mobile/features/recommendations/domain/recommendation.da
 abstract interface class RecommendationRepository {
   Future<RecommendationDeck> getToday();
 
+  /// Rebuilds today's deck server-side and returns the fresh one.
+  Future<RecommendationDeck> refreshToday();
+
   Future<void> skip({
     required String routeId,
     required String clientEventId,

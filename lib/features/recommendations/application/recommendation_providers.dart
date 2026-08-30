@@ -35,3 +35,16 @@ Future<void> submitRecommendationSkip(
     rankerVersion: rankerVersion,
   );
 }
+
+/// Whether the swiper shows the personalised deck or the plain catalogue.
+///
+/// Session-scoped on purpose: it is a "what am I looking at right now" switch,
+/// not a durable account preference.
+final showRecommendationsProvider = StateProvider<bool>((ref) => true);
+
+Future<void> refreshRecommendationDeck(WidgetRef ref) async {
+  final repository = ref.read(recommendationRepositoryProvider);
+  if (repository == null) return;
+  await repository.refreshToday();
+  ref.invalidate(recommendationDeckProvider);
+}

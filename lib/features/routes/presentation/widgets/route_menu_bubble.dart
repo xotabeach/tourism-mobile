@@ -5,16 +5,27 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 
 /// One row inside [showRouteMenuBubble].
+///
+/// With [toggleValue] set the row renders a switch and stays open, so a
+/// setting can be flipped without losing the menu; otherwise it is a plain
+/// action that closes the bubble.
 class RouteMenuAction {
   const RouteMenuAction({
     required this.icon,
     required this.label,
     required this.onSelected,
+    this.toggleValue,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onSelected;
+
+  /// Read live on every rebuild — a captured bool would freeze the switch at
+  /// whatever it was when the bubble opened.
+  final ValueGetter<bool>? toggleValue;
+
+  bool get isToggle => toggleValue != null;
 }
 
 /// Menu that grows out of its anchor button instead of sliding up from the
@@ -121,42 +132,57 @@ class _RouteMenuBubble extends StatelessWidget {
                 clipBehavior: Clip.antiAlias,
                 elevation: 12,
                 shadowColor: const Color(0x33000000),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: 8),
-                    for (final action in actions)
-                      InkWell(
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          action.onSelected();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 14,
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                action.icon,
-                                size: 20,
-                                color: AppColors.primaryInk,
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Text(
-                                  action.label,
-                                  style: AppTypography.settingsRowTitle
-                                      .copyWith(fontSize: 14),
+                child: StatefulBuilder(
+                  builder: (context, setBubbleState) => Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: 8),
+                      for (final action in actions)
+                        InkWell(
+                          onTap: () {
+                            if (action.isToggle) {
+                              action.onSelected();
+                              setBubbleState(() {});
+                              return;
+                            }
+                            Navigator.of(context).pop();
+                            action.onSelected();
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 14,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  action.icon,
+                                  size: 20,
+                                  color: AppColors.primaryInk,
                                 ),
-                              ),
-                            ],
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  child: Text(
+                                    action.label,
+                                    style: AppTypography.settingsRowTitle
+                                        .copyWith(fontSize: 14),
+                                  ),
+                                ),
+                                if (action.isToggle)
+                                  Switch.adaptive(
+                                    value: action.toggleValue!(),
+                                    onChanged: (_) {
+                                      action.onSelected();
+                                      setBubbleState(() {});
+                                    },
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    const SizedBox(height: 8),
-                  ],
+                      const SizedBox(height: 8),
+                    ],
+                  ),
                 ),
               ),
             ),

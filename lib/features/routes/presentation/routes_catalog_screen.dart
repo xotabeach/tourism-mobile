@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
@@ -15,6 +16,7 @@ import 'package:tourism_mobile/features/routes/application/favorite_routes_provi
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_menu_bubble.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -34,6 +36,8 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   final _searchFocus = FocusNode(debugLabel: 'routes-search');
   Timer? _searchDebounce;
   var _selectedChip = 'Все';
+  // Anchors the deck-settings popover to the filter button.
+  final _filterAnchorKey = GlobalKey();
   var _showCoach = true;
   var _searchQuery = '';
   var _searchFocused = false;
@@ -80,38 +84,49 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   }
 
   Future<void> _openFilters() async {
-    // Filters must apply the instant a filter is tapped — not after some
-    // separate confirm step — so update the screen's own state directly
-    // from the sheet's onTap instead of waiting on the sheet's pop result.
-    await showModalBottomSheet<void>(
+    // Category filters already live in the chip bar under the search field;
+    // repeating them here just gave two places to change the same thing.
+    // This popover is for what the deck itself shows.
+    await showRouteMenuBubble(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: StatefulBuilder(
-            builder: (sheetContext, setSheetState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final filter in routeCatalogFilters)
-                    ListTile(
-                      title: Text(filter),
-                      trailing: filter == _selectedChip
-                          ? const Icon(Icons.check_rounded)
-                          : null,
-                      onTap: () {
-                        setState(() => _selectedChip = filter);
-                        setSheetState(() {});
-                        Navigator.of(sheetContext).pop();
-                      },
-                    ),
-                ],
-              );
-            },
-          ),
-        );
-      },
+      anchorKey: _filterAnchorKey,
+      actions: [
+        RouteMenuAction(
+          icon: Icons.auto_awesome_outlined,
+          label: 'Показывать рекомендации',
+          toggleValue: () => ref.read(showRecommendationsProvider),
+          onSelected: () {
+            final notifier = ref.read(showRecommendationsProvider.notifier);
+            notifier.state = !notifier.state;
+            setState(() {});
+          },
+        ),
+        RouteMenuAction(
+          icon: Icons.refresh_rounded,
+          label: 'Обновить рекомендации',
+          onSelected: () => unawaited(_refreshRecommendations()),
+        ),
+      ],
     );
+  }
+
+  Future<void> _refreshRecommendations() async {
+    try {
+      await refreshRecommendationDeck(ref);
+      if (mounted) {
+        _notify('Рекомендации обновлены');
+      }
+    } on Object {
+      if (mounted) {
+        _notify('Не удалось обновить рекомендации');
+      }
+    }
+  }
+
+  void _notify(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _handleSwipe(
@@ -136,8 +151,11 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   @override
   Widget build(BuildContext context) {
     final routesAsync = ref.watch(routesListProvider);
+    final showRecommendations = ref.watch(showRecommendationsProvider);
     final recommendationAsync = ref.watch(recommendationDeckProvider);
-    final recommendationDeck = recommendationAsync.valueOrNull;
+    final recommendationDeck = showRecommendations
+        ? recommendationAsync.valueOrNull
+        : null;
     final favoriteRouteIds = ref.watch(favoriteRouteIdsProvider);
     final topInset = MediaQuery.paddingOf(context).top;
 
@@ -165,6 +183,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                     _searchDebounce?.cancel();
                     setState(() => _searchQuery = '');
                   },
+                  filterButtonKey: _filterAnchorKey,
                   onFilterTap: () => unawaited(_openFilters()),
                 ),
                 const SizedBox(height: AppSpacing.md),
@@ -215,30 +234,49 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                       if (visibleRoutes.isEmpty) {
                         return const Center(child: Text('Маршруты не найдены'));
                       }
-                      return RouteSwipeDeck(
-                        routes: visibleRoutes,
-                        onSwipe: (route, action) => _handleSwipe(
-                          route,
-                          action,
-                          recommendationDeck: recommendationDeck,
-                        ),
-                        recommendationReasons: {
-                          for (final item
-                              in recommendationDeck?.items ??
-                                  const <RecommendationCard>[])
-                            item.route.id: recommendationExplanationLabel(
-                              item.explanation,
-                            ),
-                        },
-                        onOpenAllRoutes: () => unawaited(
-                          context.pushNamed(
-                            AppRouteNames.homeAllList,
-                            extra: HomeListMode.routes,
+                      // Re-key on the active filter/source so switching
+                      // them animates the old cards out and the new ones in
+                      // instead of swapping content under the user's finger.
+                      return AnimatedSwitcher(
+                        duration: AppMotion.emphasized,
+                        switchInCurve: AppMotion.emphasizedCurve,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.06, 0.03),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
                           ),
                         ),
-                        showCoach: _showCoach,
-                        onCoachDismiss: () =>
-                            setState(() => _showCoach = false),
+                        child: RouteSwipeDeck(
+                          key: ValueKey('$_selectedChip|$showRecommendations'),
+                          routes: visibleRoutes,
+                          onSwipe: (route, action) => _handleSwipe(
+                            route,
+                            action,
+                            recommendationDeck: recommendationDeck,
+                          ),
+                          recommendationReasons: {
+                            for (final item
+                                in recommendationDeck?.items ??
+                                    const <RecommendationCard>[])
+                              item.route.id: recommendationExplanationLabel(
+                                item.explanation,
+                              ),
+                          },
+                          onOpenAllRoutes: () => unawaited(
+                            context.pushNamed(
+                              AppRouteNames.homeAllList,
+                              extra: HomeListMode.routes,
+                            ),
+                          ),
+                          showCoach: _showCoach,
+                          onCoachDismiss: () =>
+                              setState(() => _showCoach = false),
+                        ),
                       );
                     },
                     loading: () =>

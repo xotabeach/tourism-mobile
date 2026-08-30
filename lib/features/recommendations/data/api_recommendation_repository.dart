@@ -20,6 +20,16 @@ class ApiRecommendationRepository implements RecommendationRepository {
   }
 
   @override
+  Future<RecommendationDeck> refreshToday() {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/routes/recommendations/refresh',
+      );
+      return RecommendationDeck.fromJson(response.data!);
+    });
+  }
+
+  @override
   Future<void> skip({
     required String routeId,
     required String clientEventId,
