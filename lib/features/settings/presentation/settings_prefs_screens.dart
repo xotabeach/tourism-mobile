@@ -355,43 +355,50 @@ class SettingsOfflineScreen extends ConsumerWidget {
       showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
+        isScrollControlled: true,
         builder: (sheetContext) => SafeArea(
-          child: ListView.separated(
-            shrinkWrap: true,
-            padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-            itemCount: items.length,
-            separatorBuilder: (_, _) => const Divider(height: 1),
-            itemBuilder: (context, index) {
-              final item = items[index];
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.route_rounded),
-                title: Text(item.route.name),
-                subtitle: Text(
-                  '${item.route.stops.length} остановок · ${_downloadDate(item.downloadedAt)}',
-                ),
-                trailing: IconButton(
-                  tooltip: 'Удалить скачанную копию',
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  onPressed: () async {
-                    await removeDownloadedRoute(ref, item.id);
-                    if (sheetContext.mounted) {
-                      Navigator.of(sheetContext).pop();
-                    }
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            child: ListView.separated(
+              shrinkWrap: true,
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+              itemCount: items.length,
+              separatorBuilder: (_, _) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.route_rounded),
+                  title: Text(item.route.name),
+                  subtitle: Text(
+                    '${item.route.stops.length} остановок · '
+                    '${_downloadDate(item.downloadedAt)}',
+                  ),
+                  trailing: IconButton(
+                    tooltip: 'Удалить скачанную копию',
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    onPressed: () async {
+                      await removeDownloadedRoute(ref, item.id);
+                      if (sheetContext.mounted) {
+                        Navigator.of(sheetContext).pop();
+                      }
+                    },
+                  ),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(
+                      context.pushNamed(
+                        AppRouteNames.routeDetails,
+                        pathParameters: {'id': item.id},
+                        extra: item.route,
+                      ),
+                    );
                   },
-                ),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(
-                    context.pushNamed(
-                      AppRouteNames.routeDetails,
-                      pathParameters: {'id': item.id},
-                      extra: item.route,
-                    ),
-                  );
-                },
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

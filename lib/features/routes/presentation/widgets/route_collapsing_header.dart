@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
@@ -225,12 +224,6 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
                           semanticLabel: 'Поделиться',
                           icon: Icons.ios_share_rounded,
                           onPressed: widget.onShare,
-                        ),
-                        const SizedBox(width: 8),
-                        CollapsingHeroAction(
-                          semanticLabel: 'Скачать офлайн',
-                          iconAsset: AppIconography.download,
-                          onPressed: widget.onDownload,
                         ),
                       ],
                     ),

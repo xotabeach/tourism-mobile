@@ -41,30 +41,41 @@ class RouteMapPreview extends StatelessWidget {
             final projected = _project(constraints.biggest);
             final points = projected.pins;
 
+            // A real 2GIS static image already has its own accurate route
+            // line and numbered markers baked in, rendered from the actual
+            // map projection. This widget's pins/line are a locally
+            // normalized stylization with no relationship to that
+            // projection — drawing both at once shows two mismatched sets
+            // of points. Only draw the local overlay when there is no real
+            // map backdrop to fall back to.
+            final hasRealMap = mapImage != null;
+
             return Stack(
               children: [
                 Positioned.fill(child: _MapBackdrop(image: mapImage)),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(
-                      painter: _RouteLinePainter(
-                        points,
-                        geometryPoints: projected.geometry,
+                if (!hasRealMap) ...[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _RouteLinePainter(
+                          points,
+                          geometryPoints: projected.geometry,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                for (var index = 0; index < points.length; index++)
-                  Positioned(
-                    left: points[index].dx - 21,
-                    top: points[index].dy - 21,
-                    child: _MapPin(
-                      position: stops[index].position,
-                      label: stops[index].placeName,
-                      selected: selectedIndex == index,
-                      onTap: () => onPinTap(index),
+                  for (var index = 0; index < points.length; index++)
+                    Positioned(
+                      left: points[index].dx - 21,
+                      top: points[index].dy - 21,
+                      child: _MapPin(
+                        position: stops[index].position,
+                        label: stops[index].placeName,
+                        selected: selectedIndex == index,
+                        onTap: () => onPinTap(index),
+                      ),
                     ),
-                  ),
+                ],
                 Positioned(
                   left: 16,
                   right: 16,
