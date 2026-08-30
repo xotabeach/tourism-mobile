@@ -123,6 +123,18 @@ class PlaceDetail extends PlaceSummary {
   }
 }
 
+enum PlaceCatalogSort {
+  defaultOrder('default'),
+  nameAsc('name_asc'),
+  nameDesc('name_desc'),
+  dateNewest('date_newest'),
+  dateOldest('date_oldest');
+
+  const PlaceCatalogSort(this.apiValue);
+
+  final String apiValue;
+}
+
 class PlaceListPage {
   const PlaceListPage({
     required this.items,

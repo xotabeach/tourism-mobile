@@ -170,6 +170,7 @@ class MockPlacesRepository implements PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    PlaceCatalogSort sort = PlaceCatalogSort.defaultOrder,
     int limit = 50,
     int offset = 0,
   }) async {
@@ -196,6 +197,18 @@ class MockPlacesRepository implements PlacesRepository {
                 .toLowerCase();
         return haystack.contains(needle);
       }).toList();
+    }
+    // Mock data has no created-at timestamp to sort by, so date sorts fall
+    // back to list order rather than pretending to reorder by date.
+    switch (sort) {
+      case PlaceCatalogSort.nameAsc:
+        items.sort((a, b) => a.name.compareTo(b.name));
+      case PlaceCatalogSort.nameDesc:
+        items.sort((a, b) => b.name.compareTo(a.name));
+      case PlaceCatalogSort.defaultOrder:
+      case PlaceCatalogSort.dateNewest:
+      case PlaceCatalogSort.dateOldest:
+        break;
     }
     final total = items.length;
     final page = items.skip(offset).take(limit).toList(growable: false);

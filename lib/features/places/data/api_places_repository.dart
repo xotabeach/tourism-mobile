@@ -14,6 +14,7 @@ class ApiPlacesRepository implements PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    PlaceCatalogSort sort = PlaceCatalogSort.defaultOrder,
     int limit = 50,
     int offset = 0,
   }) {
@@ -24,6 +25,7 @@ class ApiPlacesRepository implements PlacesRepository {
           'region_slug': ?regionSlug,
           'category': ?category,
           if (query != null && query.isNotEmpty) 'q': query,
+          'sort': sort.apiValue,
           'limit': limit,
           'offset': offset,
         },

@@ -23,17 +23,20 @@ class CachingPlacesRepository implements PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    PlaceCatalogSort sort = PlaceCatalogSort.defaultOrder,
     int limit = 50,
     int offset = 0,
   }) async {
     final key =
-        '${regionSlug ?? ''}|${category ?? ''}|${query ?? ''}|$limit|$offset';
+        '${regionSlug ?? ''}|${category ?? ''}|${query ?? ''}|'
+        '${sort.apiValue}|$limit|$offset';
     final cached = _listCache.get(key);
     if (cached != null) return cached;
     final result = await _inner.listPlaces(
       regionSlug: regionSlug,
       category: category,
       query: query,
+      sort: sort,
       limit: limit,
       offset: offset,
     );

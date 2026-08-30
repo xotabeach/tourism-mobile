@@ -13,12 +13,44 @@ import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_c
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_menu_bubble.dart';
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 
 /// What the Home feed (and this screen) is currently listing.
 enum HomeListMode { routes, places }
 
 const _pageSize = 10;
+
+/// Explicit sort choices offered from the sort button. `null` (no choice
+/// made) keeps each mode's existing default order — routes stay
+/// popularity-sorted and places stay name-sorted, exactly as before this
+/// control existed — so adding sorting doesn't change anyone's first
+/// impression of either list.
+enum _SortOption {
+  dateNewest('Сначала новые', Icons.arrow_downward_rounded),
+  dateOldest('Сначала старые', Icons.arrow_upward_rounded),
+  nameAsc('По названию (А–Я)', Icons.sort_by_alpha_rounded),
+  nameDesc('По названию (Я–А)', Icons.sort_by_alpha_rounded);
+
+  const _SortOption(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+
+  RouteCatalogSort get routeSort => switch (this) {
+    _SortOption.dateNewest => RouteCatalogSort.dateNewest,
+    _SortOption.dateOldest => RouteCatalogSort.dateOldest,
+    _SortOption.nameAsc => RouteCatalogSort.nameAsc,
+    _SortOption.nameDesc => RouteCatalogSort.nameDesc,
+  };
+
+  PlaceCatalogSort get placeSort => switch (this) {
+    _SortOption.dateNewest => PlaceCatalogSort.dateNewest,
+    _SortOption.dateOldest => PlaceCatalogSort.dateOldest,
+    _SortOption.nameAsc => PlaceCatalogSort.nameAsc,
+    _SortOption.nameDesc => PlaceCatalogSort.nameDesc,
+  };
+}
 
 /// Full Маршруты/Локации list reached from Home's "Смотреть все". Unlike the
 /// Home feed and the routes/places catalog tabs (which fetch everything in
@@ -40,8 +72,10 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
   final _searchFocus = FocusNode(debugLabel: 'all-list-search');
+  final _sortAnchorKey = GlobalKey();
   Timer? _searchDebounce;
   late HomeListMode _mode;
+  _SortOption? _sort;
   final _routeItems = <RouteSummary>[];
   final _placeItems = <PlaceSummary>[];
   var _offset = 0;
@@ -118,7 +152,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
               regionSlug: 'crimea',
               limit: _pageSize,
               offset: offset,
-              sort: RouteCatalogSort.popular,
+              sort: _sort?.routeSort ?? RouteCatalogSort.popular,
             );
         if (!mounted || generation != _loadGeneration || mode != _mode) return;
         setState(() {
@@ -129,7 +163,12 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
       } else {
         final page = await ref
             .read(placesRepositoryProvider)
-            .listPlaces(regionSlug: 'crimea', limit: _pageSize, offset: offset);
+            .listPlaces(
+              regionSlug: 'crimea',
+              limit: _pageSize,
+              offset: offset,
+              sort: _sort?.placeSort ?? PlaceCatalogSort.defaultOrder,
+            );
         if (!mounted || generation != _loadGeneration || mode != _mode) return;
         setState(() {
           _placeItems.addAll(page.items);
@@ -163,6 +202,38 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
       _searchQuery = '';
     });
     unawaited(_loadNextPage());
+  }
+
+  void _changeSort(_SortOption? option) {
+    if (option == _sort) return;
+    _loadGeneration++;
+    setState(() {
+      _sort = option;
+      _routeItems.clear();
+      _placeItems.clear();
+      _offset = 0;
+      _total = 0;
+      _error = false;
+    });
+    unawaited(_loadNextPage());
+  }
+
+  void _openSort() {
+    unawaited(
+      showRouteMenuBubble(
+        context: context,
+        anchorKey: _sortAnchorKey,
+        actions: [
+          for (final option in _SortOption.values)
+            RouteMenuAction(
+              icon: option.icon,
+              label: option.label,
+              selected: _sort == option,
+              onSelected: () => _changeSort(_sort == option ? null : option),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -205,7 +276,11 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                 ),
                 const SizedBox(height: 14),
                 AppSearchFilterRow(
-                  showFilterButton: false,
+                  showFilterButton: !_searchActive,
+                  filterButtonKey: _sortAnchorKey,
+                  filterSemanticLabel: 'Сортировка',
+                  filterApplied: _sort != null,
+                  onFilterTap: _openSort,
                   hintText: _mode == HomeListMode.routes
                       ? 'Искать маршруты'
                       : 'Искать локации',

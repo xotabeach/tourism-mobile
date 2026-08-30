@@ -245,10 +245,21 @@ class MockRoutesRepository implements RoutesRepository {
     RouteCatalogSort sort = RouteCatalogSort.defaultOrder,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 40));
+    // Mock data has no created-at timestamp, so date sorts fall back to
+    // list order (newest) or its reverse (oldest) rather than pretending to
+    // reorder by a date that doesn't exist here.
     final items = switch (sort) {
       RouteCatalogSort.defaultOrder => _routes,
       RouteCatalogSort.popular => _routes,
       RouteCatalogSort.recent => _routes.reversed.toList(growable: false),
+      RouteCatalogSort.dateNewest => _routes,
+      RouteCatalogSort.dateOldest => _routes.reversed.toList(growable: false),
+      RouteCatalogSort.nameAsc => (List<RouteDetail>.from(
+        _routes,
+      )..sort((a, b) => a.name.compareTo(b.name))),
+      RouteCatalogSort.nameDesc => (List<RouteDetail>.from(
+        _routes,
+      )..sort((a, b) => b.name.compareTo(a.name))),
     };
     final normalized = query?.trim().toLowerCase() ?? '';
     final filtered = items

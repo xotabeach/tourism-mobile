@@ -63,7 +63,11 @@ class RouteStop {
 enum RouteCatalogSort {
   defaultOrder('default'),
   popular('popular'),
-  recent('recent');
+  recent('recent'),
+  nameAsc('name_asc'),
+  nameDesc('name_desc'),
+  dateNewest('date_newest'),
+  dateOldest('date_oldest');
 
   const RouteCatalogSort(this.apiValue);
 

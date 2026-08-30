@@ -7,15 +7,21 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 /// One row inside [showRouteMenuBubble].
 ///
 /// With [toggleValue] set the row renders a switch and stays open, so a
-/// setting can be flipped without losing the menu; otherwise it is a plain
-/// action that closes the bubble.
+/// setting can be flipped without losing the menu. With [selected] set the
+/// row renders a checkmark instead — for a single-choice list (e.g. sort
+/// order) where picking one option still closes the bubble. The two are
+/// mutually exclusive.
 class RouteMenuAction {
   const RouteMenuAction({
     required this.icon,
     required this.label,
     required this.onSelected,
     this.toggleValue,
-  });
+    this.selected = false,
+  }) : assert(
+         toggleValue == null || selected == false,
+         'a row is either a toggle or a selectable option, not both',
+       );
 
   final IconData icon;
   final String label;
@@ -24,6 +30,9 @@ class RouteMenuAction {
   /// Read live on every rebuild — a captured bool would freeze the switch at
   /// whatever it was when the bubble opened.
   final ValueGetter<bool>? toggleValue;
+
+  /// Whether this is the currently active choice in a single-select list.
+  final bool selected;
 
   bool get isToggle => toggleValue != null;
 }
@@ -175,6 +184,12 @@ class _RouteMenuBubble extends StatelessWidget {
                                       action.onSelected();
                                       setBubbleState(() {});
                                     },
+                                  )
+                                else if (action.selected)
+                                  const Icon(
+                                    Icons.check_rounded,
+                                    size: 20,
+                                    color: AppColors.primaryInk,
                                   ),
                               ],
                             ),

@@ -5,6 +5,7 @@ abstract class PlacesRepository {
     String? regionSlug,
     String? category,
     String? query,
+    PlaceCatalogSort sort = PlaceCatalogSort.defaultOrder,
     int limit = 50,
     int offset = 0,
   });

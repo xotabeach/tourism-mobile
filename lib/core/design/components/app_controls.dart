@@ -21,6 +21,7 @@ class AppSearchFilterRow extends StatelessWidget {
     this.resetOnUnfocus = false,
     this.filterApplied = false,
     this.filterButtonKey,
+    this.filterSemanticLabel = 'Фильтры',
     this.hintText = 'Искать маршруты и места',
     super.key,
   }) : assert(onSearchTap != null || onSearchChanged != null),
@@ -40,6 +41,7 @@ class AppSearchFilterRow extends StatelessWidget {
 
   /// Anchors a popover to the filter button (see showRouteMenuBubble).
   final Key? filterButtonKey;
+  final String filterSemanticLabel;
   final String hintText;
 
   @override
@@ -81,7 +83,7 @@ class AppSearchFilterRow extends StatelessWidget {
             AppFlatIconButton(
               key: filterButtonKey,
               iconAsset: AppIconography.filter,
-              semanticLabel: 'Фильтры',
+              semanticLabel: filterSemanticLabel,
               onPressed: onFilterTap!,
               iconOverride: filterApplied ? Icons.check_rounded : null,
             ),

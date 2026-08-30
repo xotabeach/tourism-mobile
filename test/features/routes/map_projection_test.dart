@@ -57,13 +57,12 @@ void main() {
   });
 
   test('fit returns null without points or viewport', () {
-    expect(MapProjection.fit(points: const [], size: const Size(300, 200)),
-        isNull);
     expect(
-      MapProjection.fit(
-        points: [(lat: 44.5, lng: 34.1)],
-        size: Size.zero,
-      ),
+      MapProjection.fit(points: const [], size: const Size(300, 200)),
+      isNull,
+    );
+    expect(
+      MapProjection.fit(points: [(lat: 44.5, lng: 34.1)], size: Size.zero),
       isNull,
     );
   });
