@@ -80,7 +80,6 @@ class _PersonalizationPromptHostState
   Future<void> _showPrompt() async {
     await showModalBottomSheet<void>(
       context: context,
-      showDragHandle: true,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _PersonalizationPromptSheet(
@@ -112,19 +111,31 @@ class _PersonalizationPromptSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.elevatedSurface,
-      borderRadius: const BorderRadius.vertical(
-        top: Radius.circular(AppRadii.card),
+    // Floats as a detached rounded card above the app's own floating nav bar
+    // (AppSpacing.shellBottomContent already clears it elsewhere in the
+    // shell), rather than sitting edge-to-edge with only the top corners
+    // rounded like a stock bottom sheet.
+    final bottomMargin =
+        MediaQuery.paddingOf(context).bottom + AppSpacing.shellBottomContent;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        AppSpacing.floatingNavInset,
+        0,
+        AppSpacing.floatingNavInset,
+        bottomMargin,
       ),
-      child: SafeArea(
-        top: false,
+      child: Material(
+        color: AppColors.elevatedSurface,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+        clipBehavior: Clip.antiAlias,
+        elevation: 12,
+        shadowColor: const Color(0x33000000),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.page,
-            8,
+            AppSpacing.lg,
             AppSpacing.page,
-            AppSpacing.page,
+            AppSpacing.xl,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

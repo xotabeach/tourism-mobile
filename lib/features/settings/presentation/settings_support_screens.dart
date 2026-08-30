@@ -23,8 +23,9 @@ import 'package:tourism_mobile/features/settings/presentation/settings_widgets.d
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-/// Store review link. Hidden rather than shown as a dead/mock control until
-/// the app has a real store listing for the current platform.
+/// Store review link. Always shown — the app has no live store listing yet,
+/// so a missing URL surfaces as a notice on tap rather than hiding the row
+/// entirely (a settings entry that silently disappears reads as a bug).
 class RateAppTile extends ConsumerWidget {
   const RateAppTile({super.key});
 
@@ -32,20 +33,22 @@ class RateAppTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     final url = Platform.isIOS ? config.appStoreUrl : config.playStoreUrl;
-    if (url == null) {
-      return const SizedBox.shrink();
-    }
     return SettingsNavTile(
       title: 'Оценить приложение',
       subtitle: 'Это поможет нам в развитии',
       iconAsset: AppIconography.settingsRate,
       onTap: () async {
-        final uri = Uri.tryParse(url);
+        final uri = url == null ? null : Uri.tryParse(url);
         final opened =
             uri != null &&
             await launchUrl(uri, mode: LaunchMode.externalApplication);
         if (!opened && context.mounted) {
-          showAppNotice(context, 'Не удалось открыть магазин приложений');
+          showAppNotice(
+            context,
+            uri == null
+                ? 'Приложение пока не опубликовано в маркете'
+                : 'Не удалось открыть магазин приложений',
+          );
         }
       },
     );
