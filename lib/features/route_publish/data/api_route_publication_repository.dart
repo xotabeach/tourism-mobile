@@ -55,6 +55,16 @@ final class ApiRoutePublicationRepository
     });
   }
 
+  @override
+  Future<RoutePublicationReceipt> withdraw(String routeId) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/routes/$routeId/withdraw',
+      );
+      return _receipt(response.data!);
+    });
+  }
+
   Map<String, Object?> _payload(RouteDraft draft) {
     return {
       'route_id': draft.serverId,
@@ -105,6 +115,15 @@ final class InMemoryRoutePublicationRepository
     return RoutePublicationReceipt(
       id: draft.serverId!,
       status: RoutePublicationStatus.pendingReview,
+      updatedAt: DateTime.now().toUtc(),
+    );
+  }
+
+  @override
+  Future<RoutePublicationReceipt> withdraw(String routeId) async {
+    return RoutePublicationReceipt(
+      id: routeId,
+      status: RoutePublicationStatus.draft,
       updatedAt: DateTime.now().toUtc(),
     );
   }

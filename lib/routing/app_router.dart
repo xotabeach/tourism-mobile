@@ -491,12 +491,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                               GoRoute(
                                 name: AppRouteNames.settingsReportRoute,
                                 path: 'route',
-                                pageBuilder: (context, state) =>
-                                    CupertinoPage<void>(
-                                      key: state.pageKey,
-                                      child:
-                                          const SettingsReportRouteFormScreen(),
+                                pageBuilder: (context, state) {
+                                  final extra =
+                                      state.extra as Map<String, Object?>?;
+                                  return CupertinoPage<void>(
+                                    key: state.pageKey,
+                                    child: SettingsReportRouteFormScreen(
+                                      prefilledRouteId:
+                                          extra?['routeId'] as String?,
+                                      prefilledRouteName:
+                                          extra?['routeName'] as String?,
                                     ),
+                                  );
+                                },
                               ),
                             ],
                           ),

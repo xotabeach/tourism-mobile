@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -19,6 +21,8 @@ import 'package:tourism_mobile/features/favorites/application/favorites_provider
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/reviews/presentation/entity_reviews_section.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
+import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -203,7 +207,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
               onBack: () => context.pop(),
               onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
               showFavorite: publiclyAvailable,
-              onShare: () => _showSoon('Поделиться маршрутом'),
+              onShare: () => unawaited(_shareRoute(route)),
               onDownload: () => unawaited(_toggleOffline(route)),
             ),
             // Lip lives in the header; body continues the sheet without
@@ -225,7 +229,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                         ),
                         isExpert: route.authorIsExpert,
                         onAuthorTap: onAuthorTap,
-                        onMore: () => _showSoon('Меню маршрута'),
+                        onMore: () => unawaited(_showRouteMenu(route)),
                       ),
                       if (statusLabel != null) ...[
                         const SizedBox(height: 12),
@@ -399,6 +403,172 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
 
   void _showSoon(String feature) {
     _showMessage('$feature появится позже');
+  }
+
+  String _shareText(RouteDetail route) {
+    final author = route.authorLabel ?? 'КрымТрип редакция';
+    final description = route.description?.trim();
+    return [
+      route.name,
+      'Автор: $author',
+      if (description != null && description.isNotEmpty) description,
+      if (route.stops.isNotEmpty)
+        'Точки: ${route.stops.map((stop) => stop.placeName).join(' → ')}',
+    ].join('\n\n');
+  }
+
+  Future<void> _shareRoute(RouteDetail route) async {
+    await SharePlus.instance.share(ShareParams(text: _shareText(route)));
+  }
+
+  Future<void> _copyRouteText(RouteDetail route) async {
+    await Clipboard.setData(ClipboardData(text: _shareText(route)));
+    if (mounted) {
+      _showMessage('Текст маршрута скопирован');
+    }
+  }
+
+  void _reportRoute(RouteDetail route) {
+    unawaited(
+      context.pushNamed(
+        AppRouteNames.settingsReportRoute,
+        extra: {'routeId': route.id, 'routeName': route.name},
+      ),
+    );
+  }
+
+  Future<void> _editOwnRoute(RouteDetail route) async {
+    final draft = await ref.read(routeDraftRepositoryProvider).load();
+    if (!mounted) return;
+    if (draft?.serverId == route.id) {
+      unawaited(
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen())),
+      );
+      return;
+    }
+    _showMessage(
+      'Продолжить редактирование можно только на устройстве, где начат '
+      'черновик. Полное редактирование опубликованного маршрута появится '
+      'позже.',
+    );
+  }
+
+  Future<void> _withdrawOwnRoute(RouteDetail route) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Снять с публикации?'),
+        content: const Text(
+          'Маршрут будет скрыт из каталога и его нужно будет отправить на '
+          'проверку заново.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Снять с публикации'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ref.read(routePublicationRepositoryProvider).withdraw(route.id);
+      ref.invalidate(ownRouteDetailProvider(route.id));
+      if (!mounted) return;
+      _showMessage('Маршрут снят с публикации');
+      await _editOwnRoute(route);
+    } on Object {
+      if (mounted) {
+        _showMessage('Не удалось снять маршрут с публикации');
+      }
+    }
+  }
+
+  Future<void> _showRouteMenu(RouteDetail route) async {
+    final session = ref.read(sessionProvider);
+    final isOwner = route.ownerUserId == session.userId;
+    final store = ref.read(offlineRouteStoreProvider);
+    final downloaded = await store.get(route.id) != null;
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(
+                  downloaded
+                      ? Icons.download_done_rounded
+                      : Icons.download_rounded,
+                ),
+                title: Text(
+                  downloaded ? 'Удалить из офлайн' : 'Скачать офлайн',
+                ),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_toggleOffline(route));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.ios_share_rounded),
+                title: const Text('Поделиться'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_shareRoute(route));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy_rounded),
+                title: const Text('Скопировать текст'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  unawaited(_copyRouteText(route));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: const Text('Пожаловаться на маршрут'),
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  _reportRoute(route);
+                },
+              ),
+              if (isOwner &&
+                  (route.publicationStatus == 'draft' ||
+                      route.publicationStatus == 'rejected'))
+                ListTile(
+                  leading: const Icon(Icons.edit_outlined),
+                  title: const Text('Редактировать'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(_editOwnRoute(route));
+                  },
+                ),
+              if (isOwner &&
+                  (route.publicationStatus == 'pending_review' ||
+                      route.publicationStatus == 'published'))
+                ListTile(
+                  leading: const Icon(Icons.visibility_off_outlined),
+                  title: const Text('Снять с публикации'),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    unawaited(_withdrawOwnRoute(route));
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   List<ImageProvider> _galleryImages(AppConfig config, RouteDetail route) {

@@ -14,6 +14,8 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/device/device_info.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
+import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/settings/application/support_providers.dart';
 import 'package:tourism_mobile/features/settings/data/support_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -870,12 +872,63 @@ const _routeProblemTypes = <String>[
   'Другое',
 ];
 
-const _mockReportRoutes = <(String, String)>[
-  ('Гора Чок-Сары-Кая', 'Опубликован: 12.05.26'),
-  ('Большой каньон Крыма', 'Опубликован: 03.04.26'),
-  ('Мыс Ай-Тодор', 'Опубликован: 21.03.26'),
-  ('Тропа Голицына', 'Опубликован: 08.02.26'),
-];
+class _ReportRouteOption {
+  const _ReportRouteOption({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+}
+
+String _reportRouteDate(DateTime value) {
+  final local = value.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}.'
+      '${local.month.toString().padLeft(2, '0')}.'
+      '${(local.year % 100).toString().padLeft(2, '0')}';
+}
+
+/// Recent/active route executions are the only reliable source of "routes
+/// this user actually has" without a dedicated route search — favors real
+/// data over the previous hardcoded four-route picker.
+List<_ReportRouteOption> _reportRouteOptions(
+  List<RouteExecution> executions, {
+  String? prefilledRouteId,
+  String? prefilledRouteName,
+}) {
+  final seen = <String>{};
+  final options = <_ReportRouteOption>[];
+  if (prefilledRouteId != null && prefilledRouteId.isNotEmpty) {
+    seen.add(prefilledRouteId);
+    options.add(
+      _ReportRouteOption(
+        id: prefilledRouteId,
+        title: prefilledRouteName ?? 'Выбранный маршрут',
+        subtitle: 'Открыт из карточки маршрута',
+      ),
+    );
+  }
+  for (final execution in executions) {
+    final routeId = execution.routeId;
+    if (routeId == null || !seen.add(routeId)) {
+      continue;
+    }
+    final subtitle = switch (execution.status) {
+      RouteExecutionStatus.active => 'Проходится сейчас',
+      RouteExecutionStatus.completed =>
+        'Пройден: ${_reportRouteDate(execution.completedAt ?? execution.startedAt)}',
+      RouteExecutionStatus.cancelled =>
+        'Отменён: ${_reportRouteDate(execution.cancelledAt ?? execution.startedAt)}',
+    };
+    options.add(
+      _ReportRouteOption(id: routeId, title: execution.routeName, subtitle: subtitle),
+    );
+  }
+  return options;
+}
 
 class SettingsReportAppFormScreen extends ConsumerStatefulWidget {
   const SettingsReportAppFormScreen({super.key});
@@ -1004,7 +1057,14 @@ class _SettingsReportAppFormScreenState
 }
 
 class SettingsReportRouteFormScreen extends ConsumerStatefulWidget {
-  const SettingsReportRouteFormScreen({super.key});
+  const SettingsReportRouteFormScreen({
+    this.prefilledRouteId,
+    this.prefilledRouteName,
+    super.key,
+  });
+
+  final String? prefilledRouteId;
+  final String? prefilledRouteName;
 
   @override
   ConsumerState<SettingsReportRouteFormScreen> createState() =>
@@ -1015,11 +1075,19 @@ class _SettingsReportRouteFormScreenState
     extends ConsumerState<SettingsReportRouteFormScreen> {
   final _description = TextEditingController();
   final _images = <XFile>[];
-  int? _selectedRouteIndex;
+  String? _selectedRouteId;
+  String? _selectedRouteTitle;
   var _routePickerOpen = false;
   String? _problemType;
   var _problemTypeOpen = false;
   var _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRouteId = widget.prefilledRouteId;
+    _selectedRouteTitle = widget.prefilledRouteName;
+  }
 
   @override
   void dispose() {
@@ -1029,8 +1097,8 @@ class _SettingsReportRouteFormScreenState
 
   Future<void> _submit() async {
     final body = _description.text.trim();
-    final routeIndex = _selectedRouteIndex;
-    if (routeIndex == null) {
+    final routeId = _selectedRouteId;
+    if (routeId == null) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Выберите маршрут')));
@@ -1052,13 +1120,14 @@ class _SettingsReportRouteFormScreenState
       return;
     }
     setState(() => _busy = true);
-    final routeName = _mockReportRoutes[routeIndex].$1;
+    final routeName = _selectedRouteTitle ?? routeId;
     try {
       final repo = ref.read(supportRepositoryProvider);
       final ticket = await repo.createTicket(
         kind: 'route_error',
         subject: 'Ошибка на маршруте: $routeName ($_problemType)',
         body: body,
+        routeId: routeId,
       );
       await uploadReportAttachments(repo, ticketId: ticket.id, images: _images);
       if (!mounted) {
@@ -1081,9 +1150,20 @@ class _SettingsReportRouteFormScreenState
 
   @override
   Widget build(BuildContext context) {
-    final selected = _selectedRouteIndex == null
+    final executions = ref
+        .watch(routeExecutionHistoryProvider)
+        .maybeWhen(data: (value) => value, orElse: () => const <RouteExecution>[]);
+    final options = _reportRouteOptions(
+      executions,
+      prefilledRouteId: widget.prefilledRouteId,
+      prefilledRouteName: widget.prefilledRouteName,
+    );
+    final selectedIndex = _selectedRouteId == null
         ? null
-        : _mockReportRoutes[_selectedRouteIndex!];
+        : options.indexWhere((option) => option.id == _selectedRouteId);
+    final selected = (selectedIndex == null || selectedIndex < 0)
+        ? null
+        : options[selectedIndex];
     return SettingsScaffold(
       title: 'Ошибка в маршруте:',
       showSave: true,
@@ -1100,10 +1180,12 @@ class _SettingsReportRouteFormScreenState
               ),
               const SizedBox(height: 10),
               _ReportRoutePicker(
-                selectedTitle: selected?.$1,
-                selectedSubtitle: selected?.$2,
+                selectedTitle: selected?.title,
+                selectedSubtitle: selected?.subtitle,
                 open: _routePickerOpen,
-                routes: _mockReportRoutes,
+                routes: [
+                  for (final option in options) (option.title, option.subtitle),
+                ],
                 onToggle: () => setState(() {
                   _routePickerOpen = !_routePickerOpen;
                   if (_routePickerOpen) {
@@ -1111,10 +1193,22 @@ class _SettingsReportRouteFormScreenState
                   }
                 }),
                 onSelect: (index) => setState(() {
-                  _selectedRouteIndex = index;
+                  _selectedRouteId = options[index].id;
+                  _selectedRouteTitle = options[index].title;
                   _routePickerOpen = false;
                 }),
               ),
+              if (options.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    'Пока нет маршрутов для выбора — пройдите маршрут или '
+                    'откройте форму из его карточки.',
+                    style: AppTypography.settingsRowSubtitle.copyWith(
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

@@ -368,4 +368,13 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
       updatedAt: DateTime.utc(2026),
     );
   }
+
+  @override
+  Future<RoutePublicationReceipt> withdraw(String routeId) async {
+    return RoutePublicationReceipt(
+      id: routeId,
+      status: RoutePublicationStatus.draft,
+      updatedAt: DateTime.utc(2026),
+    );
+  }
 }

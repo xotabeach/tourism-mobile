@@ -14,6 +14,10 @@ abstract interface class RoutePublicationRepository {
   Future<RoutePublicationReceipt> submit(RouteDraft draft);
 
   Future<void> discardDraft(String routeId);
+
+  /// Moves an owned route from pending_review/published back to draft so it
+  /// can be edited again; the route is unlisted from the public catalog.
+  Future<RoutePublicationReceipt> withdraw(String routeId);
 }
 
 class RoutePublicationReceipt {
