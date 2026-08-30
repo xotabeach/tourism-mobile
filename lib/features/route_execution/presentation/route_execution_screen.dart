@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -15,6 +16,7 @@ import 'package:tourism_mobile/features/route_execution/domain/route_execution.d
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteExecutionScreen extends ConsumerStatefulWidget {
@@ -386,11 +388,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ],
         if (route != null) ...[
           const SizedBox(height: 18),
-          RouteMapPreview(
+          RouteStaticMap(
+            staticMapUrl: route.staticMapUrl,
             stops: route.stops,
             geometry: route.geometry,
-            selectedIndex: null,
-            onPinTap: (_) {},
+            config: ref.watch(appConfigProvider),
+            footerLabel: routePointsLabel(route.stops.length),
           ),
         ],
         if (execution.routing?.warnings.isNotEmpty == true) ...[

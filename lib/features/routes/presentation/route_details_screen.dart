@@ -30,6 +30,7 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_collap
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_menu_bubble.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 export 'package:tourism_mobile/features/reviews/presentation/entity_reviews_section.dart'
@@ -298,12 +299,14 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                         const _SectionDivider(),
                         const _SectionTitle('Карта маршрута:'),
                         const SizedBox(height: 14),
-                        RouteMapPreview(
+                        RouteStaticMap(
+                          staticMapUrl: route.staticMapUrl,
                           stops: route.stops,
                           geometry: route.geometry,
-                          mapImage: _staticMapImage(config, route.staticMapUrl),
+                          config: config,
+                          footerLabel: routePointsLabel(route.stops.length),
                           selectedIndex: _selectedStop,
-                          onPinTap: _selectStop,
+                          onStopTap: _selectStop,
                         ),
                         const SizedBox(height: 24),
                         const _SectionTitle('Остановки:'),
@@ -557,12 +560,6 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     }
     return [_routeCover(config, route)];
   }
-}
-
-ImageProvider<Object>? _staticMapImage(AppConfig config, String? value) {
-  final resolved = AppImages.resolveMediaUrl(config, value);
-  if (resolved == null) return null;
-  return AppImages.imageProvider(resolvedUrl: resolved);
 }
 
 class _RouteDetailsTabs extends StatelessWidget {

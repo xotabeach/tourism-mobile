@@ -10,6 +10,8 @@ class RouteStop {
     this.isOptional = false,
     this.lat,
     this.lng,
+    this.placeShortDescription,
+    this.placeCoverUrl,
   });
 
   final String id;
@@ -22,6 +24,8 @@ class RouteStop {
   final bool isOptional;
   final double? lat;
   final double? lng;
+  final String? placeShortDescription;
+  final String? placeCoverUrl;
 
   factory RouteStop.fromJson(Map<String, dynamic> json) {
     return RouteStop(
@@ -35,6 +39,8 @@ class RouteStop {
       isOptional: json['is_optional'] as bool? ?? false,
       lat: (json['lat'] as num?)?.toDouble(),
       lng: (json['lng'] as num?)?.toDouble(),
+      placeShortDescription: json['place_short_description'] as String?,
+      placeCoverUrl: json['place_cover_url'] as String?,
     );
   }
 
@@ -49,6 +55,8 @@ class RouteStop {
     'is_optional': isOptional,
     'lat': lat,
     'lng': lng,
+    'place_short_description': placeShortDescription,
+    'place_cover_url': placeCoverUrl,
   };
 }
 

@@ -157,18 +157,20 @@ class RouteMapPreview extends StatelessWidget {
     return (pins: pins, geometry: geometryPoints);
   }
 
-  static String _pointsLabel(int count) {
-    final lastTwo = count % 100;
-    final last = count % 10;
-    if (lastTwo >= 11 && lastTwo <= 14) {
-      return '$count точек маршрута';
-    }
-    return switch (last) {
-      1 => '$count точка маршрута',
-      2 || 3 || 4 => '$count точки маршрута',
-      _ => '$count точек маршрута',
-    };
+  static String _pointsLabel(int count) => routePointsLabel(count);
+}
+
+String routePointsLabel(int count) {
+  final lastTwo = count % 100;
+  final last = count % 10;
+  if (lastTwo >= 11 && lastTwo <= 14) {
+    return '$count точек маршрута';
   }
+  return switch (last) {
+    1 => '$count точка маршрута',
+    2 || 3 || 4 => '$count точки маршрута',
+    _ => '$count точек маршрута',
+  };
 }
 
 class _MapBackdrop extends StatelessWidget {
