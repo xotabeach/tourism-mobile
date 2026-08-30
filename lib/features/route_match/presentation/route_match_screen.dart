@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_notifier.dart';
@@ -389,9 +390,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     if (!mounted || result == null) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    showAppNotice(context, message);
     final routeId = result.routeId;
     if (routeId != null && routeId.isNotEmpty) {
       final userId = ref.read(sessionProvider).userId;
@@ -437,9 +436,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(error.message)));
+    showAppNotice(context, error.message);
   }
 
   void _onAiCtaPressed() {
@@ -582,13 +579,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                               unawaited(_onProposalReject(id));
                             },
                             onProposalViewMap: (_) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Карта маршрута появится в одном из '
-                                    'следующих обновлений',
-                                  ),
-                                ),
+                              showAppNotice(
+                                context,
+                                'Карта маршрута появится в одном из '
+                                'следующих обновлений',
                               );
                             },
                             onChatAction: (id, label) {

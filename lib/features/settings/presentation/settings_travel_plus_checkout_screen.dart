@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
@@ -60,9 +61,7 @@ class _SettingsTravelPlusCheckoutScreenState
   Future<void> _submit() async {
     final digits = _cardNumber.text.replaceAll(RegExp(r'\D'), '');
     if (digits.length < 12 || digits.length > 19) {
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(const SnackBar(content: Text('Проверьте номер карты')));
+      showAppNotice(context, 'Проверьте номер карты');
       return;
     }
     ref.read(settingsPreferencesProvider.notifier).setPaymentLast4(digits);
@@ -74,19 +73,13 @@ class _SettingsTravelPlusCheckoutScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context)
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Не удалось активировать подписку')),
-        );
+      showAppNotice(context, 'Не удалось активировать подписку');
       return;
     }
     if (!mounted) {
       return;
     }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Подписка оформлена')));
+    showAppNotice(context, 'Подписка оформлена');
     context.goNamed(AppRouteNames.settingsTravelPlus);
   }
 

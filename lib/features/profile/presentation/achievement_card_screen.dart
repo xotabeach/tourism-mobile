@@ -119,9 +119,7 @@ class _AchievementBadge extends StatelessWidget {
       width: 116,
       height: 116,
       decoration: BoxDecoration(
-        color: unlocked
-            ? AppColors.primaryInk
-            : AppColors.controlSurface,
+        color: unlocked ? AppColors.primaryInk : AppColors.controlSurface,
         shape: BoxShape.circle,
       ),
       child: Icon(

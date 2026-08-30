@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_permission.dart';
@@ -124,12 +125,9 @@ class _SettingsNotificationsScreenState
       if (!AppPush.isConfigured) {
         await sessionCtl.updateNotificationPrefs(notifyPushEnabled: true);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Системные пуши включатся после настройки Firebase',
-              ),
-            ),
+          showAppNotice(
+            context,
+            'Системные пуши включатся после настройки Firebase',
           );
         }
         return;
@@ -311,9 +309,7 @@ class SettingsOfflineScreen extends ConsumerWidget {
   ) {
     softRefreshAppData(ref);
     controller.clearCacheLabel();
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Кеш API очищен')));
+    showAppNotice(context, 'Кеш API очищен');
   }
 
   Future<void> _clearDownloaded(BuildContext context, WidgetRef ref) async {
@@ -341,9 +337,7 @@ class SettingsOfflineScreen extends ConsumerWidget {
     }
     await clearDownloadedRoutes(ref);
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Скачанные маршруты удалены')),
-      );
+      showAppNotice(context, 'Скачанные маршруты удалены');
     }
   }
 
@@ -428,9 +422,7 @@ class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
     } on Object {
       if (!mounted) return;
       setState(() => _removingId = null);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось удалить копию маршрута')),
-      );
+      showAppNotice(context, 'Не удалось удалить копию маршрута');
     }
   }
 

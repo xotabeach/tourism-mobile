@@ -7,6 +7,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -240,12 +241,9 @@ class _TravelPlusActiveBody extends ConsumerWidget {
                             size: 20,
                           ),
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Смена карты появится после подключения оплаты',
-                                ),
-                              ),
+                            showAppNotice(
+                              context,
+                              'Смена карты появится после подключения оплаты',
                             );
                           },
                         ),
@@ -326,9 +324,7 @@ class _TravelPlusActiveBody extends ConsumerWidget {
     if (!context.mounted) {
       return;
     }
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(const SnackBar(content: Text('Подписка отменена')));
+    showAppNotice(context, 'Подписка отменена');
   }
 }
 

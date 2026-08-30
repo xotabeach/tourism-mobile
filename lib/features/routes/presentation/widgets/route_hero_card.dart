@@ -15,6 +15,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
@@ -806,9 +807,7 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
       }
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось обновить избранное')),
-      );
+      showAppNotice(context, 'Не удалось обновить избранное');
     }
   }
 

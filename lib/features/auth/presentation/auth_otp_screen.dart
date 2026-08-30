@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -151,9 +152,7 @@ class _AuthOtpScreenState extends ConsumerState<AuthOtpScreen>
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось подтвердить код.')),
-      );
+      showAppNotice(context, 'Не удалось подтвердить код.');
     } finally {
       if (mounted) {
         setState(() => _submitting = false);

@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
@@ -97,9 +98,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
       }
       if (next.message != null &&
           next.messageSerial != previous?.messageSerial) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(next.message!)));
+        showAppNotice(context, next.message!);
       }
     });
     final state = ref.watch(provider);

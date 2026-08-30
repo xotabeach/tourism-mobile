@@ -45,7 +45,8 @@ class MapProjection {
   Offset toPixel(double lat, double lng) {
     final world = _worldSize;
     final dx = _worldX(lng, world) - _worldX(centerLng, world) + size.width / 2;
-    final dy = _worldY(lat, world) - _worldY(centerLat, world) + size.height / 2;
+    final dy =
+        _worldY(lat, world) - _worldY(centerLat, world) + size.height / 2;
     return Offset(dx, dy);
   }
 

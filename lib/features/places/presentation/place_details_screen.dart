@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
@@ -424,11 +425,7 @@ class _PlaceInformationSheet extends ConsumerWidget {
             title: place.name,
             image: cover,
             onPlay: () {
-              ScaffoldMessenger.of(context)
-                ..hideCurrentSnackBar()
-                ..showSnackBar(
-                  const SnackBar(content: Text('Аудиогид появится позже')),
-                );
+              showAppNotice(context, 'Аудиогид появится позже');
             },
           ),
           const Padding(
@@ -840,7 +837,5 @@ ImageProvider<Object>? _staticMapImage(AppConfig config, String? value) {
 }
 
 void _showMessage(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
+  showAppNotice(context, message);
 }

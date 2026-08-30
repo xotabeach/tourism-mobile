@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/recommendations/application/recommendation_providers.dart';
 import 'package:tourism_mobile/features/recommendations/domain/recommendation.dart';
@@ -124,9 +125,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
   }
 
   void _notify(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showAppNotice(context, message);
   }
 
   void _handleSwipe(

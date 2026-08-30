@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/device/device_info.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -44,9 +45,7 @@ class RateAppTile extends ConsumerWidget {
             uri != null &&
             await launchUrl(uri, mode: LaunchMode.externalApplication);
         if (!opened && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Не удалось открыть магазин приложений')),
-          );
+          showAppNotice(context, 'Не удалось открыть магазин приложений');
         }
       },
     );
@@ -244,12 +243,13 @@ class SettingsSupportScreen extends StatelessWidget {
   }
 }
 
-List<SupportFaqItem> _faqItemsForCategory(String category) => switch (category) {
-  'routes' => kRoutesNavigationFaq,
-  'app' => kAppQuestionsFaq,
-  'travel_points' => kTravelPointsFaq,
-  _ => const <SupportFaqItem>[],
-};
+List<SupportFaqItem> _faqItemsForCategory(String category) =>
+    switch (category) {
+      'routes' => kRoutesNavigationFaq,
+      'app' => kAppQuestionsFaq,
+      'travel_points' => kTravelPointsFaq,
+      _ => const <SupportFaqItem>[],
+    };
 
 String _faqCategoryTitle(String category) => switch (category) {
   'routes' => 'Маршруты и навигация',
@@ -637,9 +637,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _sending = false);
@@ -1008,7 +1006,11 @@ List<_ReportRouteOption> _reportRouteOptions(
         'Отменён: ${_reportRouteDate(execution.cancelledAt ?? execution.startedAt)}',
     };
     options.add(
-      _ReportRouteOption(id: routeId, title: execution.routeName, subtitle: subtitle),
+      _ReportRouteOption(
+        id: routeId,
+        title: execution.routeName,
+        subtitle: subtitle,
+      ),
     );
   }
   return options;
@@ -1039,15 +1041,11 @@ class _SettingsReportAppFormScreenState
   Future<void> _submit() async {
     final body = _description.text.trim();
     if (_problemType == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Выберите тип проблемы')));
+      showAppNotice(context, 'Выберите тип проблемы');
       return;
     }
     if (body.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Опишите проблему')));
+      showAppNotice(context, 'Опишите проблему');
       return;
     }
     if (_busy) {
@@ -1070,9 +1068,7 @@ class _SettingsReportAppFormScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -1174,21 +1170,15 @@ class _SettingsReportRouteFormScreenState
     final body = _description.text.trim();
     final routeId = _selectedRouteId;
     if (routeId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Выберите маршрут')));
+      showAppNotice(context, 'Выберите маршрут');
       return;
     }
     if (_problemType == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Выберите тип проблемы')));
+      showAppNotice(context, 'Выберите тип проблемы');
       return;
     }
     if (body.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Опишите проблему')));
+      showAppNotice(context, 'Опишите проблему');
       return;
     }
     if (_busy) {
@@ -1213,9 +1203,7 @@ class _SettingsReportRouteFormScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -1227,7 +1215,10 @@ class _SettingsReportRouteFormScreenState
   Widget build(BuildContext context) {
     final executions = ref
         .watch(routeExecutionHistoryProvider)
-        .maybeWhen(data: (value) => value, orElse: () => const <RouteExecution>[]);
+        .maybeWhen(
+          data: (value) => value,
+          orElse: () => const <RouteExecution>[],
+        );
     final options = _reportRouteOptions(
       executions,
       prefilledRouteId: widget.prefilledRouteId,
@@ -1665,15 +1656,11 @@ Future<void> pickReportImages(
     }
     onChanged([...images, ...accepted.take(available)]);
     if (accepted.length != picked.length && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Фото больше 10 МБ не добавлены')),
-      );
+      showAppNotice(context, 'Фото больше 10 МБ не добавлены');
     }
   } on Object {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось выбрать фотографии')),
-      );
+      showAppNotice(context, 'Не удалось выбрать фотографии');
     }
   }
 }

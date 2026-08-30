@@ -8,6 +8,7 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
@@ -439,9 +440,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showAppNotice(context, message);
   }
 
   static String _friendlyError(Object error) {

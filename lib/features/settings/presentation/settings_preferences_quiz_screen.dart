@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/settings/application/preferences_providers.dart';
 import 'package:tourism_mobile/features/settings/data/preferences_repository.dart';
@@ -106,17 +107,13 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Предпочтения сохранены')));
+      showAppNotice(context, 'Предпочтения сохранены');
       unawaited(Navigator.of(context).maybePop());
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);

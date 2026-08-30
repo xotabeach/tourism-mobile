@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
@@ -110,9 +111,7 @@ class _RouteMatchResultsScreenState
     }
     final params = ref.read(lastRouteMatchParamsProvider);
     if (params == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Сначала выполните подбор по параметрам')),
-      );
+      showAppNotice(context, 'Сначала выполните подбор по параметрам');
       return;
     }
     setState(() => _generating = true);
@@ -124,12 +123,9 @@ class _RouteMatchResultsScreenState
         return;
       }
       final routeId = result.routeId;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            routeId != null ? 'Маршрут создан' : 'Черновик маршрута готов',
-          ),
-        ),
+      showAppNotice(
+        context,
+        routeId != null ? 'Маршрут создан' : 'Черновик маршрута готов',
       );
       if (routeId != null && routeId.isNotEmpty) {
         final userId = ref.read(sessionProvider).userId;
@@ -157,9 +153,7 @@ class _RouteMatchResultsScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _generating = false);

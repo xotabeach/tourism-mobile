@@ -69,8 +69,9 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
       return;
     }
     setState(() {
-      _uncontrolledSelected =
-          _uncontrolledSelected == stopIndex ? null : stopIndex;
+      _uncontrolledSelected = _uncontrolledSelected == stopIndex
+          ? null
+          : stopIndex;
     });
   }
 

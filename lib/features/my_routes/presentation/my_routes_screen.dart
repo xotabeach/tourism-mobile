@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
@@ -508,34 +509,21 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   }
 
   Future<void> _removeFavorite(RouteSummary route) async {
-    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(favoritesProvider.notifier).removeRoute(route.id);
       if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 112),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppRadii.field),
-            ),
-            content: Text(
-              '«${route.name}» удалён из избранного',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            action: SnackBarAction(
-              label: 'Вернуть',
-              onPressed: () => unawaited(_restoreFavorite(route.id)),
-            ),
-          ),
-        );
+      showAppNotice(
+        context,
+        '«${route.name}» удалён из избранного',
+        actionLabel: 'Вернуть',
+        onAction: () => unawaited(_restoreFavorite(route.id)),
+      );
     } on Object {
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Не удалось обновить избранное')),
+      showAppNotice(
+        context,
+        'Не удалось обновить избранное',
+        kind: AppNoticeKind.error,
       );
     }
   }
@@ -545,67 +533,52 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       await ref.read(favoritesProvider.notifier).addRoute(routeId);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось вернуть маршрут')),
-      );
+      showAppNotice(context, 'Не удалось вернуть маршрут');
     }
   }
 
   Future<void> _removeFavoritePlace(PlaceSummary place) async {
-    final messenger = ScaffoldMessenger.of(context);
     try {
       await ref.read(favoritesProvider.notifier).removePlace(place.id);
       if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 112),
-            content: Text('«${place.name}» удалено из избранного'),
-            action: SnackBarAction(
-              label: 'Вернуть',
-              onPressed: () => unawaited(
-                ref.read(favoritesProvider.notifier).addPlace(place.id),
-              ),
-            ),
-          ),
-        );
+      showAppNotice(
+        context,
+        '«${place.name}» удалено из избранного',
+        actionLabel: 'Вернуть',
+        onAction: () =>
+            unawaited(ref.read(favoritesProvider.notifier).addPlace(place.id)),
+      );
     } on Object {
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Не удалось обновить избранное')),
+      showAppNotice(
+        context,
+        'Не удалось обновить избранное',
+        kind: AppNoticeKind.error,
       );
     }
   }
 
   Future<void> _removeSubscription(PublicUserProfile profile) async {
     setState(() => _removedSubscriptionIds.add(profile.id));
-    final messenger = ScaffoldMessenger.of(context);
     try {
       if (!ref.read(appConfigProvider).useMockData) {
         await ref.read(publicProfileRepositoryProvider).unlike(profile.id);
         ref.invalidate(profileSubscriptionsProvider);
       }
       if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(
-          SnackBar(
-            behavior: SnackBarBehavior.floating,
-            margin: const EdgeInsets.fromLTRB(16, 0, 16, 112),
-            content: Text('Подписка на «${profile.displayName}» удалена'),
-            action: SnackBarAction(
-              label: 'Вернуть',
-              onPressed: () => unawaited(_restoreSubscription(profile.id)),
-            ),
-          ),
-        );
+      showAppNotice(
+        context,
+        'Подписка на «${profile.displayName}» удалена',
+        actionLabel: 'Вернуть',
+        onAction: () => unawaited(_restoreSubscription(profile.id)),
+      );
     } on Object {
       if (!mounted) return;
       setState(() => _removedSubscriptionIds.remove(profile.id));
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Не удалось удалить подписку')),
+      showAppNotice(
+        context,
+        'Не удалось удалить подписку',
+        kind: AppNoticeKind.error,
       );
     }
   }
@@ -620,9 +593,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       setState(() => _removedSubscriptionIds.remove(userId));
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось вернуть подписку')),
-      );
+      showAppNotice(context, 'Не удалось вернуть подписку');
     }
   }
 }

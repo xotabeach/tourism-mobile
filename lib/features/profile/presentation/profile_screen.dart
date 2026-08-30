@@ -85,7 +85,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(tabScrollToTopProvider(4), (previous, next) {

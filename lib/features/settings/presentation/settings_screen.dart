@@ -7,6 +7,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -75,11 +76,10 @@ class SettingsAboutScreen extends ConsumerWidget {
 
   Future<void> _open(BuildContext context, String url) async {
     final uri = Uri.tryParse(url);
-    if (uri == null || !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+    if (uri == null ||
+        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось открыть ссылку')),
-        );
+        showAppNotice(context, 'Не удалось открыть ссылку');
       }
     }
   }

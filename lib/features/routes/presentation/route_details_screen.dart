@@ -14,6 +14,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -373,9 +374,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
       await ref.read(favoritesProvider.notifier).toggleRoute(routeId);
     } on Object {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось обновить избранное')),
-      );
+      showAppNotice(context, 'Не удалось обновить избранное');
     }
   }
 
@@ -403,9 +402,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   }
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    showAppNotice(context, message);
   }
 
   void _showSoon(String feature) {
@@ -449,9 +446,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     if (!mounted) return;
     if (draft?.serverId == route.id) {
       unawaited(
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen())),
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen()),
+        ),
       );
       return;
     }

@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/validation/display_name.dart';
@@ -132,16 +133,12 @@ class _SettingsChangeNameScreenState
       return;
     }
     if (!_privacy || !_pdn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Нужно принять оба согласия')),
-      );
+      showAppNotice(context, 'Нужно принять оба согласия');
       return;
     }
     final nameError = DisplayNamePolicy.validationError(_controller.text);
     if (nameError != null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(nameError)));
+      showAppNotice(context, nameError);
       return;
     }
     final name = _controller.text.trim();
@@ -151,17 +148,13 @@ class _SettingsChangeNameScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Имя обновлено')));
+      showAppNotice(context, 'Имя обновлено');
       context.pop();
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -247,18 +240,15 @@ class _SettingsChangePhotoScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(cover ? 'Обложка обновлена' : 'Фото профиля обновлено'),
-        ),
+      showAppNotice(
+        context,
+        cover ? 'Обложка обновлена' : 'Фото профиля обновлено',
       );
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -392,9 +382,7 @@ class _SettingsChangePhoneScreenState
   Future<void> _requestCode() async {
     final phone = _controller.text.trim();
     if (phone.length < 6) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите номер телефона')));
+      showAppNotice(context, 'Введите номер телефона');
       return;
     }
     setState(() => _busy = true);
@@ -408,9 +396,7 @@ class _SettingsChangePhoneScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -420,16 +406,12 @@ class _SettingsChangePhoneScreenState
 
   Future<void> _verify() async {
     if (!_privacy || !_pdn) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Нужно принять оба согласия')),
-      );
+      showAppNotice(context, 'Нужно принять оба согласия');
       return;
     }
     final code = _codeControllers.map((c) => c.text).join();
     if (code.length != 4) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Введите код из SMS')));
+      showAppNotice(context, 'Введите код из SMS');
       return;
     }
     setState(() => _busy = true);
@@ -445,17 +427,13 @@ class _SettingsChangePhoneScreenState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Номер обновлён')));
+      showAppNotice(context, 'Номер обновлён');
       context.pop();
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } finally {
       if (mounted) {
         setState(() => _busy = false);

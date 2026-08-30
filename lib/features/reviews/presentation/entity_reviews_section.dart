@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -610,15 +611,11 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
       }
       setState(() => _images.addAll(accepted.take(available)));
       if (accepted.length != picked.length) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Фото больше 10 МБ не добавлены')),
-        );
+        showAppNotice(context, 'Фото больше 10 МБ не добавлены');
       }
     } on Object {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Не удалось выбрать фотографии')),
-        );
+        showAppNotice(context, 'Не удалось выбрать фотографии');
       }
     }
   }
@@ -654,29 +651,22 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.replyTo == null
-                ? 'Отзыв отправлен на модерацию'
-                : 'Ответ отправлен на модерацию',
-          ),
-        ),
+      showAppNotice(
+        context,
+        widget.replyTo == null
+            ? 'Отзыв отправлен на модерацию'
+            : 'Ответ отправлен на модерацию',
       );
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error.message)));
+      showAppNotice(context, error.message);
     } on Object {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Не удалось отправить отзыв')),
-      );
+      showAppNotice(context, 'Не удалось отправить отзыв');
     } finally {
       if (mounted) {
         setState(() => _sending = false);
@@ -1507,16 +1497,12 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(failure.message)));
+      showAppNotice(context, failure.message);
     } catch (_) {
       if (!context.mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Не удалось удалить отзыв')));
+      showAppNotice(context, 'Не удалось удалить отзыв');
     }
   }
 }

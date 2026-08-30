@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_fonts.dart';
 import 'package:tourism_mobile/core/validation/display_name.dart';
@@ -86,11 +87,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Не удалось отправить код. Попробуйте ещё раз.'),
-        ),
-      );
+      showAppNotice(context, 'Не удалось отправить код. Попробуйте ещё раз.');
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
