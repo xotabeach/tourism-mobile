@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -20,6 +20,38 @@ import 'package:tourism_mobile/features/settings/application/support_providers.d
 import 'package:tourism_mobile/features/settings/data/support_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+/// Store review link. Hidden rather than shown as a dead/mock control until
+/// the app has a real store listing for the current platform.
+class RateAppTile extends ConsumerWidget {
+  const RateAppTile({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
+    final url = Platform.isIOS ? config.appStoreUrl : config.playStoreUrl;
+    if (url == null) {
+      return const SizedBox.shrink();
+    }
+    return SettingsNavTile(
+      title: 'Оценить приложение',
+      subtitle: 'Это поможет нам в развитии',
+      iconAsset: AppIconography.settingsRate,
+      onTap: () async {
+        final uri = Uri.tryParse(url);
+        final opened =
+            uri != null &&
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!opened && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Не удалось открыть магазин приложений')),
+          );
+        }
+      },
+    );
+  }
+}
 
 class SupportFaqItem {
   const SupportFaqItem({
@@ -73,6 +105,68 @@ const kRoutesNavigationFaq = <SupportFaqItem>[
   ),
 ];
 
+const kAppQuestionsFaq = <SupportFaqItem>[
+  SupportFaqItem(
+    id: 'account',
+    title: 'Смена номера телефона',
+    subtitle: 'Как поменять номер, привязанный к аккаунту?',
+    answer:
+        'В разделе «Настройки профиля» откройте номер телефона и запросите смену — придёт код подтверждения на новый номер.',
+  ),
+  SupportFaqItem(
+    id: 'notifications',
+    title: 'Уведомления',
+    subtitle: 'Почему не приходят пуш-уведомления?',
+    answer:
+        'Проверьте переключатель в «Уведомления» и разрешения приложения в системных настройках телефона. Часть уведомлений (например, о поддержке) всегда доступна внутри приложения, даже если push отключён.',
+  ),
+  SupportFaqItem(
+    id: 'ai-chat',
+    title: 'Подбор маршрута с ИИ',
+    subtitle: 'Как работает чат-подбор?',
+    answer:
+        'ИИ уточняет предпочтения и предлагает маршрут из каталога КрымТрип — это не свободная генерация, а подбор среди проверенных данных. История чатов сохраняется в разделе «История чатов с ИИ».',
+  ),
+  SupportFaqItem(
+    id: 'data',
+    title: 'Данные и приватность',
+    subtitle: 'Что происходит с моими данными при выходе из аккаунта?',
+    answer:
+        'Локально скачанные маршруты и черновики удаляются с устройства. Данные профиля на сервере сохраняются — повторный вход восстановит избранное, достижения и историю.',
+  ),
+];
+
+const kTravelPointsFaq = <SupportFaqItem>[
+  SupportFaqItem(
+    id: 'earn',
+    title: 'Как начисляются баллы',
+    subtitle: 'За что дают ТревелПоинты?',
+    answer:
+        'Сейчас +5 баллов начисляется за лайк профиля и за добавление чужого маршрута в избранное (с задержкой около 6 часов). Начисление за пройденные маршруты появится позже.',
+  ),
+  SupportFaqItem(
+    id: 'rank',
+    title: 'Звание',
+    subtitle: 'Как повысить звание в профиле?',
+    answer:
+        'Звание растёт по накопленным ТревелПоинтам — пороги видны в профиле рядом с прогрессом до следующего звания.',
+  ),
+  SupportFaqItem(
+    id: 'achievements',
+    title: 'Достижения',
+    subtitle: 'Как получить достижение?',
+    answer:
+        'Часть достижений выдаётся автоматически при регистрации, остальные открываются по мере активности в приложении. Полный список — locked и полученные — доступен в профиле.',
+  ),
+  SupportFaqItem(
+    id: 'leaderboard',
+    title: 'Топ пользователей',
+    subtitle: 'Как попасть в топ?',
+    answer:
+        'Место в топе считается по общей сумме ТревелПоинтов и обновляется вместе с начислением баллов.',
+  ),
+];
+
 List<Widget> _supportActionRows(BuildContext context) {
   return [
     SettingsNavTile(
@@ -81,16 +175,7 @@ List<Widget> _supportActionRows(BuildContext context) {
       iconAsset: AppIconography.settingsReport,
       onTap: () => context.pushNamed(AppRouteNames.settingsReport),
     ),
-    SettingsNavTile(
-      title: 'Оценить приложение',
-      subtitle: 'Это поможет нам в развитии',
-      iconAsset: AppIconography.settingsRate,
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Оценка приложения — позже')),
-        );
-      },
-    ),
+    const RateAppTile(),
     SettingsChatCta(onTap: () => context.pushNamed(AppRouteNames.settingsChat)),
   ];
 }
@@ -118,22 +203,20 @@ class SettingsSupportScreen extends StatelessWidget {
           title: 'Вопросы по приложению',
           iconAsset: AppIconography.settingsFaqApp,
           dense: true,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Раздел появится позже')),
-            );
-          },
+          onTap: () => context.pushNamed(
+            AppRouteNames.settingsFaqCategory,
+            pathParameters: {'category': 'app'},
+          ),
         ),
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsNavTile(
           title: 'Баллы ТревелПоинт и достижения',
           iconAsset: AppIconography.settingsTravelPoints,
           dense: true,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Раздел появится позже')),
-            );
-          },
+          onTap: () => context.pushNamed(
+            AppRouteNames.settingsFaqCategory,
+            pathParameters: {'category': 'travel_points'},
+          ),
         ),
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsNavTile(
@@ -161,6 +244,20 @@ class SettingsSupportScreen extends StatelessWidget {
   }
 }
 
+List<SupportFaqItem> _faqItemsForCategory(String category) => switch (category) {
+  'routes' => kRoutesNavigationFaq,
+  'app' => kAppQuestionsFaq,
+  'travel_points' => kTravelPointsFaq,
+  _ => const <SupportFaqItem>[],
+};
+
+String _faqCategoryTitle(String category) => switch (category) {
+  'routes' => 'Маршруты и навигация',
+  'app' => 'Вопросы по приложению',
+  'travel_points' => 'Баллы ТревелПоинт и достижения',
+  _ => 'Вопросы',
+};
+
 class SettingsFaqCategoryScreen extends StatelessWidget {
   const SettingsFaqCategoryScreen({super.key, required this.category});
 
@@ -168,11 +265,9 @@ class SettingsFaqCategoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = category == 'routes'
-        ? kRoutesNavigationFaq
-        : const <SupportFaqItem>[];
+    final items = _faqItemsForCategory(category);
     return SettingsScaffold(
-      title: 'Маршруты и навигация:',
+      title: '${_faqCategoryTitle(category)}:',
       spaceChildren: false,
       children: [
         for (var i = 0; i < items.length; i++) ...[
@@ -207,9 +302,7 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = category == 'routes'
-        ? kRoutesNavigationFaq
-        : const <SupportFaqItem>[];
+    final items = _faqItemsForCategory(category);
     SupportFaqItem? item;
     for (final candidate in items) {
       if (candidate.id == questionId) {
@@ -839,16 +932,7 @@ class SettingsReportScreen extends StatelessWidget {
           dense: true,
           onTap: () => context.pushNamed(AppRouteNames.settingsReportApp),
         ),
-        SettingsNavTile(
-          title: 'Оценить приложение',
-          subtitle: 'Это поможет нам в развитии',
-          iconAsset: AppIconography.settingsRate,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Оценка приложения — позже')),
-            );
-          },
-        ),
+        const RateAppTile(),
         SettingsChatCta(
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),
         ),
@@ -1037,16 +1121,7 @@ class _SettingsReportAppFormScreenState
         const SizedBox(height: 12),
         const _ReportDeviceCard(),
         const SizedBox(height: 16),
-        SettingsNavTile(
-          title: 'Оценить приложение',
-          subtitle: 'Это поможет нам в развитии',
-          iconAsset: AppIconography.settingsRate,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Оценка приложения — позже')),
-            );
-          },
-        ),
+        const RateAppTile(),
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsChatCta(
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),
@@ -1251,16 +1326,7 @@ class _SettingsReportRouteFormScreenState
         const SizedBox(height: 12),
         const _ReportDeviceCard(),
         const SizedBox(height: 16),
-        SettingsNavTile(
-          title: 'Оценить приложение',
-          subtitle: 'Это поможет нам в развитии',
-          iconAsset: AppIconography.settingsRate,
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Оценка приложения — позже')),
-            );
-          },
-        ),
+        const RateAppTile(),
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsChatCta(
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),

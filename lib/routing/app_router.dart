@@ -70,6 +70,7 @@ abstract final class AppRouteNames {
   static const settingsNotifications = 'settings-notifications';
   static const settingsNotificationsInbox = 'settings-notifications-inbox';
   static const settingsOffline = 'settings-offline';
+  static const settingsAbout = 'settings-about';
   static const settingsSupport = 'settings-support';
   static const settingsFaqCategory = 'settings-faq-category';
   static const settingsFaqAnswer = 'settings-faq-answer';
@@ -423,6 +424,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         pageBuilder: (context, state) => CupertinoPage<void>(
                           key: state.pageKey,
                           child: const SettingsOfflineScreen(),
+                        ),
+                      ),
+                      GoRoute(
+                        name: AppRouteNames.settingsAbout,
+                        path: 'about',
+                        pageBuilder: (context, state) => CupertinoPage<void>(
+                          key: state.pageKey,
+                          child: const SettingsAboutScreen(),
                         ),
                       ),
                       GoRoute(

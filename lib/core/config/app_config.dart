@@ -11,12 +11,26 @@ class AppConfig {
     required this.apiBaseUrl,
     required this.appName,
     required this.dataSource,
+    this.playStoreUrl,
+    this.appStoreUrl,
+    this.privacyPolicyUrl,
+    this.termsUrl,
+    this.supportEmail,
   });
 
   final AppEnvironment environment;
   final String apiBaseUrl;
   final String appName;
   final AppDataSource dataSource;
+
+  /// Store listing / legal links. All null until the app has a real store
+  /// listing and published legal documents — the UI must hide the
+  /// corresponding control rather than show a dead or placeholder link.
+  final String? playStoreUrl;
+  final String? appStoreUrl;
+  final String? privacyPolicyUrl;
+  final String? termsUrl;
+  final String? supportEmail;
 
   bool get useMockData => dataSource == AppDataSource.mock;
 
@@ -57,6 +71,13 @@ class AppConfig {
     const configuredEnvironment = String.fromEnvironment('APP_ENV');
     const configuredApiBaseUrl = String.fromEnvironment('API_BASE_URL');
     const configuredDataSource = String.fromEnvironment('DATA_SOURCE');
+    const configuredPlayStoreUrl = String.fromEnvironment('PLAY_STORE_URL');
+    const configuredAppStoreUrl = String.fromEnvironment('APP_STORE_URL');
+    const configuredPrivacyPolicyUrl = String.fromEnvironment(
+      'PRIVACY_POLICY_URL',
+    );
+    const configuredTermsUrl = String.fromEnvironment('TERMS_URL');
+    const configuredSupportEmail = String.fromEnvironment('SUPPORT_EMAIL');
     final environment = resolveEnvironment(
       configuredEnvironment: configuredEnvironment,
       isRelease: kReleaseMode,
@@ -68,6 +89,17 @@ class AppConfig {
         configuredDataSource: configuredDataSource,
         environment: environment,
       ),
+      playStoreUrl: configuredPlayStoreUrl.isEmpty
+          ? null
+          : configuredPlayStoreUrl,
+      appStoreUrl: configuredAppStoreUrl.isEmpty ? null : configuredAppStoreUrl,
+      privacyPolicyUrl: configuredPrivacyPolicyUrl.isEmpty
+          ? null
+          : configuredPrivacyPolicyUrl,
+      termsUrl: configuredTermsUrl.isEmpty ? null : configuredTermsUrl,
+      supportEmail: configuredSupportEmail.isEmpty
+          ? null
+          : configuredSupportEmail,
     );
   }
 
@@ -75,6 +107,11 @@ class AppConfig {
     AppEnvironment environment, {
     String? apiBaseUrl,
     AppDataSource? dataSource,
+    String? playStoreUrl,
+    String? appStoreUrl,
+    String? privacyPolicyUrl,
+    String? termsUrl,
+    String? supportEmail,
   }) {
     final resolvedDataSource =
         dataSource ??
@@ -107,6 +144,11 @@ class AppConfig {
         AppEnvironment.production => 'КрымТрип',
       },
       dataSource: resolvedDataSource,
+      playStoreUrl: playStoreUrl,
+      appStoreUrl: appStoreUrl,
+      privacyPolicyUrl: privacyPolicyUrl,
+      termsUrl: termsUrl,
+      supportEmail: supportEmail,
     );
   }
 
