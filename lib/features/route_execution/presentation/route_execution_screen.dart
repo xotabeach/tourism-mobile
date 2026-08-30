@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
@@ -16,6 +15,7 @@ import 'package:tourism_mobile/features/route_execution/domain/route_execution.d
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteExecutionScreen extends ConsumerStatefulWidget {
   const RouteExecutionScreen({required this.routeId, super.key});
@@ -30,6 +30,10 @@ class RouteExecutionScreen extends ConsumerStatefulWidget {
 class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   RouteExecution? _execution;
   String? _error;
+  // Set when another route is already being walked: the screen is otherwise a
+  // dead end (the user cannot start this route and cannot reach the blocking
+  // one from here).
+  RouteExecution? _blockingExecution;
   var _loading = true;
   String? _busyStopId;
   var _finishing = false;
@@ -51,7 +55,13 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (active != null &&
           active.isActive &&
           active.routeId != widget.routeId) {
+        if (mounted) {
+          setState(() => _blockingExecution = active);
+        }
         throw StateError('Сначала заверши текущий маршрут');
+      }
+      if (mounted && _blockingExecution != null) {
+        setState(() => _blockingExecution = null);
       }
       final execution = active?.routeId == widget.routeId
           ? active!
@@ -320,13 +330,24 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? AppAsyncErrorView(
+          ? _ExecutionErrorView(
+              message: _error!,
+              blocking: _blockingExecution,
               onRetry: () {
                 setState(() {
                   _error = null;
                   _loading = true;
                 });
                 unawaited(_loadOrStart());
+              },
+              onOpenBlocking: () {
+                final blocking = _blockingExecution;
+                final blockingRouteId = blocking?.routeId;
+                if (blockingRouteId == null) return;
+                context.pushReplacementNamed(
+                  AppRouteNames.routeExecution,
+                  pathParameters: {'id': blockingRouteId},
+                );
               },
             )
           : _execution == null
@@ -647,6 +668,72 @@ class _EmptyStopsCard extends StatelessWidget {
         padding: EdgeInsets.all(18),
         child: Text(
           'Маршрут можно начать. Остановки синхронизируются после ответа сервера.',
+        ),
+      ),
+    );
+  }
+}
+
+/// Execution-start failure with the real reason, plus a way out when the
+/// blocker is another route already in progress — otherwise this screen is a
+/// dead end for anyone who forgot to finish a walk.
+class _ExecutionErrorView extends StatelessWidget {
+  const _ExecutionErrorView({
+    required this.message,
+    required this.onRetry,
+    required this.onOpenBlocking,
+    this.blocking,
+  });
+
+  final String message;
+  final RouteExecution? blocking;
+  final VoidCallback onRetry;
+  final VoidCallback onOpenBlocking;
+
+  @override
+  Widget build(BuildContext context) {
+    final blockingRoute = blocking;
+    return Semantics(
+      liveRegion: true,
+      label: message,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.directions_walk_rounded, size: 32),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              if (blockingRoute != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Сейчас проходится «${blockingRoute.routeName}»',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.secondaryInk,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 20),
+              if (blockingRoute != null)
+                FilledButton.icon(
+                  onPressed: onOpenBlocking,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('Открыть активный маршрут'),
+                ),
+              if (blockingRoute != null) const SizedBox(height: 8),
+              TextButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Повторить'),
+              ),
+            ],
+          ),
         ),
       ),
     );

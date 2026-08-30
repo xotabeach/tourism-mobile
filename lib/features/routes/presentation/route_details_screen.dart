@@ -29,6 +29,7 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_menu_bubble.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 export 'package:tourism_mobile/features/reviews/presentation/entity_reviews_section.dart'
@@ -55,6 +56,8 @@ enum _RouteDetailsSection { about, comments }
 class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     with SingleTickerProviderStateMixin {
   final _scrollController = ScrollController();
+  // Anchors the route menu bubble to the "..." circle it unfolds from.
+  final _menuAnchorKey = GlobalKey();
   late final AnimationController _galleryController;
 
   int? _selectedStop;
@@ -229,6 +232,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                         ),
                         isExpert: route.authorIsExpert,
                         onAuthorTap: onAuthorTap,
+                        menuAnchorKey: _menuAnchorKey,
                         onMore: () => unawaited(_showRouteMenu(route)),
                       ),
                       if (statusLabel != null) ...[
@@ -496,78 +500,49 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     final store = ref.read(offlineRouteStoreProvider);
     final downloaded = await store.get(route.id) != null;
     if (!mounted) return;
-    await showModalBottomSheet<void>(
+    await showRouteMenuBubble(
       context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(
-                  downloaded
-                      ? Icons.download_done_rounded
-                      : Icons.download_rounded,
-                ),
-                title: Text(
-                  downloaded ? 'Удалить из офлайн' : 'Скачать офлайн',
-                ),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(_toggleOffline(route));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.ios_share_rounded),
-                title: const Text('Поделиться'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(_shareRoute(route));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.copy_rounded),
-                title: const Text('Скопировать текст'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  unawaited(_copyRouteText(route));
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.flag_outlined),
-                title: const Text('Пожаловаться на маршрут'),
-                onTap: () {
-                  Navigator.of(sheetContext).pop();
-                  _reportRoute(route);
-                },
-              ),
-              if (isOwner &&
-                  (route.publicationStatus == 'draft' ||
-                      route.publicationStatus == 'rejected'))
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Редактировать'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(_editOwnRoute(route));
-                  },
-                ),
-              if (isOwner &&
-                  (route.publicationStatus == 'pending_review' ||
-                      route.publicationStatus == 'published'))
-                ListTile(
-                  leading: const Icon(Icons.visibility_off_outlined),
-                  title: const Text('Снять с публикации'),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(_withdrawOwnRoute(route));
-                  },
-                ),
-            ],
+      anchorKey: _menuAnchorKey,
+      actions: [
+        RouteMenuAction(
+          icon: downloaded
+              ? Icons.download_done_rounded
+              : Icons.download_rounded,
+          label: downloaded ? 'Удалить из офлайн' : 'Скачать офлайн',
+          onSelected: () => unawaited(_toggleOffline(route)),
+        ),
+        RouteMenuAction(
+          icon: Icons.ios_share_rounded,
+          label: 'Поделиться',
+          onSelected: () => unawaited(_shareRoute(route)),
+        ),
+        RouteMenuAction(
+          icon: Icons.copy_rounded,
+          label: 'Скопировать текст',
+          onSelected: () => unawaited(_copyRouteText(route)),
+        ),
+        RouteMenuAction(
+          icon: Icons.flag_outlined,
+          label: 'Пожаловаться на маршрут',
+          onSelected: () => _reportRoute(route),
+        ),
+        if (isOwner &&
+            (route.publicationStatus == 'draft' ||
+                route.publicationStatus == 'rejected'))
+          RouteMenuAction(
+            icon: Icons.edit_outlined,
+            label: 'Редактировать',
+            onSelected: () => unawaited(_editOwnRoute(route)),
           ),
-        );
-      },
+        if (isOwner &&
+            (route.publicationStatus == 'pending_review' ||
+                route.publicationStatus == 'published'))
+          RouteMenuAction(
+            icon: Icons.visibility_off_outlined,
+            label: 'Снять с публикации',
+            onSelected: () => unawaited(_withdrawOwnRoute(route)),
+          ),
+      ],
     );
   }
 
@@ -879,6 +854,7 @@ class _AuthorRow extends StatelessWidget {
     required this.avatar,
     required this.isExpert,
     required this.onMore,
+    required this.menuAnchorKey,
     this.onAuthorTap,
   });
 
@@ -887,6 +863,7 @@ class _AuthorRow extends StatelessWidget {
   final ImageProvider avatar;
   final bool isExpert;
   final VoidCallback onMore;
+  final GlobalKey menuAnchorKey;
   final VoidCallback? onAuthorTap;
 
   @override
@@ -959,6 +936,7 @@ class _AuthorRow extends StatelessWidget {
           button: true,
           label: 'Меню маршрута',
           child: SizedBox.square(
+            key: menuAnchorKey,
             dimension: 48,
             child: Material(
               color: AppColors.primaryInk,

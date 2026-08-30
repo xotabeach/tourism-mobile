@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_permission.dart';
@@ -355,50 +356,18 @@ class SettingsOfflineScreen extends ConsumerWidget {
       showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
+        // A shrink-wrapped sheet collapsed to a couple of unreadable rows.
+        // Give it a real, resizable height instead.
         isScrollControlled: true,
-        builder: (sheetContext) => SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.85,
-            ),
-            child: ListView.separated(
-              shrinkWrap: true,
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-              itemCount: items.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.route_rounded),
-                  title: Text(item.route.name),
-                  subtitle: Text(
-                    '${item.route.stops.length} остановок · '
-                    '${_downloadDate(item.downloadedAt)}',
-                  ),
-                  trailing: IconButton(
-                    tooltip: 'Удалить скачанную копию',
-                    icon: const Icon(Icons.delete_outline_rounded),
-                    onPressed: () async {
-                      await removeDownloadedRoute(ref, item.id);
-                      if (sheetContext.mounted) {
-                        Navigator.of(sheetContext).pop();
-                      }
-                    },
-                  ),
-                  onTap: () {
-                    Navigator.of(sheetContext).pop();
-                    unawaited(
-                      context.pushNamed(
-                        AppRouteNames.routeDetails,
-                        pathParameters: {'id': item.id},
-                        extra: item.route,
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+        builder: (sheetContext) => DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.72,
+          minChildSize: 0.45,
+          maxChildSize: 0.92,
+          builder: (context, scrollController) => _DownloadedRoutesSheet(
+            initialItems: items,
+            scrollController: scrollController,
+            ref: ref,
           ),
         ),
       ),
@@ -418,5 +387,165 @@ class SettingsOfflineScreen extends ConsumerWidget {
     final day = value.day.toString().padLeft(2, '0');
     final month = value.month.toString().padLeft(2, '0');
     return 'скачан $day.$month.${value.year}';
+  }
+}
+
+/// Downloaded-routes list with per-route removal.
+///
+/// Keeps its own copy of the list so removing one route updates the sheet in
+/// place — the previous version popped the whole sheet after every delete.
+class _DownloadedRoutesSheet extends StatefulWidget {
+  const _DownloadedRoutesSheet({
+    required this.initialItems,
+    required this.scrollController,
+    required this.ref,
+  });
+
+  final List<OfflineRouteRecord> initialItems;
+  final ScrollController scrollController;
+  final WidgetRef ref;
+
+  @override
+  State<_DownloadedRoutesSheet> createState() => _DownloadedRoutesSheetState();
+}
+
+class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
+  late List<OfflineRouteRecord> _items = [...widget.initialItems];
+  String? _removingId;
+
+  Future<void> _remove(OfflineRouteRecord item) async {
+    setState(() => _removingId = item.id);
+    try {
+      await removeDownloadedRoute(widget.ref, item.id);
+      if (!mounted) return;
+      setState(() {
+        _items = _items.where((entry) => entry.id != item.id).toList();
+        _removingId = null;
+      });
+      if (_items.isEmpty && mounted) {
+        Navigator.of(context).pop();
+      }
+    } on Object {
+      if (!mounted) return;
+      setState(() => _removingId = null);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Не удалось удалить копию маршрута')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Скачанные маршруты',
+                  style: AppTypography.settingsRowTitle.copyWith(fontSize: 17),
+                ),
+              ),
+              Text(
+                '${_items.length}',
+                style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView.separated(
+            controller: widget.scrollController,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+            itemCount: _items.length,
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              final item = _items[index];
+              final busy = _removingId == item.id;
+              return DecoratedBox(
+                decoration: BoxDecoration(
+                  color: SettingsColors.fieldFill,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.download_done_rounded, size: 22),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InkWell(
+                          onTap: busy
+                              ? null
+                              : () {
+                                  Navigator.of(context).pop();
+                                  unawaited(
+                                    context.pushNamed(
+                                      AppRouteNames.routeDetails,
+                                      pathParameters: {'id': item.id},
+                                      extra: item.route,
+                                    ),
+                                  );
+                                },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.route.name,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.settingsRowTitle.copyWith(
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${item.route.stops.length} '
+                                '${_stopWord(item.route.stops.length)} · '
+                                '${SettingsOfflineScreen._downloadDate(item.downloadedAt)}',
+                                style: AppTypography.settingsRowSubtitle
+                                    .copyWith(fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      if (busy)
+                        const SizedBox.square(
+                          dimension: 36,
+                          child: Center(
+                            child: SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          ),
+                        )
+                      else
+                        IconButton(
+                          tooltip: 'Удалить скачанную копию',
+                          icon: const Icon(Icons.close_rounded, size: 20),
+                          onPressed: () => unawaited(_remove(item)),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _stopWord(int count) {
+    final mod100 = count % 100;
+    final mod10 = count % 10;
+    if (mod100 >= 11 && mod100 <= 14) return 'остановок';
+    if (mod10 == 1) return 'остановка';
+    if (mod10 >= 2 && mod10 <= 4) return 'остановки';
+    return 'остановок';
   }
 }
