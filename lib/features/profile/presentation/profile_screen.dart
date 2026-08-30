@@ -23,6 +23,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
+import 'package:tourism_mobile/features/profile/presentation/achievement_card_screen.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -84,11 +85,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.dispose();
   }
 
-  void _snack(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -283,9 +279,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onPageChanged: (index) {
                       setState(() => _achievementPage = index);
                     },
-                    onAchievementTap: (achievement) {
-                      _snack(achievement.title);
-                    },
+                    onAchievementTap: (achievement) =>
+                        openAchievementCard(context, achievement),
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   Padding(

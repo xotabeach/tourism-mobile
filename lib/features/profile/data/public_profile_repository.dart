@@ -168,7 +168,12 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
               id: item['id'] as String? ?? '',
               title: _boundedText(item['title'], 120),
               description: _boundedText(item['description'], 240),
+              howToEarn: _boundedText(item['how_to_earn'], 240),
+              iconSlug: _boundedText(item['icon_slug'], 64),
               isUnlocked: item['is_unlocked'] as bool? ?? false,
+              unlockedAt: DateTime.tryParse(
+                item['unlocked_at'] as String? ?? '',
+              )?.toLocal(),
             ),
       ].where((item) => item.id.isNotEmpty && item.title.isNotEmpty).toList();
     });

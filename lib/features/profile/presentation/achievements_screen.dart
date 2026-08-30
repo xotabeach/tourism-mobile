@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
+import 'package:tourism_mobile/features/profile/presentation/achievement_card_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 
 /// Full-screen achievements catalog (Figma «Достижения»).
@@ -276,7 +277,7 @@ class _AchievementBadgeRow extends StatelessWidget {
         width: double.infinity,
         child: AppPressableScale(
           borderRadius: AppRadii.card,
-          onTap: unlocked ? () => _snack(context, achievement.title) : null,
+          onTap: () => openAchievementCard(context, achievement),
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: unlocked
@@ -425,8 +426,3 @@ class _EmptyAchievements extends StatelessWidget {
   }
 }
 
-void _snack(BuildContext context, String message) {
-  ScaffoldMessenger.of(context)
-    ..hideCurrentSnackBar()
-    ..showSnackBar(SnackBar(content: Text(message)));
-}

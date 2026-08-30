@@ -7,11 +7,23 @@ class ProfileAchievement {
     required this.title,
     required this.description,
     this.isUnlocked = true,
+    this.howToEarn = '',
+    this.iconSlug = '',
+    this.unlockedAt,
   });
 
   final String id;
   final String title;
   final String description;
+
+  /// What the traveller must do to earn it.
+  final String howToEarn;
+
+  /// Icon key from the backend, so a new badge needs no app release.
+  final String iconSlug;
+
+  /// When it was earned, if it has been.
+  final DateTime? unlockedAt;
 
   /// Whether the traveler has earned this badge. Defaults to unlocked so
   /// existing call sites keep showing the full colorful set.

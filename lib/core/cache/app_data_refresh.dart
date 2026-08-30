@@ -109,6 +109,9 @@ void _invalidateScope(
   void invalidateProfile() {
     if (userId != null && userId.isNotEmpty) {
       container.invalidate(publicProfileProvider(userId));
+      // Achievements are shown on the same screen, so a pull-to-refresh that
+      // left them stale looked like the refresh had done nothing.
+      container.invalidate(userAchievementsProvider(userId));
     }
   }
 
