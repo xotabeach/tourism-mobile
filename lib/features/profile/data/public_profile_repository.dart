@@ -20,6 +20,9 @@ class PublicUserProfile {
     this.expertTitle,
     this.followersCount = 0,
     this.followingCount = 0,
+    this.completedRoutesCount = 0,
+    this.reviewsWrittenCount = 0,
+    this.totalDistanceMeters = 0,
   });
 
   final String id;
@@ -37,6 +40,14 @@ class PublicUserProfile {
   final int followersCount;
   final int followingCount;
 
+  /// Only populated by [PublicProfileRepository.getUser] (a single-profile
+  /// fetch) — search/leaderboard/subscriptions rows reuse this same model
+  /// but the backend leaves these at 0 there to avoid a per-row aggregation
+  /// query, so don't render them outside the profile screen.
+  final int completedRoutesCount;
+  final int reviewsWrittenCount;
+  final int totalDistanceMeters;
+
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
     return PublicUserProfile(
       id: json['id'] as String,
@@ -53,6 +64,9 @@ class PublicUserProfile {
       expertTitle: json['expert_title'] as String?,
       followersCount: _nonNegativeCount(json['followers_count']),
       followingCount: _nonNegativeCount(json['following_count']),
+      completedRoutesCount: _nonNegativeCount(json['completed_routes_count']),
+      reviewsWrittenCount: _nonNegativeCount(json['reviews_written_count']),
+      totalDistanceMeters: _nonNegativeCount(json['total_distance_meters']),
     );
   }
 }

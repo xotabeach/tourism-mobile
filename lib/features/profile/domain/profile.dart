@@ -60,6 +60,9 @@ class ProfileSnapshot {
     this.travelPoints,
     this.followersCount = 0,
     this.followingCount = 0,
+    this.completedRoutesCount = 0,
+    this.reviewsWrittenCount = 0,
+    this.totalDistanceMeters = 0,
   });
 
   final String displayName;
@@ -79,6 +82,13 @@ class ProfileSnapshot {
   final int? travelPoints;
   final int followersCount;
   final int followingCount;
+
+  /// Completed route executions, published reviews (routes + places), and
+  /// total distance walked/driven on completed routes — shown as stat cards
+  /// on the profile screen, for both the owner and a visitor.
+  final int completedRoutesCount;
+  final int reviewsWrittenCount;
+  final int totalDistanceMeters;
 
   String get firstName {
     final parts = displayName.trim().split(RegExp(r'\s+'));

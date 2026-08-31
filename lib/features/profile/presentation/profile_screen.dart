@@ -231,6 +231,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       AppSpacing.page,
                       0,
                     ),
+                    child: _ActivityStatsRow(
+                      completedRoutesCount: profile.completedRoutesCount,
+                      reviewsWrittenCount: profile.reviewsWrittenCount,
+                      totalDistanceMeters: profile.totalDistanceMeters,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(
+                      AppSpacing.page,
+                      AppSpacing.xl,
+                      AppSpacing.page,
+                      0,
+                    ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -983,6 +996,55 @@ class _RankCard extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Completed routes / reviews written / distance travelled — a second row
+/// of stat boxes below the header, reusing [_FollowStatBox]'s look so it
+/// reads as one design language with the followers/following row above it.
+class _ActivityStatsRow extends StatelessWidget {
+  const _ActivityStatsRow({
+    required this.completedRoutesCount,
+    required this.reviewsWrittenCount,
+    required this.totalDistanceMeters,
+  });
+
+  final int completedRoutesCount;
+  final int reviewsWrittenCount;
+  final int totalDistanceMeters;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _FollowStatBox(
+            key: const ValueKey('profile-completed-routes-stat'),
+            iconAsset: AppIconography.routes,
+            value: compactCount(completedRoutesCount),
+            label: 'Маршрутов',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _FollowStatBox(
+            key: const ValueKey('profile-reviews-stat'),
+            iconAsset: AppIconography.settingsRate,
+            value: compactCount(reviewsWrittenCount),
+            label: 'Отзывов',
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _FollowStatBox(
+            key: const ValueKey('profile-distance-stat'),
+            iconAsset: AppIconography.map,
+            value: formatDistanceKm(totalDistanceMeters),
+            label: 'Пройдено',
+          ),
+        ),
+      ],
     );
   }
 }

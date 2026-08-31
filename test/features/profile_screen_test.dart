@@ -61,6 +61,12 @@ void main() {
       find.byKey(const ValueKey('profile-following-stat')),
       findsOneWidget,
     );
+    expect(find.text('Маршрутов'), findsOneWidget);
+    expect(find.text('Отзывов'), findsOneWidget);
+    expect(find.text('Пройдено'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('143 км'), findsOneWidget);
     final coverRect = tester.getRect(
       find.byKey(const ValueKey('profile-cover')),
     );

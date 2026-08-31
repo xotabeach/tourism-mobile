@@ -186,6 +186,9 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
           .toList(),
       isExpert: userId == 'mock-maria',
       expertTitle: userId == 'mock-maria' ? 'Эксперт КрымТрип' : null,
+      completedRoutesCount: 5,
+      reviewsWrittenCount: 2,
+      totalDistanceMeters: 68000,
     );
   }
 
@@ -213,6 +216,9 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       travelPoints: bundle.user.travelPoints,
       followersCount: bundle.user.followersCount,
       followingCount: bundle.user.followingCount,
+      completedRoutesCount: bundle.user.completedRoutesCount,
+      reviewsWrittenCount: bundle.user.reviewsWrittenCount,
+      totalDistanceMeters: bundle.user.totalDistanceMeters,
     );
   }
 
@@ -231,6 +237,9 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     travelPoints: bundle.user.travelPoints,
     followersCount: bundle.user.followersCount,
     followingCount: bundle.user.followingCount,
+    completedRoutesCount: bundle.user.completedRoutesCount,
+    reviewsWrittenCount: bundle.user.reviewsWrittenCount,
+    totalDistanceMeters: bundle.user.totalDistanceMeters,
   );
 });
 

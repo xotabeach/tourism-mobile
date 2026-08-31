@@ -209,6 +209,9 @@ abstract final class MockProfile {
             coverImageUrl: route.coverImageUrl,
           ),
       ],
+      completedRoutesCount: 7,
+      reviewsWrittenCount: 3,
+      totalDistanceMeters: 142500,
     );
   }
 }
