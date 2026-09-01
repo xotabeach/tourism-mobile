@@ -124,8 +124,17 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                 const SizedBox(height: 36),
                 if (_registrationRequired) ...[
                   TextFormField(
+                    // Both fields are TextFormFields in one Column, and the
+                    // name field appears at the index the phone field used to
+                    // occupy. Without keys Flutter matches children by index
+                    // and type, reuses the phone field's element — and with it
+                    // the live text input connection still configured as
+                    // TextInputType.phone — so the numeric keyboard stayed up
+                    // while the user was being asked for their name.
+                    key: const ValueKey('auth-name-field'),
                     controller: _nameController,
                     focusNode: _nameFocus,
+                    keyboardType: TextInputType.name,
                     textCapitalization: TextCapitalization.words,
                     textInputAction: TextInputAction.done,
                     maxLength: DisplayNamePolicy.maxLength,
@@ -139,6 +148,7 @@ class _AuthIdentityScreenState extends ConsumerState<AuthIdentityScreen> {
                   const SizedBox(height: 12),
                 ],
                 TextFormField(
+                  key: const ValueKey('auth-phone-field'),
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
                   textInputAction: TextInputAction.done,
