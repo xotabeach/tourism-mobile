@@ -953,14 +953,59 @@ class _TabChip extends StatelessWidget {
   }
 }
 
-class _ExecutionHistoryTile extends StatelessWidget {
+class _ExecutionHistoryTile extends ConsumerWidget {
   const _ExecutionHistoryTile({required this.execution});
 
   final RouteExecution execution;
 
+  /// An active run whose route no longer exists cannot be continued, and the
+  /// backend refuses to start any new route while it is open. Without a way
+  /// out of it here the account is simply stuck, so offer to end it.
+  Future<void> _endOrphaned(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Завершить прохождение?'),
+        content: const Text(
+          'Маршрут был удалён, поэтому продолжить это прохождение нельзя. '
+          'Завершите его, чтобы начать новый маршрут.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Завершить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) {
+      return;
+    }
+    try {
+      await ref
+          .read(routeExecutionRepositoryProvider)
+          .cancel(execution.id);
+      ref.invalidate(routeExecutionHistoryProvider);
+      ref.invalidate(activeRouteExecutionProvider);
+      if (context.mounted) {
+        showAppNotice(context, 'Прохождение завершено');
+      }
+    } on Object {
+      if (context.mounted) {
+        showAppNotice(context, 'Не удалось завершить. Попробуйте ещё раз.');
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final routeId = execution.routeId;
+    final orphanedActive =
+        routeId == null && execution.status == RouteExecutionStatus.active;
     final statusColor = switch (execution.status) {
       RouteExecutionStatus.completed => AppColors.positiveSwipeTint,
       RouteExecutionStatus.cancelled => AppColors.secondaryInk,
@@ -979,7 +1024,11 @@ class _ExecutionHistoryTile extends StatelessWidget {
       color: AppColors.elevatedSurface,
       borderRadius: BorderRadius.circular(AppRadii.card),
       child: InkWell(
-        onTap: routeId == null ? null : () => context.push('/routes/$routeId'),
+        onTap: routeId != null
+            ? () => context.push('/routes/$routeId')
+            : orphanedActive
+            ? () => _endOrphaned(context, ref)
+            : null,
         borderRadius: BorderRadius.circular(AppRadii.card),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -1018,7 +1067,9 @@ class _ExecutionHistoryTile extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '$statusLabel · $dateLabel',
+                      orphanedActive
+                          ? 'Маршрут удалён · нажмите, чтобы завершить'
+                          : '$statusLabel · $dateLabel',
                       style: AppTypography.settingsRowSubtitle,
                     ),
                     if (execution.totalStops > 0) ...[
@@ -1034,6 +1085,11 @@ class _ExecutionHistoryTile extends StatelessWidget {
               if (routeId != null)
                 const Icon(
                   Icons.chevron_right_rounded,
+                  color: AppColors.secondaryInk,
+                )
+              else if (orphanedActive)
+                const Icon(
+                  Icons.close_rounded,
                   color: AppColors.secondaryInk,
                 ),
             ],
