@@ -168,17 +168,21 @@ class _StackActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Замерено по экспорту макета: рамка нейтрально-серая #E9E9E9 (не синяя),
+    // подпись — primaryBlue #1E71CA, кегль 14. Раньше и рамка, и текст брались
+    // от deepBlue, из-за чего кнопки отдавали в фиолетовый.
     final textStyle = RouteBuilderDesignTokens.rubik(
-      fontSize: px(12),
+      fontSize: px(14),
       weight: FontWeight.w400,
       height: 1.1,
     );
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: RouteBuilderDesignTokens.deepBlue,
+        foregroundColor: RouteBuilderDesignTokens.primaryBlue,
         side: BorderSide(
-          color: RouteBuilderDesignTokens.deepBlue.withValues(alpha: 0.35),
+          color: RouteBuilderDesignTokens.chatHairline,
+          width: px(1),
         ),
         minimumSize: Size.fromHeight(px(28)),
         padding: EdgeInsets.symmetric(horizontal: px(10)),

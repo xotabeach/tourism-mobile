@@ -2253,12 +2253,21 @@ class RouteAiChatView extends StatelessWidget {
                 }
                 if (index == 1) {
                   return Padding(
-                    padding: EdgeInsets.only(top: px(15)),
+                    // Порядок и отступы замерены по экспорту макета: линия
+                    // идёт НАД подписью (раньше была под ней), от переключателя
+                    // до линии ~8, от линии до подписи ~18, от подписи до
+                    // первого пузыря ~36.
+                    padding: EdgeInsets.only(top: px(8)),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        Divider(
+                          height: px(1),
+                          thickness: px(1),
+                          color: RouteBuilderDesignTokens.divider,
+                        ),
                         Padding(
-                          padding: EdgeInsets.only(bottom: px(10)),
+                          padding: EdgeInsets.only(top: px(18), bottom: px(36)),
                           child: Center(
                             child: Text(
                               'Сегодня',
@@ -2269,11 +2278,6 @@ class RouteAiChatView extends StatelessWidget {
                               ),
                             ),
                           ),
-                        ),
-                        Divider(
-                          height: px(1),
-                          thickness: px(1),
-                          color: RouteBuilderDesignTokens.divider,
                         ),
                       ],
                     ),
@@ -2757,9 +2761,9 @@ class ChatComposer extends StatelessWidget {
                 child: Ink(
                   width: px(48),
                   height: px(48),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: RouteBuilderDesignTokens.actionLinearGradient,
+                    gradient: RouteBuilderDesignTokens.sendButtonGradient,
                   ),
                   child: Center(
                     child: CustomPaint(
