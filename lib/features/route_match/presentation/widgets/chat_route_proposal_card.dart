@@ -150,7 +150,6 @@ class _CompactProposalCard extends StatelessWidget {
               onCreate: onCreate,
               onSaveDraft: onSaveDraft,
               onRefine: onRefine,
-              stackedActions: false,
             ),
           ),
         ],
@@ -335,22 +334,12 @@ class _AssembledProposalCardState
                 ],
                 if (widget.onViewMap != null) ...[
                   const SizedBox(height: 8),
-                  // Same outlined-pill weight as the secondary action buttons
-                  // below (height 42 / radius 10 / primaryBlue border) — the
-                  // design export renders every button in this card at one
-                  // visual weight, not two.
+                  // Same outlined-pill weight as every other button in this
+                  // card — the design export renders them at one visual
+                  // weight, not two.
                   OutlinedButton(
                     onPressed: widget.onViewMap,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: RouteBuilderDesignTokens.primaryBlue,
-                      side: const BorderSide(
-                        color: RouteBuilderDesignTokens.primaryBlue,
-                      ),
-                      minimumSize: const Size.fromHeight(42),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
+                    style: _proposalActionStyle(height: 42),
                     child: const Text('Посмотреть на карте'),
                   ),
                 ],
@@ -368,7 +357,6 @@ class _AssembledProposalCardState
                   onSaveDraft: widget.onSaveDraft,
                   onRefine: widget.onRefine,
                   onRebuild: widget.onRebuild,
-                  stackedActions: true,
                 ),
               ],
             ),
@@ -387,7 +375,6 @@ class _ProposalDetailsSection extends StatelessWidget {
     this.onSaveDraft,
     this.onRefine,
     this.onRebuild,
-    required this.stackedActions,
   });
 
   final RouteProposalCardData card;
@@ -396,7 +383,6 @@ class _ProposalDetailsSection extends StatelessWidget {
   final VoidCallback? onSaveDraft;
   final VoidCallback? onRefine;
   final VoidCallback? onRebuild;
-  final bool stackedActions;
 
   @override
   Widget build(BuildContext context) {
@@ -442,68 +428,25 @@ class _ProposalDetailsSection extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: onCreate,
-            style: OutlinedButton.styleFrom(
-              foregroundColor: RouteBuilderDesignTokens.primaryBlue,
-              side: const BorderSide(
-                color: RouteBuilderDesignTokens.primaryBlue,
-              ),
-              minimumSize: const Size.fromHeight(44),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+            style: _proposalActionStyle(height: 44),
             child: Text(card.primaryActionLabel),
           ),
         ],
         if (secondaryActions.isNotEmpty) ...[
           const SizedBox(height: 8),
-          if (stackedActions)
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (var i = 0; i < secondaryActions.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 8),
-                  OutlinedButton(
-                    onPressed: secondaryActions[i].$2,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: RouteBuilderDesignTokens.primaryBlue,
-                      side: const BorderSide(
-                        color: RouteBuilderDesignTokens.primaryBlue,
-                      ),
-                      minimumSize: const Size.fromHeight(42),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: Text(secondaryActions[i].$1),
-                  ),
-                ],
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < secondaryActions.length; i++) ...[
+                if (i > 0) const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: secondaryActions[i].$2,
+                  style: _proposalActionStyle(height: 42),
+                  child: Text(secondaryActions[i].$1),
+                ),
               ],
-            )
-          else
-            Row(
-              children: [
-                for (var i = 0; i < secondaryActions.length; i++) ...[
-                  if (i > 0) const SizedBox(width: 8),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: secondaryActions[i].$2,
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: RouteBuilderDesignTokens.primaryBlue,
-                        side: const BorderSide(
-                          color: RouteBuilderDesignTokens.primaryBlue,
-                        ),
-                        minimumSize: const Size.fromHeight(42),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      child: Text(secondaryActions[i].$1),
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            ],
+          ),
         ],
       ],
     );
@@ -788,23 +731,26 @@ class RouteParamsBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Порядок замерен по экспорту макета: бюджет, сложность, маршрут,
+    // расстояние. Время в пути и число точек макет не показывает, но данные
+    // полезные — оставлены в хвосте, а не выброшены.
     final rows = <_ParamRowData>[
-      if (difficultyLabel != null)
-        _ParamRowData(Icons.bolt_rounded, 'Сложность:', difficultyLabel!),
-      if (distanceLabel != null)
-        _ParamRowData(Icons.place_outlined, 'Расстояние:', distanceLabel!),
-      if (durationLabel != null)
-        _ParamRowData(Icons.schedule_rounded, 'Время в пути:', durationLabel!),
-      if (stopsLabel != null)
-        _ParamRowData(Icons.flag_outlined, 'Точек маршрута:', stopsLabel!),
-      if (localityLabel != null)
-        _ParamRowData(Icons.landscape_outlined, 'Маршрут:', localityLabel!),
       if (budgetLabel != null)
         _ParamRowData(
           Icons.account_balance_wallet_outlined,
           'Минимальный бюджет:',
           budgetLabel!,
         ),
+      if (difficultyLabel != null)
+        _ParamRowData(Icons.bolt_rounded, 'Сложность:', difficultyLabel!),
+      if (localityLabel != null)
+        _ParamRowData(Icons.landscape_outlined, 'Маршрут:', localityLabel!),
+      if (distanceLabel != null)
+        _ParamRowData(Icons.place_outlined, 'Расстояние:', distanceLabel!),
+      if (durationLabel != null)
+        _ParamRowData(Icons.schedule_rounded, 'Время в пути:', durationLabel!),
+      if (stopsLabel != null)
+        _ParamRowData(Icons.flag_outlined, 'Точек маршрута:', stopsLabel!),
     ];
     if (rows.isEmpty) {
       return const SizedBox.shrink();
@@ -853,6 +799,18 @@ class RouteParamsBlock extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Кнопки действий в карточке маршрута. В экспорте макета у них нейтральная
+/// рамка #E9E9E9 и синяя подпись — раньше рамка была `primaryBlue`, из-за чего
+/// блок кнопок читался как несколько равнозначных призывов подряд.
+ButtonStyle _proposalActionStyle({required double height}) {
+  return OutlinedButton.styleFrom(
+    foregroundColor: RouteBuilderDesignTokens.primaryBlue,
+    side: const BorderSide(color: RouteBuilderDesignTokens.chatHairline),
+    minimumSize: Size.fromHeight(height),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+  );
 }
 
 class _ParamRowData {
