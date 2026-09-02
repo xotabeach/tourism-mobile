@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-
+import 'package:tourism_mobile/core/domain/crimea_cities.dart';
 import 'package:tourism_mobile/core/network/api_guard.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
@@ -376,7 +376,27 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     var reply =
         'Понял: «$text». Уточните параметры поездки или нажмите «Подбери маршрут».';
     var askField = 'pace';
-    if (actionId == 'transport_car' ||
+    // Стартовый город спрашиваем селектом, а не чипами: городов десять,
+    // в ряд чипов они не помещаются.
+    List<RouteChatBlock> extraBlocks = const [];
+    if (actionId == 'ask_city' ||
+        lowered.contains('город') ||
+        lowered.contains('откуда')) {
+      reply = 'Давайте выберем город, откуда мы начнём наш путь:';
+      askField = 'city';
+      actions = const [];
+      extraBlocks = [
+        SelectBlock(
+          id: 'city',
+          label: 'Стартовый город',
+          placeholder: 'Город',
+          options: [
+            for (final city in crimeaCities)
+              SelectOptionItem(value: city, label: city),
+          ],
+        ),
+      ];
+    } else if (actionId == 'transport_car' ||
         actionId == 'transport_public' ||
         lowered.contains('транспорт') ||
         lowered.contains('машин')) {
@@ -423,7 +443,10 @@ class MockRouteMatchRepository implements RouteMatchRepository {
         text: reply,
         intent: 'on_topic_travel',
         askField: askField,
-        blocks: [ActionsBlock(actions: actions)],
+        blocks: [
+          ...extraBlocks,
+          if (actions.isNotEmpty) ActionsBlock(actions: actions),
+        ],
         provider: 'mock',
         fallback: true,
       ),

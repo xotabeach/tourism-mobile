@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tourism_mobile/core/domain/crimea_cities.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 import '../support/test_overrides.dart';
@@ -143,12 +145,73 @@ void main() {
       skip: _skipPixelGoldens,
     );
   });
+
+  testWidgets('golden city select — collapsed and open', (tester) async {
+    await _pumpGolden(
+      tester,
+      Container(
+        color: const Color(0xFFF7F7F7),
+        padding: const EdgeInsets.all(16),
+        alignment: Alignment.topLeft,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 241,
+              child: ChatSelectControl(
+                px: (v) => v,
+                data: _citySelect,
+                onSelected: (_) {},
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: 241,
+              child: ChatSelectControl(
+                key: const ValueKey('open-select'),
+                px: (v) => v,
+                data: _citySelect,
+                onSelected: (_) {},
+              ),
+            ),
+          ],
+        ),
+      ),
+      size: const Size(393, 560),
+      afterPump: (tester) async {
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('open-select')),
+                matching: find.byKey(const ValueKey('chat-select-header')),
+              )
+              .first,
+        );
+        await tester.pumpAndSettle();
+      },
+    );
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/chat_city_select.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
 }
+
+final _citySelect = RouteChatSelectData(
+  id: 'city',
+  label: 'Стартовый город',
+  placeholder: 'Город',
+  options: [
+    for (final city in crimeaCities) SelectOptionItem(value: city, label: city),
+  ],
+);
 
 Future<void> _pumpGolden(
   WidgetTester tester,
   Widget child, {
   Size size = _phoneSize,
+  Future<void> Function(WidgetTester tester)? afterPump,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -192,6 +255,9 @@ Future<void> _pumpGolden(
   });
   await tester.pump();
   await tester.pumpAndSettle(const Duration(milliseconds: 400));
+  if (afterPump != null) {
+    await afterPump(tester);
+  }
 }
 
 Future<void> _loadGoldenFonts() async {

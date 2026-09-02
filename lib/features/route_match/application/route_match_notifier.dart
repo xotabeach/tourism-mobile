@@ -461,6 +461,7 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
       recommendations: recommendationsFromBlocks(result.blocks),
       sliders: slidersFromBlocks(result.blocks),
       toggles: togglesFromBlocks(result.blocks),
+      selects: selectsFromBlocks(result.blocks),
     );
   }
 
@@ -618,6 +619,20 @@ List<RouteChatSliderData> slidersFromBlocks(List<RouteChatBlock> blocks) {
           step: block.step,
           value: block.value,
           unit: block.unit,
+        ),
+  ];
+}
+
+List<RouteChatSelectData> selectsFromBlocks(List<RouteChatBlock> blocks) {
+  return [
+    for (final block in blocks)
+      if (block is SelectBlock && block.options.isNotEmpty)
+        RouteChatSelectData(
+          id: block.id,
+          label: block.label,
+          options: block.options,
+          value: block.value,
+          placeholder: block.placeholder,
         ),
   ];
 }

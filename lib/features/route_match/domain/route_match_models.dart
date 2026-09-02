@@ -357,6 +357,7 @@ sealed class RouteChatBlock {
       'actions' => ActionsBlock.fromJson(json),
       'slider' => SliderBlock.fromJson(json),
       'toggle' => ToggleBlock.fromJson(json),
+      'select' => SelectBlock.fromJson(json),
       'recommendation_card' => RecommendationCardBlock.fromJson(json),
       _ => throw FormatException('Unknown block type: ${json['type']}'),
     };
@@ -521,6 +522,63 @@ final class ToggleBlock extends RouteChatBlock {
       id: json['id'] as String? ?? '',
       label: json['label'] as String? ?? '',
       value: json['value'] as bool? ?? false,
+    );
+  }
+}
+
+/// Один вариант в [SelectBlock]. `value` уходит агенту, `label` видит человек.
+class SelectOptionItem {
+  const SelectOptionItem({required this.value, required this.label});
+
+  final String value;
+  final String label;
+
+  factory SelectOptionItem.fromJson(Map<String, dynamic> json) {
+    final value = json['value'] as String? ?? '';
+    return SelectOptionItem(
+      value: value,
+      label: json['label'] as String? ?? value,
+    );
+  }
+}
+
+/// Выпадающий список внутри пузыря агента.
+///
+/// Сознательно общий, а не «выбор города»: агент присылает `select` с любым
+/// набором вариантов, клиент про смысл поля ничего не знает и возвращает
+/// выбранный `value` тем же путём, что значения слайдеров и переключателей.
+/// Сегодня так спрашивается только стартовый город.
+final class SelectBlock extends RouteChatBlock {
+  const SelectBlock({
+    required this.id,
+    required this.label,
+    required this.options,
+    this.value,
+    this.placeholder = 'Выберите вариант',
+  });
+
+  final String id;
+  final String label;
+  final List<SelectOptionItem> options;
+  final String? value;
+  final String placeholder;
+
+  factory SelectBlock.fromJson(Map<String, dynamic> json) {
+    final options = <SelectOptionItem>[];
+    for (final item in json['options'] as List<dynamic>? ?? const []) {
+      if (item is Map<String, dynamic>) {
+        final option = SelectOptionItem.fromJson(item);
+        if (option.value.isNotEmpty) {
+          options.add(option);
+        }
+      }
+    }
+    return SelectBlock(
+      id: json['id'] as String? ?? '',
+      label: json['label'] as String? ?? '',
+      options: options,
+      value: json['value'] as String?,
+      placeholder: json['placeholder'] as String? ?? 'Выберите вариант',
     );
   }
 }

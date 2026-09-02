@@ -3,10 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/domain/crimea_cities.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_notifier.dart';
@@ -76,19 +76,6 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   double _lastViewInset = 0;
   List<RouteChatMessage> _pixelMessages = const [];
 
-  static const _popularCities = ['Симферополь', 'Ялта', 'Алушта', 'Саки'];
-  static const _allCities = [
-    'Симферополь',
-    'Ялта',
-    'Алушта',
-    'Саки',
-    'Севастополь',
-    'Евпатория',
-    'Феодосия',
-    'Керчь',
-    'Бахчисарай',
-    'Судак',
-  ];
   static const _interestOptions = [
     'Природа',
     'Пляж',
@@ -331,7 +318,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     if (q.isEmpty || (_city != null && _city!.toLowerCase() == q)) {
       return const [];
     }
-    return _allCities
+    return crimeaCities
         .where((c) => c.toLowerCase().contains(q) && c.toLowerCase() != q)
         .take(5)
         .toList();
@@ -694,7 +681,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         SizedBox(height: px(9)),
         CityQuickChips(
           px: px,
-          cities: _popularCities,
+          cities: popularCrimeaCities,
           selected: _city,
           onSelected: _selectCity,
         ),

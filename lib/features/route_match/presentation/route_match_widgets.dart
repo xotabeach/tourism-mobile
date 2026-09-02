@@ -48,6 +48,7 @@ class RouteChatMessage {
     this.recommendations = const [],
     this.sliders = const [],
     this.toggles = const [],
+    this.selects = const [],
   });
 
   final bool fromAgent;
@@ -73,6 +74,7 @@ class RouteChatMessage {
   final List<RouteChatRecommendationData> recommendations;
   final List<RouteChatSliderData> sliders;
   final List<RouteChatToggleData> toggles;
+  final List<RouteChatSelectData> selects;
 
   bool get hasProposalCard =>
       proposalCard != null ||
@@ -87,7 +89,8 @@ class RouteChatMessage {
       actions.isNotEmpty ||
       recommendations.isNotEmpty ||
       sliders.isNotEmpty ||
-      toggles.isNotEmpty;
+      toggles.isNotEmpty ||
+      selects.isNotEmpty;
 }
 
 class RouteChatRecommendationData {
@@ -124,6 +127,22 @@ class RouteChatSliderData {
   final double step;
   final double? value;
   final String? unit;
+}
+
+class RouteChatSelectData {
+  const RouteChatSelectData({
+    required this.id,
+    required this.label,
+    required this.options,
+    this.value,
+    this.placeholder = 'Выберите вариант',
+  });
+
+  final String id;
+  final String label;
+  final List<SelectOptionItem> options;
+  final String? value;
+  final String placeholder;
 }
 
 class RouteChatToggleData {
@@ -2514,6 +2533,18 @@ class AgentMessageBubble extends StatelessWidget {
                                   tip.acceptLabel,
                                 );
                               },
+                            ),
+                            SizedBox(height: px(8)),
+                          ],
+                        ],
+                        if (message.selects.isNotEmpty &&
+                            onControlChanged != null) ...[
+                          for (final select in message.selects) ...[
+                            ChatSelectControl(
+                              px: px,
+                              data: select,
+                              onSelected: (value) =>
+                                  onControlChanged!({select.id: value}),
                             ),
                             SizedBox(height: px(8)),
                           ],

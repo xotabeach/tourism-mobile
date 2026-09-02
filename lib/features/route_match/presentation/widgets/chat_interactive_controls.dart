@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 
@@ -483,6 +484,212 @@ class ChatToggleControl extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Выпадающий список в пузыре агента (макет «Подбор маршрута 4»).
+///
+/// Все размеры замерены по экспорту (590px на 393pt, делитель 1.5013):
+/// поле 38, рамка и разделитель #E9E9E9, разделитель НЕ во всю ширину —
+/// отступ ~11 слева и справа, скроллбар шириной 1.33 с подложкой #E8F0F9
+/// и синим бегунком. Список ограничен по высоте и прокручивается: при
+/// десяти городах он иначе выпихивает композер за экран.
+class ChatSelectControl extends StatefulWidget {
+  const ChatSelectControl({
+    required this.px,
+    required this.data,
+    required this.onSelected,
+    super.key,
+  });
+
+  final RoutePx px;
+  final RouteChatSelectData data;
+  final void Function(String value) onSelected;
+
+  @override
+  State<ChatSelectControl> createState() => _ChatSelectControlState();
+}
+
+class _ChatSelectControlState extends State<ChatSelectControl> {
+  bool _open = false;
+  String? _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.data.value;
+  }
+
+  String get _headline {
+    final value = _value;
+    if (value == null) {
+      return widget.data.placeholder;
+    }
+    return widget.data.options
+        .firstWhere(
+          (option) => option.value == value,
+          orElse: () => SelectOptionItem(value: value, label: value),
+        )
+        .label;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final px = widget.px;
+    // Свой Material: внутри InkWell, а пузырь агента рисуется DecoratedBox'ом
+    // и Material-предка не даёт — без этого контрол падает на debugCheckHasMaterial.
+    return Material(
+      color: RouteBuilderDesignTokens.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(px(8)),
+        side: const BorderSide(color: RouteBuilderDesignTokens.chatHairline),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            button: true,
+            expanded: _open,
+            label: widget.data.label,
+            child: InkWell(
+              key: const ValueKey('chat-select-header'),
+              onTap: () => setState(() => _open = !_open),
+              borderRadius: BorderRadius.circular(px(8)),
+              child: SizedBox(
+                height: px(38),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: px(14)),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _headline,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: RouteBuilderDesignTokens.rubik(
+                            fontSize: px(15),
+                            color: RouteBuilderDesignTokens.primaryBlue,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        _open
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: px(20),
+                        color: RouteBuilderDesignTokens.primaryBlue,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          if (_open)
+            _SelectOptionList(
+              px: px,
+              options: widget.data.options,
+              selected: _value,
+              onTap: (value) {
+                setState(() {
+                  _value = value;
+                  _open = false;
+                });
+                widget.onSelected(value);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelectOptionList extends StatelessWidget {
+  const _SelectOptionList({
+    required this.px,
+    required this.options,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final RoutePx px;
+  final List<SelectOptionItem> options;
+  final String? selected;
+  final void Function(String value) onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // Разделитель под шапкой с отступами по краям, а не во всю ширину.
+      padding: EdgeInsets.symmetric(horizontal: px(11)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(height: px(1), color: RouteBuilderDesignTokens.chatHairline),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: px(214)),
+            child: _ThinScrollbar(
+              px: px,
+              child: ListView(
+                key: const ValueKey('chat-select-options'),
+                shrinkWrap: true,
+                padding: EdgeInsets.symmetric(vertical: px(6)),
+                children: [
+                  for (final option in options)
+                    InkWell(
+                      onTap: () => onTap(option.value),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: px(3),
+                          vertical: px(9),
+                        ),
+                        child: Text(
+                          option.label,
+                          style: RouteBuilderDesignTokens.rubik(
+                            fontSize: px(15),
+                            weight: option.value == selected
+                                ? FontWeight.w500
+                                : FontWeight.w400,
+                            color: RouteBuilderDesignTokens.primaryBlue,
+                            height: 1.1,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Скроллбар-волосок: 1.33 шириной, подложка #E8F0F9, бегунок #1E71CA.
+/// Материаловский `Scrollbar` сюда не подошёл — его минимальная толщина и
+/// отступы заметно толще того, что в макете.
+class _ThinScrollbar extends StatelessWidget {
+  const _ThinScrollbar({required this.px, required this.child});
+
+  final RoutePx px;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return RawScrollbar(
+      thumbVisibility: true,
+      trackVisibility: true,
+      thickness: px(1.33),
+      radius: Radius.zero,
+      thumbColor: RouteBuilderDesignTokens.primaryBlue,
+      trackColor: RouteBuilderDesignTokens.chatScrollTrack,
+      trackBorderColor: Colors.transparent,
+      crossAxisMargin: 0,
+      mainAxisMargin: px(5),
+      child: child,
     );
   }
 }
