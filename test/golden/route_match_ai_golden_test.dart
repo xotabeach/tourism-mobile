@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_catalog_match_carousel.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
@@ -63,9 +64,10 @@ void main() {
           onCreate: () {},
           onSaveDraft: () {},
           onRefine: () {},
+          onRebuild: () {},
         ),
       ),
-      size: const Size(393, 820),
+      size: const Size(393, 900),
     );
     await expectLater(
       find.byKey(_goldenKey),
@@ -135,13 +137,54 @@ void main() {
           onSaveDraft: () {},
           onRefine: () {},
           onViewMap: () {},
+          onRebuild: () {},
         ),
       ),
-      size: const Size(393, 1280),
+      size: const Size(393, 1340),
     );
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/route_proposal_assembled.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
+  testWidgets('golden catalog match carousel', (tester) async {
+    await _pumpGolden(
+      tester,
+      Container(
+        color: const Color(0xFFF7F7F7),
+        padding: const EdgeInsets.all(16),
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 265,
+          child: ChatCatalogMatchCarousel(
+            routes: const [
+              CatalogRouteItem(
+                routeId: 'r1',
+                title: 'Гора Чок-Сары-Кая',
+                coverUrl: AppImages.coastPineTwilight,
+                rating: 4.9,
+                distanceKm: 8.6,
+                localityLabel: 'Бахчисарай',
+                tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                budgetLabel: '2 500 ₽',
+                difficultyLabel: '3/5',
+                stopsCount: 4,
+                durationMinutes: 280,
+              ),
+              CatalogRouteItem(routeId: 'r2', title: 'Второй маршрут'),
+              CatalogRouteItem(routeId: 'r3', title: 'Третий маршрут'),
+            ],
+            onOpenRoute: (_) {},
+          ),
+        ),
+      ),
+      size: const Size(393, 700),
+    );
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/chat_catalog_carousel.png'),
       skip: _skipPixelGoldens,
     );
   });

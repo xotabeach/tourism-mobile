@@ -915,17 +915,24 @@ class CatalogRoutePreviewHeader extends ConsumerWidget {
             child: RoutePreviewRatingBadge(rating: rating!),
           ),
         if (onOpen != null)
+          // По центру фото по вертикали, как в экспорте макета: прижатая к
+          // верху кнопка спорила там с бейджем рейтинга в том же углу.
           Positioned(
             right: 10,
-            top: 10,
-            child: RoutePreviewRoundButton(
-              icon: Icons.arrow_forward,
-              onTap: onOpen!,
+            top: 0,
+            bottom: 0,
+            child: Center(
+              child: RoutePreviewRoundButton(
+                icon: Icons.arrow_forward,
+                onTap: onOpen!,
+              ),
             ),
           ),
         Positioned(
           left: 12,
-          right: 12,
+          // Освобождаем колонку под круглую кнопку: она по центру правого
+          // края, и без запаса заголовок заезжал под неё.
+          right: onOpen != null ? 62 : 12,
           bottom: 12,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
