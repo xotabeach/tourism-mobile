@@ -18,6 +18,8 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
@@ -320,6 +322,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             onNumberTap: () => _selectStop(index),
                             onOpen: () => _openPlace(route.stops[index]),
                           ),
+                        _ArticlesForRouteSection(routeId: route.id),
                         _SimilarRoutesSection(currentRouteId: route.id),
                       ] else ...[
                         EntityReviewsSection(
@@ -737,6 +740,68 @@ ImageProvider _routeCover(AppConfig config, RouteSummary route) {
     );
   }
   return AssetImage(AppImages.routeFallbackAsset(route.slug));
+}
+
+/// "Статьи об этом маршруте" — only rendered once there's at least one
+/// published article, per the mobile backlog (G.8 entry points).
+class _ArticlesForRouteSection extends ConsumerWidget {
+  const _ArticlesForRouteSection({required this.routeId});
+
+  final String routeId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final page = ref.watch(articlesForRouteProvider(routeId));
+    final articles = page.valueOrNull?.items;
+    if (articles == null || articles.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    const sectionHeight = 254.0;
+    return SizedBox(
+      height: sectionHeight,
+      child: OverflowBox(
+        alignment: Alignment.center,
+        minWidth: viewportWidth,
+        maxWidth: viewportWidth,
+        minHeight: sectionHeight,
+        maxHeight: sectionHeight,
+        child: SizedBox(
+          width: viewportWidth,
+          height: sectionHeight,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: _SectionDivider(),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 18),
+                child: _SectionTitle('Статьи об этом маршруте:'),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 320,
+                child: ListView.separated(
+                  key: const ValueKey('route-articles-list'),
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  itemCount: articles.length,
+                  separatorBuilder: (context, _) => const SizedBox(width: 10),
+                  itemBuilder: (context, index) => ArticleCard(
+                    article: articles[index],
+                    width: 290,
+                    height: 320,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// Other routes of the region, shown right before the reviews.

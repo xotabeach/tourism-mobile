@@ -47,6 +47,15 @@ final routesForPlaceProvider = FutureProvider.autoDispose
           .listRoutes(placeId: placeId, limit: 10);
     });
 
+/// Free-text route search, mirroring `placesSearchProvider` — used by pickers
+/// that need to find one route by name.
+final routesSearchProvider = FutureProvider.autoDispose
+    .family<RouteListPage, String>((ref, query) {
+      return ref
+          .watch(routesRepositoryProvider)
+          .listRoutes(regionSlug: 'crimea', query: query.trim(), limit: 20);
+    });
+
 final ownRouteDetailProvider = FutureProvider.autoDispose
     .family<RouteDetail, String>(_getOwnRouteWithOfflineFallback);
 

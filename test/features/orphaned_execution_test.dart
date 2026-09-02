@@ -77,8 +77,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('История'));
-    await tester.pumpAndSettle();
+    await selectMyRoutesSection(tester, 'История');
 
     // The backend refuses to start any new route while a run is active
     // (active_route_execution_exists), so a tile with no way out would lock

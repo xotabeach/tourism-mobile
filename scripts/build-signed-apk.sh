@@ -23,7 +23,7 @@ PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 APP_ENV="${APP_ENV:-test}"
 DATA_SOURCE="${DATA_SOURCE:-api}"
-API_BASE_URL="${API_BASE_URL:-https://86-106-20-132.sslip.io}"
+API_BASE_URL="${API_BASE_URL:-https://201-24-55-130.sslip.io}"
 INSTALL=0
 BUILD_AAB=0
 SPLIT_PER_ABI=0
@@ -37,7 +37,7 @@ Usage:
   ./scripts/build-signed-apk.sh [options]
 
 Options:
-  --api-url URL       API_BASE_URL (default: https://86-106-20-132.sslip.io)
+  --api-url URL       API_BASE_URL (default: https://201-24-55-130.sslip.io)
   --env NAME          APP_ENV: test|staging|production|local (default: test)
   --data-source NAME  DATA_SOURCE: api|mock (default: api)
   --install           adb install -r the APK after build

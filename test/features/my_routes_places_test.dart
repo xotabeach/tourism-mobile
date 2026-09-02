@@ -71,12 +71,9 @@ void main() {
   testWidgets('places tab shows favorite places', (tester) async {
     await pumpPlaces(tester);
 
-    expect(find.text('Места'), findsOneWidget);
-    await tester.tap(find.text('Места'));
-    await tester.pumpAndSettle();
+    await selectMyRoutesSection(tester, 'Места');
 
     expect(find.text('Избранное'), findsOneWidget);
-    expect(find.text('Маршруты'), findsOneWidget);
     expect(find.byType(DiscoveryPlaceCard), findsWidgets);
     expect(find.text('Ласточкино гнездо'), findsWidgets);
     expect(find.text('Достопримечательности'), findsWidgets);
@@ -86,8 +83,7 @@ void main() {
     tester,
   ) async {
     final container = await pumpPlaces(tester);
-    await tester.tap(find.text('Места'));
-    await tester.pumpAndSettle();
+    await selectMyRoutesSection(tester, 'Места');
 
     final swipe = find.byKey(
       const ValueKey('favorite-dismiss-place-favorite-place'),

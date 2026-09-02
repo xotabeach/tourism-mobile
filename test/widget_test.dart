@@ -354,8 +354,7 @@ void main() {
     await _pumpCompletedApp(tester);
     await tester.tap(find.bySemanticsLabel('Избранное'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Подписки'));
-    await tester.pumpAndSettle();
+    await selectMyRoutesSection(tester, 'Подписки');
 
     expect(find.byType(DiscoveryProfileCard), findsNWidgets(3));
     expect(find.text('Никита Можаров'), findsOneWidget);

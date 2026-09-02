@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/features/articles/presentation/article_details_screen.dart';
+import 'package:tourism_mobile/features/articles/presentation/article_editor_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
@@ -53,6 +55,8 @@ abstract final class AppRouteNames {
   static const routeMatch = 'route-match';
   static const routeMatchResults = 'route-match-results';
   static const routeMatchResume = 'route-match-resume';
+  static const articleDetails = 'article-details';
+  static const articleEditor = 'article-editor';
   static const chatHistory = 'chat-history';
   static const routePublish = 'route-publish';
   static const myRoutes = 'my-routes';
@@ -155,6 +159,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   ? state.extra! as RoutePlanningSession
                   : null,
             ),
+          );
+        },
+      ),
+      GoRoute(
+        // Declared before `/articles/:id` so the literal segment wins the
+        // match instead of being read as an article id.
+        name: AppRouteNames.articleEditor,
+        path: ArticleEditorScreen.routePath,
+        pageBuilder: (context, state) {
+          final articleId = state.uri.queryParameters['articleId'];
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: ArticleEditorScreen(articleId: articleId),
+          );
+        },
+      ),
+      GoRoute(
+        // Reachable from route details, place details, and any profile —
+        // not scoped to a single tab shell branch.
+        name: AppRouteNames.articleDetails,
+        path: ArticleDetailsScreen.routePath,
+        pageBuilder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: ArticleDetailsScreen(articleId: id),
           );
         },
       ),

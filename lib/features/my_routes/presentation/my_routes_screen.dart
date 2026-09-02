@@ -16,7 +16,11 @@ import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
+import 'package:tourism_mobile/features/articles/domain/article.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
+import 'package:tourism_mobile/features/my_routes/presentation/widgets/section_dropdown.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
@@ -32,9 +36,10 @@ import 'package:tourism_mobile/features/search/presentation/universal_search_pan
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
-enum MyRoutesTab { favorites, history, places, subscriptions }
+enum MyRoutesTab { favorites, history, places, subscriptions, articles }
 
-/// 4-й раздел nav bar: избранное / история / места / подписки.
+/// 4-й раздел nav bar: маршруты / места / статьи / подписки / история.
+/// Разделы переключаются выпадающим списком — чипами их было бы уже пять.
 class MyRoutesScreen extends ConsumerStatefulWidget {
   const MyRoutesScreen({super.key});
 
@@ -160,6 +165,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     );
     final placesAsync = ref.watch(placesListProvider);
     final historyAsync = ref.watch(routeExecutionHistoryProvider);
+    final savedArticlesAsync = ref.watch(savedArticlesProvider);
+    final savedArticles = savedArticlesAsync.valueOrNull?.items ?? const [];
     final routes = routesAsync.valueOrNull?.items ?? const <RouteSummary>[];
     final favoriteRoutes = routes
         .where((r) => favorites.routeIds.contains(r.id))
@@ -174,6 +181,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       MyRoutesTab.history => const <RouteSummary>[],
       MyRoutesTab.places => const <RouteSummary>[],
       MyRoutesTab.subscriptions => const <RouteSummary>[],
+      MyRoutesTab.articles => const <RouteSummary>[],
     }, _selectedChip);
 
     return ColoredBox(
@@ -214,9 +222,41 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                       filterApplied: _selectedChip != 'Все',
                     ),
                     const SizedBox(height: 14),
-                    _TabRow(
+                    SectionDropdown<MyRoutesTab>(
                       selected: _tab,
                       onChanged: (tab) => setState(() => _tab = tab),
+                      options: [
+                        SectionOption(
+                          value: MyRoutesTab.favorites,
+                          label: 'Маршруты',
+                          icon: Icons.route_rounded,
+                          count: favoriteRoutes.length,
+                        ),
+                        SectionOption(
+                          value: MyRoutesTab.places,
+                          label: 'Места',
+                          icon: Icons.place_rounded,
+                          count: favoritePlaces.length,
+                        ),
+                        SectionOption(
+                          value: MyRoutesTab.articles,
+                          label: 'Статьи',
+                          icon: Icons.article_rounded,
+                          count: savedArticles.length,
+                        ),
+                        SectionOption(
+                          value: MyRoutesTab.subscriptions,
+                          label: 'Подписки',
+                          icon: Icons.people_alt_rounded,
+                          count: visibleSubscriptionsAsync.valueOrNull?.length,
+                        ),
+                        SectionOption(
+                          value: MyRoutesTab.history,
+                          label: 'История',
+                          icon: Icons.history_rounded,
+                          count: historyAsync.valueOrNull?.length,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -233,12 +273,15 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                       MyRoutesTab.subscriptions => SearchScope.profiles,
                       MyRoutesTab.places => SearchScope.places,
                       MyRoutesTab.favorites ||
-                      MyRoutesTab.history => SearchScope.routes,
+                      MyRoutesTab.history ||
+                      MyRoutesTab.articles => SearchScope.routes,
                     },
                     localRoutes: switch (_tab) {
                       MyRoutesTab.favorites => favoriteRoutes,
                       MyRoutesTab.history => null,
-                      MyRoutesTab.places || MyRoutesTab.subscriptions => null,
+                      MyRoutesTab.places ||
+                      MyRoutesTab.subscriptions ||
+                      MyRoutesTab.articles => null,
                     },
                     localPlaces: _tab == MyRoutesTab.places
                         ? favoritePlaces
@@ -260,6 +303,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
               ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
             else if (_tab == MyRoutesTab.history)
               ..._executionHistorySlivers(historyAsync)
+            else if (_tab == MyRoutesTab.articles)
+              ..._savedArticleSlivers(savedArticlesAsync)
             else
               ..._routeListSlivers(routesAsync, filtered: filtered),
           ],
@@ -440,6 +485,98 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
         ];
       },
     );
+  }
+
+  List<Widget> _savedArticleSlivers(AsyncValue<ArticleListPage> savedAsync) {
+    return savedAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      loading: () => const [_MyRoutesListSkeleton()],
+      error: (_, _) => [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: AppAsyncErrorView(
+            message: 'Не удалось загрузить статьи',
+            onRetry: () => ref.invalidate(savedArticlesProvider),
+          ),
+        ),
+      ],
+      data: (page) {
+        if (page.items.isEmpty) {
+          return const [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(
+                child: Text(
+                  'Здесь появятся статьи, которые вы сохранили',
+                  textAlign: TextAlign.center,
+                  style: AppTypography.settingsRowSubtitle,
+                ),
+              ),
+            ),
+          ];
+        }
+        return [
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+            sliver: SliverList.separated(
+              itemCount: page.items.length,
+              separatorBuilder: (_, _) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final article = page.items[index];
+                return _FavoriteSwipeTile(
+                  key: ValueKey('saved-article-${article.id}'),
+                  itemId: 'article-${article.id}',
+                  semanticLabel: '${article.title}, сохранённая статья',
+                  onRemove: () => _removeSavedArticle(article),
+                  childBuilder: (_) => ArticleCard(article: article),
+                );
+              },
+            ),
+          ),
+        ];
+      },
+    );
+  }
+
+  Future<void> _removeSavedArticle(ArticleSummary article) async {
+    try {
+      await ref
+          .read(articlesRepositoryProvider)
+          .setSaved(article.id, saved: false);
+      ref.invalidate(savedArticlesProvider);
+      if (!mounted) return;
+      showAppNotice(
+        context,
+        '«${article.title}» убрана из сохранённых',
+        actionLabel: 'Вернуть',
+        onAction: () => unawaited(_restoreSavedArticle(article)),
+      );
+    } on Object {
+      if (!mounted) return;
+      showAppNotice(
+        context,
+        'Не удалось обновить сохранённые',
+        kind: AppNoticeKind.error,
+      );
+    }
+  }
+
+  Future<void> _restoreSavedArticle(ArticleSummary article) async {
+    try {
+      await ref
+          .read(articlesRepositoryProvider)
+          .setSaved(article.id, saved: true);
+      ref.invalidate(savedArticlesProvider);
+    } on Object {
+      if (!mounted) return;
+      showAppNotice(
+        context,
+        'Не удалось вернуть статью',
+        kind: AppNoticeKind.error,
+      );
+    }
   }
 
   List<Widget> _placesSlivers(
@@ -851,102 +988,6 @@ class _FavoriteRemoveBackground extends StatelessWidget {
               ),
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _TabRow extends StatelessWidget {
-  const _TabRow({required this.selected, required this.onChanged});
-
-  final MyRoutesTab selected;
-  final ValueChanged<MyRoutesTab> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    const firstRow = [MyRoutesTab.favorites, MyRoutesTab.subscriptions];
-    const secondRow = [MyRoutesTab.places, MyRoutesTab.history];
-    return Column(
-      children: [
-        Row(
-          children: [
-            for (final tab in firstRow) ...[
-              if (tab != firstRow.first) const SizedBox(width: 8),
-              Expanded(
-                child: _TabChip(
-                  label: switch (tab) {
-                    MyRoutesTab.favorites => 'Маршруты',
-                    MyRoutesTab.history => 'История',
-                    MyRoutesTab.places => 'Места',
-                    MyRoutesTab.subscriptions => 'Подписки',
-                  },
-                  selected: selected == tab,
-                  onTap: () => onChanged(tab),
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            for (final tab in secondRow) ...[
-              if (tab != secondRow.first) const SizedBox(width: 8),
-              Expanded(
-                child: _TabChip(
-                  label: switch (tab) {
-                    MyRoutesTab.favorites => 'Маршруты',
-                    MyRoutesTab.history => 'История',
-                    MyRoutesTab.places => 'Места',
-                    MyRoutesTab.subscriptions => 'Подписки',
-                  },
-                  selected: selected == tab,
-                  onTap: () => onChanged(tab),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _TabChip extends StatelessWidget {
-  const _TabChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? AppColors.accentBlue : AppColors.elevatedSurface,
-      borderRadius: BorderRadius.circular(AppRadii.capsule),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.capsule),
-        child: Container(
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.capsule),
-            border: selected ? null : Border.all(color: AppColors.hairline),
-          ),
-          child: Text(
-            label,
-            style: AppTypography.settingsRowTitle.copyWith(
-              fontSize: 14,
-              color: selected ? Colors.white : AppColors.primaryInk,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ),
       ),
     );

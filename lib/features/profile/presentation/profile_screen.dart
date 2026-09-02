@@ -20,6 +20,9 @@ import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
+import 'package:tourism_mobile/features/articles/domain/article.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
@@ -331,12 +334,103 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       },
                     ),
                   const SizedBox(height: AppSpacing.xl),
+                  _ProfileArticlesSection(
+                    isOwn: isOwn,
+                    authorUserId: widget.userId,
+                  ),
                   const SizedBox(height: AppSpacing.shellBottomContent),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// "Статьи"/"Мои статьи" — a section of its own kept independent of
+/// [ProfileSnapshot], the same way route/place reviews are fetched
+/// separately rather than baked into the profile aggregate.
+class _ProfileArticlesSection extends ConsumerWidget {
+  const _ProfileArticlesSection({
+    required this.isOwn,
+    required this.authorUserId,
+  });
+
+  final bool isOwn;
+  final String? authorUserId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final page = isOwn
+        ? ref.watch(myArticlesProvider)
+        : (authorUserId == null
+              ? const AsyncValue.data(ArticleListPage(items: [], total: 0))
+              : ref.watch(articlesByAuthorProvider(authorUserId!)));
+    final articles = page.valueOrNull?.items ?? const [];
+    // Someone else's empty article list is nothing to show; one's own is an
+    // invitation to write the first one.
+    if (articles.isEmpty && !isOwn) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  isOwn ? 'Мои статьи' : 'Статьи',
+                  style: AppTypography.sectionTitle.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              if (isOwn)
+                Semantics(
+                  button: true,
+                  label: 'Написать статью',
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(AppRadii.chip),
+                    onTap: () => unawaited(
+                      context.pushNamed(AppRouteNames.articleEditor),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(10, 6, 6, 6),
+                      child: Row(
+                        children: [
+                          Text('Написать', style: AppTypography.sectionAction),
+                          SizedBox(width: 2),
+                          Icon(
+                            Icons.add_rounded,
+                            size: 20,
+                            color: AppColors.secondaryInk,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          if (articles.isEmpty)
+            const Text(
+              'Вы ещё не написали ни одной статьи',
+              style: AppTypography.routeMetadata,
+            )
+          else
+            // Full-width cards stacked vertically rather than a carousel: the
+            // card leads with a headline and an excerpt, and a 250px-wide
+            // carousel slot leaves no room to read either.
+            for (var index = 0; index < articles.length; index++) ...[
+              if (index > 0) const SizedBox(height: 12),
+              ArticleCard(article: articles[index], showStatus: isOwn),
+            ],
+        ],
       ),
     );
   }

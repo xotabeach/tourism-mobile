@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -81,4 +83,16 @@ Future<void> pumpTourismAppAtHome(
     await tester.tap(start);
     await tester.pumpAndSettle();
   }
+}
+
+/// Opens the favorites screen's section dropdown and picks [label].
+///
+/// The screen used to show its sections as a grid of chips, so tests tapped
+/// the label directly; with five sections they live behind a dropdown and
+/// only the selected one is on screen while it is closed.
+Future<void> selectMyRoutesSection(WidgetTester tester, String label) async {
+  await tester.tap(find.byKey(const ValueKey('section-dropdown-header')));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label).last);
+  await tester.pumpAndSettle();
 }

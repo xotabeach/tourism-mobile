@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/domain/content_tags.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
@@ -451,7 +452,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final filter in _availableFilters)
+                  for (final filter in routeTags)
                     FilterChip(
                       label: Text(filter),
                       selected: selected.contains(filter),
@@ -644,19 +645,6 @@ class _DraftChoiceButton extends StatelessWidget {
 }
 
 enum _StopAction { edit, remove }
-
-const _availableFilters = [
-  'Природа',
-  'Пешком',
-  'С детьми',
-  'Водопады',
-  'Романтика',
-  'Смотровые площадки',
-  'Леса',
-  'Море',
-  'История',
-  'Гастрономия',
-];
 
 TextStyle _style(
   double Function(double) u,
