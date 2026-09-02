@@ -30,18 +30,23 @@ class ArticleAttachment {
 /// and returns a `RouteLocation` with coordinates, which an article has no
 /// use for. Both halves here search the ordinary catalog endpoints, which
 /// already accept a free-text query.
-Future<ArticleAttachment?> showArticleAttachPicker(BuildContext context) {
+Future<ArticleAttachment?> showArticleAttachPicker(
+  BuildContext context, {
+  AttachKind initialKind = AttachKind.route,
+}) {
   return showModalBottomSheet<ArticleAttachment>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
     showDragHandle: true,
-    builder: (_) => const _AttachPickerSheet(),
+    builder: (_) => _AttachPickerSheet(initialKind: initialKind),
   );
 }
 
 class _AttachPickerSheet extends ConsumerStatefulWidget {
-  const _AttachPickerSheet();
+  const _AttachPickerSheet({required this.initialKind});
+
+  final AttachKind initialKind;
 
   @override
   ConsumerState<_AttachPickerSheet> createState() => _AttachPickerSheetState();
@@ -50,7 +55,7 @@ class _AttachPickerSheet extends ConsumerStatefulWidget {
 class _AttachPickerSheetState extends ConsumerState<_AttachPickerSheet> {
   final _controller = TextEditingController();
   Timer? _debounce;
-  var _kind = AttachKind.route;
+  late var _kind = widget.initialKind;
   var _query = '';
 
   @override

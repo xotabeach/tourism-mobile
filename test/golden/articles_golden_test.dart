@@ -214,6 +214,23 @@ void main() {
     );
   });
 
+  testWidgets('golden article editor — with blocks', (tester) async {
+    await _pumpGolden(
+      tester,
+      const ArticleEditorScreen(articleId: 'article-1'),
+      overrides: [
+        articlesRepositoryProvider.overrideWithValue(
+          _GoldenArticlesRepository(),
+        ),
+      ],
+    );
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/article_editor_blocks.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
   testWidgets('golden article reading screen', (tester) async {
     await _pumpGolden(
       tester,

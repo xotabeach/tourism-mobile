@@ -102,6 +102,7 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
             }
           },
         ),
+        centerTitle: true,
         title: Text(
           widget.articleId == null ? 'Новая статья' : 'Редактор статьи',
           style: AppTypography.chip.copyWith(
@@ -271,9 +272,12 @@ class _TitleField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          '$length/${ArticleLimits.maxTitleLength}',
-          style: AppTypography.settingsRowSubtitle,
+        Align(
+          alignment: Alignment.centerRight,
+          child: Text(
+            '$length/${ArticleLimits.maxTitleLength}',
+            style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 11),
+          ),
         ),
       ],
     );
@@ -289,56 +293,49 @@ class _AttachmentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final attachedName = state.relatedRouteName ?? state.relatedPlaceName;
-    final hasAttachment =
-        state.relatedRouteId != null || state.relatedPlaceId != null;
-    if (!hasAttachment) {
-      return OutlinedButton.icon(
-        onPressed: () => unawaited(_pick(context)),
-        icon: const Icon(Icons.add_link_rounded, size: 20),
-        label: const Text('Выбрать маршрут или место'),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primaryInk,
-          side: const BorderSide(color: Color(0xFFD9D9DB)),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadii.capsule),
-          ),
-          minimumSize: const Size.fromHeight(46),
-        ),
-      );
-    }
-    return Row(
+    final hasRoute = state.relatedRouteId != null;
+    final hasPlace = state.relatedPlaceId != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(
-          state.relatedRouteId != null
-              ? Icons.route_rounded
-              : Icons.place_rounded,
-          size: 20,
-          color: AppColors.primaryInk,
+        // Взаимоисключающий выбор: на бэкенде CHECK-констрейнт разрешает
+        // либо маршрут, либо место, поэтому и в интерфейсе это радио, а не
+        // одна кнопка «выбрать что-нибудь».
+        Row(
+          children: [
+            Expanded(
+              child: _AttachKindOption(
+                label: 'Маршрут',
+                selected: hasRoute,
+                onTap: () => unawaited(_pick(context, AttachKind.route)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _AttachKindOption(
+                label: 'Место',
+                selected: hasPlace,
+                onTap: () => unawaited(_pick(context, AttachKind.place)),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            attachedName ?? 'Выбрано',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.settingsRowTitle.copyWith(fontSize: 14),
+        if (attachedName != null) ...[
+          const SizedBox(height: 10),
+          _AttachedChip(
+            label: attachedName,
+            onRemove: controller.clearAttachment,
           ),
-        ),
-        TextButton(
-          onPressed: () => unawaited(_pick(context)),
-          child: const Text('Изменить'),
-        ),
-        IconButton(
-          tooltip: 'Убрать привязку',
-          onPressed: controller.clearAttachment,
-          icon: const Icon(Icons.close_rounded, size: 20),
-        ),
+        ],
       ],
     );
   }
 
-  Future<void> _pick(BuildContext context) async {
-    final attachment = await showArticleAttachPicker(context);
+  Future<void> _pick(BuildContext context, AttachKind kind) async {
+    final attachment = await showArticleAttachPicker(
+      context,
+      initialKind: kind,
+    );
     if (attachment == null) {
       return;
     }
@@ -347,6 +344,127 @@ class _AttachmentRow extends StatelessWidget {
     } else {
       controller.attachPlace(id: attachment.id, name: attachment.name);
     }
+  }
+}
+
+/// Вариант привязки: маршрут или место. Значения сняты с канваса —
+/// выбранный: рамка 1.5 #171719 и «залитая» точка, невыбранный: 1 #D9D9DB.
+class _AttachKindOption extends StatelessWidget {
+  const _AttachKindOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: selected ? AppColors.primaryInk : const Color(0xFFD9D9DB),
+              width: selected ? 1.5 : 1,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.primaryInk
+                        : const Color(0xFFD9D9DB),
+                    width: selected ? 5 : 1.5,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.chip.copyWith(
+                    fontSize: 13,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                    color: selected
+                        ? AppColors.primaryInk
+                        : AppColors.secondaryInk,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Выбранный маршрут или место — серый чип с крестиком.
+class _AttachedChip extends StatelessWidget {
+  const _AttachedChip({required this.label, required this.onRemove});
+
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(13, 7, 8, 7),
+        decoration: BoxDecoration(
+          color: AppColors.controlSurface,
+          borderRadius: BorderRadius.circular(AppRadii.capsule),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.chip.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.primaryInk,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Semantics(
+              button: true,
+              label: 'Убрать привязку',
+              child: InkWell(
+                onTap: onRemove,
+                customBorder: const CircleBorder(),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 14,
+                  color: AppColors.secondaryInk,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -719,33 +837,45 @@ class _EditorBottomBar extends StatelessWidget {
           color: AppColors.elevatedSurface,
           border: Border(top: BorderSide(color: Color(0xFFEDEDEE))),
         ),
-        // Stacked rather than side by side: "Отправить на модерацию" is long
-        // enough to overflow a row on a narrow phone or at a larger text scale.
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
+        // Строкой, как в канвасе: индикатор слева, кнопка справа. Индикатор
+        // гибкий и обрезается — раньше он был Expanded и утаскивал строку в
+        // перенос, из-за чего кнопка выезжала за край на узком экране.
+        child: Row(
           children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: _SaveIndicator(state: state),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton(
-              onPressed: state.canSubmit
-                  ? () => unawaited(controller.submitForReview())
-                  : null,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.primaryInk,
-                side: const BorderSide(color: AppColors.primaryInk, width: 1.5),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.capsule),
+            // Обе части гибкие, но кнопка получает большую долю: при крупном
+            // системном шрифте строка иначе выезжает за край. Индикатор —
+            // вторичный, ему и ужиматься первым.
+            Flexible(flex: 2, child: _SaveIndicator(state: state)),
+            const SizedBox(width: 12),
+            Flexible(
+              flex: 5,
+              child: OutlinedButton(
+                onPressed: state.canSubmit
+                    ? () => unawaited(controller.submitForReview())
+                    : null,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primaryInk,
+                  side: const BorderSide(
+                    color: AppColors.primaryInk,
+                    width: 1.5,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppRadii.capsule),
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 22,
+                    vertical: 12,
+                  ),
+                  textStyle: AppTypography.chip.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-              ),
-              child: Text(
-                state.submitting ? 'Отправка…' : 'Отправить на модерацию',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                child: Text(
+                  state.submitting ? 'Отправка…' : 'Отправить на модерацию',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
@@ -762,6 +892,9 @@ class _SaveIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Подпись обрезается, а не распирает строку: индикатор делит её с кнопкой
+    // «Отправить на модерацию», и при крупном шрифте место кончается первым
+    // именно здесь.
     if (state.saving) {
       return const Row(
         mainAxisSize: MainAxisSize.min,
@@ -772,19 +905,38 @@ class _SaveIndicator extends StatelessWidget {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           SizedBox(width: 8),
-          Text('Сохранение…', style: AppTypography.settingsRowSubtitle),
+          Flexible(
+            child: Text(
+              'Сохранение…',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.settingsRowSubtitle,
+            ),
+          ),
         ],
       );
     }
     if (state.savedAt == null) {
-      return const Text('Черновик', style: AppTypography.settingsRowSubtitle);
+      return const Text(
+        'Черновик',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AppTypography.settingsRowSubtitle,
+      );
     }
     return const Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.check_rounded, size: 15, color: AppColors.secondaryInk),
         SizedBox(width: 6),
-        Text('Сохранено', style: AppTypography.settingsRowSubtitle),
+        Flexible(
+          child: Text(
+            'Сохранено',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.settingsRowSubtitle,
+          ),
+        ),
       ],
     );
   }
