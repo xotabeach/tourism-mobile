@@ -498,6 +498,10 @@ String _controlLabel(String id, Object value) => switch (id) {
   'budget_amount' => 'Бюджет ${value is num ? value.round() : value} ₽',
   'with_children' => value == true ? 'С детьми' : 'Без детей',
   'with_pets' => value == true ? 'С питомцами' : 'Без питомцев',
+  // У селекта значение уже человекочитаемое («Ялта»), его и отправляем.
+  // Раньше сюда падал `_ => id`, и в чат уходило слово «city» — модель
+  // видела его вместо названия города.
+  _ when value is String && value.isNotEmpty => value,
   _ => id,
 };
 
