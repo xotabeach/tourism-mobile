@@ -210,29 +210,29 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
                   );
                 },
               ),
+            // Панель добавления и нижний бар живут в конце списка, а не
+            // закреплены снизу: в канвасе они часть страницы, а закреплённые
+            // съедали треть экрана. Новые блоки добавляются в конец, так что
+            // после добавления человек и так уже внизу.
+            const SizedBox(height: 22),
+            _AddBlockBar(
+              onAdd: (type) {
+                controller.addBlock(type);
+                // Только что добавленный блок раскрываем сразу: иначе после
+                // нажатия «Текст» человек видит свёрнутую строку и не понимает,
+                // куда писать.
+                final added = ref.read(provider).blocks.lastOrNull;
+                if (added != null) {
+                  setState(() => _expandedBlockId = added.localId);
+                }
+              },
+            ),
+            const SizedBox(height: 28),
+            const Divider(height: 1, thickness: 1, color: AppColors.hairline),
+            const SizedBox(height: 18),
+            _EditorBottomBar(state: state, controller: controller),
           ],
         ),
-      ),
-      // The add-block bar is pinned rather than living at the end of the
-      // list: in a long article you would otherwise scroll to the bottom
-      // every time you wanted one more block.
-      bottomNavigationBar: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _AddBlockBar(
-            onAdd: (type) {
-              controller.addBlock(type);
-              // Только что добавленный блок раскрываем сразу: иначе после
-              // нажатия «Текст» человек видит свёрнутую строку и не понимает,
-              // куда писать.
-              final added = ref.read(provider).blocks.lastOrNull;
-              if (added != null) {
-                setState(() => _expandedBlockId = added.localId);
-              }
-            },
-          ),
-          _EditorBottomBar(state: state, controller: controller),
-        ],
       ),
     );
   }
@@ -287,7 +287,8 @@ class _TitleField extends StatelessWidget {
           maxLines: 2,
           minLines: 1,
           style: AppTypography.routeTitle.copyWith(
-            fontSize: 18,
+            fontSize: 17,
+            fontWeight: FontWeight.w500,
             color: AppColors.primaryInk,
           ),
           decoration: InputDecoration(
@@ -498,6 +499,37 @@ class _AttachedChip extends StatelessWidget {
   }
 }
 
+/// Ручка перетаскивания: две колонки по три точки, как нарисовано в канвасе.
+/// Материаловская `drag_indicator` рисует другой узор и заметно темнее.
+class _DragDots extends StatelessWidget {
+  const _DragDots();
+
+  @override
+  Widget build(BuildContext context) {
+    return const SizedBox(
+      width: 14,
+      height: 20,
+      child: CustomPaint(painter: _DragDotsPainter()),
+    );
+  }
+}
+
+class _DragDotsPainter extends CustomPainter {
+  const _DragDotsPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..color = const Color(0xFFD1D2D4);
+    for (final dy in const [4.0, 10.0, 16.0]) {
+      canvas.drawCircle(Offset(4, dy), 1.6, paint);
+      canvas.drawCircle(Offset(10, dy), 1.6, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DragDotsPainter oldDelegate) => false;
+}
+
 class _EmptyBlocksHint extends StatelessWidget {
   const _EmptyBlocksHint();
 
@@ -571,12 +603,9 @@ class _BlockEditorTile extends ConsumerWidget {
               onTap: onToggleExpanded,
               child: Row(
                 children: [
-                  const Icon(
-                    Icons.drag_indicator_rounded,
-                    size: 20,
-                    color: Color(0xFFC7CDD3),
-                  ),
-                  const SizedBox(width: 6),
+                  const _DragDots(),
+                  const SizedBox(width: 10),
+                  ..._leading(context, ref),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -711,6 +740,62 @@ class _BlockEditorTile extends ConsumerWidget {
             ),
           ],
         ];
+    }
+  }
+
+  /// Значок слева от подписи: миниатюра у картинки, синяя черта у цитаты,
+  /// иконка у списка — ровно как в канвасе. У текста и разделителя его нет.
+  List<Widget> _leading(BuildContext context, WidgetRef ref) {
+    switch (block.type) {
+      case ArticleBlockType.image:
+        final config = ref.watch(appConfigProvider);
+        final hasImage =
+            block.imageUrl != null || block.pendingImagePath != null;
+        return [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.controlSurface,
+              borderRadius: BorderRadius.circular(8),
+              image: hasImage && block.imageUrl != null
+                  ? DecorationImage(
+                      image: articleImageProvider(
+                        config: config,
+                        url: block.imageUrl,
+                        fallbackSeed: block.localId,
+                      ),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 10),
+        ];
+      case ArticleBlockType.quote:
+        return [
+          Container(
+            width: 3,
+            height: 30,
+            decoration: BoxDecoration(
+              color: AppColors.accentBlue,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+        ];
+      case ArticleBlockType.list:
+        return const [
+          Icon(
+            Icons.format_list_bulleted_rounded,
+            size: 20,
+            color: AppColors.primaryInk,
+          ),
+          SizedBox(width: 10),
+        ];
+      case ArticleBlockType.text:
+      case ArticleBlockType.divider:
+        return const [];
     }
   }
 
@@ -916,12 +1001,8 @@ class _EditorBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        decoration: const BoxDecoration(
-          color: AppColors.elevatedSurface,
-          border: Border(top: BorderSide(color: Color(0xFFEDEDEE))),
-        ),
+      child: Padding(
+        padding: EdgeInsets.zero,
         // Строкой, как в канвасе: индикатор слева, кнопка справа. Индикатор
         // гибкий и обрезается — раньше он был Expanded и утаскивал строку в
         // перенос, из-за чего кнопка выезжала за край на узком экране.

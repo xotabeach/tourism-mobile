@@ -93,14 +93,15 @@ class ArticleCard extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             if (article.tags.isNotEmpty)
-                              Flexible(child: _TagPill(tag: article.tags.first)),
+                              Flexible(
+                                child: _TagPill(tag: article.tags.first),
+                              ),
                             const Spacer(),
                             if (showDraftBadge)
                               _StatusPill(status: article.status)
                             else
                               _DatePill(
-                                date:
-                                    article.publishedAt ?? article.createdAt,
+                                date: article.publishedAt ?? article.createdAt,
                               ),
                           ],
                         ),
@@ -223,7 +224,10 @@ class _CardFooter extends StatelessWidget {
       builder: (context, ref, _) {
         final config = ref.watch(appConfigProvider);
         final avatar = AppImages.imageProvider(
-          resolvedUrl: AppImages.resolveMediaUrl(config, article.authorAvatarUrl),
+          resolvedUrl: AppImages.resolveMediaUrl(
+            config,
+            article.authorAvatarUrl,
+          ),
           assetFallback: AppImages.travelerPortrait,
         );
         return Row(

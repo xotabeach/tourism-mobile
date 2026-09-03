@@ -60,9 +60,13 @@ class _TagChipPickerState extends State<TagChipPicker> {
     final visible = limit == null || _expanded
         ? widget.tags
         : [
-            ...widget.tags.where(widget.selected.contains),
-            ...widget.tags.where((tag) => !widget.selected.contains(tag)),
-          ].take(limit < widget.selected.length ? widget.selected.length : limit).toList();
+                ...widget.tags.where(widget.selected.contains),
+                ...widget.tags.where((tag) => !widget.selected.contains(tag)),
+              ]
+              .take(
+                limit < widget.selected.length ? widget.selected.length : limit,
+              )
+              .toList();
     final hidden = widget.tags.length - visible.length;
 
     return Column(
@@ -157,16 +161,16 @@ class _TagChip extends StatelessWidget {
         border: displayOnly
             ? null
             : Border.all(
-                color: selected ? AppColors.primaryInk : const Color(0xFFD9D9DB),
+                color: selected
+                    ? AppColors.primaryInk
+                    : const Color(0xFFD9D9DB),
               ),
       ),
       child: Text(
         label,
         style: AppTypography.chip.copyWith(
-          fontSize: displayOnly ? 12 : 14,
-          color: selected && !displayOnly
-              ? Colors.white
-              : AppColors.primaryInk,
+          fontSize: displayOnly ? 12 : 13,
+          color: selected && !displayOnly ? Colors.white : AppColors.primaryInk,
           fontWeight: FontWeight.w500,
         ),
       ),

@@ -96,7 +96,9 @@ class _AttachPickerSheetState extends ConsumerState<_AttachPickerSheet> {
               labels: const ['Маршрут', 'Место'],
               selected: _kind == AttachKind.route ? 'Маршрут' : 'Место',
               onSelected: (label) => setState(() {
-                _kind = label == 'Маршрут' ? AttachKind.route : AttachKind.place;
+                _kind = label == 'Маршрут'
+                    ? AttachKind.route
+                    : AttachKind.place;
               }),
             ),
             const SizedBox(height: 12),
