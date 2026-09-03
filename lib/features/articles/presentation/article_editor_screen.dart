@@ -42,6 +42,10 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
   final _blockControllers = <String, TextEditingController>{};
   final _captionControllers = <String, TextEditingController>{};
 
+  /// Раскрыт максимум один блок: иначе список снова разрастается и теряется
+  /// то, ради чего плитки сворачивали.
+  String? _expandedBlockId;
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -111,88 +115,103 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
           ),
         ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.page,
-          0,
-          AppSpacing.page,
-          32,
-        ),
-        children: [
-          _TitleField(
-            controller: _titleController,
-            onChanged: controller.setTitle,
-            length: state.title.characters.length,
+      // Тап по пустому месту и смахивание списка убирают клавиатуру: без
+      // этого на телефоне она закрывала пол-экрана и снять её было нечем.
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: ListView(
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            AppSpacing.page,
+            0,
+            AppSpacing.page,
+            32,
           ),
-          const SizedBox(height: 22),
-          const Text(
-            'Теги · до ${ArticleLimits.maxTagsPerArticle}',
-            style: AppTypography.settingsRowTitle,
-          ),
-          const SizedBox(height: 10),
-          TagChipPicker(
-            tags: articleTags,
-            selected: state.tags,
-            onToggle: controller.toggleTag,
-            maxSelected: ArticleLimits.maxTagsPerArticle,
-          ),
-          const SizedBox(height: 22),
-          const Text('Привязать к', style: AppTypography.settingsRowTitle),
-          const SizedBox(height: 10),
-          _AttachmentRow(state: state, controller: controller),
-          const SizedBox(height: 22),
-          const Text('Содержание', style: AppTypography.settingsRowTitle),
-          const SizedBox(height: 10),
-          if (state.blocks.isEmpty)
-            const _EmptyBlocksHint()
-          else
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              buildDefaultDragHandles: false,
-              itemCount: state.blocks.length,
-              onReorderItem: controller.reorderBlocks,
-              proxyDecorator: (child, _, animation) =>
-                  FadeTransition(opacity: animation, child: child),
-              itemBuilder: (context, index) {
-                final block = state.blocks[index];
-                return ReorderableDelayedDragStartListener(
-                  key: ValueKey(block.localId),
-                  index: index,
-                  child: Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _BlockEditorTile(
-                      block: block,
-                      textController: _controllerFor(
-                        _blockControllers,
-                        block.localId,
-                        block.text,
-                      ),
-                      captionController: _controllerFor(
-                        _captionControllers,
-                        block.localId,
-                        block.caption ?? '',
-                      ),
-                      onTextChanged: (value) =>
-                          controller.editBlockText(block.localId, value),
-                      onCaptionChanged: (value) =>
-                          controller.editBlockCaption(block.localId, value),
-                      onListStyleChanged: (style) =>
-                          controller.setListStyle(block.localId, style),
-                      onPickImage: () => unawaited(_pickImage(block.localId)),
-                      onRetryUpload: () =>
-                          unawaited(controller.retryUpload(block.localId)),
-                      onRemove: () {
-                        _blockControllers.remove(block.localId)?.dispose();
-                        _captionControllers.remove(block.localId)?.dispose();
-                        controller.removeBlock(block.localId);
-                      },
-                    ),
-                  ),
-                );
-              },
+          children: [
+            _TitleField(
+              controller: _titleController,
+              onChanged: controller.setTitle,
+              length: state.title.characters.length,
             ),
-        ],
+            const SizedBox(height: 22),
+            const Text(
+              'Теги · до ${ArticleLimits.maxTagsPerArticle}',
+              style: AppTypography.settingsRowTitle,
+            ),
+            const SizedBox(height: 10),
+            TagChipPicker(
+              tags: articleTags,
+              selected: state.tags,
+              onToggle: controller.toggleTag,
+              maxSelected: ArticleLimits.maxTagsPerArticle,
+              collapsedCount: 5,
+            ),
+            const SizedBox(height: 22),
+            const Text('Привязать к', style: AppTypography.settingsRowTitle),
+            const SizedBox(height: 10),
+            _AttachmentRow(state: state, controller: controller),
+            const SizedBox(height: 22),
+            const Text('Содержание', style: AppTypography.settingsRowTitle),
+            const SizedBox(height: 10),
+            if (state.blocks.isEmpty)
+              const _EmptyBlocksHint()
+            else
+              ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                itemCount: state.blocks.length,
+                onReorderItem: controller.reorderBlocks,
+                proxyDecorator: (child, _, animation) =>
+                    FadeTransition(opacity: animation, child: child),
+                itemBuilder: (context, index) {
+                  final block = state.blocks[index];
+                  return ReorderableDelayedDragStartListener(
+                    key: ValueKey(block.localId),
+                    index: index,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _BlockEditorTile(
+                        expanded: _expandedBlockId == block.localId,
+                        onToggleExpanded: () => setState(() {
+                          _expandedBlockId = _expandedBlockId == block.localId
+                              ? null
+                              : block.localId;
+                          FocusManager.instance.primaryFocus?.unfocus();
+                        }),
+                        block: block,
+                        textController: _controllerFor(
+                          _blockControllers,
+                          block.localId,
+                          block.text,
+                        ),
+                        captionController: _controllerFor(
+                          _captionControllers,
+                          block.localId,
+                          block.caption ?? '',
+                        ),
+                        onTextChanged: (value) =>
+                            controller.editBlockText(block.localId, value),
+                        onCaptionChanged: (value) =>
+                            controller.editBlockCaption(block.localId, value),
+                        onListStyleChanged: (style) =>
+                            controller.setListStyle(block.localId, style),
+                        onPickImage: () => unawaited(_pickImage(block.localId)),
+                        onRetryUpload: () =>
+                            unawaited(controller.retryUpload(block.localId)),
+                        onRemove: () {
+                          _blockControllers.remove(block.localId)?.dispose();
+                          _captionControllers.remove(block.localId)?.dispose();
+                          controller.removeBlock(block.localId);
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+          ],
+        ),
       ),
       // The add-block bar is pinned rather than living at the end of the
       // list: in a long article you would otherwise scroll to the bottom
@@ -200,7 +219,18 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _AddBlockBar(onAdd: controller.addBlock),
+          _AddBlockBar(
+            onAdd: (type) {
+              controller.addBlock(type);
+              // Только что добавленный блок раскрываем сразу: иначе после
+              // нажатия «Текст» человек видит свёрнутую строку и не понимает,
+              // куда писать.
+              final added = ref.read(provider).blocks.lastOrNull;
+              if (added != null) {
+                setState(() => _expandedBlockId = added.localId);
+              }
+            },
+          ),
           _EditorBottomBar(state: state, controller: controller),
         ],
       ),
@@ -492,6 +522,8 @@ class _EmptyBlocksHint extends StatelessWidget {
 
 class _BlockEditorTile extends ConsumerWidget {
   const _BlockEditorTile({
+    required this.expanded,
+    required this.onToggleExpanded,
     required this.block,
     required this.textController,
     required this.captionController,
@@ -503,6 +535,8 @@ class _BlockEditorTile extends ConsumerWidget {
     required this.onRemove,
   });
 
+  final bool expanded;
+  final VoidCallback onToggleExpanded;
   final EditorBlock block;
   final TextEditingController textController;
   final TextEditingController captionController;
@@ -525,31 +559,65 @@ class _BlockEditorTile extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                Icons.drag_indicator_rounded,
-                size: 20,
-                color: Color(0xFFC7CDD3),
+          // Свёрнутая плитка — как в канвасе: перетаскивание, тип, одна
+          // строка предпросмотра, корзина. Тап по ней разворачивает
+          // редактирование на месте.
+          Semantics(
+            button: true,
+            expanded: expanded,
+            label: '${_label(block.type)}, блок статьи',
+            child: InkWell(
+              key: ValueKey('block-tile-${block.localId}'),
+              onTap: onToggleExpanded,
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.drag_indicator_rounded,
+                    size: 20,
+                    color: Color(0xFFC7CDD3),
+                  ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _label(block.type),
+                          style: AppTypography.settingsRowSubtitle.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.02,
+                          ),
+                        ),
+                        if (!expanded) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            _preview(block),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.settingsRowTitle.copyWith(
+                              fontSize: 13,
+                              fontStyle: block.type == ArticleBlockType.quote
+                                  ? FontStyle.italic
+                                  : FontStyle.normal,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Удалить блок',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onRemove,
+                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                  ),
+                ],
               ),
-              const SizedBox(width: 6),
-              Text(
-                _label(block.type),
-                style: AppTypography.settingsRowSubtitle.copyWith(
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.02,
-                ),
-              ),
-              const Spacer(),
-              IconButton(
-                tooltip: 'Удалить блок',
-                visualDensity: VisualDensity.compact,
-                onPressed: onRemove,
-                icon: const Icon(Icons.delete_outline_rounded, size: 20),
-              ),
-            ],
+            ),
           ),
-          ..._body(context, ref),
+          if (expanded) ..._body(context, ref),
         ],
       ),
     );
@@ -644,6 +712,23 @@ class _BlockEditorTile extends ConsumerWidget {
           ],
         ];
     }
+  }
+
+  /// Одна строка под типом блока в свёрнутом виде.
+  static String _preview(EditorBlock block) {
+    final text = block.text.trim();
+    return switch (block.type) {
+      ArticleBlockType.divider => 'Разрыв между частями',
+      ArticleBlockType.image =>
+        block.imageUrl != null || block.pendingImagePath != null
+            ? 'Изображение добавлено'
+            : 'Фото не выбрано',
+      ArticleBlockType.list =>
+        text.isEmpty
+            ? 'Пункты не заданы'
+            : '${text.split('\n').where((line) => line.trim().isNotEmpty).length} пункта',
+      _ => text.isEmpty ? 'Пусто — нажмите, чтобы написать' : text,
+    };
   }
 
   static String _label(ArticleBlockType type) => switch (type) {

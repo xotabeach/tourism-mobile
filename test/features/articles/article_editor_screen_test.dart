@@ -153,12 +153,55 @@ void main() {
     expect(submit.onPressed, isNotNull);
   });
 
+  testWidgets('the tag picker collapses to five with a toggle', (tester) async {
+    await _pumpEditor(tester);
+
+    expect(find.text('Показать все'), findsOneWidget);
+    expect(find.text('Природа'), findsOneWidget);
+    expect(find.text('Мнение'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('tag-picker-toggle')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Мнение'), findsOneWidget);
+    expect(find.text('Свернуть'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('tag-picker-toggle')));
+    await tester.pumpAndSettle();
+    expect(find.text('Мнение'), findsNothing);
+  });
+
+  testWidgets('a block tile starts collapsed and expands on tap', (
+    tester,
+  ) async {
+    await _pumpEditor(tester);
+
+    await tester.tap(find.byIcon(Icons.notes_rounded));
+    await tester.pumpAndSettle();
+    // A freshly added block opens straight away — otherwise there is nowhere
+    // visible to type.
+    expect(find.byType(TextField), findsNWidgets(2));
+
+    await tester.tap(find.byKey(const ValueKey('block-tile-block-0')));
+    await tester.pumpAndSettle();
+    // Collapsed: only the title field is left, plus the one-line preview.
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.textContaining('нажмите, чтобы написать'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('block-tile-block-0')));
+    await tester.pumpAndSettle();
+    expect(find.byType(TextField), findsNWidgets(2));
+  });
+
   testWidgets('only the first five tapped tags reach the backend', (
     tester,
   ) async {
     final repository = await _pumpEditor(tester);
 
     await tester.enterText(find.byType(TextField).first, 'Со всеми тегами');
+    // Свёрнутый пикер показывает пять чипов — остальные за «Показать все».
+    await tester.tap(find.byKey(const ValueKey('tag-picker-toggle')));
+    await tester.pumpAndSettle();
     for (final tag in [
       'Природа',
       'Пешком',

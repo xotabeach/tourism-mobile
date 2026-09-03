@@ -11,12 +11,13 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 /// wraps and has arbitrary-width labels, so this is its own small widget.
 /// Pass `onToggle: null` for a read-only display row (the reading screen's
 /// tag list) — chips render with no ink response and can't be tapped.
-class TagChipPicker extends StatelessWidget {
+class TagChipPicker extends StatefulWidget {
   const TagChipPicker({
     required this.tags,
     required this.selected,
     this.onToggle,
     this.maxSelected,
+    this.collapsedCount,
     super.key,
   }) : displayOnly = false;
 
@@ -27,32 +28,99 @@ class TagChipPicker extends StatelessWidget {
     : selected = const {},
       onToggle = null,
       maxSelected = null,
+      collapsedCount = null,
       displayOnly = true;
 
   final List<String> tags;
   final Set<String> selected;
   final ValueChanged<String>? onToggle;
   final int? maxSelected;
+
+  /// Сколько чипов показывать в свёрнутом виде. Остальные прячутся за
+  /// «Показать все» — шестнадцать тегов подряд занимали пол-экрана и
+  /// отодвигали содержание статьи далеко вниз.
+  final int? collapsedCount;
   final bool displayOnly;
 
   @override
+  State<TagChipPicker> createState() => _TagChipPickerState();
+}
+
+class _TagChipPickerState extends State<TagChipPicker> {
+  bool _expanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    final atLimit = maxSelected != null && selected.length >= maxSelected!;
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
+    final atLimit =
+        widget.maxSelected != null &&
+        widget.selected.length >= widget.maxSelected!;
+    final limit = widget.collapsedCount;
+    // Выбранные показываем всегда: иначе отметка исчезала бы под «Показать
+    // все» и выглядела как потерянная.
+    final visible = limit == null || _expanded
+        ? widget.tags
+        : [
+            ...widget.tags.where(widget.selected.contains),
+            ...widget.tags.where((tag) => !widget.selected.contains(tag)),
+          ].take(limit < widget.selected.length ? widget.selected.length : limit).toList();
+    final hidden = widget.tags.length - visible.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (final tag in tags)
-          _TagChip(
-            label: tag,
-            selected: selected.contains(tag),
-            displayOnly: displayOnly,
-            onTap: onToggle == null
-                ? null
-                : (atLimit && !selected.contains(tag))
-                ? null
-                : () => onToggle!(tag),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final tag in visible)
+              _TagChip(
+                label: tag,
+                selected: widget.selected.contains(tag),
+                displayOnly: widget.displayOnly,
+                onTap: widget.onToggle == null
+                    ? null
+                    : (atLimit && !widget.selected.contains(tag))
+                    ? null
+                    : () => widget.onToggle!(tag),
+              ),
+          ],
+        ),
+        if (limit != null && (hidden > 0 || _expanded)) ...[
+          const SizedBox(height: 8),
+          Semantics(
+            button: true,
+            expanded: _expanded,
+            child: InkWell(
+              key: const ValueKey('tag-picker-toggle'),
+              onTap: () => setState(() => _expanded = !_expanded),
+              borderRadius: BorderRadius.circular(AppRadii.capsule),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _expanded ? 'Свернуть' : 'Показать все',
+                      style: AppTypography.chip.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.accentBlue,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      size: 18,
+                      color: AppColors.accentBlue,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
+        ],
       ],
     );
   }
