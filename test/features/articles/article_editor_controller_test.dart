@@ -157,6 +157,12 @@ void main() {
     await controller.save();
     expect(repository.createCalls, hasLength(1));
     expect(repository.updateCalls, hasLength(1));
+
+    // ...and it names the blocks it is updating. Without the server id the
+    // backend cannot tell this is the same block, so it re-creates it empty
+    // and archives the uploaded photo — images vanished on the next edit
+    // (2026-09-03).
+    expect(repository.updateCalls.single.single.id, 'server-block-0');
   });
 
   test('an image is uploaded only after the save that mints its block id', () async {

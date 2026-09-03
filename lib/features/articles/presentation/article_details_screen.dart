@@ -174,11 +174,15 @@ class _ArticleBody extends ConsumerWidget {
     if (session.userId == authorUserId) {
       context.goNamed(AppRouteNames.profile);
     } else {
-      unawaited(
-        context.pushNamed(
-          AppRouteNames.userProfile,
-          pathParameters: {'userId': authorUserId},
-        ),
+      // goNamed, а не pushNamed: этот экран объявлен вне StatefulShellRoute,
+      // а профиль пользователя живёт внутри ветки-вкладки. Push из корневого
+      // навигатора в маршрут ветки роняет навигатор на дублирующихся ключах
+      // страниц ('!keyReservation.contains(key)'), и на экране остаётся серая
+      // пустота — ровно то, что пользователь видел на «Статья о маршруте»
+      // (2026-09-03). См. _RelatedRouteCard.
+      context.goNamed(
+        AppRouteNames.userProfile,
+        pathParameters: {'userId': authorUserId},
       );
     }
   }
@@ -639,11 +643,12 @@ class _RelatedRouteCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => unawaited(
-          context.pushNamed(
-            AppRouteNames.routeDetails,
-            pathParameters: {'id': routeId},
-          ),
+        // goNamed по той же причине, что и в _openAuthor: экран статьи вне
+        // шелла, а детали маршрута — внутри вкладки «Маршруты». Push отсюда
+        // давал серый экран (содержимое проявлялось лишь в момент свайпа назад).
+        onTap: () => context.goNamed(
+          AppRouteNames.routeDetails,
+          pathParameters: {'id': routeId},
         ),
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),

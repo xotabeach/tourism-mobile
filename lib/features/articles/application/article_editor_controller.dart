@@ -81,6 +81,10 @@ class EditorBlock {
 
   ArticleBlockDraft toDraft() {
     return ArticleBlockDraft(
+      // Без id сервер не знает, что это тот же самый блок, пересоздаёт его
+      // пустым и удаляет загруженную картинку: фото жило до первой же правки
+      // статьи (баг 2026-09-03).
+      id: serverId,
       blockType: type,
       textContent: switch (type) {
         ArticleBlockType.text ||
