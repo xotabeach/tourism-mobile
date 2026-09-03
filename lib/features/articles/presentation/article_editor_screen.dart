@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -163,16 +164,38 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
                 buildDefaultDragHandles: false,
                 itemCount: state.blocks.length,
                 onReorderItem: controller.reorderBlocks,
-                proxyDecorator: (child, _, animation) =>
-                    FadeTransition(opacity: animation, child: child),
+                proxyDecorator: (child, _, animation) {
+                  // Плитка «поднимается»: чуть увеличивается и получает тень,
+                  // чтобы было видно, что она оторвана от списка.
+                  return AnimatedBuilder(
+                    animation: animation,
+                    builder: (context, inner) {
+                      final t = Curves.easeOut.transform(animation.value);
+                      return Transform.scale(
+                        scale: 1 + 0.03 * t,
+                        child: Material(
+                          color: Colors.transparent,
+                          elevation: 8 * t,
+                          shadowColor: Colors.black26,
+                          borderRadius: BorderRadius.circular(14),
+                          child: inner,
+                        ),
+                      );
+                    },
+                    child: child,
+                  );
+                },
                 itemBuilder: (context, index) {
                   final block = state.blocks[index];
-                  return ReorderableDelayedDragStartListener(
+                  // Ручкой служат сами точки внутри плитки, а не вся она:
+                  // раньше долгое нажатие ловил InkWell, которым открывается
+                  // блок, и перенос вообще не начинался.
+                  return Padding(
                     key: ValueKey(block.localId),
-                    index: index,
-                    child: Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _BlockAppear(
                       child: _BlockEditorTile(
+                        dragIndex: index,
                         expanded: _expandedBlockId == block.localId,
                         onToggleExpanded: () => setState(() {
                           _expandedBlockId = _expandedBlockId == block.localId
@@ -501,6 +524,49 @@ class _AttachedChip extends StatelessWidget {
 
 /// Ручка перетаскивания: две колонки по три точки, как нарисовано в канвасе.
 /// Материаловская `drag_indicator` рисует другой узор и заметно темнее.
+/// Появление блока: короткое проявление со сдвигом вверх. Без него новый
+/// блок возникает мгновенно и посреди списка это выглядит как сбой отрисовки.
+class _BlockAppear extends StatefulWidget {
+  const _BlockAppear({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_BlockAppear> createState() => _BlockAppearState();
+}
+
+class _BlockAppearState extends State<_BlockAppear>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: AppMotion.emphasized,
+  )..forward();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final curved = CurvedAnimation(
+      parent: _controller,
+      curve: AppMotion.standard,
+    );
+    return FadeTransition(
+      opacity: curved,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(curved),
+        child: widget.child,
+      ),
+    );
+  }
+}
+
 class _DragDots extends StatelessWidget {
   const _DragDots();
 
@@ -554,6 +620,7 @@ class _EmptyBlocksHint extends StatelessWidget {
 
 class _BlockEditorTile extends ConsumerWidget {
   const _BlockEditorTile({
+    required this.dragIndex,
     required this.expanded,
     required this.onToggleExpanded,
     required this.block,
@@ -567,6 +634,7 @@ class _BlockEditorTile extends ConsumerWidget {
     required this.onRemove,
   });
 
+  final int dragIndex;
   final bool expanded;
   final VoidCallback onToggleExpanded;
   final EditorBlock block;
@@ -603,8 +671,16 @@ class _BlockEditorTile extends ConsumerWidget {
               onTap: onToggleExpanded,
               child: Row(
                 children: [
-                  const _DragDots(),
-                  const SizedBox(width: 10),
+                  ReorderableDragStartListener(
+                    index: dragIndex,
+                    child: const Padding(
+                      // Расширяем зону захвата: сами точки 14×20 — мелкая
+                      // цель для пальца.
+                      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                      child: _DragDots(),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
                   ..._leading(context, ref),
                   Expanded(
                     child: Column(
@@ -646,7 +722,23 @@ class _BlockEditorTile extends ConsumerWidget {
               ),
             ),
           ),
-          if (expanded) ..._body(context, ref),
+          // Разворачивание и сворачивание анимируются: скачок высоты в
+          // списке из нескольких блоков читается как «что-то дёрнулось».
+          AnimatedSize(
+            duration: AppMotion.normal,
+            curve: AppMotion.standard,
+            alignment: Alignment.topCenter,
+            child: AnimatedOpacity(
+              duration: AppMotion.normal,
+              opacity: expanded ? 1 : 0,
+              child: expanded
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: _body(context, ref),
+                    )
+                  : const SizedBox(width: double.infinity),
+            ),
+          ),
         ],
       ),
     );
@@ -1011,10 +1103,13 @@ class _EditorBottomBar extends StatelessWidget {
             // Обе части гибкие, но кнопка получает большую долю: при крупном
             // системном шрифте строка иначе выезжает за край. Индикатор —
             // вторичный, ему и ужиматься первым.
-            Flexible(flex: 2, child: _SaveIndicator(state: state)),
+            Flexible(child: _SaveIndicator(state: state)),
             const SizedBox(width: 12),
+            // Кнопка по содержимому, а не по доле строки: с flex она
+            // растягивалась на весь остаток, и подпись внутри выглядела
+            // сдвинутой относительно рамки.
             Flexible(
-              flex: 5,
+              fit: FlexFit.loose,
               child: OutlinedButton(
                 onPressed: state.canSubmit
                     ? () => unawaited(controller.submitForReview())

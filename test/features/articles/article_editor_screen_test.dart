@@ -193,6 +193,47 @@ void main() {
     expect(find.byType(TextField), findsNWidgets(2));
   });
 
+  testWidgets('blocks reorder by dragging the dots handle', (tester) async {
+    await _pumpEditor(tester);
+
+    // Два блока: текст, затем цитата.
+    await tester.tap(find.byIcon(Icons.notes_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.format_quote_rounded));
+    await tester.pumpAndSettle();
+
+    Iterable<String> labelOrder() => tester
+        .widgetList<Text>(find.byType(Text))
+        .map((text) => text.data ?? '')
+        .where((value) => value == 'ТЕКСТ' || value == 'ЦИТАТА');
+
+    expect(labelOrder(), ['ТЕКСТ', 'ЦИТАТА']);
+
+    // Свернём второй блок: добавленный открывается сам и высокий, из-за
+    // чего перенос пришлось бы тащить сильно дальше.
+    await tester.tap(find.byKey(const ValueKey('block-tile-block-1')));
+    await tester.pumpAndSettle();
+
+    // Тянем ручку второго блока вверх, за пределы первого.
+    final handles = find.byType(ReorderableDragStartListener);
+    expect(handles, findsNWidgets(2));
+    final start = tester.getCenter(handles.at(1));
+    final target = tester.getCenter(handles.at(0));
+    final gesture = await tester.startGesture(start);
+    // ReorderableDragStartListener начинает перенос сразу — долгое нажатие
+    // не нужно. Двигаем по шагам: одним прыжком перенос не регистрируется.
+    await tester.pump(const Duration(milliseconds: 16));
+    final step = (target.dy - start.dy - 8) / 8;
+    for (var i = 0; i < 8; i++) {
+      await gesture.moveBy(Offset(0, step));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(labelOrder(), ['ЦИТАТА', 'ТЕКСТ']);
+  });
+
   testWidgets('only the first five tapped tags reach the backend', (
     tester,
   ) async {
