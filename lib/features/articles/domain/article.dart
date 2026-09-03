@@ -161,6 +161,7 @@ class ArticleSummary {
     required this.createdAt,
     this.authorAvatarUrl,
     this.authorRankTitle,
+    this.authorIsExpert = false,
     this.relatedRouteId,
     this.relatedPlaceId,
     this.coverImageUrl,
@@ -182,6 +183,10 @@ class ArticleSummary {
   final String authorDisplayName;
   final String? authorAvatarUrl;
   final String? authorRankTitle;
+
+  /// Проверенный эксперт: карточка и аватар получают градиентную рамку,
+  /// как у карточек маршрутов ([AppExpertFrame]).
+  final bool authorIsExpert;
   final String? relatedRouteId;
   final String? relatedPlaceId;
   final String? coverImageUrl;
@@ -206,6 +211,7 @@ class ArticleSummary {
           json['author_display_name'] as String? ?? 'Путешественник',
       authorAvatarUrl: json['author_avatar_url'] as String?,
       authorRankTitle: json['author_rank_title'] as String?,
+      authorIsExpert: json['author_is_expert'] as bool? ?? false,
       relatedRouteId: json['related_route_id'] as String?,
       relatedPlaceId: json['related_place_id'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,
@@ -234,6 +240,7 @@ class Article {
     required this.createdAt,
     this.authorAvatarUrl,
     this.authorRankTitle,
+    this.authorIsExpert = false,
     this.relatedRouteId,
     this.relatedPlaceId,
     this.coverImageUrl,
@@ -257,6 +264,10 @@ class Article {
   final String authorDisplayName;
   final String? authorAvatarUrl;
   final String? authorRankTitle;
+
+  /// Проверенный эксперт: карточка и аватар получают градиентную рамку,
+  /// как у карточек маршрутов ([AppExpertFrame]).
+  final bool authorIsExpert;
   final String? relatedRouteId;
   final String? relatedPlaceId;
   final String? coverImageUrl;
@@ -293,6 +304,7 @@ class Article {
       authorDisplayName: authorDisplayName,
       authorAvatarUrl: authorAvatarUrl,
       authorRankTitle: authorRankTitle,
+      authorIsExpert: authorIsExpert,
       relatedRouteId: relatedRouteId,
       relatedPlaceId: relatedPlaceId,
       coverImageUrl: coverImageUrl,
@@ -322,6 +334,7 @@ class Article {
           json['author_display_name'] as String? ?? 'Путешественник',
       authorAvatarUrl: json['author_avatar_url'] as String?,
       authorRankTitle: json['author_rank_title'] as String?,
+      authorIsExpert: json['author_is_expert'] as bool? ?? false,
       relatedRouteId: json['related_route_id'] as String?,
       relatedPlaceId: json['related_place_id'] as String?,
       coverImageUrl: json['cover_image_url'] as String?,

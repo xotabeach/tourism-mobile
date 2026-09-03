@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 
@@ -16,6 +17,7 @@ ArticleSummary _summary({
   int readingTimeMinutes = 4,
   String? excerpt,
   String? authorRankTitle,
+  bool authorIsExpert = false,
 }) {
   return ArticleSummary(
     id: 'article-1',
@@ -31,6 +33,7 @@ ArticleSummary _summary({
     readingTimeMinutes: readingTimeMinutes,
     excerpt: excerpt,
     authorRankTitle: authorRankTitle,
+    authorIsExpert: authorIsExpert,
   );
 }
 
@@ -75,6 +78,8 @@ Future<void> _pumpCard(
 }
 
 void main() {
+  _skeletonTests();
+  _footerTests();
   testWidgets('shows the title, author and reading time', (tester) async {
     await _pumpCard(tester, _summary());
 
@@ -156,5 +161,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Article article-1'), findsOneWidget);
+  });
+}
+
+
+/// The loading silhouette has to be a card, not a bare shimmer block: the
+/// sections that show it sit inside lists whose layout would otherwise jump
+/// when the real cards arrive.
+void _skeletonTests() {
+  testWidgets('the skeleton keeps the card silhouette', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(child: ArticleCardSkeleton(width: 290, height: 320)),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final box = tester.getSize(find.byType(ArticleCardSkeleton));
+    expect(box.width, 290);
+    expect(box.height, 320);
+    // No article text may leak into a placeholder.
+    expect(find.byType(Text), findsNothing);
+  });
+}
+
+/// Footer details taken from the design screenshot (2026-09-03).
+void _footerTests() {
+  testWidgets('a rule separates the lead from the author row', (tester) async {
+    await _pumpCard(tester, _summary(excerpt: 'Лид статьи'));
+    expect(find.byType(Divider), findsOneWidget);
+  });
+
+  testWidgets('an expert author gets the gradient frame, like route cards', (
+    tester,
+  ) async {
+    await _pumpCard(tester, _summary(authorIsExpert: true));
+    // One around the card, one around the avatar.
+    expect(find.byType(AppExpertFrame), findsNWidgets(2));
+  });
+
+  testWidgets('a non-expert author gets no frame at all', (tester) async {
+    await _pumpCard(tester, _summary());
+    // AppExpertFrame returns its child untouched, so the widgets are still in
+    // the tree — what must not appear is the gradient decoration they add.
+    final decorated = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox));
+    expect(
+      decorated.any((box) => (box.decoration as BoxDecoration).gradient != null),
+      isFalse,
+    );
   });
 }

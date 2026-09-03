@@ -369,6 +369,9 @@ class _ProfileArticlesSection extends ConsumerWidget {
               ? const AsyncValue.data(ArticleListPage(items: [], total: 0))
               : ref.watch(articlesByAuthorProvider(authorUserId!)));
     final articles = page.valueOrNull?.items ?? const [];
+    // Пока грузится, список пуст — и владелец профиля видел «Вы ещё не
+    // написали ни одной статьи», хотя статьи есть. Показываем силуэт карточки.
+    final isLoading = page.isLoading && page.valueOrNull == null;
     // Someone else's empty article list is nothing to show; one's own is an
     // invitation to write the first one.
     if (articles.isEmpty && !isOwn) {
@@ -417,7 +420,9 @@ class _ProfileArticlesSection extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          if (articles.isEmpty)
+          if (isLoading)
+            const ArticleCardSkeleton()
+          else if (articles.isEmpty)
             const Text(
               'Вы ещё не написали ни одной статьи',
               style: AppTypography.routeMetadata,

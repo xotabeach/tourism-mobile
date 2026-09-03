@@ -38,6 +38,12 @@ class ArticleDetailsScreen extends ConsumerWidget {
       appBar: AppBar(
         backgroundColor: AppColors.pageSurface,
         elevation: 0,
+        // Заголовок нужен именно на время загрузки: без него экран со
+        // скелетом читается как просто серый прямоугольник, и непонятно,
+        // грузится он или сломался (жалоба «серый экран» 2026-09-03).
+        title: articleAsync.isLoading
+            ? const Text('Статья', style: AppTypography.sectionTitle)
+            : null,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => context.pop(),
@@ -289,6 +295,11 @@ class _ReactionsPanel extends ConsumerWidget {
     final overlay = ref.watch(articleLikeOverlayProvider(article.id));
     final likeCount = overlay?.likeCount ?? article.likeCount;
     final likedByMe = overlay?.likedByMe ?? article.likedByMe;
+    // Лайкать можно только опубликованную статью: на всё остальное бэкенд
+    // отвечает 404 (`set_article_like`). Автор открывает свою статью на
+    // модерации и видит ту же панель — тап приводил к ошибке вместо ответа
+    // на вопрос «а что вообще происходит с моей статьёй» (баг 2026-09-03).
+    final canLike = article.status == ArticleStatus.published;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -300,7 +311,9 @@ class _ReactionsPanel extends ConsumerWidget {
       child: Row(
         children: [
           InkWell(
-            onTap: () => unawaited(_toggleLike(context, ref, likedByMe)),
+            onTap: canLike
+                ? () => unawaited(_toggleLike(context, ref, likedByMe))
+                : null,
             borderRadius: BorderRadius.circular(12),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
@@ -312,18 +325,22 @@ class _ReactionsPanel extends ConsumerWidget {
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
                     size: 20,
-                    color: likedByMe
+                    color: !canLike
+                        ? AppColors.secondaryInk
+                        : likedByMe
                         ? AppColors.accentBlue
                         : AppColors.primaryInk,
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '$likeCount',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: AppFonts.rubik,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.primaryInk,
+                      color: canLike
+                          ? AppColors.primaryInk
+                          : AppColors.secondaryInk,
                     ),
                   ),
                 ],
@@ -474,6 +491,17 @@ class _RelatedArticlesSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final page = ref.watch(articleRelatedProvider(articleId));
     final related = page.valueOrNull?.items;
+    if (page.isLoading && page.valueOrNull == null) {
+      // Заголовок не рисуем: пока неизвестно, есть ли вообще похожие статьи,
+      // «Читайте также» над пустотой обещает то, чего может не оказаться.
+      return const Padding(
+        padding: EdgeInsets.only(bottom: 24),
+        child: SizedBox(
+          height: 320,
+          child: ArticleCardSkeleton(width: 290, height: 320),
+        ),
+      );
+    }
     if (related == null || related.isEmpty) {
       return const SizedBox.shrink();
     }

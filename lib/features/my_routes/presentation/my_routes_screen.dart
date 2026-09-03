@@ -492,7 +492,22 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
       skipError: true,
-      loading: () => const [_MyRoutesListSkeleton()],
+      // Силуэт карточки статьи, а не маршрута: у статьи фото занимает
+      // меньшую долю плитки, и скелетон маршрута дёргал вёрстку при подмене.
+      loading: () => const [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 140),
+          sliver: SliverToBoxAdapter(
+            child: Column(
+              children: [
+                ArticleCardSkeleton(),
+                SizedBox(height: 12),
+                ArticleCardSkeleton(),
+              ],
+            ),
+          ),
+        ),
+      ],
       error: (_, _) => [
         SliverFillRemaining(
           hasScrollBody: false,
