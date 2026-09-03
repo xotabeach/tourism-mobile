@@ -174,15 +174,16 @@ class _ArticleBody extends ConsumerWidget {
     if (session.userId == authorUserId) {
       context.goNamed(AppRouteNames.profile);
     } else {
-      // goNamed, а не pushNamed: этот экран объявлен вне StatefulShellRoute,
-      // а профиль пользователя живёт внутри ветки-вкладки. Push из корневого
-      // навигатора в маршрут ветки роняет навигатор на дублирующихся ключах
-      // страниц ('!keyReservation.contains(key)'), и на экране остаётся серая
-      // пустота — ровно то, что пользователь видел на «Статья о маршруте»
+      // Standalone-вариант профиля: он на корневом навигаторе, поэтому
+      // статья остаётся под ним и возврат ведёт в неё. Push в маршрут ветки
+      // таба отсюда роняет Navigator на дублирующихся ключах страниц
+      // ('!keyReservation.contains(key)') и оставляет пустой экран
       // (2026-09-03). См. _RelatedRouteCard.
-      context.goNamed(
-        AppRouteNames.userProfile,
-        pathParameters: {'userId': authorUserId},
+      unawaited(
+        context.pushNamed(
+          AppRouteNames.userProfileStandalone,
+          pathParameters: {'userId': authorUserId},
+        ),
       );
     }
   }
@@ -643,12 +644,15 @@ class _RelatedRouteCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        // goNamed по той же причине, что и в _openAuthor: экран статьи вне
-        // шелла, а детали маршрута — внутри вкладки «Маршруты». Push отсюда
-        // давал серый экран (содержимое проявлялось лишь в момент свайпа назад).
-        onTap: () => context.goNamed(
-          AppRouteNames.routeDetails,
-          pathParameters: {'id': routeId},
+        // Standalone-вариант деталей маршрута: он объявлен на корневом
+        // навигаторе, поэтому статья остаётся под ним и возврат ведёт обратно
+        // в неё. Push в `/routes/:id` (маршрут ветки таба) отсюда роняет
+        // Navigator и даёт пустой экран.
+        onTap: () => unawaited(
+          context.pushNamed(
+            AppRouteNames.routeDetailsStandalone,
+            pathParameters: {'id': routeId},
+          ),
         ),
         child: const Padding(
           padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),

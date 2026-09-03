@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart' show CupertinoPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/features/articles/presentation/article_details_screen.dart';
 import 'package:tourism_mobile/features/articles/presentation/article_editor_screen.dart';
@@ -27,6 +26,7 @@ import 'package:tourism_mobile/features/route_publish/presentation/route_publish
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
+import 'package:tourism_mobile/features/routes/presentation/standalone_route_details_screen.dart';
 import 'package:tourism_mobile/features/search/presentation/search_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
@@ -56,6 +56,8 @@ abstract final class AppRouteNames {
   static const routeMatchResults = 'route-match-results';
   static const routeMatchResume = 'route-match-resume';
   static const articleDetails = 'article-details';
+  static const routeDetailsStandalone = 'route-details-standalone';
+  static const userProfileStandalone = 'user-profile-standalone';
   static const articleEditor = 'article-editor';
   static const chatHistory = 'chat-history';
   static const routePublish = 'route-publish';
@@ -176,6 +178,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        // Детали маршрута, открытые не из вкладки «Маршруты», а с экрана вне
+        // шелла (статья). Отдельный путь, потому что `/routes/:id` живёт в
+        // ветке таба: push из корневого навигатора в маршрут ветки роняет
+        // Navigator на дублирующихся ключах страниц и оставляет пустой экран.
+        // Через этот путь возврат ведёт обратно в статью, а не на вкладку.
+        name: AppRouteNames.routeDetailsStandalone,
+        path: '/route/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: StandaloneRouteDetailsScreen(routeId: id),
+          );
+        },
+      ),
+      GoRoute(
+        // Профиль автора, открытый из статьи. По той же причине, что и
+        // маршрут выше: `/profile/users/:userId` — маршрут ветки таба, и push
+        // в него с экрана вне шелла даёт пустой экран. Шелл гостевому профилю
+        // никаких действий не добавляет (только режим кнопки «назад» у панели),
+        // поэтому здесь ничего не теряется, а возврат ведёт обратно в статью.
+        name: AppRouteNames.userProfileStandalone,
+        path: '/user/:userId',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final userId = state.pathParameters['userId']!;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: ProfileScreen(userId: userId),
+          );
+        },
+      ),
+      GoRoute(
         // Reachable from route details, place details, and any profile —
         // not scoped to a single tab shell branch.
         name: AppRouteNames.articleDetails,
@@ -273,6 +309,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       GoRoute(
                         name: AppRouteNames.routeExecution,
                         path: 'execution',
+                        // Корневой навигатор: экран прохождения и так прячет
+                        // плавающую панель (см. hideFloatingNav в шелле), а на
+                        // корне он ещё и открывается из любого контекста —
+                        // в том числе со standalone-карточки маршрута ниже.
+                        parentNavigatorKey: _rootNavigatorKey,
                         pageBuilder: (context, state) {
                           final routeId = state.pathParameters['id']!;
                           return CupertinoPage<void>(

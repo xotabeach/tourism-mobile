@@ -16,9 +16,11 @@ import '../../support/test_overrides.dart';
 /// navigator into a branch route trips Navigator's duplicate-page-key
 /// assertion, and the user is left on a blank screen whose content only
 /// flickers in during the back-swipe (reported 2026-09-03 for
-/// "Статья о маршруте"). The links must therefore navigate with `go`.
+/// "Статья о маршруте"). Both links therefore go through root-navigator
+/// variants of those screens, which also keeps the article underneath so
+/// back returns to it instead of dumping the reader on a tab.
 ///
-/// The router below mirrors that structure — a top-level route plus a shell
+/// The router below mirrors that structure — top-level routes plus a shell
 /// branch — rather than booting the whole app, which drags in unrelated
 /// app-wide timers.
 class _StubArticlesRepository implements ArticlesRepository {
@@ -45,74 +47,129 @@ class _StubArticlesRepository implements ArticlesRepository {
       throw UnimplementedError('${invocation.memberName} is not used here');
 }
 
+GoRouter _router() {
+  final article = Article(
+    id: 'article-1',
+    title: 'статья 1',
+    status: ArticleStatus.published,
+    authorUserId: 'author-1',
+    authorDisplayName: 'Некич',
+    createdAt: DateTime.utc(2026, 9, 3),
+    relatedRouteId: 'route-7',
+  );
+  _stubArticle = article;
+
+  final shellKey = GlobalKey<NavigatorState>();
+  return GoRouter(
+    initialLocation: '/articles/article-1',
+    routes: [
+      GoRoute(
+        path: '/articles/:id',
+        name: AppRouteNames.articleDetails,
+        builder: (context, state) =>
+            ArticleDetailsScreen(articleId: state.pathParameters['id']!),
+      ),
+      // Standalone-варианты: корневой навигатор, как в настоящем роутере.
+      GoRoute(
+        path: '/route/:id',
+        name: AppRouteNames.routeDetailsStandalone,
+        builder: (context, state) =>
+            Text('маршрут ${state.pathParameters['id']}'),
+      ),
+      GoRoute(
+        path: '/user/:userId',
+        name: AppRouteNames.userProfileStandalone,
+        builder: (context, state) =>
+            Text('профиль ${state.pathParameters['userId']}'),
+      ),
+      ShellRoute(
+        navigatorKey: shellKey,
+        builder: (context, state, child) => Scaffold(
+          body: child,
+          bottomNavigationBar: const SizedBox(height: 40),
+        ),
+        routes: [
+          GoRoute(
+            path: '/routes',
+            builder: (context, state) => const Text('каталог'),
+            routes: [
+              GoRoute(
+                path: ':id',
+                name: AppRouteNames.routeDetails,
+                builder: (context, state) =>
+                    Text('в табе ${state.pathParameters['id']}'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+late Article _stubArticle;
+
+Future<void> _pumpRouter(WidgetTester tester, GoRouter router) async {
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        ...testSessionOverrides(onboardingCompleted: true),
+        articlesRepositoryProvider.overrideWithValue(
+          _StubArticlesRepository(_stubArticle),
+        ),
+      ],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
+Future<void> _tap(WidgetTester tester, String label) async {
+  await tester.ensureVisible(find.text(label));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text(label));
+  await tester.pumpAndSettle();
+}
+
 void main() {
-  testWidgets('the related-route link lands on the route, not a blank page', (
+  testWidgets('the related-route link opens the route and comes back', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(393, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
 
-    final article = Article(
-      id: 'article-1',
-      title: 'статья 1',
-      status: ArticleStatus.published,
-      authorUserId: 'author-1',
-      authorDisplayName: 'Некич',
-      createdAt: DateTime.utc(2026, 9, 3),
-      relatedRouteId: 'route-7',
-    );
-
-    final shellKey = GlobalKey<NavigatorState>();
-    final router = GoRouter(
-      initialLocation: '/articles/article-1',
-      routes: [
-        GoRoute(
-          path: '/articles/:id',
-          name: AppRouteNames.articleDetails,
-          builder: (context, state) =>
-              ArticleDetailsScreen(articleId: state.pathParameters['id']!),
-        ),
-        ShellRoute(
-          navigatorKey: shellKey,
-          builder: (context, state, child) =>
-              Scaffold(body: child, bottomNavigationBar: const SizedBox(height: 40)),
-          routes: [
-            GoRoute(
-              path: '/routes',
-              builder: (context, state) => const Text('каталог'),
-              routes: [
-                GoRoute(
-                  path: ':id',
-                  name: AppRouteNames.routeDetails,
-                  builder: (context, state) =>
-                      Text('маршрут ${state.pathParameters['id']}'),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
+    final router = _router();
     addTearDown(router.dispose);
+    await _pumpRouter(tester, router);
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          ...testSessionOverrides(onboardingCompleted: true),
-          articlesRepositoryProvider.overrideWithValue(
-            _StubArticlesRepository(article),
-          ),
-        ],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Статья о маршруте'));
-    await tester.pumpAndSettle();
-
+    await _tap(tester, 'Статья о маршруте');
     expect(find.text('маршрут route-7'), findsOneWidget);
-    expect(router.routerDelegate.currentConfiguration.uri.path, '/routes/route-7');
+
+    // Главное — назад возвращает в статью, а не выкидывает на вкладку
+    // маршрутов: ради этого экран и живёт на корневом навигаторе.
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(ArticleDetailsScreen), findsOneWidget);
+    expect(find.text('маршрут route-7'), findsNothing);
+  });
+
+  testWidgets('the author link opens the profile and comes back too', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(393, 2400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final router = _router();
+    addTearDown(router.dispose);
+    await _pumpRouter(tester, router);
+
+    await _tap(tester, 'Некич');
+    expect(find.text('профиль author-1'), findsOneWidget);
+
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(ArticleDetailsScreen), findsOneWidget);
   });
 }
