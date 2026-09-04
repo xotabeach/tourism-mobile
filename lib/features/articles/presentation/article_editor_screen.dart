@@ -98,23 +98,41 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.pageSurface,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () async {
-            await controller.save();
-            if (context.mounted) {
-              context.pop();
-            }
-          },
-        ),
         centerTitle: true,
-        title: Text(
-          widget.articleId == null ? 'Новая статья' : 'Редактор статьи',
-          style: AppTypography.chip.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
+        titleSpacing: 0,
+        // Вордмарк и круглые кнопки — как на макете дизайнера; название
+        // экрана («Создание статьи») стоит первой строкой в теле, а не
+        // в шапке.
+        title: const _EditorWordmark(),
+        leadingWidth: 60,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: _RoundEditorButton(
+            icon: Icons.arrow_back_rounded,
+            semanticLabel: 'Назад',
+            onTap: () async {
+              await controller.save();
+              if (context.mounted) {
+                context.pop();
+              }
+            },
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: _RoundEditorButton(
+              icon: Icons.check_rounded,
+              semanticLabel: 'Сохранить и выйти',
+              onTap: () async {
+                await controller.save();
+                if (context.mounted) {
+                  context.pop();
+                }
+              },
+            ),
+          ),
+        ],
       ),
       // Тап по пустому месту и смахивание списка убирают клавиатуру: без
       // этого на телефоне она закрывала пол-экрана и снять её было нечем.
@@ -130,6 +148,16 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
             32,
           ),
           children: [
+            // Название экрана в теле, а не в шапке: там вордмарк (макет
+            // дизайнера, 2026-09-04).
+            Text(
+              widget.articleId == null ? 'Создание статьи' : 'Редактирование',
+              style: AppTypography.routeTitle.copyWith(
+                fontSize: 20,
+                color: AppColors.primaryInk,
+              ),
+            ),
+            const SizedBox(height: 14),
             _TitleField(
               controller: _titleController,
               onChanged: controller.setTitle,
@@ -137,7 +165,7 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
             ),
             const SizedBox(height: 22),
             const Text(
-              'Теги · до ${ArticleLimits.maxTagsPerArticle}',
+              'Теги (до ${ArticleLimits.maxTagsPerArticle})',
               style: AppTypography.settingsRowTitle,
             ),
             const SizedBox(height: 10),
@@ -149,11 +177,11 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
               collapsedCount: 5,
             ),
             const SizedBox(height: 22),
-            const Text('Привязать к', style: AppTypography.settingsRowTitle),
+            const Text('Привязать к:', style: AppTypography.settingsRowTitle),
             const SizedBox(height: 10),
             _AttachmentRow(state: state, controller: controller),
             const SizedBox(height: 22),
-            const Text('Содержание', style: AppTypography.settingsRowTitle),
+            const Text('Содержание:', style: AppTypography.settingsRowTitle),
             const SizedBox(height: 10),
             if (state.blocks.isEmpty)
               const _EmptyBlocksHint()
@@ -370,7 +398,7 @@ class _AttachmentRow extends StatelessWidget {
           children: [
             Expanded(
               child: _AttachKindOption(
-                label: 'Маршрут',
+                label: 'Маршруту',
                 selected: hasRoute,
                 onTap: () => unawaited(_pick(context, AttachKind.route)),
               ),
@@ -378,7 +406,7 @@ class _AttachmentRow extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _AttachKindOption(
-                label: 'Место',
+                label: 'Месту',
                 selected: hasPlace,
                 onTap: () => unawaited(_pick(context, AttachKind.place)),
               ),
@@ -433,46 +461,31 @@ class _AttachKindOption extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
+        // Кнопка в синей рамке, как на макете, без радио-кружка: выбор всё
+        // равно взаимоисключающий (на бэкенде CHECK разрешает либо маршрут,
+        // либо место), и это видно по заливке выбранной кнопки.
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          alignment: Alignment.center,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
+            color: selected
+                ? AppColors.accentBlue.withValues(alpha: 0.08)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? AppColors.primaryInk : const Color(0xFFD9D9DB),
+              color: selected ? AppColors.accentBlue : const Color(0xFFD9D9DB),
               width: selected ? 1.5 : 1,
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected
-                        ? AppColors.primaryInk
-                        : const Color(0xFFD9D9DB),
-                    width: selected ? 5 : 1.5,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.chip.copyWith(
-                    fontSize: 13,
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-                    color: selected
-                        ? AppColors.primaryInk
-                        : AppColors.secondaryInk,
-                  ),
-                ),
-              ),
-            ],
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTypography.chip.copyWith(
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              color: selected ? AppColors.accentBlue : AppColors.primaryInk,
+            ),
           ),
         ),
       ),
@@ -1103,60 +1116,71 @@ class _EditorBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Две кнопки в столбик, как на макете дизайнера: главное действие —
+    // тёмная заливка, «сохранить черновик» — светлая под ней. Раньше была
+    // одна кнопка в строке с индикатором сохранения; индикатор остался, но
+    // ушёл под кнопки, чтобы не спорить с ними за ширину.
+    final canSubmit = state.canSubmit;
     return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.zero,
-        // Строкой, как в канвасе: индикатор слева, кнопка справа. Индикатор
-        // гибкий и обрезается — раньше он был Expanded и утаскивал строку в
-        // перенос, из-за чего кнопка выезжала за край на узком экране.
-        child: Row(
-          children: [
-            // Обе части гибкие, но кнопка получает большую долю: при крупном
-            // системном шрифте строка иначе выезжает за край. Индикатор —
-            // вторичный, ему и ужиматься первым.
-            Flexible(child: _SaveIndicator(state: state)),
-            const SizedBox(width: 12),
-            // Кнопка по содержимому, а не по доле строки: с flex она
-            // растягивалась на весь остаток, и подпись внутри выглядела
-            // сдвинутой относительно рамки.
-            //
-            // Для статьи на модерации и уже опубликованной кнопки нет:
-            // первой отправлять нечего, вторая уйдёт на проверку сама, как
-            // только правки сохранятся.
-            if (state.canSubmitAtAll)
-              Flexible(
-                fit: FlexFit.loose,
-                child: OutlinedButton(
-                  onPressed: state.canSubmit
-                      ? () => unawaited(controller.submitForReview())
-                      : null,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primaryInk,
-                    side: const BorderSide(
-                      color: AppColors.primaryInk,
-                      width: 1.5,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppRadii.capsule),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 22,
-                      vertical: 12,
-                    ),
-                    textStyle: AppTypography.chip.copyWith(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  child: Text(
-                    state.submitting ? 'Отправка…' : 'Отправить на модерацию',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (state.canSubmitAtAll) ...[
+            FilledButton(
+              key: const ValueKey('editor-publish'),
+              onPressed: canSubmit
+                  ? () => unawaited(controller.submitForReview())
+                  : null,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryInk,
+                disabledBackgroundColor: AppColors.primaryInk.withValues(
+                  alpha: 0.35,
+                ),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.capsule),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                textStyle: AppTypography.chip.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
+              child: Text(
+                state.submitting ? 'Отправка…' : 'Опубликовать статью',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 10),
           ],
-        ),
+          OutlinedButton(
+            key: const ValueKey('editor-save-draft'),
+            onPressed: state.saving || !state.hasAnyContent
+                ? null
+                : () => unawaited(controller.save()),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppColors.primaryInk,
+              backgroundColor: const Color(0xFFF4F4F5),
+              side: const BorderSide(color: Color(0xFFE4E4E6)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppRadii.capsule),
+              ),
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              textStyle: AppTypography.chip.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            child: Text(
+              state.saving ? 'Сохраняем…' : 'Сохранить черновик',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Center(child: _SaveIndicator(state: state)),
+        ],
       ),
     );
   }
@@ -1215,6 +1239,57 @@ class _SaveIndicator extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Серый вордмарк в шапке редактора — как на макете.
+class _EditorWordmark extends StatelessWidget {
+  const _EditorWordmark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'КРЫМТРИП',
+      style: AppTypography.chip.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 3.3,
+        color: const Color(0xFFB8B9BD),
+      ),
+    );
+  }
+}
+
+class _RoundEditorButton extends StatelessWidget {
+  const _RoundEditorButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: AppColors.primaryInk,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: () => unawaited(onTap()),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(icon, color: Colors.white, size: 20),
+          ),
+        ),
+      ),
     );
   }
 }

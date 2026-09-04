@@ -18,7 +18,6 @@ import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/article_comments_section.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_block_view.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
-import 'package:tourism_mobile/features/articles/presentation/widgets/article_images.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/tag_chip_picker.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -33,21 +32,52 @@ class ArticleDetailsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final articleAsync = ref.watch(articleDetailsProvider(articleId));
+    final selfUserId = ref.watch(sessionProvider).userId;
+    final article = articleAsync.valueOrNull;
+    final canEdit =
+        article != null &&
+        selfUserId != null &&
+        selfUserId == article.authorUserId &&
+        article.status != ArticleStatus.deleted;
+
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
       appBar: AppBar(
         backgroundColor: AppColors.pageSurface,
         elevation: 0,
-        // Заголовок нужен именно на время загрузки: без него экран со
-        // скелетом читается как просто серый прямоугольник, и непонятно,
-        // грузится он или сломался (жалоба «серый экран» 2026-09-03).
-        title: articleAsync.isLoading
-            ? const Text('Статья', style: AppTypography.sectionTitle)
-            : null,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+        centerTitle: true,
+        titleSpacing: 0,
+        // Вордмарк вместо заголовка и круглые кнопки по краям — по макету
+        // дизайнера (КрымТрип-8). Во время загрузки под вордмарком пусто,
+        // и без него экран со скелетом читался как серый прямоугольник.
+        title: const _HeaderWordmark(),
+        leadingWidth: 60,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: _RoundHeaderButton(
+            icon: Icons.arrow_back_rounded,
+            semanticLabel: 'Назад',
+            onTap: () => context.pop(),
+          ),
         ),
+        actions: [
+          if (canEdit)
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: _RoundHeaderButton(
+                icon: Icons.edit_outlined,
+                semanticLabel: 'Редактировать статью',
+                onTap: () => unawaited(
+                  context.pushNamed(
+                    AppRouteNames.articleEditor,
+                    queryParameters: {'articleId': articleId},
+                  ),
+                ),
+              ),
+            )
+          else
+            const SizedBox(width: 60),
+        ],
       ),
       body: articleAsync.when(
         loading: () => const _ArticleLoadingSkeleton(),
@@ -104,7 +134,6 @@ class _ArticleBody extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     final selfUserId = ref.watch(sessionProvider).userId;
     final isOwner = selfUserId != null && selfUserId == article.authorUserId;
-    final cover = article.coverImageUrl;
 
     // Тап по любому месту вне поля и протяжка списка убирают клавиатуру:
     // в комментариях её нельзя было закрыть — на экране нет кнопки «Готово»,
@@ -121,23 +150,22 @@ class _ArticleBody extends ConsumerWidget {
           AppSpacing.shellBottomContent,
         ),
         children: [
-          if (cover != null) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: Image(
-                  image: articleImageProvider(
-                    config: config,
-                    url: cover,
-                    fallbackSeed: article.id,
-                  ),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
+          // Порядок по макету дизайнера: сначала кто и когда написал, потом
+          // реакции, и только затем — о чём статья. Обложка отдельной
+          // картинкой сверху больше не выводится: на макете первое
+          // изображение живёт внутри текста, как обычный блок.
+          _AuthorRow(
+            name: article.authorDisplayName,
+            avatarUrl: article.authorAvatarUrl,
+            date: article.publishedAt ?? article.createdAt,
+            readingTimeMinutes: article.readingTimeMinutes,
+            rankTitle: article.authorRankTitle,
+            config: config,
+            onTap: () => _openAuthor(context, ref, article.authorUserId),
+          ),
+          const SizedBox(height: 12),
+          _ReactionsPanel(article: article),
+          const SizedBox(height: 18),
           Text(
             article.title,
             style: AppTypography.routeTitle.copyWith(
@@ -146,20 +174,9 @@ class _ArticleBody extends ConsumerWidget {
             ),
           ),
           if (article.tags.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             TagChipPicker.display(tags: article.tags),
           ],
-          const SizedBox(height: 12),
-          _AuthorRow(
-            name: article.authorDisplayName,
-            avatarUrl: article.authorAvatarUrl,
-            date: article.publishedAt ?? article.createdAt,
-            readingTimeMinutes: article.readingTimeMinutes,
-            config: config,
-            onTap: () => _openAuthor(context, ref, article.authorUserId),
-          ),
-          const SizedBox(height: 14),
-          _ReactionsPanel(article: article),
           if (isOwner) ...[
             const SizedBox(height: 12),
             _OwnerArticleStatusBanner(
@@ -215,12 +232,16 @@ class _AuthorRow extends StatelessWidget {
     required this.readingTimeMinutes,
     required this.config,
     required this.onTap,
+    this.rankTitle,
   });
 
   final String name;
   final String? avatarUrl;
   final DateTime date;
   final int readingTimeMinutes;
+
+  /// Звание автора под именем — как на макете дизайнера.
+  final String? rankTitle;
   final AppConfig config;
   final VoidCallback onTap;
 
@@ -254,17 +275,43 @@ class _AuthorRow extends StatelessWidget {
                     color: AppColors.primaryInk,
                   ),
                 ),
-                Text(
-                  '${_formatDate(date)} · $readingTimeMinutes '
-                  '${_minutesWord(readingTimeMinutes)} чтения',
-                  style: const TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 12,
-                    color: AppColors.secondaryInk,
+                if (rankTitle != null && rankTitle!.isNotEmpty)
+                  Text(
+                    rankTitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 11,
+                      color: AppColors.secondaryInk,
+                    ),
                   ),
-                ),
               ],
             ),
+          ),
+          const SizedBox(width: 10),
+          // Дата и время чтения — правым столбиком, как на макете: слева
+          // «кто», справа «когда и насколько долго».
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatDate(date),
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 12,
+                  color: AppColors.primaryInk,
+                ),
+              ),
+              Text(
+                '$readingTimeMinutes ${_minutesWord(readingTimeMinutes)} чтения',
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 12,
+                  color: AppColors.secondaryInk,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -370,7 +417,14 @@ class _ReactionsPanel extends ConsumerWidget {
               ),
             ),
           ),
-          const SizedBox(width: 18),
+          // Вертикальная черта между лайком и просмотрами — по макету
+          // дизайнера; голый отступ читался как одна слитная группа цифр.
+          Container(
+            width: 1,
+            height: 18,
+            margin: const EdgeInsets.symmetric(horizontal: 14),
+            color: const Color(0xFFE8E8EA),
+          ),
           const Icon(
             Icons.visibility_outlined,
             size: 18,
@@ -691,6 +745,59 @@ class _RelatedRouteCard extends StatelessWidget {
               ),
               Icon(Icons.chevron_right_rounded, color: AppColors.secondaryInk),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Серый вордмарк в шапке — как на макете: экран статьи не подписывается
+/// её заголовком, заголовок живёт в теле.
+class _HeaderWordmark extends StatelessWidget {
+  const _HeaderWordmark();
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      'КРЫМТРИП',
+      style: AppTypography.chip.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 3.3,
+        color: const Color(0xFFB8B9BD),
+      ),
+    );
+  }
+}
+
+/// Круглая тёмная кнопка в шапке.
+class _RoundHeaderButton extends StatelessWidget {
+  const _RoundHeaderButton({
+    required this.icon,
+    required this.semanticLabel,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String semanticLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      child: Material(
+        color: AppColors.primaryInk,
+        shape: const CircleBorder(),
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(icon, color: Colors.white, size: 20),
           ),
         ),
       ),

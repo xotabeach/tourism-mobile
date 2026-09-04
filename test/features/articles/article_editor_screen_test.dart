@@ -76,14 +76,12 @@ void main() {
   testWidgets('starts empty, with the submit button disabled', (tester) async {
     await _pumpEditor(tester);
 
-    expect(find.text('Новая статья'), findsOneWidget);
+    // Название экрана в теле, а в шапке — вордмарк (макет 2026-09-04).
+    expect(find.text('КРЫМТРИП'), findsOneWidget);
     expect(find.textContaining('Добавьте первый блок'), findsOneWidget);
 
-    final submit = tester.widget<OutlinedButton>(
-      find.ancestor(
-        of: find.text('Отправить на модерацию'),
-        matching: find.byType(OutlinedButton),
-      ),
+    final submit = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('editor-publish')),
     );
     expect(submit.onPressed, isNull);
   });
@@ -144,11 +142,8 @@ void main() {
     await tester.enterText(find.byType(TextField).last, 'Первый абзац');
     await tester.pumpAndSettle();
 
-    final submit = tester.widget<OutlinedButton>(
-      find.ancestor(
-        of: find.text('Отправить на модерацию'),
-        matching: find.byType(OutlinedButton),
-      ),
+    final submit = tester.widget<FilledButton>(
+      find.byKey(const ValueKey('editor-publish')),
     );
     expect(submit.onPressed, isNotNull);
   });

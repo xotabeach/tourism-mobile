@@ -116,6 +116,7 @@ Future<void> _pump(
 }
 
 void main() {
+  _designPassTests();
   group('ArticleDetailsScreen blocks', () {
     testWidgets('renders blocks in position order, not list order', (
       tester,
@@ -528,5 +529,51 @@ void main() {
 
       expect(find.text('Читайте также'), findsNothing);
     });
+  });
+}
+
+/// Верстка по макету дизайнера (КрымТрип-8, 2026-09-04).
+void _designPassTests() {
+  testWidgets('the header carries the wordmark, not the article title', (
+    tester,
+  ) async {
+    final article = _articleWith(status: ArticleStatus.published);
+    await _pump(tester, article: article);
+
+    expect(find.text('КРЫМТРИП'), findsOneWidget);
+    // Заголовок статьи живёт в теле и ровно в одном месте.
+    expect(find.text(article.title), findsOneWidget);
+  });
+
+  testWidgets('the author and reactions come before the title', (
+    tester,
+  ) async {
+    // Порядок с макета: сначала «кто и когда», потом реакции, затем «о чём».
+    final article = _articleWith(status: ArticleStatus.published);
+    await _pump(tester, article: article);
+
+    final authorY = tester.getTopLeft(find.text(article.authorDisplayName)).dy;
+    final titleY = tester.getTopLeft(find.text(article.title)).dy;
+    expect(authorY, lessThan(titleY));
+  });
+
+  testWidgets('only the author is offered the edit button', (tester) async {
+    await _pump(
+      tester,
+      article: _articleWith(
+        status: ArticleStatus.published,
+        authorUserId: _ownerId,
+      ),
+    );
+    expect(find.bySemanticsLabel('Редактировать статью'), findsOneWidget);
+
+    await _pump(
+      tester,
+      article: _articleWith(
+        status: ArticleStatus.published,
+        authorUserId: 'somebody-else',
+      ),
+    );
+    expect(find.bySemanticsLabel('Редактировать статью'), findsNothing);
   });
 }
