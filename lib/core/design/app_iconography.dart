@@ -40,6 +40,10 @@ abstract final class AppIconography {
       '$_root/settings_change_preferences.png';
   static const String settingsChat = '$_root/settings_chat.png';
 
+  /// История чатов с ИИ — иконка от дизайнера (chat_story.svg, 2026-09-04).
+  static const String settingsChatHistory =
+      '$_root/settings_chat_history.png';
+
   // Settings — notifications
   static const String settingsPush = '$_root/settings_push.png';
   static const String settingsSms = '$_root/settings_sms.png';

@@ -31,6 +31,7 @@ import 'package:tourism_mobile/features/search/presentation/search_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_app_icon_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_changelog_screen.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_legal_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_preferences_quiz_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
@@ -82,6 +83,9 @@ abstract final class AppRouteNames {
   static const settingsOffline = 'settings-offline';
   static const settingsAbout = 'settings-about';
   static const settingsChangelog = 'settings-changelog';
+  static const settingsLegalDocument = 'settings-legal-document';
+  static const settingsCompanyDetails = 'settings-company-details';
+  static const settingsContacts = 'settings-contacts';
   static const settingsSupport = 'settings-support';
   static const settingsFaqCategory = 'settings-faq-category';
   static const settingsFaqAnswer = 'settings-faq-answer';
@@ -540,6 +544,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                                 CupertinoPage<void>(
                                   key: state.pageKey,
                                   child: const SettingsChangelogScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsLegalDocument,
+                            path: SettingsLegalDocumentScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: SettingsLegalDocumentScreen(
+                                    documentId: state.pathParameters['id']!,
+                                  ),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsCompanyDetails,
+                            path: SettingsCompanyDetailsScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsCompanyDetailsScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsContacts,
+                            path: SettingsContactsScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsContactsScreen(),
                                 ),
                           ),
                         ],

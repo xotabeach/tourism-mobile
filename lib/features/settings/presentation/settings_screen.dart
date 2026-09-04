@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,11 +9,10 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
+import 'package:tourism_mobile/features/settings/domain/legal_documents.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -51,7 +52,7 @@ class SettingsScreen extends ConsumerWidget {
         SettingsNavTile(
           title: 'История чатов с ИИ',
           subtitle: 'Прошлые подборки маршрутов',
-          icon: Icons.forum_outlined,
+          iconAsset: AppIconography.settingsChatHistory,
           onTap: () => context.pushNamed(AppRouteNames.chatHistory),
         ),
         SettingsNavTile(
@@ -74,47 +75,13 @@ class SettingsScreen extends ConsumerWidget {
 class SettingsAboutScreen extends ConsumerWidget {
   const SettingsAboutScreen({super.key});
 
-  Future<void> _open(BuildContext context, String url) async {
-    final uri = Uri.tryParse(url);
-    if (uri == null ||
-        !await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        showAppNotice(context, 'Не удалось открыть ссылку');
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
     return SettingsScaffold(
       title: 'О приложении:',
       spaceChildren: false,
       children: [
-        SettingsFormCard(
-          child: Row(
-            children: [
-              Text(
-                config.appName,
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 14),
-              ),
-              const Spacer(),
-              FutureBuilder<PackageInfo>(
-                future: PackageInfo.fromPlatform(),
-                builder: (context, snapshot) {
-                  final info = snapshot.data;
-                  return Text(
-                    info == null
-                        ? '…'
-                        : 'Версия ${info.version} (${info.buildNumber})',
-                    style: AppTypography.settingsRowSubtitle,
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: SettingsMetrics.rowGap),
+        // История изменений идёт первой: её открывают чаще, чем документы.
         SettingsNavTile(
           title: 'История изменений',
           subtitle: 'Что нового в каждой версии',
@@ -122,36 +89,103 @@ class SettingsAboutScreen extends ConsumerWidget {
           dense: true,
           onTap: () => context.pushNamed(AppRouteNames.settingsChangelog),
         ),
-        if (config.privacyPolicyUrl != null) ...[
+        for (final document in legalDocuments) ...[
           const SizedBox(height: SettingsMetrics.rowGap),
           SettingsNavTile(
-            title: 'Политика конфиденциальности',
-            icon: Icons.privacy_tip_outlined,
+            title: document.title,
+            subtitle: document.subtitle,
+            icon: document.icon,
             dense: true,
-            onTap: () => unawaited(_open(context, config.privacyPolicyUrl!)),
+            onTap: () => context.pushNamed(
+              AppRouteNames.settingsLegalDocument,
+              pathParameters: {'id': document.id},
+            ),
           ),
         ],
-        if (config.termsUrl != null) ...[
-          const SizedBox(height: SettingsMetrics.rowGap),
-          SettingsNavTile(
-            title: 'Условия использования',
-            icon: Icons.description_outlined,
-            dense: true,
-            onTap: () => unawaited(_open(context, config.termsUrl!)),
-          ),
-        ],
-        if (config.supportEmail != null) ...[
-          const SizedBox(height: SettingsMetrics.rowGap),
-          SettingsNavTile(
-            title: 'Написать нам',
-            subtitle: config.supportEmail,
-            icon: Icons.mail_outline_rounded,
-            dense: true,
-            onTap: () =>
-                unawaited(_open(context, 'mailto:${config.supportEmail}')),
-          ),
-        ],
+        const SizedBox(height: SettingsMetrics.rowGap),
+        SettingsNavTile(
+          title: 'Реквизиты компании',
+          subtitle: 'Наименование, ИНН, ОГРН, адрес',
+          icon: Icons.article_outlined,
+          dense: true,
+          onTap: () => context.pushNamed(AppRouteNames.settingsCompanyDetails),
+        ),
+        const SizedBox(height: SettingsMetrics.rowGap),
+        SettingsNavTile(
+          title: 'Контактная информация',
+          subtitle: 'Способы связи с командой',
+          icon: Icons.mail_outline_rounded,
+          dense: true,
+          onTap: () => context.pushNamed(AppRouteNames.settingsContacts),
+        ),
+        const SizedBox(height: SettingsMetrics.rowGap),
+        const _DeviceAndVersionCard(),
       ],
     );
   }
+}
+
+/// Устройство и версия — карточка, которую человек переписывает в обращение
+/// в поддержку. Собирается сама: спрашивать у человека модель телефона
+/// бессмысленно, он её обычно не знает.
+class _DeviceAndVersionCard extends ConsumerWidget {
+  const _DeviceAndVersionCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
+    return SettingsFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Устройство и версия',
+            style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+          ),
+          const SizedBox(height: 6),
+          FutureBuilder<String>(
+            future: describeDeviceAndVersion(config),
+            builder: (context, snapshot) {
+              return Text(
+                snapshot.data ?? 'Собираем данные…',
+                style: AppTypography.settingsRowSubtitle,
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «Версия 0.2.2 (14), iPhone 16, iOS 27» — одной строкой.
+///
+/// Живёт снаружи виджета, потому что тем же текстом подписывается обращение
+/// в поддержку.
+Future<String> describeDeviceAndVersion(AppConfig config) async {
+  final parts = <String>[];
+  try {
+    final info = await PackageInfo.fromPlatform();
+    final channel = config.environment == AppEnvironment.production
+        ? ''
+        : ' (${config.environment.name})';
+    parts.add('Версия ${info.version} (${info.buildNumber})$channel');
+  } on Object {
+    // Версия не прочиталась — устройство всё равно покажем.
+  }
+  try {
+    final plugin = DeviceInfoPlugin();
+    if (Platform.isIOS) {
+      final ios = await plugin.iosInfo;
+      parts.add(ios.utsname.machine);
+      parts.add('iOS ${ios.systemVersion}');
+    } else if (Platform.isAndroid) {
+      final android = await plugin.androidInfo;
+      parts.add('${android.manufacturer} ${android.model}');
+      parts.add('Android ${android.version.release}');
+    }
+  } on Object {
+    // На десктопе и в тестах плагина нет — строка просто короче.
+  }
+  return parts.isEmpty ? 'Не удалось определить' : parts.join(', ');
 }

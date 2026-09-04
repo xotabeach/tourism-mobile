@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
@@ -350,6 +351,12 @@ class SettingsOfflineScreen extends ConsumerWidget {
       showModalBottomSheet<void>(
         context: context,
         showDragHandle: true,
+        // Белая шторка со скруглённой шапкой — как на макете; тема давала
+        // сиреневатую подложку, из-за неё голубые плашки терялись.
+        backgroundColor: AppColors.elevatedSurface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         // A shrink-wrapped sheet collapsed to a couple of unreadable rows.
         // Give it a real, resizable height instead.
         isScrollControlled: true,
@@ -428,10 +435,13 @@ class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
 
   @override
   Widget build(BuildContext context) {
+    // Размеры и цвета сняты со скрина дизайнера («Настройки Оффлайн»,
+    // 590×1278 при 1.5x): строка 64 высотой на голубой заливке #EDF4FC,
+    // синий кружок с галочкой 31, серый крестик справа.
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
           child: Row(
             children: [
               Expanded(
@@ -442,7 +452,7 @@ class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
               ),
               Text(
                 '${_items.length}',
-                style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 14),
+                style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 15),
               ),
             ],
           ),
@@ -452,78 +462,30 @@ class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
             controller: widget.scrollController,
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
             itemCount: _items.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, index) {
               final item = _items[index];
               final busy = _removingId == item.id;
-              return DecoratedBox(
-                decoration: BoxDecoration(
-                  color: SettingsColors.fieldFill,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.download_done_rounded, size: 22),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: InkWell(
-                          onTap: busy
-                              ? null
-                              : () {
-                                  Navigator.of(context).pop();
-                                  unawaited(
-                                    context.pushNamed(
-                                      AppRouteNames.routeDetails,
-                                      pathParameters: {'id': item.id},
-                                      extra: item.route,
-                                    ),
-                                  );
-                                },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                item.route.name,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.settingsRowTitle.copyWith(
-                                  fontSize: 14,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${item.route.stops.length} '
-                                '${_stopWord(item.route.stops.length)} · '
-                                '${SettingsOfflineScreen._downloadDate(item.downloadedAt)}',
-                                style: AppTypography.settingsRowSubtitle
-                                    .copyWith(fontSize: 12),
-                              ),
-                            ],
+              return _DownloadedRouteRow(
+                title: item.route.name,
+                subtitle:
+                    '${item.route.stops.length} '
+                    '${_stopWord(item.route.stops.length)} • '
+                    '${SettingsOfflineScreen._downloadDate(item.downloadedAt)}',
+                busy: busy,
+                onOpen: busy
+                    ? null
+                    : () {
+                        Navigator.of(context).pop();
+                        unawaited(
+                          context.pushNamed(
+                            AppRouteNames.routeDetails,
+                            pathParameters: {'id': item.id},
+                            extra: item.route,
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      if (busy)
-                        const SizedBox.square(
-                          dimension: 36,
-                          child: Center(
-                            child: SizedBox.square(
-                              dimension: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
-                        )
-                      else
-                        IconButton(
-                          tooltip: 'Удалить скачанную копию',
-                          icon: const Icon(Icons.close_rounded, size: 20),
-                          onPressed: () => unawaited(_remove(item)),
-                        ),
-                    ],
-                  ),
-                ),
+                        );
+                      },
+                onRemove: () => unawaited(_remove(item)),
               );
             },
           ),
@@ -539,5 +501,103 @@ class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
     if (mod10 == 1) return 'остановка';
     if (mod10 >= 2 && mod10 <= 4) return 'остановки';
     return 'остановок';
+  }
+}
+
+/// Строка скачанного маршрута — точная копия строки с макета: голубая
+/// плашка, синий кружок с галочкой, две строки текста и крестик.
+class _DownloadedRouteRow extends StatelessWidget {
+  const _DownloadedRouteRow({
+    required this.title,
+    required this.subtitle,
+    required this.busy,
+    required this.onOpen,
+    required this.onRemove,
+  });
+
+  static const _fill = Color(0xFFEDF4FC);
+  static const _rowHeight = 64.0;
+
+  final String title;
+  final String subtitle;
+  final bool busy;
+  final VoidCallback? onOpen;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: _fill,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onOpen,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: _rowHeight,
+          child: Row(
+            children: [
+              const SizedBox(width: 15),
+              const Icon(
+                Icons.check_circle_outline_rounded,
+                size: 31,
+                color: AppColors.accentBlueIcon,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.settingsRowTitle.copyWith(
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.settingsRowSubtitle.copyWith(
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (busy)
+                const Padding(
+                  padding: EdgeInsets.only(right: 20),
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                Semantics(
+                  button: true,
+                  label: 'Удалить скачанную копию',
+                  child: InkResponse(
+                    onTap: onRemove,
+                    radius: 22,
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(10, 10, 12, 10),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 22,
+                        color: Color(0xFF86898E),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

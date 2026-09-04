@@ -60,7 +60,6 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   final _scrollController = ScrollController();
   var _achievementPage = 0;
-  var _publishedPage = 0;
   var _pullDownOffset = 0.0;
 
   void _onScroll() {
@@ -331,11 +330,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       routes: profile.publishedRoutes,
                       authorIsExpert: profile.isExpert,
                       showStatuses: isOwn,
-                      pageIndex: _publishedPage,
                       authorAvatarUrl: profile.avatarImageUrl,
-                      onPageChanged: (index) {
-                        setState(() => _publishedPage = index);
-                      },
                     ),
                   const SizedBox(height: AppSpacing.xl),
                   _ProfileArticlesSection(
@@ -356,6 +351,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 /// "Статьи"/"Мои статьи" — a section of its own kept independent of
 /// [ProfileSnapshot], the same way route/place reviews are fetched
 /// separately rather than baked into the profile aggregate.
+/// Высота карточки статьи в профиле — с макета: чуть ниже полноразмерной,
+/// потому что карточка здесь ýже и в ней меньше строк.
+const _articleCardHeight = 306.0;
+
 class _ProfileArticlesSection extends ConsumerWidget {
   const _ProfileArticlesSection({
     required this.isOwn,
@@ -381,12 +380,12 @@ class _ProfileArticlesSection extends ConsumerWidget {
     if (articles.isEmpty && !isOwn) {
       return const SizedBox.shrink();
     }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+          child: Row(
             children: [
               Expanded(
                 child: Text(
@@ -423,24 +422,38 @@ class _ProfileArticlesSection extends ConsumerWidget {
                 ),
             ],
           ),
-          const SizedBox(height: AppSpacing.sm),
-          if (isLoading)
-            const ArticleCardSkeleton()
-          else if (articles.isEmpty)
-            const Text(
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        if (isLoading)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+            child: ArticleCardSkeleton(
+              width: profileCardWidth(context),
+              height: _articleCardHeight,
+            ),
+          )
+        else if (articles.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: AppSpacing.page),
+            child: Text(
               'Вы ещё не написали ни одной статьи',
               style: AppTypography.routeMetadata,
-            )
-          else
-            // Full-width cards stacked vertically rather than a carousel: the
-            // card leads with a headline and an excerpt, and a 250px-wide
-            // carousel slot leaves no room to read either.
-            for (var index = 0; index < articles.length; index++) ...[
-              if (index > 0) const SizedBox(height: 12),
-              ArticleCard(article: articles[index], showStatus: isOwn),
-            ],
-        ],
-      ),
+            ),
+          )
+        else
+          // Ряд карточек, а не столбец: на макете статьи в профиле листаются
+          // так же, как маршруты над ними, и оба ряда идут одним ритмом.
+          _ProfileCardsCarousel(
+            itemCount: articles.length,
+            height: _articleCardHeight,
+            itemBuilder: (context, index, width) => ArticleCard(
+              article: articles[index],
+              width: width,
+              height: _articleCardHeight,
+              showStatus: isOwn,
+            ),
+          ),
+      ],
     );
   }
 }
@@ -1464,58 +1477,114 @@ class _AchievementTile extends StatelessWidget {
   }
 }
 
+/// Ширина карточки в профиле: следующая карточка выглядывает справа — так на
+/// макете, и по этому «хвосту» сразу видно, что список листается. На весь
+/// экран карточки выглядели как одиночные и занимали половину профиля.
+double profileCardWidth(BuildContext context) =>
+    MediaQuery.sizeOf(context).width - AppSpacing.page - 56;
+
+/// Карусель карточек профиля с точками под ней. Один и тот же ритм у
+/// маршрутов и у статей — на макете это два одинаковых ряда.
+class _ProfileCardsCarousel extends StatefulWidget {
+  const _ProfileCardsCarousel({
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.height,
+  });
+
+  final int itemCount;
+  final Widget Function(BuildContext context, int index, double width)
+  itemBuilder;
+  final double height;
+
+  @override
+  State<_ProfileCardsCarousel> createState() => _ProfileCardsCarouselState();
+}
+
+class _ProfileCardsCarouselState extends State<_ProfileCardsCarousel> {
+  PageController? _controller;
+  double _fraction = 1;
+  int _page = 0;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final width = MediaQuery.sizeOf(context).width;
+    final fraction = (profileCardWidth(context) + AppSpacing.page) / width;
+    if (_controller == null || (fraction - _fraction).abs() > 0.001) {
+      _controller?.dispose();
+      _fraction = fraction;
+      _controller = PageController(viewportFraction: fraction);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cardWidth = profileCardWidth(context);
+    return Column(
+      children: [
+        SizedBox(
+          height: widget.height,
+          child: PageView.builder(
+            controller: _controller,
+            itemCount: widget.itemCount,
+            padEnds: false,
+            onPageChanged: (index) => setState(() => _page = index),
+            itemBuilder: (context, index) => Padding(
+              // Отступ слева у каждой страницы: у первой это поле экрана,
+              // у остальных — промежуток между карточками.
+              padding: const EdgeInsets.only(left: AppSpacing.page),
+              child: widget.itemBuilder(context, index, cardWidth),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _PageDots(count: widget.itemCount, index: _page),
+      ],
+    );
+  }
+}
+
 class _PublishedRoutesCarousel extends StatelessWidget {
   const _PublishedRoutesCarousel({
     required this.routes,
-    required this.pageIndex,
-    required this.onPageChanged,
     required this.showStatuses,
     required this.authorIsExpert,
     this.authorAvatarUrl,
   });
 
+  static const cardHeight = 296.0;
+
   final List<RouteSummary> routes;
-  final int pageIndex;
-  final ValueChanged<int> onPageChanged;
   final bool showStatuses;
   final bool authorIsExpert;
   final String? authorAvatarUrl;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        SizedBox(
-          height: 304,
-          child: PageView.builder(
-            itemCount: routes.length,
-            onPageChanged: onPageChanged,
-            padEnds: false,
-            itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.page,
-                ),
-                child: RouteHeroCard(
-                  route: routes[index],
-                  height: 304,
-                  tags: showStatuses
-                      ? [?routeStatusLabel(routes[index])]
-                      : const [],
-                  interactive: true,
-                  authorAvatarUrl: authorAvatarUrl,
-                  authorIsExpert: authorIsExpert,
-                  onEdit: showStatuses
-                      ? () => context.pushNamed(AppRouteNames.routePublish)
-                      : null,
-                ),
-              );
-            },
-          ),
+    return _ProfileCardsCarousel(
+      itemCount: routes.length,
+      height: cardHeight,
+      itemBuilder: (context, index, width) => SizedBox(
+        width: width,
+        child: RouteHeroCard(
+          route: routes[index],
+          height: cardHeight,
+          tags: showStatuses ? [?routeStatusLabel(routes[index])] : const [],
+          interactive: true,
+          authorAvatarUrl: authorAvatarUrl,
+          authorIsExpert: authorIsExpert,
+          onEdit: showStatuses
+              ? () => context.pushNamed(AppRouteNames.routePublish)
+              : null,
         ),
-        const SizedBox(height: 12),
-        _PageDots(count: routes.length, index: pageIndex),
-      ],
+      ),
     );
   }
 }
