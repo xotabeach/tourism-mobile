@@ -204,13 +204,27 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
   if (isOwn) {
     final own = ref.watch(profileProvider);
     final ownRoutes = await ref.watch(routesRepositoryProvider).listMyRoutes();
+    // Своё фото берём с сервера, а не из сессии. Сессия знает только то, что
+    // загрузили на этом устройстве: после переустановки или входа с другого
+    // телефона там пусто, и профиль показывал моковую заглушку вместо
+    // настоящего аватара (баг 2026-09-04).
+    //
+    // Локальный file:// — исключение: это снимок, который прямо сейчас
+    // выбрали и ещё не догрузили, и он должен быть виден сразу.
+    String? ownImage(String? local, String? remote) {
+      if (local != null && local.startsWith('file://')) {
+        return local;
+      }
+      return resolve(remote) ?? local;
+    }
+
     return ProfileSnapshot(
       displayName: own.displayName,
       rank: rank,
       coverImageAsset: own.coverImageAsset,
       avatarImageAsset: own.avatarImageAsset,
-      avatarImageUrl: own.avatarImageUrl,
-      coverImageUrl: own.coverImageUrl,
+      avatarImageUrl: ownImage(own.avatarImageUrl, bundle.user.avatarUrl),
+      coverImageUrl: ownImage(own.coverImageUrl, bundle.user.coverUrl),
       achievementPages: achievementPages,
       publishedRoutes: ownRoutes.items,
       likedByMe: false,

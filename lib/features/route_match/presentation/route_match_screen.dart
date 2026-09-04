@@ -60,6 +60,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   bool _withChildren = false;
   bool _withPets = false;
   bool _avoidCrowds = false;
+  bool _paidOk = false;
 
   final _cityController = TextEditingController();
   final _budgetController = TextEditingController();
@@ -366,6 +367,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       withChildren: advanced && _withChildren ? true : null,
       withPets: advanced && _withPets ? true : null,
       avoidCrowds: advanced && _avoidCrowds ? true : null,
+      paidOk: advanced && _paidOk ? true : null,
     );
   }
 
@@ -771,11 +773,13 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
               withChildren: _withChildren,
               withPets: _withPets,
               avoidCrowds: _avoidCrowds,
+              paidOk: _paidOk,
               onWithChildrenChanged: (value) =>
                   setState(() => _withChildren = value),
               onWithPetsChanged: (value) => setState(() => _withPets = value),
               onAvoidCrowdsChanged: (value) =>
                   setState(() => _avoidCrowds = value),
+              onPaidOkChanged: (value) => setState(() => _paidOk = value),
             ),
           ),
         ],

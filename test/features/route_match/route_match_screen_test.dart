@@ -10,6 +10,7 @@ import 'package:tourism_mobile/features/route_match/presentation/route_match_wid
 import '../../support/test_overrides.dart';
 
 void main() {
+  _advancedOptionsTests();
   test('routeMatchLooksLikeSelfHarm detects crisis phrases', () {
     expect(
       routeMatchLooksLikeSelfHarm('я разбежавшись прыгну со скалы на закате'),
@@ -216,5 +217,52 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
     expect(tester.takeException(), isNull);
     expect(find.text(crisisText), findsOneWidget);
+  });
+}
+
+/// `paid_ok` has been in the model and in the backend's confirmable fields
+/// all along, but the "по параметрам" form never offered it — the AI chat
+/// asked about paid entry while the form silently sent null (2026-09-04).
+void _advancedOptionsTests() {
+  testWidgets('the advanced block offers every toggle the model carries', (
+    tester,
+  ) async {
+    final toggled = <String, bool>{};
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: AdvancedMatchOptions(
+              px: (value) => value,
+              budgetController: controller,
+              withChildren: false,
+              withPets: false,
+              avoidCrowds: false,
+              paidOk: false,
+              onWithChildrenChanged: (v) => toggled['children'] = v,
+              onWithPetsChanged: (v) => toggled['pets'] = v,
+              onAvoidCrowdsChanged: (v) => toggled['crowds'] = v,
+              onPaidOkChanged: (v) => toggled['paid'] = v,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    for (final label in [
+      'С детьми',
+      'С питомцами',
+      'Платный вход — ок',
+      'Избегать толпы',
+    ]) {
+      expect(find.text(label), findsOneWidget, reason: label);
+    }
+
+    await tester.tap(find.text('Платный вход — ок'));
+    await tester.pump();
+    expect(toggled['paid'], isTrue);
   });
 }

@@ -627,7 +627,10 @@ class _SelectOptionList extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(height: px(1), color: RouteBuilderDesignTokens.chatHairline),
+          Container(
+            height: px(1),
+            color: RouteBuilderDesignTokens.chatHairline,
+          ),
           ConstrainedBox(
             constraints: BoxConstraints(maxHeight: px(214)),
             child: _ThinScrollbar(

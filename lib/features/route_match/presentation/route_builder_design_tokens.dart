@@ -17,10 +17,12 @@ abstract final class RouteBuilderDesignTokens {
   static const Color fieldBackground = Color(0xFFE7E7E7);
   static const Color borderGray = Color(0xFFD3D3D3);
   static const Color lightBorder = Color(0xFFE7E7E7);
+
   /// Нейтральная волосяная линия из макетов «Подбор с ИИ»: рамка кнопок
   /// быстрых ответов, рамка выпадающего списка городов и разделитель
   /// внутри него — все замерены по экспорту как #E9E9E9.
   static const Color chatHairline = Color(0xFFE9E9E9);
+
   /// Подложка тонкого скроллбара в списке городов (#E8F0F9).
   static const Color chatScrollTrack = Color(0xFFE8F0F9);
   static const Color selectedLightBlue = Color(0xFFE6EDF4);

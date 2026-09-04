@@ -1850,9 +1850,11 @@ class AdvancedMatchOptions extends StatelessWidget {
     required this.withChildren,
     required this.withPets,
     required this.avoidCrowds,
+    required this.paidOk,
     required this.onWithChildrenChanged,
     required this.onWithPetsChanged,
     required this.onAvoidCrowdsChanged,
+    required this.onPaidOkChanged,
     super.key,
   });
 
@@ -1861,9 +1863,15 @@ class AdvancedMatchOptions extends StatelessWidget {
   final bool withChildren;
   final bool withPets;
   final bool avoidCrowds;
+
+  /// Готовность платить за вход. Поле давно есть и в модели, и на бэкенде
+  /// (`paid_ok` в _CONFIRMABLE_FIELDS), но в форме его не было — ИИ-подбор
+  /// про это спрашивал, а «по параметрам» молча слал null (2026-09-04).
+  final bool paidOk;
   final ValueChanged<bool> onWithChildrenChanged;
   final ValueChanged<bool> onWithPetsChanged;
   final ValueChanged<bool> onAvoidCrowdsChanged;
+  final ValueChanged<bool> onPaidOkChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1905,6 +1913,13 @@ class AdvancedMatchOptions extends StatelessWidget {
               controller: budgetController,
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              // expands + center: isCollapsed прижимает текст к верхней
+              // кромке, и в поле высотой 48 плейсхолдер висел под самым
+              // краем вместо середины (скрин 2026-09-04).
+              expands: true,
+              maxLines: null,
+              minLines: null,
+              textAlignVertical: TextAlignVertical.center,
               style: RouteBuilderDesignTokens.rubik(
                 fontSize: px(14),
                 color: RouteBuilderDesignTokens.textPrimary,
@@ -1937,6 +1952,13 @@ class AdvancedMatchOptions extends StatelessWidget {
           label: 'С питомцами',
           value: withPets,
           onChanged: onWithPetsChanged,
+        ),
+        SizedBox(height: px(8)),
+        _AdvancedToggle(
+          px: px,
+          label: 'Платный вход — ок',
+          value: paidOk,
+          onChanged: onPaidOkChanged,
         ),
         SizedBox(height: px(8)),
         _AdvancedToggle(
@@ -2013,29 +2035,35 @@ class _AdvancedToggle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: RouteBuilderDesignTokens.surface,
-        borderRadius: BorderRadius.circular(px(12)),
-        border: Border.all(
-          color: RouteBuilderDesignTokens.lightBorder,
-          width: px(1),
-        ),
-      ),
-      child: SwitchListTile(
-        dense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: px(8)),
-        title: Text(
-          label,
-          style: RouteBuilderDesignTokens.rubik(
-            fontSize: px(14),
-            color: RouteBuilderDesignTokens.textPrimary,
+    // Material, а не DecoratedBox: SwitchListTile рисует нажатие на ближайшем
+    // Material-предке, и фон, положенный поверх него, этот отклик прятал —
+    // тумблер выглядел неотзывчивым (Flutter об этом и предупреждает).
+    return Material(
+      color: RouteBuilderDesignTokens.surface,
+      borderRadius: BorderRadius.circular(px(12)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(px(12)),
+          border: Border.all(
+            color: RouteBuilderDesignTokens.lightBorder,
+            width: px(1),
           ),
         ),
-        value: value,
-        activeThumbColor: Colors.white,
-        activeTrackColor: RouteBuilderDesignTokens.primaryBlue,
-        onChanged: onChanged,
+        child: SwitchListTile(
+          dense: true,
+          contentPadding: EdgeInsets.symmetric(horizontal: px(8)),
+          title: Text(
+            label,
+            style: RouteBuilderDesignTokens.rubik(
+              fontSize: px(14),
+              color: RouteBuilderDesignTokens.textPrimary,
+            ),
+          ),
+          value: value,
+          activeThumbColor: Colors.white,
+          activeTrackColor: RouteBuilderDesignTokens.primaryBlue,
+          onChanged: onChanged,
+        ),
       ),
     );
   }
