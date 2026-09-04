@@ -27,11 +27,12 @@ import 'package:tourism_mobile/features/profile/application/profile_providers.da
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
-import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/application/search_filter_apply.dart';
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
+import 'package:tourism_mobile/features/search/presentation/search_filters_sheet.dart';
 import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
@@ -59,44 +60,39 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   MyRoutesTab _tab = MyRoutesTab.favorites;
   var _searchQuery = '';
   var _searchFocused = false;
-  var _selectedChip = 'Все';
+
+  /// Фильтры хранятся отдельно для каждого раздела: выбранное для маршрутов
+  /// не должно молча применяться к местам или подпискам — там и наборы
+  /// фильтров разные.
+  final _filtersByTab = <MyRoutesTab, SearchFilters>{};
   final _removedSubscriptionIds = <String>{};
 
   bool get _searchActive => _searchFocused || _searchQuery.isNotEmpty;
 
+  SearchFilters get _filters => _filtersByTab[_tab] ?? const SearchFilters();
+
+  /// Раздел уже выбран переключателем над списком, поэтому шторка не
+  /// спрашивает «что ищем» и показывает только то, по чему этот раздел
+  /// можно сортировать и фильтровать.
+  static SearchFilterSections _sectionsFor(MyRoutesTab tab) => switch (tab) {
+    MyRoutesTab.favorites => SearchFilterSections.routes,
+    MyRoutesTab.places => SearchFilterSections.places,
+    MyRoutesTab.articles => SearchFilterSections.articles,
+    MyRoutesTab.subscriptions => SearchFilterSections.profiles,
+    MyRoutesTab.history => SearchFilterSections.history,
+  };
+
   Future<void> _openFilters() async {
-    // Filters must apply the instant a filter is tapped — not after some
-    // separate confirm step — so update the screen's own state directly
-    // from the sheet's onTap instead of waiting on the sheet's pop result.
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return SafeArea(
-          child: StatefulBuilder(
-            builder: (sheetContext, setSheetState) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final filter in routeCatalogFilters)
-                    ListTile(
-                      title: Text(filter),
-                      trailing: filter == _selectedChip
-                          ? const Icon(Icons.check_rounded)
-                          : null,
-                      onTap: () {
-                        setState(() => _selectedChip = filter);
-                        setSheetState(() {});
-                        Navigator.of(sheetContext).pop();
-                      },
-                    ),
-                ],
-              );
-            },
-          ),
-        );
-      },
+    final tab = _tab;
+    final applied = await showSearchFiltersSheet(
+      context,
+      initial: _filters,
+      sections: _sectionsFor(tab),
     );
+    if (applied == null || !mounted) {
+      return;
+    }
+    setState(() => _filtersByTab[tab] = applied);
   }
 
   void _onScroll() {
@@ -176,13 +172,13 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
             .where((p) => favorites.placeIds.contains(p.id))
             .toList() ??
         const <PlaceSummary>[];
-    final filtered = filterRouteCatalog(switch (_tab) {
+    final filtered = applyRouteFilters(switch (_tab) {
       MyRoutesTab.favorites => favoriteRoutes,
       MyRoutesTab.history => const <RouteSummary>[],
       MyRoutesTab.places => const <RouteSummary>[],
       MyRoutesTab.subscriptions => const <RouteSummary>[],
       MyRoutesTab.articles => const <RouteSummary>[],
-    }, _selectedChip);
+    }, _filters);
 
     return ColoredBox(
       color: AppColors.pageSurface,
@@ -219,7 +215,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                         setState(() => _searchQuery = '');
                       },
                       onFilterTap: () => unawaited(_openFilters()),
-                      filterApplied: _selectedChip != 'Все',
+                      filterApplied: _filters.isActive,
                     ),
                     const SizedBox(height: 14),
                     SectionDropdown<MyRoutesTab>(
@@ -269,6 +265,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                 sliver: SliverToBoxAdapter(
                   child: InPlaceSearchBody(
                     query: _searchQuery,
+                    filters: _filters,
                     scope: switch (_tab) {
                       MyRoutesTab.subscriptions => SearchScope.profiles,
                       MyRoutesTab.places => SearchScope.places,
@@ -298,13 +295,31 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                 ),
               )
             else if (_tab == MyRoutesTab.subscriptions)
-              ..._subscriptionSlivers(visibleSubscriptionsAsync)
+              ..._subscriptionSlivers(
+                visibleSubscriptionsAsync.whenData(
+                  (items) => applyProfileFilters(items, _filters),
+                ),
+              )
             else if (_tab == MyRoutesTab.places)
-              ..._placesSlivers(placesAsync, favoritePlaces: favoritePlaces)
+              ..._placesSlivers(
+                placesAsync,
+                favoritePlaces: applyPlaceFilters(favoritePlaces, _filters),
+              )
             else if (_tab == MyRoutesTab.history)
-              ..._executionHistorySlivers(historyAsync)
+              ..._executionHistorySlivers(
+                historyAsync.whenData(
+                  (items) => applyExecutionFilters(items, _filters),
+                ),
+              )
             else if (_tab == MyRoutesTab.articles)
-              ..._savedArticleSlivers(savedArticlesAsync)
+              ..._savedArticleSlivers(
+                savedArticlesAsync.whenData(
+                  (page) => ArticleListPage(
+                    items: applyArticleFilters(page.items, _filters),
+                    total: page.total,
+                  ),
+                ),
+              )
             else
               ..._routeListSlivers(routesAsync, filtered: filtered),
           ],

@@ -18,6 +18,7 @@ import 'package:tourism_mobile/features/profile/data/public_profile_repository.d
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/search/application/search_filter_apply.dart';
 import 'package:tourism_mobile/features/search/application/search_history_provider.dart';
 import 'package:tourism_mobile/features/search/application/universal_search_provider.dart';
 import 'package:tourism_mobile/features/search/presentation/search_filters_sheet.dart';
@@ -327,7 +328,7 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
                 '${route.name} ${route.shortDescription ?? ''} '
                         '${route.authorLabel ?? ''} ${route.difficulty ?? ''}'
                     .toLowerCase();
-            return _matchesAnyTag(haystack, filters.tags);
+            return matchesSearchTags(haystack, filters.tags);
           })
           .toList(growable: false);
       places = places
@@ -337,14 +338,14 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
                         '${place.categories.map((c) => c.name).join(' ')} '
                         '${place.difficulty ?? ''}'
                     .toLowerCase();
-            return _matchesAnyTag(haystack, filters.tags);
+            return matchesSearchTags(haystack, filters.tags);
           })
           .toList(growable: false);
     }
     if (filters.tags.isNotEmpty) {
       articles = articles
           .where(
-            (article) => _matchesAnyTag(
+            (article) => matchesSearchTags(
               '${article.title} ${article.tags.join(' ')}'.toLowerCase(),
               filters.tags,
             ),
@@ -409,21 +410,6 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
           return haystack.contains(needle);
         })
         .toList(growable: false);
-  }
-
-  bool _matchesAnyTag(String haystack, Set<String> tags) {
-    for (final tag in tags) {
-      final needle = switch (tag) {
-        'С детьми' => 'дет',
-        'Сложные' => 'hard',
-        'Отдых' => 'легк',
-        _ => tag.toLowerCase(),
-      };
-      if (haystack.contains(needle)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   void _openProfile(BuildContext context, PublicUserProfile profile) {

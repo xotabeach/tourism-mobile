@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
@@ -5,7 +7,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 
 enum SearchTarget { profiles, routes, places }
 
-enum SearchSort { byDefault, rating, popular, newest, oldest }
+enum SearchSort { byDefault, rating, popular, newest, oldest, alphabetical }
 
 class SearchFilters {
   const SearchFilters({
@@ -46,9 +48,84 @@ const searchFilterTags = <String>[
   'Отдых',
 ];
 
+/// Наборы фильтров под конкретный список.
+///
+/// Главная ищет по всему сразу и поэтому спрашивает «что ищем». В Избранном
+/// раздел уже выбран его собственным переключателем, так что шторка там
+/// показывает только то, по чему этот раздел вообще можно отсортировать:
+/// у мест нет рейтинга, у профилей нет тегов, у маршрутов нет даты.
+class SearchFilterSections {
+  const SearchFilterSections({
+    this.showTarget = true,
+    this.sorts = universalSorts,
+    this.tags = searchFilterTags,
+  });
+
+  /// Главная: ищет по всему сразу, поэтому набор самый широкий.
+  static const universal = SearchFilterSections();
+
+  static const routes = SearchFilterSections(
+    showTarget: false,
+    sorts: [SearchSort.byDefault, SearchSort.rating, SearchSort.popular],
+  );
+
+  static const places = SearchFilterSections(
+    showTarget: false,
+    sorts: [SearchSort.byDefault, SearchSort.alphabetical],
+  );
+
+  static const articles = SearchFilterSections(
+    showTarget: false,
+    sorts: [
+      SearchSort.byDefault,
+      SearchSort.popular,
+      SearchSort.newest,
+      SearchSort.oldest,
+    ],
+    tags: articleFilterTags,
+  );
+
+  /// У людей нет ни тегов, ни рейтинга.
+  static const profiles = SearchFilterSections(
+    showTarget: false,
+    sorts: [SearchSort.byDefault, SearchSort.popular, SearchSort.alphabetical],
+    tags: <String>[],
+  );
+
+  /// История — это события, у них есть только дата.
+  static const history = SearchFilterSections(
+    showTarget: false,
+    sorts: [SearchSort.byDefault, SearchSort.newest, SearchSort.oldest],
+    tags: <String>[],
+  );
+
+  final bool showTarget;
+  final List<SearchSort> sorts;
+  final List<String> tags;
+}
+
+const universalSorts = <SearchSort>[
+  SearchSort.byDefault,
+  SearchSort.rating,
+  SearchSort.popular,
+  SearchSort.newest,
+  SearchSort.oldest,
+];
+
+const articleFilterTags = <String>[
+  'Горы',
+  'Море',
+  'Еда',
+  'История',
+  'Личный опыт',
+  'Лайфхаки',
+  'С детьми',
+];
+
 Future<SearchFilters?> showSearchFiltersSheet(
   BuildContext context, {
   SearchFilters initial = const SearchFilters(),
+  SearchFilterSections sections = const SearchFilterSections(),
 }) {
   return showModalBottomSheet<SearchFilters>(
     context: context,
@@ -64,21 +141,50 @@ Future<SearchFilters?> showSearchFiltersSheet(
     clipBehavior: Clip.antiAlias,
     barrierColor: Colors.black.withValues(alpha: 0.45),
     builder: (context) {
-      final height = MediaQuery.sizeOf(context).height * 0.82;
+      // Урезанный набор (например, у профилей — три строки сортировки) не
+      // должен открываться на те же 82% экрана, что и полный: пустая шторка
+      // выглядит сломанной. Считаем высоту по содержимому и упираемся в тот
+      // же потолок, что был раньше. Занижать нельзя: список внутри тогда
+      // прокручивается, и нижние строки просто не видно.
+      const rowHeight = 54.0 + 8;
+      const sectionHeader = 24.0 + 12;
+      final tagRows = (sections.tags.length / 3).ceil();
+      final content =
+          6 +
+          (sections.showTarget
+              ? sectionHeader + SearchTarget.values.length * rowHeight
+              : 0) +
+          sectionHeader +
+          sections.sorts.length * rowHeight +
+          (sections.tags.isEmpty ? 0 : sectionHeader + tagRows * 44) +
+          12;
+      final buttons =
+          12.0 +
+          52 +
+          10 +
+          52 +
+          12 +
+          MediaQuery.paddingOf(context).bottom +
+          AppSpacing.shellBottomContent;
+      final height = math.min(
+        MediaQuery.sizeOf(context).height * 0.82,
+        content + buttons,
+      );
       return SizedBox(
         key: const ValueKey('search-filters-sheet-content'),
         height: height,
         width: double.infinity,
-        child: _SearchFiltersSheet(initial: initial),
+        child: _SearchFiltersSheet(initial: initial, sections: sections),
       );
     },
   );
 }
 
 class _SearchFiltersSheet extends StatefulWidget {
-  const _SearchFiltersSheet({required this.initial});
+  const _SearchFiltersSheet({required this.initial, required this.sections});
 
   final SearchFilters initial;
+  final SearchFilterSections sections;
 
   @override
   State<_SearchFiltersSheet> createState() => _SearchFiltersSheetState();
@@ -96,33 +202,35 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
             children: [
-              const Text('Что ищем?', style: AppTypography.sectionTitle),
-              const SizedBox(height: 12),
-              for (final target in SearchTarget.values) ...[
-                _FilterOptionRow(
-                  label: switch (target) {
-                    SearchTarget.profiles => 'Пользователи',
-                    SearchTarget.routes => 'Маршруты',
-                    SearchTarget.places => 'Места',
-                  },
-                  icon: switch (target) {
-                    SearchTarget.profiles => Icons.person_outline_rounded,
-                    SearchTarget.routes => Icons.near_me_outlined,
-                    SearchTarget.places => Icons.place_outlined,
-                  },
-                  selected: _filters.target == target,
-                  onTap: () => setState(() {
-                    _filters = _filters.target == target
-                        ? _filters.copyWith(clearTarget: true)
-                        : _filters.copyWith(target: target);
-                  }),
-                ),
-                const SizedBox(height: 8),
+              if (widget.sections.showTarget) ...[
+                const Text('Что ищем?', style: AppTypography.sectionTitle),
+                const SizedBox(height: 12),
+                for (final target in SearchTarget.values) ...[
+                  _FilterOptionRow(
+                    label: switch (target) {
+                      SearchTarget.profiles => 'Пользователи',
+                      SearchTarget.routes => 'Маршруты',
+                      SearchTarget.places => 'Места',
+                    },
+                    icon: switch (target) {
+                      SearchTarget.profiles => Icons.person_outline_rounded,
+                      SearchTarget.routes => Icons.near_me_outlined,
+                      SearchTarget.places => Icons.place_outlined,
+                    },
+                    selected: _filters.target == target,
+                    onTap: () => setState(() {
+                      _filters = _filters.target == target
+                          ? _filters.copyWith(clearTarget: true)
+                          : _filters.copyWith(target: target);
+                    }),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+                const SizedBox(height: 12),
               ],
-              const SizedBox(height: 12),
               const Text('Сортировать', style: AppTypography.sectionTitle),
               const SizedBox(height: 12),
-              for (final sort in SearchSort.values) ...[
+              for (final sort in widget.sections.sorts) ...[
                 _FilterOptionRow(
                   label: switch (sort) {
                     SearchSort.byDefault => 'По умолчанию',
@@ -130,6 +238,7 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                     SearchSort.popular => 'Сначала популярные',
                     SearchSort.newest => 'Сначала новые',
                     SearchSort.oldest => 'Сначала старые',
+                    SearchSort.alphabetical => 'По алфавиту',
                   },
                   selected: _filters.sort == sort,
                   filled: true,
@@ -142,48 +251,50 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
                 ),
                 const SizedBox(height: 8),
               ],
-              const SizedBox(height: 12),
-              const Text('Фильтры', style: AppTypography.sectionTitle),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final tag in searchFilterTags)
-                    FilterChip(
-                      showCheckmark: false,
-                      label: Text(tag),
-                      selected: _filters.tags.contains(tag),
-                      labelStyle: AppTypography.chip.copyWith(
-                        color: _filters.tags.contains(tag)
-                            ? Colors.white
-                            : AppColors.primaryInk,
-                        fontWeight: FontWeight.w500,
+              if (widget.sections.tags.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                const Text('Фильтры', style: AppTypography.sectionTitle),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final tag in widget.sections.tags)
+                      FilterChip(
+                        showCheckmark: false,
+                        label: Text(tag),
+                        selected: _filters.tags.contains(tag),
+                        labelStyle: AppTypography.chip.copyWith(
+                          color: _filters.tags.contains(tag)
+                              ? Colors.white
+                              : AppColors.primaryInk,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        backgroundColor: AppColors.controlSurface,
+                        selectedColor: AppColors.accentBlue,
+                        side: BorderSide(
+                          color: _filters.tags.contains(tag)
+                              ? AppColors.accentBlue
+                              : AppColors.hairline,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        onSelected: (selected) {
+                          final tags = {..._filters.tags};
+                          if (selected) {
+                            tags.add(tag);
+                          } else {
+                            tags.remove(tag);
+                          }
+                          setState(
+                            () => _filters = _filters.copyWith(tags: tags),
+                          );
+                        },
                       ),
-                      backgroundColor: AppColors.controlSurface,
-                      selectedColor: AppColors.accentBlue,
-                      side: BorderSide(
-                        color: _filters.tags.contains(tag)
-                            ? AppColors.accentBlue
-                            : AppColors.hairline,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                      onSelected: (selected) {
-                        final tags = {..._filters.tags};
-                        if (selected) {
-                          tags.add(tag);
-                        } else {
-                          tags.remove(tag);
-                        }
-                        setState(
-                          () => _filters = _filters.copyWith(tags: tags),
-                        );
-                      },
-                    ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

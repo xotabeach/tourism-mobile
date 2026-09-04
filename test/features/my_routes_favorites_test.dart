@@ -133,7 +133,7 @@ void main() {
     expect(find.textContaining('удалён из избранного'), findsOneWidget);
   });
 
-  testWidgets('filter tap narrows favorites by category', (tester) async {
+  testWidgets('the filters sheet narrows favorites by tag', (tester) async {
     await pumpFavorites(tester, extraRoutes: [_mountainRoute]);
 
     expect(find.text(_route.name), findsOneWidget);
@@ -141,7 +141,11 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Фильтры'));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Горы'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Горы'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Применить'));
     await tester.pumpAndSettle();
 
     expect(find.text(_mountainRoute.name), findsOneWidget);
@@ -149,10 +153,37 @@ void main() {
 
     await tester.tap(find.bySemanticsLabel('Фильтры'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Все'));
+    await tester.tap(find.text('Сбросить фильтры'));
     await tester.pumpAndSettle();
 
     expect(find.text(_route.name), findsOneWidget);
     expect(find.text(_mountainRoute.name), findsOneWidget);
+  });
+
+  testWidgets('the sheet only offers what the open section can be sorted by', (
+    tester,
+  ) async {
+    await pumpFavorites(tester);
+
+    // Маршруты: рейтинг есть, даты у карточки нет — «сначала новые» врало бы.
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
+    await tester.pumpAndSettle();
+    expect(find.text('Что ищем?'), findsNothing);
+    expect(find.text('С высоким рейтингом'), findsOneWidget);
+    expect(find.text('Сначала новые'), findsNothing);
+    expect(find.text('Горы'), findsOneWidget);
+    await tester.ensureVisible(find.text('Применить'));
+    await tester.tap(find.text('Применить'));
+    await tester.pumpAndSettle();
+
+    // Подписки: у людей нет ни рейтинга, ни тегов.
+    await selectMyRoutesSection(tester, 'Подписки');
+
+    await tester.tap(find.bySemanticsLabel('Фильтры'));
+    await tester.pumpAndSettle();
+    expect(find.text('С высоким рейтингом'), findsNothing);
+    expect(find.text('По алфавиту'), findsOneWidget);
+    expect(find.text('Фильтры'), findsNothing);
+    expect(find.text('Горы'), findsNothing);
   });
 }
