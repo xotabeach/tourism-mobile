@@ -50,6 +50,12 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsOffline),
         ),
         SettingsNavTile(
+          title: 'Анимации',
+          subtitle: 'Меньше движения, меньше нагрузки',
+          icon: Icons.animation_rounded,
+          onTap: () => context.pushNamed(AppRouteNames.settingsPerformance),
+        ),
+        SettingsNavTile(
           title: 'История чатов с ИИ',
           subtitle: 'Прошлые подборки маршрутов',
           iconAsset: AppIconography.settingsChatHistory,

@@ -17,6 +17,7 @@ import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/data/offline_route_store.dart';
+import 'package:tourism_mobile/features/settings/application/motion_preference.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -229,6 +230,44 @@ class _SettingsNotificationsScreenState
               ref.read(appHapticsEnabledProvider.notifier).setEnabled(value),
             );
           },
+        ),
+      ],
+    );
+  }
+}
+
+/// Анимации и производительность.
+///
+/// Отдельный экран, а не строка среди оффлайна: сюда идут за тем, чтобы
+/// приложение перестало «дышать» — на слабом телефоне или когда движение на
+/// экране мешает.
+class SettingsPerformanceScreen extends ConsumerWidget {
+  const SettingsPerformanceScreen({super.key});
+
+  static const routePath = 'performance';
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final reduceMotion = ref.watch(reduceMotionProvider);
+    return SettingsScaffold(
+      title: 'Анимации:',
+      subtitle: 'Управляйте движением на экране и нагрузкой на телефон',
+      children: [
+        SettingsToggleTile(
+          title: 'Меньше анимаций',
+          subtitle: 'Переходы и мерцание загрузки — мгновенно',
+          icon: Icons.animation_rounded,
+          value: reduceMotion,
+          onChanged: (value) =>
+              unawaited(ref.read(reduceMotionProvider.notifier).set(value)),
+        ),
+        SettingsFormCard(
+          child: Text(
+            'Экраны, карточки и панель навигации перестают анимироваться, а '
+            'скелетоны загрузки замирают вместо бесконечного мерцания. Данные '
+            'и вёрстка не меняются — только движение.',
+            style: AppTypography.settingsRowSubtitle.copyWith(height: 1.45),
+          ),
         ),
       ],
     );

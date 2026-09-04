@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
+import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
@@ -40,6 +41,10 @@ class _RoutePlacePickerSheetState
   var _query = '';
   var _mapMode = false;
 
+  /// «Из избранного»: места, уже отмеченные сердечком, — обычно маршрут и
+  /// собирают из них, а до этого их приходилось вспоминать по названию.
+  var _favoritesOnly = false;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -48,7 +53,28 @@ class _RoutePlacePickerSheetState
 
   @override
   Widget build(BuildContext context) {
-    final result = ref.watch(placesSearchProvider(_query));
+    final favorites = ref.watch(favoritesProvider);
+    final result = _favoritesOnly
+        ? ref
+              .watch(placesListProvider)
+              .whenData(
+                (page) => PlaceListPage(
+                  items: page.items
+                      .where(
+                        (place) =>
+                            favorites.placeIds.contains(place.id) &&
+                            (_query.isEmpty ||
+                                place.name.toLowerCase().contains(
+                                  _query.toLowerCase(),
+                                )),
+                      )
+                      .toList(growable: false),
+                  total: page.total,
+                  limit: page.limit,
+                  offset: page.offset,
+                ),
+              )
+        : ref.watch(placesSearchProvider(_query));
     final bottom = MediaQuery.viewInsetsOf(context).bottom;
     final screenHeight = MediaQuery.sizeOf(context).height;
     final sheetHeight = (screenHeight * .72 - bottom).clamp(
@@ -121,6 +147,19 @@ class _RoutePlacePickerSheetState
               ),
             ),
             const SizedBox(height: 10),
+            Row(
+              children: [
+                _PickerToggle(
+                  label: 'Из избранного',
+                  icon: _favoritesOnly
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  selected: _favoritesOnly,
+                  onTap: () => setState(() => _favoritesOnly = !_favoritesOnly),
+                ),
+                const Spacer(),
+              ],
+            ),
             Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
@@ -155,7 +194,26 @@ class _RoutePlacePickerSheetState
                     ),
                   ),
                 ),
-                data: (page) => _mapMode
+                data: (page) => page.items.isEmpty && _favoritesOnly
+                    ? Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Text(
+                            _query.isEmpty
+                                ? 'В избранном пока нет мест — добавьте их '
+                                      'сердечком в каталоге.'
+                                : 'Среди избранных мест ничего не нашлось.',
+                            textAlign: TextAlign.center,
+                            style: PublishRouteDesignTokens.rubik(
+                              fontSize: 14,
+                              weight: FontWeight.w400,
+                              color: PublishRouteDesignTokens.mediumText,
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                      )
+                    : _mapMode
                     ? _PlacesMap(places: page.items, onSelected: _select)
                     : ListView.builder(
                         primary: false,
@@ -252,6 +310,70 @@ class _PlacesMap extends StatelessWidget {
               ),
           ],
           onPinTap: (index) => onSelected(visible[index]),
+        ),
+      ),
+    );
+  }
+}
+
+/// Небольшой переключатель над списком мест.
+class _PickerToggle extends StatelessWidget {
+  const _PickerToggle({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          decoration: BoxDecoration(
+            color: selected
+                ? PublishRouteDesignTokens.primaryBlue.withValues(alpha: 0.1)
+                : PublishRouteDesignTokens.fieldBackground,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? PublishRouteDesignTokens.primaryBlue
+                  : Colors.transparent,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 16,
+                color: selected
+                    ? PublishRouteDesignTokens.primaryBlue
+                    : PublishRouteDesignTokens.mediumText,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                label,
+                style: PublishRouteDesignTokens.rubik(
+                  fontSize: 13,
+                  weight: FontWeight.w500,
+                  color: selected
+                      ? PublishRouteDesignTokens.primaryBlue
+                      : PublishRouteDesignTokens.mediumText,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

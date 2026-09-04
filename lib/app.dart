@@ -13,6 +13,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/settings/application/motion_preference.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -68,12 +69,26 @@ class _TourismAppState extends ConsumerState<TourismApp> {
 
     // Обёртка вокруг всего приложения: вернувшись из фона спустя долгое
     // время, человек должен увидеть свежие данные, а не то, что оставил.
+    // «Меньше анимаций» из настроек: длительности AppMotion уже нулевые, а
+    // этот флаг гасит то, что рисует фреймворк и чужие виджеты — например
+    // бесконечное мерцание скелетонов.
+    final reduceMotion = ref.watch(reduceMotionProvider);
+
     return StaleDataRefresher(
       child: MaterialApp.router(
         title: config.appName,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.light,
         routerConfig: router,
+        builder: (context, child) {
+          if (!reduceMotion) {
+            return child ?? const SizedBox.shrink();
+          }
+          return MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: child ?? const SizedBox.shrink(),
+          );
+        },
       ),
     );
   }

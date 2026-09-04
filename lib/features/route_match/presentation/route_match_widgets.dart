@@ -18,7 +18,9 @@ typedef RoutePx = double Function(double);
 
 enum RouteMatchMode { params, ai }
 
-enum RouteTripType { romance, rest, adventure, active }
+/// `photo` — «инстаграм-маршрут»: точки ради видов и кадров. Отдельный тип,
+/// а не интерес «Фото»: он меняет и подбор точек, и порядок обхода.
+enum RouteTripType { romance, rest, adventure, active, photo }
 
 enum RouteDurationOption { d1_2, d3_5, d6_7, d7plus }
 
@@ -857,6 +859,12 @@ class TravelTypeSelector extends StatelessWidget {
       'Активный',
       'Спорт, движение,\nадреналин',
       AppIconography.play,
+    ),
+    (
+      RouteTripType.photo,
+      'Для фото',
+      'Виды и точки\nдля кадров',
+      AppIconography.settingsChangePhoto,
     ),
   ];
 
