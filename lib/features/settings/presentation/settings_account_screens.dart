@@ -219,17 +219,29 @@ class _SettingsChangePhotoScreenState
     if (_busy) {
       return;
     }
+    // Подписчик может поставить на обложку гифку. Такой файл нельзя гонять
+    // через pickImage с maxWidth/imageQuality — image_picker пересжимает его
+    // и анимация теряется; и кадрировать его тоже нечем, наш редактор рисует
+    // один кадр. Поэтому анимацию берём как есть, а всё остальное — прежним
+    // путём с пересжатием и кадрированием.
+    final animatedAllowed = cover && ref.read(sessionProvider).travelPlusActive;
     final picker = ImagePicker();
-    final file = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 2048,
-      maxHeight: 2048,
-      imageQuality: 88,
-    );
+    final file = animatedAllowed
+        ? await picker.pickMedia()
+        : await picker.pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 2048,
+            maxHeight: 2048,
+            imageQuality: 88,
+          );
     if (file == null) {
       return;
     }
     if (!mounted) {
+      return;
+    }
+    if (animatedAllowed && file.path.toLowerCase().endsWith('.gif')) {
+      await _upload(cover: cover, path: file.path);
       return;
     }
     // Кадрируем перед загрузкой: раньше уходил исходник как есть, и портрет
@@ -243,13 +255,17 @@ class _SettingsChangePhotoScreenState
     if (cropped == null || !mounted) {
       return;
     }
+    await _upload(cover: cover, path: cropped);
+  }
+
+  Future<void> _upload({required bool cover, required String path}) async {
     setState(() => _busy = true);
     try {
       final session = ref.read(sessionProvider.notifier);
       if (cover) {
-        await session.uploadCover(cropped);
+        await session.uploadCover(path);
       } else {
-        await session.uploadAvatar(cropped);
+        await session.uploadAvatar(path);
       }
       if (!mounted) {
         return;
