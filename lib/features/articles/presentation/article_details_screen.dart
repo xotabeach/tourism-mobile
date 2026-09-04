@@ -55,7 +55,17 @@ class ArticleDetailsScreen extends ConsumerWidget {
           message: 'Не удалось загрузить статью',
           onRetry: () => ref.invalidate(articleDetailsProvider(articleId)),
         ),
-        data: (article) => _ArticleBody(article: article),
+        data: (article) => RefreshIndicator(
+          // Лайки, просмотры и комментарии живут своей жизнью, пока статья
+          // открыта, — потянуть вниз должно обновлять их все.
+          onRefresh: () async {
+            ref.invalidate(articleDetailsProvider(articleId));
+            ref.invalidate(articleCommentsProvider(articleId));
+            ref.invalidate(articleRelatedProvider(articleId));
+            await ref.read(articleDetailsProvider(articleId).future);
+          },
+          child: _ArticleBody(article: article),
+        ),
       ),
     );
   }

@@ -3,12 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_expert_style.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
@@ -47,10 +47,8 @@ class UniversalSearchPanel extends ConsumerWidget {
             ],
           ),
           child: result.when(
-            loading: () => const SizedBox(
-              height: 72,
-              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
+            loading: () =>
+                const SizedBox(height: 72, child: AppListSkeleton(rows: 4)),
             error: (_, _) => const SizedBox(
               height: 72,
               child: Center(child: Text('Не удалось выполнить поиск')),

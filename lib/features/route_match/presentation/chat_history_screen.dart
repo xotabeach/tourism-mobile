@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
@@ -74,7 +74,7 @@ class ChatHistoryScreen extends ConsumerWidget {
           skipError: true,
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator()),
+            child: AppListSkeleton(rows: 5, showLeading: false),
           ),
           error: (_, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,

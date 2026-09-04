@@ -3,13 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/recommendations/application/recommendation_providers.dart';
 import 'package:tourism_mobile/features/recommendations/domain/recommendation.dart';
@@ -278,14 +279,55 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                         ),
                       );
                     },
-                    loading: () =>
-                        const Center(child: CircularProgressIndicator()),
+                    loading: () => const _RouteDeckSkeleton(),
                     error: (_, _) => AppAsyncErrorView(
                       onRetry: () => ref.invalidate(routesListProvider),
                     ),
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Silhouette of the swipe deck's top card, so the catalogue reserves its
+/// space instead of collapsing to a spinner while the routes load.
+class _RouteDeckSkeleton extends StatelessWidget {
+  const _RouteDeckSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppShimmer(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          96,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Expanded(
+              child: AppSkeleton(
+                width: double.infinity,
+                height: double.infinity,
+                borderRadius: AppRadii.card,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 14),
+                  const AppSkeleton(width: 56, height: 56, borderRadius: 28),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

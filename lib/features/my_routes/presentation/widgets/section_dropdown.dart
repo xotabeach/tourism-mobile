@@ -61,7 +61,8 @@ class _SectionDropdownState<T> extends State<SectionDropdown<T>>
     reverseCurve: AppMotion.standard,
   );
 
-  bool get _isOpen => _controller.status == AnimationStatus.forward ||
+  bool get _isOpen =>
+      _controller.status == AnimationStatus.forward ||
       _controller.status == AnimationStatus.completed;
 
   @override

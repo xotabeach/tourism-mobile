@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -17,6 +16,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -741,7 +741,11 @@ class _TopTravelersRow extends ConsumerWidget {
       skipError: true,
       loading: () => const SizedBox(
         height: 116,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+        child: AppListSkeleton(
+          rows: 1,
+          rowHeight: 88,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
       ),
       error: (_, _) => const SizedBox(
         height: 116,

@@ -197,147 +197,159 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
       builder: (context, _) => GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: CustomScrollView(
-          key: const ValueKey('route-details-list'),
-          controller: _scrollController,
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          physics: const BouncingScrollPhysics(
-            parent: AlwaysScrollableScrollPhysics(),
-          ),
-          slivers: [
-            RouteCollapsingHeader(
-              images: _galleryImages(config, route),
-              title: route.name,
-              isFavorite: isFavorite,
-              expansionProgress: _galleryController.value,
-              onToggleGallery: _toggleGallery,
-              heroTag: 'route-cover-${route.id}',
-              onBack: () => context.pop(),
-              onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
-              showFavorite: publiclyAvailable,
-              onShare: () => unawaited(_shareRoute(route)),
-              onDownload: () => unawaited(_toggleOffline(route)),
+        child: RefreshIndicator(
+          // Отзывы, избранное и статус публикации меняются, пока экран
+          // открыт; тянем вниз — перечитываем маршрут целиком.
+          onRefresh: () async {
+            ref.invalidate(routeDetailProvider(widget.routeId));
+            await ref.read(routeDetailProvider(widget.routeId).future);
+          },
+          child: CustomScrollView(
+            key: const ValueKey('route-details-list'),
+            controller: _scrollController,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
             ),
-            // Lip lives in the header; body continues the sheet without
-            // negative overlap (avoids author/photo z-fighting).
-            SliverToBoxAdapter(
-              child: ColoredBox(
-                color: AppColors.elevatedSurface,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(18, 8, 18, 118 + bottomInset),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _AuthorRow(
-                        name: authorName,
-                        subtitle: authorSubtitle(route),
-                        avatar: AppImages.avatarProvider(
-                          config: config,
-                          avatarUrl: route.authorAvatarUrl,
-                        ),
-                        isExpert: route.authorIsExpert,
-                        onAuthorTap: onAuthorTap,
-                        menuAnchorKey: _menuAnchorKey,
-                        onMore: () => unawaited(_showRouteMenu(route)),
-                      ),
-                      if (statusLabel != null) ...[
-                        const SizedBox(height: 12),
-                        _OwnerRouteStatusBanner(
-                          label: statusLabel,
-                          status: route.publicationStatus,
-                        ),
-                      ],
-                      const _SectionDivider(),
-                      Text(
-                        route.name,
-                        key: const ValueKey('route-details-title'),
-                        style: AppTypography.routeTitle.copyWith(
-                          fontSize: 24,
-                          height: 1.14,
-                          color: AppColors.primaryInk,
-                        ),
-                      ),
-                      if (route.description != null) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          route.description!,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: AppFonts.rubik,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            height: 1.42,
-                            color: AppColors.secondaryInk,
+            slivers: [
+              RouteCollapsingHeader(
+                images: _galleryImages(config, route),
+                title: route.name,
+                isFavorite: isFavorite,
+                expansionProgress: _galleryController.value,
+                onToggleGallery: _toggleGallery,
+                heroTag: 'route-cover-${route.id}',
+                onBack: () => context.pop(),
+                onToggleFavorite: () => unawaited(_toggleFavorite(route.id)),
+                showFavorite: publiclyAvailable,
+                onShare: () => unawaited(_shareRoute(route)),
+                onDownload: () => unawaited(_toggleOffline(route)),
+              ),
+              // Lip lives in the header; body continues the sheet without
+              // negative overlap (avoids author/photo z-fighting).
+              SliverToBoxAdapter(
+                child: ColoredBox(
+                  color: AppColors.elevatedSurface,
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(18, 8, 18, 118 + bottomInset),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AuthorRow(
+                          name: authorName,
+                          subtitle: authorSubtitle(route),
+                          avatar: AppImages.avatarProvider(
+                            config: config,
+                            avatarUrl: route.authorAvatarUrl,
                           ),
+                          isExpert: route.authorIsExpert,
+                          onAuthorTap: onAuthorTap,
+                          menuAnchorKey: _menuAnchorKey,
+                          onMore: () => unawaited(_showRouteMenu(route)),
                         ),
-                      ],
-                      const SizedBox(height: 14),
-                      _RouteDetailsTabs(
-                        selected: _selectedSection,
-                        onSelected: (section) {
-                          if (_selectedSection == section) {
-                            return;
-                          }
-                          FocusManager.instance.primaryFocus?.unfocus();
-                          setState(() => _selectedSection = section);
-                        },
-                      ),
-                      const _SectionDivider(),
-                      if (_selectedSection == _RouteDetailsSection.about) ...[
-                        AudioGuideCard(
-                          title: route.name,
-                          author: authorName,
-                          image: _routeCover(config, route),
-                          onPlay: () => _showSoon('Аудиогид'),
-                        ),
-                        const SizedBox(height: 16),
-                        _RouteTagsRow(tags: routeTagLabels(route)),
-                        const SizedBox(height: 16),
-                        _RouteFacts(route: route),
-                        if (route.routing != null &&
-                            route.routing!.qualityStatus != 'unknown') ...[
+                        if (statusLabel != null) ...[
                           const SizedBox(height: 12),
-                          _RouteQualityNotice(routing: route.routing!),
+                          _OwnerRouteStatusBanner(
+                            label: statusLabel,
+                            status: route.publicationStatus,
+                          ),
                         ],
                         const _SectionDivider(),
-                        const _SectionTitle('Карта маршрута:'),
-                        const SizedBox(height: 14),
-                        RouteStaticMap(
-                          staticMapUrl: route.staticMapUrl,
-                          stops: route.stops,
-                          geometry: route.geometry,
-                          config: config,
-                          footerLabel: routePointsLabel(route.stops.length),
-                          selectedIndex: _selectedStop,
-                          onStopTap: _selectStop,
-                        ),
-                        const SizedBox(height: 24),
-                        const _SectionTitle('Остановки:'),
-                        const SizedBox(height: 6),
-                        for (var index = 0; index < route.stops.length; index++)
-                          _StopRow(
-                            stop: route.stops[index],
-                            selected: _selectedStop == index,
-                            showDivider: index != route.stops.length - 1,
-                            onNumberTap: () => _selectStop(index),
-                            onOpen: () => _openPlace(route.stops[index]),
+                        Text(
+                          route.name,
+                          key: const ValueKey('route-details-title'),
+                          style: AppTypography.routeTitle.copyWith(
+                            fontSize: 24,
+                            height: 1.14,
+                            color: AppColors.primaryInk,
                           ),
-                        _ArticlesForRouteSection(routeId: route.id),
-                        _SimilarRoutesSection(currentRouteId: route.id),
-                      ] else ...[
-                        EntityReviewsSection(
-                          entityId: route.id,
-                          kind: ReviewEntityKind.route,
-                          allowComposer: publiclyAvailable,
                         ),
+                        if (route.description != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            route.description!,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontFamily: AppFonts.rubik,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w400,
+                              height: 1.42,
+                              color: AppColors.secondaryInk,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+                        _RouteDetailsTabs(
+                          selected: _selectedSection,
+                          onSelected: (section) {
+                            if (_selectedSection == section) {
+                              return;
+                            }
+                            FocusManager.instance.primaryFocus?.unfocus();
+                            setState(() => _selectedSection = section);
+                          },
+                        ),
+                        const _SectionDivider(),
+                        if (_selectedSection == _RouteDetailsSection.about) ...[
+                          AudioGuideCard(
+                            title: route.name,
+                            author: authorName,
+                            image: _routeCover(config, route),
+                            onPlay: () => _showSoon('Аудиогид'),
+                          ),
+                          const SizedBox(height: 16),
+                          _RouteTagsRow(tags: routeTagLabels(route)),
+                          const SizedBox(height: 16),
+                          _RouteFacts(route: route),
+                          if (route.routing != null &&
+                              route.routing!.qualityStatus != 'unknown') ...[
+                            const SizedBox(height: 12),
+                            _RouteQualityNotice(routing: route.routing!),
+                          ],
+                          const _SectionDivider(),
+                          const _SectionTitle('Карта маршрута:'),
+                          const SizedBox(height: 14),
+                          RouteStaticMap(
+                            staticMapUrl: route.staticMapUrl,
+                            stops: route.stops,
+                            geometry: route.geometry,
+                            config: config,
+                            footerLabel: routePointsLabel(route.stops.length),
+                            selectedIndex: _selectedStop,
+                            onStopTap: _selectStop,
+                          ),
+                          const SizedBox(height: 24),
+                          const _SectionTitle('Остановки:'),
+                          const SizedBox(height: 6),
+                          for (
+                            var index = 0;
+                            index < route.stops.length;
+                            index++
+                          )
+                            _StopRow(
+                              stop: route.stops[index],
+                              selected: _selectedStop == index,
+                              showDivider: index != route.stops.length - 1,
+                              onNumberTap: () => _selectStop(index),
+                              onOpen: () => _openPlace(route.stops[index]),
+                            ),
+                          _ArticlesForRouteSection(routeId: route.id),
+                          _SimilarRoutesSection(currentRouteId: route.id),
+                        ] else ...[
+                          EntityReviewsSection(
+                            entityId: route.id,
+                            kind: ReviewEntityKind.route,
+                            allowComposer: publiclyAvailable,
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

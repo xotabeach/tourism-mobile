@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 
@@ -140,7 +140,7 @@ class _RouteResults extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final routesAsync = ref.watch(routesSearchProvider(query));
     return routesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const AppListSkeleton(rows: 4),
       error: (_, _) => const _ResultsMessage('Не удалось загрузить маршруты'),
       data: (page) {
         if (page.items.isEmpty) {
@@ -185,7 +185,7 @@ class _PlaceResults extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final placesAsync = ref.watch(placesSearchProvider(query));
     return placesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
+      loading: () => const AppListSkeleton(rows: 4),
       error: (_, _) => const _ResultsMessage('Не удалось загрузить места'),
       data: (page) {
         if (page.items.isEmpty) {

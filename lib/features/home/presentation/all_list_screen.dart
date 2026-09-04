@@ -204,6 +204,19 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     unawaited(_loadNextPage());
   }
 
+  /// Полная перезагрузка списка с первой страницы — для «потянуть вниз».
+  Future<void> _refresh() async {
+    _loadGeneration++;
+    setState(() {
+      _routeItems.clear();
+      _placeItems.clear();
+      _offset = 0;
+      _total = 0;
+      _error = false;
+    });
+    await _loadNextPage();
+  }
+
   void _changeSort(_SortOption? option) {
     if (option == _sort) return;
     _loadGeneration++;
@@ -325,35 +338,38 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                       label: const Text('Не удалось загрузить, повторить'),
                     ),
                   )
-                : ListView.builder(
-                    controller: _scrollController,
-                    physics: const BouncingScrollPhysics(
-                      parent: AlwaysScrollableScrollPhysics(),
-                    ),
-                    padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.page,
-                      0,
-                      AppSpacing.page,
-                      AppSpacing.shellBottomContent,
-                    ),
-                    itemCount: itemCount + (_hasMore ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index >= itemCount) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(child: CircularProgressIndicator()),
+                : RefreshIndicator(
+                    onRefresh: _refresh,
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.page,
+                        0,
+                        AppSpacing.page,
+                        AppSpacing.shellBottomContent,
+                      ),
+                      itemCount: itemCount + (_hasMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= itemCount) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: _mode == HomeListMode.routes
+                              ? RouteHeroCard(
+                                  route: _routeItems[index],
+                                  height: 304,
+                                )
+                              : PlaceHeroCard(place: _placeItems[index]),
                         );
-                      }
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: _mode == HomeListMode.routes
-                            ? RouteHeroCard(
-                                route: _routeItems[index],
-                                height: 304,
-                              )
-                            : PlaceHeroCard(place: _placeItems[index]),
-                      );
-                    },
+                      },
+                    ),
                   ),
           ),
         ],

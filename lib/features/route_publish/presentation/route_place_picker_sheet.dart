@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
@@ -141,9 +142,7 @@ class _RoutePlacePickerSheetState
             const SizedBox(height: 4),
             Expanded(
               child: result.when(
-                loading: () => const Center(
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
+                loading: () => const Center(child: AppListSkeleton(rows: 4)),
                 error: (_, _) => Center(
                   child: Text(
                     'Не удалось загрузить места. Повторите поиск.',

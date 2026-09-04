@@ -1042,9 +1042,7 @@ class _ExecutionHistoryTile extends ConsumerWidget {
       return;
     }
     try {
-      await ref
-          .read(routeExecutionRepositoryProvider)
-          .cancel(execution.id);
+      await ref.read(routeExecutionRepositoryProvider).cancel(execution.id);
       ref.invalidate(routeExecutionHistoryProvider);
       ref.invalidate(activeRouteExecutionProvider);
       if (context.mounted) {
@@ -1144,10 +1142,7 @@ class _ExecutionHistoryTile extends ConsumerWidget {
                   color: AppColors.secondaryInk,
                 )
               else if (orphanedActive)
-                const Icon(
-                  Icons.close_rounded,
-                  color: AppColors.secondaryInk,
-                ),
+                const Icon(Icons.close_rounded, color: AppColors.secondaryInk),
             ],
           ),
         ),

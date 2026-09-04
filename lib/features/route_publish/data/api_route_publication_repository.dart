@@ -56,9 +56,7 @@ final class ApiRoutePublicationRepository
       description: json['description'] as String? ?? '',
       start: places.isNotEmpty ? places.first : null,
       finish: places.length > 1 ? places.last : null,
-      stops: [
-        for (final place in middle) RouteStopDraft(location: place),
-      ],
+      stops: [for (final place in middle) RouteStopDraft(location: place)],
       filters: (json['filters'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(),
@@ -67,7 +65,9 @@ final class ApiRoutePublicationRepository
         orElse: () => TravelPace.calm,
       ),
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
-      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '')?.toUtc(),
+      updatedAt: DateTime.tryParse(
+        json['updated_at'] as String? ?? '',
+      )?.toUtc(),
     );
   }
 

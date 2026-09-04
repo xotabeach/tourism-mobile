@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
@@ -11,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -259,9 +259,8 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                       ),
                     );
                   },
-                  loading: () => const SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(child: CircularProgressIndicator()),
+                  loading: () => const SliverToBoxAdapter(
+                    child: AppListSkeleton(rows: 5, rowHeight: 96),
                   ),
                   error: (_, _) => SliverFillRemaining(
                     hasScrollBody: false,

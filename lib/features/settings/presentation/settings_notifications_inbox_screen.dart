@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
@@ -39,7 +39,7 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
           skipError: true,
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
-            child: Center(child: CircularProgressIndicator()),
+            child: AppListSkeleton(rows: 5),
           ),
           error: (_, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
