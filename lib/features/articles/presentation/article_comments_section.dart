@@ -15,6 +15,8 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/domain/articles_repository.dart';
+import 'package:tourism_mobile/features/moderation/domain/content_report.dart';
+import 'package:tourism_mobile/features/moderation/presentation/report_sheet.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -123,6 +125,7 @@ class _ArticleCommentsSectionState
                 for (final root in roots) ...[
                   _ArticleCommentTile(
                     comment: root,
+                    isOwn: root.authorUserId == selfUserId,
                     canDelete: _canDelete(root, selfUserId),
                     onReply: () => _startReply(root),
                     onDeleted: _invalidate,
@@ -133,6 +136,7 @@ class _ArticleCommentsSectionState
                       padding: const EdgeInsets.only(left: 28, top: 8),
                       child: _ArticleCommentTile(
                         comment: reply,
+                        isOwn: reply.authorUserId == selfUserId,
                         canDelete: _canDelete(reply, selfUserId),
                         onReply: () => _startReply(root),
                         onDeleted: _invalidate,
@@ -180,12 +184,17 @@ class _CommentsLoadingSkeleton extends StatelessWidget {
 class _ArticleCommentTile extends ConsumerStatefulWidget {
   const _ArticleCommentTile({
     required this.comment,
+    required this.isOwn,
     required this.canDelete,
     required this.onReply,
     required this.onDeleted,
   });
 
   final ArticleComment comment;
+
+  /// На свой комментарий жаловаться незачем — щит показывается только на
+  /// чужих (сервер такую жалобу и не примет).
+  final bool isOwn;
   final bool canDelete;
   final VoidCallback onReply;
   final VoidCallback onDeleted;
@@ -209,6 +218,7 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
   bool _expanded = false;
 
   ArticleComment get comment => widget.comment;
+  bool get isOwn => widget.isOwn;
   bool get canDelete => widget.canDelete;
   VoidCallback get onReply => widget.onReply;
   VoidCallback get onDeleted => widget.onDeleted;
@@ -290,6 +300,32 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                     ],
                   ),
                 ),
+                if (!isOwn)
+                  Semantics(
+                    button: true,
+                    label: 'Пожаловаться на комментарий',
+                    child: InkResponse(
+                      key: ValueKey('article-comment-report-${comment.id}'),
+                      radius: 22,
+                      onTap: () => unawaited(
+                        showReportSheet(
+                          context,
+                          ref,
+                          targetType: ReportTargetType.articleComment,
+                          targetId: comment.id,
+                          title: 'Комментарий · ${comment.authorDisplayName}',
+                        ),
+                      ),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.report_gmailerrorred_rounded,
+                          size: 21,
+                          color: AppColors.accentBlue,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
             const SizedBox(height: 6),
