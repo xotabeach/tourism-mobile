@@ -131,6 +131,14 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
       return;
     }
     softRefreshAppData(ref, scope: appDataRefreshScopeForTab(index));
+    // Раздел открывается сверху, а не там, где его оставили: вкладка живёт
+    // своей жизнью между визитами, и старая позиция скролла показывает
+    // содержимое, которое только что обновилось под ней.
+    //
+    // Позиция внутри раздела при этом не теряется: переходы вглубь
+    // (локация → профиль → назад) сюда не попадают — сюда попадает только
+    // смена самой вкладки.
+    ref.read(tabScrollToTopProvider(index).notifier).state++;
   }
 
   int? _detailNavigationIndex(BuildContext context) {

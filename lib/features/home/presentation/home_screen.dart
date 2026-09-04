@@ -20,6 +20,8 @@ import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -343,6 +345,76 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Лента блогов. Карточка та же, что в профиле и в «Читайте также» —
+  /// одна карточка статьи на всё приложение.
+  Widget _buildArticlesList(
+    BuildContext context, {
+    required String name,
+    required String? avatarUrl,
+    required double topInset,
+    required bool searchActive,
+  }) {
+    final articlesAsync = ref.watch(homeArticlesProvider);
+    return articlesAsync.when(
+      skipLoadingOnReload: true,
+      skipLoadingOnRefresh: true,
+      skipError: true,
+      data: (page) {
+        final items = page.items.take(7).toList(growable: false);
+        return _homeRefreshScroll(
+          child: ListView.builder(
+            controller: _scrollController,
+            physics: const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
+            padding: _homeScrollPadding(topInset),
+            itemCount: searchActive
+                ? 2
+                : 1 + (items.isEmpty ? 1 : items.length),
+            itemBuilder: (context, index) {
+              if (index == 0) {
+                return _homeHeader(
+                  name: name,
+                  avatarUrl: avatarUrl,
+                  searchActive: searchActive,
+                );
+              }
+              if (searchActive) {
+                return InPlaceSearchBody(
+                  query: _searchQuery,
+                  filters: _searchFilters,
+                  onQueryFromHistory: _applyHistoryQuery,
+                );
+              }
+              if (items.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.only(top: 32),
+                  child: Center(child: Text('Блогов пока нет')),
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ArticleCard(article: items[index - 1]),
+              );
+            },
+          ),
+        );
+      },
+      loading: () => _buildLoadingList(
+        name: name,
+        avatarUrl: avatarUrl,
+        topInset: topInset,
+        searchActive: searchActive,
+      ),
+      error: (_, _) => _buildErrorList(
+        name: name,
+        avatarUrl: avatarUrl,
+        topInset: topInset,
+        searchActive: searchActive,
+      ),
+    );
+  }
+
   Widget _buildPlacesList(
     BuildContext context, {
     required String name,
@@ -458,22 +530,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _mode == HomeListMode.routes
-                ? _buildRoutesList(
-                    context,
-                    config: config,
-                    name: name,
-                    avatarUrl: sessionBits.avatarUrl,
-                    topInset: topInset,
-                    searchActive: searchActive,
-                  )
-                : _buildPlacesList(
-                    context,
-                    name: name,
-                    avatarUrl: sessionBits.avatarUrl,
-                    topInset: topInset,
-                    searchActive: searchActive,
-                  ),
+            switch (_mode) {
+              HomeListMode.routes => _buildRoutesList(
+                context,
+                config: config,
+                name: name,
+                avatarUrl: sessionBits.avatarUrl,
+                topInset: topInset,
+                searchActive: searchActive,
+              ),
+              HomeListMode.places => _buildPlacesList(
+                context,
+                name: name,
+                avatarUrl: sessionBits.avatarUrl,
+                topInset: topInset,
+                searchActive: searchActive,
+              ),
+              HomeListMode.articles => _buildArticlesList(
+                context,
+                name: name,
+                avatarUrl: sessionBits.avatarUrl,
+                topInset: topInset,
+                searchActive: searchActive,
+              ),
+            },
             Positioned(
               left: 0,
               right: 0,
@@ -678,20 +758,27 @@ class _HomeHeader extends ConsumerWidget {
           const _TopTravelersRow(),
           const SizedBox(height: 30),
           AppSegmentedToggle(
-            labels: const ['Маршруты', 'Локации'],
-            selected: mode == HomeListMode.routes ? 'Маршруты' : 'Локации',
-            onSelected: (label) => onModeChanged(
-              label == 'Маршруты' ? HomeListMode.routes : HomeListMode.places,
-            ),
+            labels: const ['Маршруты', 'Локации', 'Блоги'],
+            selected: switch (mode) {
+              HomeListMode.routes => 'Маршруты',
+              HomeListMode.places => 'Локации',
+              HomeListMode.articles => 'Блоги',
+            },
+            onSelected: (label) => onModeChanged(switch (label) {
+              'Маршруты' => HomeListMode.routes,
+              'Локации' => HomeListMode.places,
+              _ => HomeListMode.articles,
+            }),
           ),
           const SizedBox(height: 22),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  mode == HomeListMode.routes ? 'Маршруты' : 'Локации',
-                  style: AppTypography.sectionTitle,
-                ),
+                child: Text(switch (mode) {
+                  HomeListMode.routes => 'Маршруты',
+                  HomeListMode.places => 'Локации',
+                  HomeListMode.articles => 'Блоги',
+                }, style: AppTypography.sectionTitle),
               ),
               Semantics(
                 button: true,

@@ -2,11 +2,12 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/features/articles/domain/article.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_card.dart';
@@ -17,7 +18,7 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_menu_b
 import 'package:tourism_mobile/features/search/presentation/in_place_search.dart';
 
 /// What the Home feed (and this screen) is currently listing.
-enum HomeListMode { routes, places }
+enum HomeListMode { routes, places, articles }
 
 const _pageSize = 10;
 
@@ -78,6 +79,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
   _SortOption? _sort;
   final _routeItems = <RouteSummary>[];
   final _placeItems = <PlaceSummary>[];
+  final _articleItems = <ArticleSummary>[];
   var _offset = 0;
   var _total = 0;
   var _loading = false;
@@ -122,9 +124,11 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     });
   }
 
-  bool get _hasMore => _mode == HomeListMode.routes
-      ? _routeItems.length < _total
-      : _placeItems.length < _total;
+  bool get _hasMore => switch (_mode) {
+    HomeListMode.routes => _routeItems.length < _total,
+    HomeListMode.places => _placeItems.length < _total,
+    HomeListMode.articles => _articleItems.length < _total,
+  };
 
   void _onScroll() {
     if (!_scrollController.hasClients || _loading || !_hasMore) {
@@ -251,19 +255,22 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final itemCount = _mode == HomeListMode.routes
-        ? _routeItems.length
-        : _placeItems.length;
+    final itemCount = switch (_mode) {
+      HomeListMode.routes => _routeItems.length,
+      HomeListMode.places => _placeItems.length,
+      HomeListMode.articles => _articleItems.length,
+    };
 
     return Scaffold(
       backgroundColor: AppColors.mist,
       appBar: AppBar(
         backgroundColor: AppColors.mist,
         elevation: 0,
-        title: Text(
-          _mode == HomeListMode.routes ? 'Маршруты' : 'Локации',
-          style: AppTypography.sectionTitle,
-        ),
+        title: Text(switch (_mode) {
+          HomeListMode.routes => 'Маршруты',
+          HomeListMode.places => 'Локации',
+          HomeListMode.articles => 'Блоги',
+        }, style: AppTypography.sectionTitle),
       ),
       body: Column(
         children: [
@@ -277,26 +284,31 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
             child: Column(
               children: [
                 AppSegmentedToggle(
-                  labels: const ['Маршруты', 'Локации'],
-                  selected: _mode == HomeListMode.routes
-                      ? 'Маршруты'
-                      : 'Локации',
-                  onSelected: (label) => _switchMode(
-                    label == 'Маршруты'
-                        ? HomeListMode.routes
-                        : HomeListMode.places,
-                  ),
+                  labels: const ['Маршруты', 'Локации', 'Блоги'],
+                  selected: switch (_mode) {
+                    HomeListMode.routes => 'Маршруты',
+                    HomeListMode.places => 'Локации',
+                    HomeListMode.articles => 'Блоги',
+                  },
+                  onSelected: (label) => _switchMode(switch (label) {
+                    'Маршруты' => HomeListMode.routes,
+                    'Локации' => HomeListMode.places,
+                    _ => HomeListMode.articles,
+                  }),
                 ),
                 const SizedBox(height: 14),
                 AppSearchFilterRow(
-                  showFilterButton: !_searchActive,
+                  showFilterButton:
+                      !_searchActive && _mode != HomeListMode.articles,
                   filterButtonKey: _sortAnchorKey,
                   filterSemanticLabel: 'Сортировка',
                   filterApplied: _sort != null,
                   onFilterTap: _openSort,
-                  hintText: _mode == HomeListMode.routes
-                      ? 'Искать маршруты'
-                      : 'Искать локации',
+                  hintText: switch (_mode) {
+                    HomeListMode.routes => 'Искать маршруты',
+                    HomeListMode.places => 'Искать локации',
+                    HomeListMode.articles => 'Искать блоги',
+                  },
                   controller: _searchController,
                   focusNode: _searchFocus,
                   onSearchChanged: _onSearchChanged,
@@ -319,9 +331,11 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                     ),
                     child: InPlaceSearchBody(
                       query: _searchQuery,
-                      scope: _mode == HomeListMode.routes
-                          ? SearchScope.routes
-                          : SearchScope.places,
+                      scope: switch (_mode) {
+                        HomeListMode.routes => SearchScope.routes,
+                        HomeListMode.places => SearchScope.places,
+                        HomeListMode.articles => SearchScope.articles,
+                      },
                       onQueryFromHistory: (value) {
                         _searchController.text = value;
                         _onSearchChanged(value);
@@ -361,12 +375,18 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                         }
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 16),
-                          child: _mode == HomeListMode.routes
-                              ? RouteHeroCard(
-                                  route: _routeItems[index],
-                                  height: 304,
-                                )
-                              : PlaceHeroCard(place: _placeItems[index]),
+                          child: switch (_mode) {
+                            HomeListMode.routes => RouteHeroCard(
+                              route: _routeItems[index],
+                              height: 304,
+                            ),
+                            HomeListMode.places => PlaceHeroCard(
+                              place: _placeItems[index],
+                            ),
+                            HomeListMode.articles => ArticleCard(
+                              article: _articleItems[index],
+                            ),
+                          },
                         );
                       },
                     ),

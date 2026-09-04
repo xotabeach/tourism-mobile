@@ -51,6 +51,12 @@ final myArticlesProvider = FutureProvider.autoDispose<ArticleListPage>((
   return ref.watch(articlesRepositoryProvider).listMyArticles();
 });
 
+/// Лента блогов для главной. Отдельно от [articlesByRouteProvider] и прочих
+/// точечных выборок: здесь просто свежие опубликованные статьи.
+final homeArticlesProvider = FutureProvider<ArticleListPage>((ref) {
+  return ref.watch(articlesRepositoryProvider).listArticles(limit: 20);
+});
+
 final articleDetailsProvider = FutureProvider.autoDispose
     .family<Article, String>((ref, articleId) {
       return ref.watch(articlesRepositoryProvider).getArticle(articleId);

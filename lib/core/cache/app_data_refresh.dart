@@ -1,8 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/cache/api_cache.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -119,6 +119,7 @@ void _invalidateScope(
     case AppDataRefreshScope.home:
       container.invalidate(homeRoutesProvider);
       container.invalidate(homePlacesProvider);
+      container.invalidate(homeArticlesProvider);
       container.invalidate(topTravelersProvider);
     case AppDataRefreshScope.routesCatalog:
       container.invalidate(routesListProvider);
