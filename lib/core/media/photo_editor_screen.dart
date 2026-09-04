@@ -5,7 +5,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
-import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/media/photo_crop_geometry.dart';
@@ -183,6 +182,29 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
           widget.title,
           style: AppTypography.sectionTitle.copyWith(color: Colors.white),
         ),
+        actions: [
+          // «Готово» в шапке, а не внизу: снизу кнопку перекрывала
+          // системная полоса жестов, и нажать её было нельзя
+          // (жалоба 2026-09-04).
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton(
+              key: const ValueKey('photo-editor-apply'),
+              onPressed: _image == null || _saving || _window.isEmpty
+                  ? null
+                  : () => unawaited(_apply(_window)),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.white,
+                disabledForegroundColor: Colors.white24,
+                textStyle: AppTypography.chip.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              child: Text(_saving ? 'Готовим…' : 'Готово'),
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -237,13 +259,16 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                 },
               ),
             ),
+            // Только поворот и сброс: «Готово» уехало в шапку. Отступ снизу
+            // держит кнопки над системной полосой жестов, а не под ней.
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
               child: Builder(
                 builder: (context) {
                   final image = _image;
                   final window = _window;
                   return Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _EditorAction(
                         icon: Icons.rotate_90_degrees_cw_rounded,
@@ -258,31 +283,11 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
                                 window,
                               ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 24),
                       _EditorAction(
                         icon: Icons.restart_alt_rounded,
                         label: 'Сбросить',
                         onTap: image == null ? null : _reset,
-                      ),
-                      const Spacer(),
-                      FilledButton(
-                        key: const ValueKey('photo-editor-apply'),
-                        onPressed: image == null || _saving || window.isEmpty
-                            ? null
-                            : () => unawaited(_apply(window)),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.accentBlue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(
-                              AppRadii.capsule,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
-                            vertical: 14,
-                          ),
-                        ),
-                        child: Text(_saving ? 'Готовим…' : 'Готово'),
                       ),
                     ],
                   );
@@ -393,16 +398,20 @@ Future<String?> cropPickedPhoto(
   PhotoCropShape shape = PhotoCropShape.free,
   String title = 'Кадрирование',
 }) async {
-  final bytes = await Navigator.of(context).push<Uint8List>(
-    MaterialPageRoute<Uint8List>(
-      fullscreenDialog: true,
-      builder: (_) => PhotoEditorScreen(
-        source: File(sourcePath),
-        shape: shape,
-        title: title,
-      ),
-    ),
-  );
+  // rootNavigator: редактор должен накрыть весь экран. Без этого он
+  // открывался внутри ветки-вкладки, и плавающая панель приложения со своей
+  // белой подложкой оставалась поверх него (жалоба 2026-09-04).
+  final bytes = await Navigator.of(context, rootNavigator: true)
+      .push<Uint8List>(
+        MaterialPageRoute<Uint8List>(
+          fullscreenDialog: true,
+          builder: (_) => PhotoEditorScreen(
+            source: File(sourcePath),
+            shape: shape,
+            title: title,
+          ),
+        ),
+      );
   if (bytes == null) {
     return null;
   }

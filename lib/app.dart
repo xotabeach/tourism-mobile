@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/cache/stale_data_refresher.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
@@ -65,11 +66,15 @@ class _TourismAppState extends ConsumerState<TourismApp> {
       }
     });
 
-    return MaterialApp.router(
-      title: config.appName,
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      routerConfig: router,
+    // Обёртка вокруг всего приложения: вернувшись из фона спустя долгое
+    // время, человек должен увидеть свежие данные, а не то, что оставил.
+    return StaleDataRefresher(
+      child: MaterialApp.router(
+        title: config.appName,
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: router,
+      ),
     );
   }
 }

@@ -840,12 +840,15 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Row(
                       children: [
+                        // 22, а не 16: рядом с именем в 16pt и круглой
+                        // кнопкой справа аватар в 32px читался мелко
+                        // (замечание 2026-09-04).
                         CircleAvatar(
-                          radius: 16,
+                          radius: 22,
                           backgroundImage: avatarAsset,
                           foregroundImage: avatarNetwork,
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Text(
                             profile.displayName,

@@ -78,17 +78,40 @@ void main() {
     }
   });
 
-  test('iOS declares its alternate icons and ships the files', () {
-    final plist = File('ios/Runner/Info.plist').readAsStringSync();
-    expect(plist, contains('CFBundleAlternateIcons'));
+  test('iOS ships each alternate icon as its own asset-catalog set', () {
+    // The first attempt declared them in Info.plist as loose files under
+    // AltIcons/ — which iOS ignores twice over: alternate icon names cannot
+    // contain a path, and the files were never added to the Xcode project,
+    // so they never reached the bundle. The result on device was Apple's
+    // placeholder grid (reported 2026-09-04).
+    final project = File(
+      'ios/Runner.xcodeproj/project.pbxproj',
+    ).readAsStringSync();
+    expect(
+      project,
+      contains('ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = YES'),
+      reason: 'без этого в бандл попадёт только основная иконка',
+    );
+
+    expect(
+      File('ios/Runner/AltIcons').existsSync(),
+      isFalse,
+      reason: 'файловый способ заменён каталогом',
+    );
+
     for (final variant in AppIconVariant.values) {
       if (variant == AppIconVariant.standard) continue;
-      expect(plist, contains('AltIcons/AppIcon-${variant.id}'));
-      for (final scale in ['@2x', '@3x']) {
+      // The set is named exactly as the id passed to setAlternateIconName.
+      final set = Directory('ios/Runner/Assets.xcassets/${variant.id}.appiconset');
+      expect(set.existsSync(), isTrue, reason: variant.id);
+      final contents = File('${set.path}/Contents.json');
+      expect(contents.existsSync(), isTrue, reason: variant.id);
+      // 60pt@2x/@3x are what the home screen actually draws.
+      for (final file in ['Icon-60@2x.png', 'Icon-60@3x.png']) {
         expect(
-          File('ios/Runner/AltIcons/AppIcon-${variant.id}$scale.png').existsSync(),
+          File('${set.path}/$file').existsSync(),
           isTrue,
-          reason: '${variant.id}$scale',
+          reason: '${variant.id}/$file',
         );
       }
     }

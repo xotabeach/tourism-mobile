@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 
 enum SearchTarget { profiles, routes, places }
@@ -188,7 +188,15 @@ class _SearchFiltersSheetState extends State<_SearchFiltersSheet> {
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottom),
+          // Плавающая панель приложения висит поверх шторки, и нижняя кнопка
+          // уходила под неё — нажать было нельзя. Отступ снизу учитывает и
+          // системную полосу жестов, и высоту этой панели.
+          padding: EdgeInsets.fromLTRB(
+            16,
+            12,
+            16,
+            12 + bottom + AppSpacing.shellBottomContent,
+          ),
           child: Column(
             children: [
               SizedBox(
