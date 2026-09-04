@@ -30,6 +30,7 @@ import 'package:tourism_mobile/features/routes/presentation/standalone_route_det
 import 'package:tourism_mobile/features/search/presentation/search_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_app_icon_screen.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_changelog_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_preferences_quiz_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
@@ -79,6 +80,7 @@ abstract final class AppRouteNames {
   static const settingsNotificationsInbox = 'settings-notifications-inbox';
   static const settingsOffline = 'settings-offline';
   static const settingsAbout = 'settings-about';
+  static const settingsChangelog = 'settings-changelog';
   static const settingsSupport = 'settings-support';
   static const settingsFaqCategory = 'settings-faq-category';
   static const settingsFaqAnswer = 'settings-faq-answer';
@@ -515,6 +517,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           key: state.pageKey,
                           child: const SettingsAboutScreen(),
                         ),
+                        routes: [
+                          GoRoute(
+                            name: AppRouteNames.settingsChangelog,
+                            path: SettingsChangelogScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsChangelogScreen(),
+                                ),
+                          ),
+                        ],
                       ),
                       GoRoute(
                         name: AppRouteNames.settingsSupport,

@@ -61,8 +61,8 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsSupport),
         ),
         SettingsNavTile(
-          title: 'О сервисе',
-          subtitle: 'Вся важная документация',
+          title: 'О приложении',
+          subtitle: 'Версия, история изменений, документы',
           iconAsset: AppIconography.settingsAbout,
           onTap: () => context.pushNamed(AppRouteNames.settingsAbout),
         ),
@@ -88,7 +88,7 @@ class SettingsAboutScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
     return SettingsScaffold(
-      title: 'О сервисе:',
+      title: 'О приложении:',
       spaceChildren: false,
       children: [
         SettingsFormCard(
@@ -113,6 +113,14 @@ class SettingsAboutScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: SettingsMetrics.rowGap),
+        SettingsNavTile(
+          title: 'История изменений',
+          subtitle: 'Что нового в каждой версии',
+          icon: Icons.history_rounded,
+          dense: true,
+          onTap: () => context.pushNamed(AppRouteNames.settingsChangelog),
         ),
         if (config.privacyPolicyUrl != null) ...[
           const SizedBox(height: SettingsMetrics.rowGap),
