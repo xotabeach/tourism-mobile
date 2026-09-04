@@ -85,7 +85,16 @@ void main() {
         reason: release.version,
       );
     }
-    expect(find.text('Готовится'), findsOneWidget);
+    // Значок «Готовится» есть ровно тогда, когда версия ещё собирается: в
+    // день релиза она получает дату, и значку взяться неоткуда.
+    final unreleased = appChangelog.where((release) => release.inProgress);
+    expect(
+      find.text('Готовится'),
+      unreleased.isEmpty ? findsNothing : findsOneWidget,
+    );
+    if (unreleased.isEmpty) {
+      expect(find.text(appChangelog.first.date!), findsOneWidget);
+    }
     expect(find.text('Новое'), findsWidgets);
     expect(find.text('Исправлено'), findsWidgets);
   });
