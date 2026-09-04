@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
+import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
@@ -14,13 +16,19 @@ class UniversalSearchResults {
     this.routes = const [],
     this.profiles = const [],
     this.places = const [],
+    this.articles = const [],
   });
 
   final List<RouteSummary> routes;
   final List<PublicUserProfile> profiles;
   final List<PlaceSummary> places;
 
-  bool get isEmpty => routes.isEmpty && profiles.isEmpty && places.isEmpty;
+  /// Blogs are content like everything else here — the search covered routes,
+  /// places and people, and could not find an article (asked 2026-09-04).
+  final List<ArticleSummary> articles;
+
+  bool get isEmpty =>
+      routes.isEmpty && profiles.isEmpty && places.isEmpty && articles.isEmpty;
 }
 
 final universalSearchProvider = FutureProvider.autoDispose
@@ -42,9 +50,16 @@ final universalSearchProvider = FutureProvider.autoDispose
       final placesFuture = ref
           .watch(placesRepositoryProvider)
           .listPlaces(regionSlug: 'crimea', query: query);
+      final articlesFuture = ref
+          .watch(articlesRepositoryProvider)
+          .listArticles(query: query, limit: 8);
 
       if (config.useMockData) {
-        final results = await Future.wait([routesFuture, placesFuture]);
+        final results = await Future.wait<Object>([
+          routesFuture,
+          placesFuture,
+          articlesFuture,
+        ]);
         final page = results[0] as RouteListPage;
         final normalized = query.toLowerCase();
         const candidates = [
@@ -80,6 +95,7 @@ final universalSearchProvider = FutureProvider.autoDispose
               )
               .toList(growable: false),
           places: (results[1] as PlaceListPage).items.take(8).toList(),
+          articles: (results[2] as ArticleListPage).items,
         );
       }
 
@@ -87,10 +103,12 @@ final universalSearchProvider = FutureProvider.autoDispose
         routesFuture,
         ref.watch(publicProfileRepositoryProvider).search(query),
         placesFuture,
+        articlesFuture,
       ]);
       return UniversalSearchResults(
         routes: (results[0] as RouteListPage).items,
         profiles: results[1] as List<PublicUserProfile>,
         places: (results[2] as PlaceListPage).items.take(8).toList(),
+        articles: (results[3] as ArticleListPage).items,
       );
     });

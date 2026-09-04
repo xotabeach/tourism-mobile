@@ -25,6 +25,7 @@ abstract interface class ArticlesRepository {
     String? relatedRouteId,
     String? relatedPlaceId,
     String? authorUserId,
+    String? query,
     int limit = 20,
     int offset = 0,
   });

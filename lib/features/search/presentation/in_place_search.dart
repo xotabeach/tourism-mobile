@@ -9,6 +9,8 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/domain/article.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
@@ -22,7 +24,7 @@ import 'package:tourism_mobile/features/search/presentation/search_filters_sheet
 import 'package:tourism_mobile/features/search/presentation/universal_search_panel.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
-enum SearchScope { global, routes, places, profiles }
+enum SearchScope { global, routes, places, profiles, articles }
 
 class _SearchResultsSkeleton extends StatelessWidget {
   const _SearchResultsSkeleton();
@@ -155,10 +157,19 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
             ? widget.localPlaces != null
             : widget.scope == SearchScope.global ||
                   widget.scope == SearchScope.places;
+        // Блоги ищутся только по запросу: в «пустом» состоянии экран
+        // показывает подборки, а лента статей живёт на своём экране.
+        final showArticles =
+            !useLocal &&
+            (widget.scope == SearchScope.global ||
+                widget.scope == SearchScope.articles);
 
         late final List<PublicUserProfile> people;
         late final List<RouteSummary> routes;
         late final List<PlaceSummary> places;
+        final articles = searching && showArticles
+            ? data.articles
+            : const <ArticleSummary>[];
         if (useLocal) {
           people = _filterLocalProfiles(
             widget.localProfiles ?? const [],
@@ -254,10 +265,21 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
                   ),
                 ),
               ),
+            if (articles.isNotEmpty)
+              _SearchResultBlock(
+                title: 'Блоги:',
+                child: _HorizontalCards<ArticleSummary>(
+                  items: articles.take(5).toList(),
+                  height: 300,
+                  itemBuilder: (context, article) =>
+                      ArticleCard(article: article, width: 260, height: 300),
+                ),
+              ),
             if (searching &&
                 people.isEmpty &&
                 routes.isEmpty &&
                 places.isEmpty &&
+                articles.isEmpty &&
                 history.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 48),
@@ -278,15 +300,23 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
     var profiles = data.profiles;
     var routes = data.routes;
     var places = data.places;
+    var articles = data.articles;
     if (scope == SearchScope.routes || filters.target == SearchTarget.routes) {
       profiles = const [];
       places = const [];
+      articles = const [];
     } else if (scope == SearchScope.places ||
         filters.target == SearchTarget.places) {
       profiles = const [];
       routes = const [];
+      articles = const [];
     } else if (scope == SearchScope.profiles ||
         filters.target == SearchTarget.profiles) {
+      routes = const [];
+      places = const [];
+      articles = const [];
+    } else if (scope == SearchScope.articles) {
+      profiles = const [];
       routes = const [];
       places = const [];
     }
@@ -311,10 +341,21 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
           })
           .toList(growable: false);
     }
+    if (filters.tags.isNotEmpty) {
+      articles = articles
+          .where(
+            (article) => _matchesAnyTag(
+              '${article.title} ${article.tags.join(' ')}'.toLowerCase(),
+              filters.tags,
+            ),
+          )
+          .toList(growable: false);
+    }
     return UniversalSearchResults(
       profiles: profiles,
       routes: routes,
       places: places,
+      articles: articles,
     );
   }
 

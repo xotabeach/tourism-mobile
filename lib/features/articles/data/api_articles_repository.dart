@@ -15,6 +15,7 @@ final class ApiArticlesRepository implements ArticlesRepository {
     String? relatedRouteId,
     String? relatedPlaceId,
     String? authorUserId,
+    String? query,
     int limit = 20,
     int offset = 0,
   }) {
@@ -25,6 +26,7 @@ final class ApiArticlesRepository implements ArticlesRepository {
           'related_route_id': ?relatedRouteId,
           'related_place_id': ?relatedPlaceId,
           'author_user_id': ?authorUserId,
+          'q': ?query,
           'limit': limit,
           'offset': offset,
         },

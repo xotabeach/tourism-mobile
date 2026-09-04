@@ -107,11 +107,20 @@ final class MockArticlesRepository implements ArticlesRepository {
     String? relatedRouteId,
     String? relatedPlaceId,
     String? authorUserId,
+    String? query,
     int limit = 20,
     int offset = 0,
   }) async {
+    final needle = query?.trim().toLowerCase();
     final items = _articles.values
         .where((article) => article.status == ArticleStatus.published)
+        .where(
+          (article) =>
+              needle == null ||
+              needle.isEmpty ||
+              article.title.toLowerCase().contains(needle) ||
+              article.tags.any((tag) => tag.toLowerCase().contains(needle)),
+        )
         .where(
           (article) =>
               relatedRouteId == null ||
