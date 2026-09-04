@@ -23,7 +23,13 @@ PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 APP_ENV="${APP_ENV:-test}"
 DATA_SOURCE="${DATA_SOURCE:-api}"
-API_BASE_URL="${API_BASE_URL:-https://201-24-55-130.sslip.io}"
+# Адрес API в репозитории не хранится: он лежит в scripts/build.env
+# (в .gitignore) или передаётся флагом --api-url / переменной окружения.
+if [[ -f "${SCRIPT_DIR}/build.env" ]]; then
+  # shellcheck disable=SC1091
+  source "${SCRIPT_DIR}/build.env"
+fi
+API_BASE_URL="${API_BASE_URL:-}"
 INSTALL=0
 BUILD_AAB=0
 SPLIT_PER_ABI=0
@@ -37,7 +43,7 @@ Usage:
   ./scripts/build-signed-apk.sh [options]
 
 Options:
-  --api-url URL       API_BASE_URL (default: https://201-24-55-130.sslip.io)
+  --api-url URL       API_BASE_URL (обязателен: см. scripts/build.env)
   --env NAME          APP_ENV: test|staging|production|local (default: test)
   --data-source NAME  DATA_SOURCE: api|mock (default: api)
   --install           adb install -r the APK after build
@@ -154,6 +160,12 @@ if [[ "${BUILD_AAB}" -eq 1 && "${INSTALL}" -eq 1 ]]; then
 fi
 if [[ "${BUILD_AAB}" -eq 1 && "${SPLIT_PER_ABI}" -eq 1 ]]; then
   printf 'Error: --split-per-abi is for APK only, not --aab.\n' >&2
+  exit 1
+fi
+
+if [[ -z "${API_BASE_URL}" && "${DATA_SOURCE}" != "mock" ]]; then
+  printf 'Error: API_BASE_URL is required. Set it in scripts/build.env, pass\n' >&2
+  printf '       --api-url URL, or export API_BASE_URL.\n' >&2
   exit 1
 fi
 
