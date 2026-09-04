@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
@@ -14,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/domain/content_tags.dart';
+import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/features/articles/application/article_editor_controller.dart';
 import 'package:tourism_mobile/features/articles/data/article_image_picker.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
@@ -267,10 +267,21 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
       final picked = await ImagePickerArticleImagePicker(
         ImagePicker(),
       ).pickFromGallery();
-      if (picked == null) {
+      if (picked == null || !mounted) {
         return;
       }
-      controller.attachImage(localId, picked.path);
+      // Кадрируем до загрузки: фото в статье — это оформление, и рамку
+      // выбирает автор, а не то, как оно ляжет в вёрстку.
+      final cropped = await cropPickedPhoto(
+        context,
+        sourcePath: picked.path,
+        shape: PhotoCropShape.wide,
+        title: 'Фото в статье',
+      );
+      if (cropped == null) {
+        return;
+      }
+      controller.attachImage(localId, cropped);
       // Saving now is what mints the block's server id, which the upload
       // needs — so an image the author just picked starts uploading without
       // waiting out the autosave debounce.

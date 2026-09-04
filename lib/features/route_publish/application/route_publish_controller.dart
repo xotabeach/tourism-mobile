@@ -231,7 +231,13 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     );
   }
 
-  Future<void> addMedia(RouteMediaSource source) async {
+  /// [crop] позволяет экрану вклиниться между выбором и добавлением, чтобы
+  /// автор сам выбрал кадр. Контроллер не знает про UI, поэтому редактор
+  /// приходит колбэком; для видео он не вызывается — кадрировать там нечего.
+  Future<void> addMedia(
+    RouteMediaSource source, {
+    Future<String?> Function(String path)? crop,
+  }) async {
     if (state.isPickingMedia) {
       return;
     }
@@ -241,9 +247,17 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     }
     state = state.copyWith(isPickingMedia: true, clearMediaError: true);
     try {
-      final item = await _mediaPicker.pick(source);
-      if (item == null || !mounted) {
+      final picked = await _mediaPicker.pick(source);
+      if (picked == null || !mounted) {
         return;
+      }
+      var item = picked;
+      if (crop != null && picked.kind == RouteMediaKind.image) {
+        final cropped = await crop(picked.path);
+        if (cropped == null || !mounted) {
+          return;
+        }
+        item = picked.copyWith(path: cropped);
       }
       if (state.draft.media.any((existing) => existing.path == item.path)) {
         _message('Этот файл уже добавлен');

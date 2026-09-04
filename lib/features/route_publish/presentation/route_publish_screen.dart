@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/domain/content_tags.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
@@ -371,8 +372,16 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
       showDragHandle: true,
       builder: (context) => const _MediaPickerSheet(),
     );
-    if (source != null) {
-      await controller.addMedia(source);
+    if (source != null && mounted) {
+      await controller.addMedia(
+        source,
+        crop: (path) => cropPickedPhoto(
+          context,
+          sourcePath: path,
+          shape: PhotoCropShape.wide,
+          title: 'Фото маршрута',
+        ),
+      );
     }
   }
 

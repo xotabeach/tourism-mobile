@@ -33,6 +33,15 @@ class RouteMediaItem {
   final RouteMediaKind kind;
   final bool isAsset;
 
+  RouteMediaItem copyWith({String? path}) {
+    return RouteMediaItem(
+      id: id,
+      path: path ?? this.path,
+      kind: kind,
+      isAsset: isAsset,
+    );
+  }
+
   Map<String, Object?> toJson() => {
     'id': id,
     'path': path,

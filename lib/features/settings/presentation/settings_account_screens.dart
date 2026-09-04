@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -12,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/validation/display_name.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -229,13 +229,27 @@ class _SettingsChangePhotoScreenState
     if (file == null) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
+    // Кадрируем перед загрузкой: раньше уходил исходник как есть, и портрет
+    // превращался в аватар, обрезанный так, как повезёт (жалоба 2026-09-04).
+    final cropped = await cropPickedPhoto(
+      context,
+      sourcePath: file.path,
+      shape: cover ? PhotoCropShape.wide : PhotoCropShape.avatar,
+      title: cover ? 'Обложка профиля' : 'Фото профиля',
+    );
+    if (cropped == null || !mounted) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final session = ref.read(sessionProvider.notifier);
       if (cover) {
-        await session.uploadCover(file.path);
+        await session.uploadCover(cropped);
       } else {
-        await session.uploadAvatar(file.path);
+        await session.uploadAvatar(cropped);
       }
       if (!mounted) {
         return;
