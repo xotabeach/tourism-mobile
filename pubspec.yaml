@@ -43,6 +43,7 @@ flutter:
     - assets/icons/raster/muted/
     - assets/icons/raster/profile/
     - assets/icons/raster/accent/
+    - assets/icons/app/
   fonts:
     - family: Rubik
       fonts:

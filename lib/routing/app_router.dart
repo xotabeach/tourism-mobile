@@ -29,6 +29,7 @@ import 'package:tourism_mobile/features/routes/presentation/routes_catalog_scree
 import 'package:tourism_mobile/features/routes/presentation/standalone_route_details_screen.dart';
 import 'package:tourism_mobile/features/search/presentation/search_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_account_screens.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_app_icon_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_notifications_inbox_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_preferences_quiz_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_prefs_screens.dart';
@@ -71,6 +72,7 @@ abstract final class AppRouteNames {
   static const settingsAccount = 'settings-account';
   static const settingsChangeName = 'settings-change-name';
   static const settingsChangePhoto = 'settings-change-photo';
+  static const settingsAppIcon = 'settings-app-icon';
   static const settingsChangePhone = 'settings-change-phone';
   static const settingsChangePreferences = 'settings-change-preferences';
   static const settingsNotifications = 'settings-notifications';
@@ -447,6 +449,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                                 CupertinoPage<void>(
                                   key: state.pageKey,
                                   child: const SettingsChangePhotoScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            name: AppRouteNames.settingsAppIcon,
+                            path: SettingsAppIconScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const SettingsAppIconScreen(),
                                 ),
                           ),
                           GoRoute(
