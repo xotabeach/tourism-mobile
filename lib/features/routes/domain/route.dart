@@ -84,6 +84,8 @@ class RouteSummary {
     this.estimatedDurationMinutes,
     this.distanceMeters,
     this.difficulty,
+    this.ratingAverage,
+    this.ratingCount = 0,
     this.transportMode,
     this.isRoundTrip = false,
     this.suitableForChildren,
@@ -109,6 +111,12 @@ class RouteSummary {
   final int? estimatedDurationMinutes;
   final int? distanceMeters;
   final String? difficulty;
+
+  /// Среднее по опубликованным отзывам. `null`, пока нет ни одной оценки —
+  /// карточка в этом случае не рисует звезду вовсе: пустая звезда читается
+  /// как «плохой маршрут», а это неправда про новый маршрут.
+  final double? ratingAverage;
+  final int ratingCount;
   final String? transportMode;
   final bool isRoundTrip;
 
@@ -139,6 +147,8 @@ class RouteSummary {
       estimatedDurationMinutes: json['estimated_duration_minutes'] as int?,
       distanceMeters: json['distance_meters'] as int?,
       difficulty: json['difficulty'] as String?,
+      ratingAverage: (json['rating_average'] as num?)?.toDouble(),
+      ratingCount: (json['rating_count'] as num?)?.toInt() ?? 0,
       transportMode: json['transport_mode'] as String?,
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       suitableForChildren: json['suitable_for_children'] as bool?,
@@ -168,6 +178,8 @@ class RouteSummary {
     'estimated_duration_minutes': estimatedDurationMinutes,
     'distance_meters': distanceMeters,
     'difficulty': difficulty,
+    'rating_average': ratingAverage,
+    'rating_count': ratingCount,
     'transport_mode': transportMode,
     'is_round_trip': isRoundTrip,
     'suitable_for_children': suitableForChildren,
@@ -347,6 +359,8 @@ class RouteDetail extends RouteSummary {
     super.estimatedDurationMinutes,
     super.distanceMeters,
     super.difficulty,
+    super.ratingAverage,
+    super.ratingCount,
     super.transportMode,
     super.isRoundTrip,
     super.suitableForChildren,
@@ -393,6 +407,8 @@ class RouteDetail extends RouteSummary {
       estimatedDurationMinutes: json['estimated_duration_minutes'] as int?,
       distanceMeters: json['distance_meters'] as int?,
       difficulty: json['difficulty'] as String?,
+      ratingAverage: (json['rating_average'] as num?)?.toDouble(),
+      ratingCount: (json['rating_count'] as num?)?.toInt() ?? 0,
       transportMode: json['transport_mode'] as String?,
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       suitableForChildren: json['suitable_for_children'] as bool?,

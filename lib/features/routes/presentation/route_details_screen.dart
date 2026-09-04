@@ -17,6 +17,7 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/format/rating_format.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
@@ -264,6 +265,17 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             color: AppColors.primaryInk,
                           ),
                         ),
+                        if (route.ratingAverage != null) ...[
+                          const SizedBox(height: 8),
+                          _RatingLine(
+                            average: route.ratingAverage!,
+                            count: route.ratingCount,
+                            onTap: () => setState(
+                              () => _selectedSection =
+                                  _RouteDetailsSection.comments,
+                            ),
+                          ),
+                        ],
                         if (route.description != null) ...[
                           const SizedBox(height: 12),
                           Text(
@@ -1544,6 +1556,54 @@ class _AdaptiveInlineIconButton extends StatelessWidget {
       fillColor: Colors.white.withValues(alpha: 0.5),
       borderColor: Colors.white.withValues(alpha: 0.8),
       child: button,
+    );
+  }
+}
+
+/// Средняя оценка и число оценивших: «4,3 (12)».
+///
+/// Тап уводит на вкладку отзывов — цифре без объяснения верят меньше, чем
+/// цифре, за которой видно людей.
+class _RatingLine extends StatelessWidget {
+  const _RatingLine({
+    required this.average,
+    required this.count,
+    required this.onTap,
+  });
+
+  final double average;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label:
+          'Рейтинг ${formatRatingAverage(average)}, '
+          '${ratingCountLabel(count)}. Открыть отзывы',
+      child: InkWell(
+        key: const ValueKey('route-details-rating'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AppRadii.capsule),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.star_rounded, color: AppColors.rating, size: 20),
+              const SizedBox(width: 5),
+              Text(
+                formatRatingWithCount(average, count),
+                style: AppTypography.routeTitle.copyWith(
+                  fontSize: 15,
+                  color: AppColors.primaryInk,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

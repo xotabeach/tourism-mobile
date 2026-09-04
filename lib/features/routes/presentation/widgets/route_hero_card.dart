@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_expert_style.dart';
@@ -16,6 +15,7 @@ import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/format/rating_format.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
@@ -521,8 +521,10 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _RatingPill(route: route),
-                              const SizedBox(height: AppSpacing.xs),
+                              if (route.ratingAverage != null) ...[
+                                _RatingPill(route: route),
+                                const SizedBox(height: AppSpacing.xs),
+                              ],
                               Text(
                                 route.name,
                                 maxLines: height >= 260 ? 2 : 1,
@@ -653,7 +655,7 @@ class _RatingPill extends StatelessWidget {
             const Icon(Icons.star_rounded, color: AppColors.rating, size: 17),
             const SizedBox(width: 4),
             Text(
-              '4,${9 - (route.name.length % 3)}',
+              formatRatingAverage(route.ratingAverage),
               style: AppTypography.routeMetadata.copyWith(
                 fontSize: 14,
                 color: Colors.white,
