@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
+import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_icons.dart';
 
 /// Full card for a single achievement.
 ///
@@ -86,35 +86,9 @@ class _AchievementBadge extends StatelessWidget {
   final bool unlocked;
   final String iconSlug;
 
-  /// Backend icon keys map to Material glyphs here; an unknown key still
-  /// renders a badge rather than an empty box, so new achievements can ship
-  /// without an app release.
-  static const _icons = <String, IconData>{
-    'marathoner': Icons.directions_run_rounded,
-    'same-way': Icons.u_turn_left_rounded,
-    'berlin': Icons.flag_rounded,
-    'sunrise': Icons.wb_twilight_rounded,
-    'water': Icons.waves_rounded,
-    'caves': Icons.terrain_rounded,
-    'photo': Icons.photo_camera_rounded,
-    'night': Icons.nightlight_round,
-    'group': Icons.groups_rounded,
-    'season': Icons.ac_unit_rounded,
-    'local': Icons.place_rounded,
-    'guide': Icons.headphones_rounded,
-    'distance': Icons.straighten_rounded,
-    'favorite': Icons.bookmark_rounded,
-    'review': Icons.rate_review_rounded,
-    'first-step': Icons.emoji_events_rounded,
-    'social': Icons.people_alt_rounded,
-    'author': Icons.edit_road_rounded,
-    'winter': Icons.severe_cold_rounded,
-    'photographer': Icons.image_rounded,
-  };
-
   @override
   Widget build(BuildContext context) {
-    final icon = _icons[iconSlug] ?? Icons.workspace_premium_rounded;
+    final icon = achievementIconFor(iconSlug);
     return Container(
       width: 116,
       height: 116,

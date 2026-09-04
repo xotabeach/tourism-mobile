@@ -27,6 +27,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/achievement_card_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_icons.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -236,8 +237,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                     child: _ActivityStatsRow(
                       completedRoutesCount: profile.completedRoutesCount,
+                      publishedRoutesCount: profile.publishedRoutesCount,
                       reviewsWrittenCount: profile.reviewsWrittenCount,
                       totalDistanceMeters: profile.totalDistanceMeters,
+                      publishedArticlesCount: profile.publishedArticlesCount,
+                      articleLikesCount: profile.articleLikesCount,
                     ),
                   ),
                   Padding(
@@ -1099,49 +1103,94 @@ class _RankCard extends StatelessWidget {
   }
 }
 
-/// Completed routes / reviews written / distance travelled — a second row
-/// of stat boxes below the header, reusing [_FollowStatBox]'s look so it
-/// reads as one design language with the followers/following row above it.
+/// What the traveller has done — two rows of stat boxes below the header,
+/// reusing [_FollowStatBox]'s look so it reads as one design language with
+/// the followers/following row above it.
+///
+/// Routes are split across "Пройдено" and "Опубликовано": one "Маршрутов"
+/// box answered neither question, and a reader could not tell whether the
+/// number meant walking or authoring (asked 2026-09-04).
 class _ActivityStatsRow extends StatelessWidget {
   const _ActivityStatsRow({
     required this.completedRoutesCount,
+    required this.publishedRoutesCount,
     required this.reviewsWrittenCount,
     required this.totalDistanceMeters,
+    required this.publishedArticlesCount,
+    required this.articleLikesCount,
   });
 
   final int completedRoutesCount;
+  final int publishedRoutesCount;
   final int reviewsWrittenCount;
   final int totalDistanceMeters;
+  final int publishedArticlesCount;
+  final int articleLikesCount;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: _FollowStatBox(
-            key: const ValueKey('profile-completed-routes-stat'),
-            iconAsset: AppIconography.routes,
-            value: compactCount(completedRoutesCount),
-            label: 'Маршрутов',
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: _FollowStatBox(
+                key: const ValueKey('profile-completed-routes-stat'),
+                iconAsset: AppIconography.routes,
+                value: compactCount(completedRoutesCount),
+                label: 'Пройдено',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _FollowStatBox(
+                key: const ValueKey('profile-published-routes-stat'),
+                iconAsset: AppIconography.map,
+                value: compactCount(publishedRoutesCount),
+                label: 'Маршрутов',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _FollowStatBox(
+                key: const ValueKey('profile-distance-stat'),
+                iconAsset: AppIconography.map,
+                value: formatDistanceKm(totalDistanceMeters),
+                label: 'Километров',
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _FollowStatBox(
-            key: const ValueKey('profile-reviews-stat'),
-            iconAsset: AppIconography.settingsRate,
-            value: compactCount(reviewsWrittenCount),
-            label: 'Отзывов',
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _FollowStatBox(
-            key: const ValueKey('profile-distance-stat'),
-            iconAsset: AppIconography.map,
-            value: formatDistanceKm(totalDistanceMeters),
-            label: 'Пройдено',
-          ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _FollowStatBox(
+                key: const ValueKey('profile-articles-stat'),
+                iconAsset: AppIconography.settingsRate,
+                value: compactCount(publishedArticlesCount),
+                label: 'Статей',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _FollowStatBox(
+                key: const ValueKey('profile-article-likes-stat'),
+                iconAsset: AppIconography.settingsRate,
+                value: compactCount(articleLikesCount),
+                label: 'Лайков',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _FollowStatBox(
+                key: const ValueKey('profile-reviews-stat'),
+                iconAsset: AppIconography.settingsRate,
+                value: compactCount(reviewsWrittenCount),
+                label: 'Отзывов',
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -1360,6 +1409,13 @@ class _AchievementTile extends StatelessWidget {
                         ? AppColors.accentBlue
                         : const Color(0xFFCFCFD2),
                     shape: BoxShape.circle,
+                  ),
+                  // Тот же глиф, что на карточке достижения. Без него кружок
+                  // читался как незагрузившаяся картинка.
+                  child: Icon(
+                    achievementIconFor(achievement.iconSlug),
+                    size: 24,
+                    color: unlocked ? Colors.white : AppColors.secondaryInk,
                   ),
                 ),
                 const SizedBox(width: 12),

@@ -61,11 +61,25 @@ void main() {
       find.byKey(const ValueKey('profile-following-stat')),
       findsOneWidget,
     );
-    expect(find.text('Маршрутов'), findsOneWidget);
-    expect(find.text('Отзывов'), findsOneWidget);
+    // Routes read as two separate numbers — walked and authored. Asserted by
+    // box key rather than by value: "3" alone now matches both reviews and
+    // articles, which is exactly the ambiguity the split removes.
+    for (final key in [
+      'profile-completed-routes-stat',
+      'profile-published-routes-stat',
+      'profile-distance-stat',
+      'profile-articles-stat',
+      'profile-article-likes-stat',
+      'profile-reviews-stat',
+    ]) {
+      expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
+    }
     expect(find.text('Пройдено'), findsOneWidget);
-    expect(find.text('7'), findsOneWidget);
-    expect(find.text('3'), findsOneWidget);
+    expect(find.text('Маршрутов'), findsOneWidget);
+    expect(find.text('Километров'), findsOneWidget);
+    expect(find.text('Статей'), findsOneWidget);
+    expect(find.text('Лайков'), findsOneWidget);
+    expect(find.text('Отзывов'), findsOneWidget);
     expect(find.text('143 км'), findsOneWidget);
     final coverRect = tester.getRect(
       find.byKey(const ValueKey('profile-cover')),

@@ -21,8 +21,11 @@ class PublicUserProfile {
     this.followersCount = 0,
     this.followingCount = 0,
     this.completedRoutesCount = 0,
+    this.publishedRoutesCount = 0,
     this.reviewsWrittenCount = 0,
     this.totalDistanceMeters = 0,
+    this.publishedArticlesCount = 0,
+    this.articleLikesCount = 0,
   });
 
   final String id;
@@ -45,8 +48,11 @@ class PublicUserProfile {
   /// but the backend leaves these at 0 there to avoid a per-row aggregation
   /// query, so don't render them outside the profile screen.
   final int completedRoutesCount;
+  final int publishedRoutesCount;
   final int reviewsWrittenCount;
   final int totalDistanceMeters;
+  final int publishedArticlesCount;
+  final int articleLikesCount;
 
   factory PublicUserProfile.fromJson(Map<String, dynamic> json) {
     return PublicUserProfile(
@@ -65,8 +71,13 @@ class PublicUserProfile {
       followersCount: _nonNegativeCount(json['followers_count']),
       followingCount: _nonNegativeCount(json['following_count']),
       completedRoutesCount: _nonNegativeCount(json['completed_routes_count']),
+      publishedRoutesCount: _nonNegativeCount(json['published_routes_count']),
       reviewsWrittenCount: _nonNegativeCount(json['reviews_written_count']),
       totalDistanceMeters: _nonNegativeCount(json['total_distance_meters']),
+      publishedArticlesCount: _nonNegativeCount(
+        json['published_articles_count'],
+      ),
+      articleLikesCount: _nonNegativeCount(json['article_likes_count']),
     );
   }
 }

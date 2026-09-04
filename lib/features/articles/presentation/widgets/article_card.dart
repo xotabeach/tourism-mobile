@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_images.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -237,6 +238,13 @@ class _CardFooter extends StatelessWidget {
     return Consumer(
       builder: (context, ref, _) {
         final config = ref.watch(appConfigProvider);
+        // Тот же оверлей, что и на экране чтения: лайк, поставленный внутри
+        // статьи, должен быть виден и на карточке. Раньше карточка знала
+        // только про число из своего списка, и после лайка счётчики
+        // расходились до следующей перезагрузки списка (баг 2026-09-03).
+        final likeOverlay = ref.watch(articleLikeOverlayProvider(article.id));
+        final likeCount = likeOverlay?.likeCount ?? article.likeCount;
+        final likedByMe = likeOverlay?.likedByMe ?? article.likedByMe;
         final avatar = AppImages.imageProvider(
           resolvedUrl: AppImages.resolveMediaUrl(
             config,
@@ -295,10 +303,10 @@ class _CardFooter extends StatelessWidget {
               color: const Color(0xFFE8E8EA),
             ),
             _MetricChip(
-              icon: article.likedByMe
+              icon: likedByMe
                   ? Icons.favorite_rounded
                   : Icons.favorite_border_rounded,
-              label: '${article.likeCount}',
+              label: '$likeCount',
               // В макете сердце синее, в тон акценту приложения, а не красное.
               iconColor: AppColors.accentBlue,
             ),

@@ -210,8 +210,11 @@ abstract final class MockProfile {
           ),
       ],
       completedRoutesCount: 7,
+      publishedRoutesCount: 4,
       reviewsWrittenCount: 3,
       totalDistanceMeters: 142500,
+      publishedArticlesCount: 3,
+      articleLikesCount: 128,
     );
   }
 }

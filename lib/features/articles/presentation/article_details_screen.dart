@@ -96,76 +96,84 @@ class _ArticleBody extends ConsumerWidget {
     final isOwner = selfUserId != null && selfUserId == article.authorUserId;
     final cover = article.coverImageUrl;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        AppSpacing.page,
-        0,
-        AppSpacing.page,
-        AppSpacing.shellBottomContent,
-      ),
-      children: [
-        if (cover != null) ...[
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: Image(
-                image: articleImageProvider(
-                  config: config,
-                  url: cover,
-                  fallbackSeed: article.id,
+    // Тап по любому месту вне поля и протяжка списка убирают клавиатуру:
+    // в комментариях её нельзя было закрыть — на экране нет кнопки «Готово»,
+    // а системная «назад» уводила со статьи (жалоба 2026-09-04).
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: ListView(
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        padding: const EdgeInsets.fromLTRB(
+          AppSpacing.page,
+          0,
+          AppSpacing.page,
+          AppSpacing.shellBottomContent,
+        ),
+        children: [
+          if (cover != null) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Image(
+                  image: articleImageProvider(
+                    config: config,
+                    url: cover,
+                    fallbackSeed: article.id,
+                  ),
+                  fit: BoxFit.cover,
                 ),
-                fit: BoxFit.cover,
               ),
             ),
+            const SizedBox(height: 16),
+          ],
+          Text(
+            article.title,
+            style: AppTypography.routeTitle.copyWith(
+              fontSize: 22,
+              color: AppColors.primaryInk,
+            ),
           ),
-          const SizedBox(height: 16),
-        ],
-        Text(
-          article.title,
-          style: AppTypography.routeTitle.copyWith(
-            fontSize: 22,
-            color: AppColors.primaryInk,
-          ),
-        ),
-        if (article.tags.isNotEmpty) ...[
-          const SizedBox(height: 10),
-          TagChipPicker.display(tags: article.tags),
-        ],
-        const SizedBox(height: 12),
-        _AuthorRow(
-          name: article.authorDisplayName,
-          avatarUrl: article.authorAvatarUrl,
-          date: article.publishedAt ?? article.createdAt,
-          readingTimeMinutes: article.readingTimeMinutes,
-          config: config,
-          onTap: () => _openAuthor(context, ref, article.authorUserId),
-        ),
-        const SizedBox(height: 14),
-        _ReactionsPanel(article: article),
-        if (isOwner) ...[
+          if (article.tags.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            TagChipPicker.display(tags: article.tags),
+          ],
           const SizedBox(height: 12),
-          _OwnerArticleStatusBanner(
-            status: article.status,
-            articleId: article.id,
-            note: article.moderatorNote,
+          _AuthorRow(
+            name: article.authorDisplayName,
+            avatarUrl: article.authorAvatarUrl,
+            date: article.publishedAt ?? article.createdAt,
+            readingTimeMinutes: article.readingTimeMinutes,
+            config: config,
+            onTap: () => _openAuthor(context, ref, article.authorUserId),
           ),
+          const SizedBox(height: 14),
+          _ReactionsPanel(article: article),
+          if (isOwner) ...[
+            const SizedBox(height: 12),
+            _OwnerArticleStatusBanner(
+              status: article.status,
+              articleId: article.id,
+              note: article.moderatorNote,
+            ),
+          ],
+          const SizedBox(height: 20),
+          for (final block in article.sortedBlocks) ...[
+            ArticleBlockView(block: block, config: config),
+            const SizedBox(height: 16),
+          ],
+          if (article.relatedRouteId case final routeId?) ...[
+            const SizedBox(height: 4),
+            _RelatedRouteCard(routeId: routeId),
+            const SizedBox(height: 24),
+          ],
+          _RelatedArticlesSection(articleId: article.id),
+          const Divider(height: 1, color: Color(0xFFEDEDEE)),
+          const SizedBox(height: 20),
+          ArticleCommentsSection(articleId: article.id),
         ],
-        const SizedBox(height: 20),
-        for (final block in article.sortedBlocks) ...[
-          ArticleBlockView(block: block, config: config),
-          const SizedBox(height: 16),
-        ],
-        if (article.relatedRouteId case final routeId?) ...[
-          const SizedBox(height: 4),
-          _RelatedRouteCard(routeId: routeId),
-          const SizedBox(height: 24),
-        ],
-        _RelatedArticlesSection(articleId: article.id),
-        const Divider(height: 1, color: Color(0xFFEDEDEE)),
-        const SizedBox(height: 20),
-        ArticleCommentsSection(articleId: article.id),
-      ],
+      ),
     );
   }
 

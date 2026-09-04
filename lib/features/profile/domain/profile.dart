@@ -61,8 +61,11 @@ class ProfileSnapshot {
     this.followersCount = 0,
     this.followingCount = 0,
     this.completedRoutesCount = 0,
+    this.publishedRoutesCount = 0,
     this.reviewsWrittenCount = 0,
     this.totalDistanceMeters = 0,
+    this.publishedArticlesCount = 0,
+    this.articleLikesCount = 0,
   });
 
   final String displayName;
@@ -87,8 +90,16 @@ class ProfileSnapshot {
   /// total distance walked/driven on completed routes — shown as stat cards
   /// on the profile screen, for both the owner and a visitor.
   final int completedRoutesCount;
+
+  /// Routes this traveller wrote and published, as opposed to walked. A
+  /// single "Маршрутов" box answered neither question on its own.
+  final int publishedRoutesCount;
   final int reviewsWrittenCount;
   final int totalDistanceMeters;
+
+  /// Published articles and the likes they collected.
+  final int publishedArticlesCount;
+  final int articleLikesCount;
 
   String get firstName {
     final parts = displayName.trim().split(RegExp(r'\s+'));

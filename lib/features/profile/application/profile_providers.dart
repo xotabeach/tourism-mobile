@@ -187,8 +187,11 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       isExpert: userId == 'mock-maria',
       expertTitle: userId == 'mock-maria' ? 'Эксперт КрымТрип' : null,
       completedRoutesCount: 5,
+      publishedRoutesCount: 3,
       reviewsWrittenCount: 2,
       totalDistanceMeters: 68000,
+      publishedArticlesCount: 2,
+      articleLikesCount: 41,
     );
   }
 
@@ -217,8 +220,11 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       followersCount: bundle.user.followersCount,
       followingCount: bundle.user.followingCount,
       completedRoutesCount: bundle.user.completedRoutesCount,
+      publishedRoutesCount: bundle.user.publishedRoutesCount,
       reviewsWrittenCount: bundle.user.reviewsWrittenCount,
       totalDistanceMeters: bundle.user.totalDistanceMeters,
+      publishedArticlesCount: bundle.user.publishedArticlesCount,
+      articleLikesCount: bundle.user.articleLikesCount,
     );
   }
 
@@ -238,8 +244,11 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     followersCount: bundle.user.followersCount,
     followingCount: bundle.user.followingCount,
     completedRoutesCount: bundle.user.completedRoutesCount,
+    publishedRoutesCount: bundle.user.publishedRoutesCount,
     reviewsWrittenCount: bundle.user.reviewsWrittenCount,
     totalDistanceMeters: bundle.user.totalDistanceMeters,
+    publishedArticlesCount: bundle.user.publishedArticlesCount,
+    articleLikesCount: bundle.user.articleLikesCount,
   );
 });
 
