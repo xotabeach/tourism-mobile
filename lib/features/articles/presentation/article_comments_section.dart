@@ -177,7 +177,7 @@ class _CommentsLoadingSkeleton extends StatelessWidget {
   }
 }
 
-class _ArticleCommentTile extends ConsumerWidget {
+class _ArticleCommentTile extends ConsumerStatefulWidget {
   const _ArticleCommentTile({
     required this.comment,
     required this.canDelete,
@@ -190,10 +190,33 @@ class _ArticleCommentTile extends ConsumerWidget {
   final VoidCallback onReply;
   final VoidCallback onDeleted;
 
+  @override
+  ConsumerState<_ArticleCommentTile> createState() =>
+      _ArticleCommentTileState();
+}
+
+class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
+  /// Длинный комментарий на макете свёрнут до четырёх строк со ссылкой
+  /// «Читать полностью» — иначе один многословный отзыв занимает экран.
+  static const _collapsedLines = 4;
+  static const _bodyStyle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 13,
+    height: 1.4,
+    color: AppColors.secondaryInk,
+  );
+
+  bool _expanded = false;
+
+  ArticleComment get comment => widget.comment;
+  bool get canDelete => widget.canDelete;
+  VoidCallback get onReply => widget.onReply;
+  VoidCallback get onDeleted => widget.onDeleted;
+
   bool get _pending => comment.status == ArticleCommentStatus.pendingReview;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
     return Opacity(
       opacity: _pending ? 0.72 : 1,
@@ -236,58 +259,107 @@ class _ArticleCommentTile extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(
-                    comment.authorDisplayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontFamily: AppFonts.rubik,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryInk,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              comment.body,
-              style: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 13,
-                height: 1.4,
-                color: AppColors.secondaryInk,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Spacer(),
-                GestureDetector(
-                  onTap: onReply,
-                  child: Text(
-                    'Ответить',
-                    style: AppTypography.button.copyWith(
-                      fontSize: 12,
-                      color: AppColors.primaryInk,
-                    ),
-                  ),
-                ),
-                if (canDelete) ...[
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: () => unawaited(_confirmDelete(context, ref)),
-                    child: Text(
-                      'Удалить',
-                      style: AppTypography.button.copyWith(
-                        fontSize: 12,
-                        color: AppColors.secondaryInk,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        comment.authorDisplayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryInk,
+                        ),
                       ),
-                    ),
+                      // Ранг под именем — как на макете: он объясняет, кому
+                      // принадлежит совет, а не просто занимает строку.
+                      if (comment.authorRankTitle case final rank?)
+                        Text(
+                          rank,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: AppFonts.rubik,
+                            fontSize: 11,
+                            color: AppColors.secondaryInk,
+                          ),
+                        ),
+                    ],
                   ),
-                ],
+                ),
               ],
+            ),
+            const SizedBox(height: 6),
+            // Замер и текст, и строка действий — в одном LayoutBuilder:
+            // builder выполняется на этапе layout, и признак переполнения,
+            // выставленный «наружу», отставал бы на один кадр.
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final painter = TextPainter(
+                  text: TextSpan(text: comment.body, style: _bodyStyle),
+                  maxLines: _collapsedLines,
+                  textDirection: Directionality.of(context),
+                )..layout(maxWidth: constraints.maxWidth);
+                final overflows = painter.didExceedMaxLines;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      comment.body,
+                      maxLines: _expanded ? null : _collapsedLines,
+                      overflow: _expanded
+                          ? TextOverflow.clip
+                          : TextOverflow.ellipsis,
+                      style: _bodyStyle,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        if (overflows)
+                          GestureDetector(
+                            key: const ValueKey('article-comment-expand'),
+                            onTap: () => setState(() => _expanded = !_expanded),
+                            child: Text(
+                              _expanded ? 'Свернуть' : 'Читать полностью',
+                              style: AppTypography.button.copyWith(
+                                fontSize: 12,
+                                color: AppColors.primaryInk,
+                              ),
+                            ),
+                          ),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: onReply,
+                          child: Text(
+                            'Ответить',
+                            style: AppTypography.button.copyWith(
+                              fontSize: 12,
+                              color: AppColors.primaryInk,
+                            ),
+                          ),
+                        ),
+                        if (canDelete) ...[
+                          const SizedBox(width: 12),
+                          GestureDetector(
+                            onTap: () =>
+                                unawaited(_confirmDelete(context, ref)),
+                            child: Text(
+                              'Удалить',
+                              style: AppTypography.button.copyWith(
+                                fontSize: 12,
+                                color: AppColors.secondaryInk,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),

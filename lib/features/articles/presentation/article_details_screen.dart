@@ -18,8 +18,11 @@ import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/article_comments_section.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_block_view.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_images.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/tag_chip_picker.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/places/application/places_providers.dart';
+import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class ArticleDetailsScreen extends ConsumerWidget {
@@ -192,7 +195,13 @@ class _ArticleBody extends ConsumerWidget {
           ],
           if (article.relatedRouteId case final routeId?) ...[
             const SizedBox(height: 4),
-            _RelatedRouteCard(routeId: routeId),
+            _RelatedEntityCard(routeId: routeId),
+            const SizedBox(height: 24),
+          ] else if (article.relatedPlaceId case final placeId?) ...[
+            // Привязка к месту раньше нигде не показывалась: автор её
+            // выбирал в редакторе, а читатель об этом не узнавал.
+            const SizedBox(height: 4),
+            _RelatedEntityCard(placeId: placeId),
             const SizedBox(height: 24),
           ],
           _RelatedArticlesSection(articleId: article.id),
@@ -395,11 +404,11 @@ class _ReactionsPanel extends ConsumerWidget {
                         ? Icons.favorite_rounded
                         : Icons.favorite_border_rounded,
                     size: 20,
-                    color: !canLike
-                        ? AppColors.secondaryInk
-                        : likedByMe
+                    // На скрине дизайнера контур сердца синий и до лайка —
+                    // это приглашение нажать, а не состояние «уже нравится».
+                    color: canLike
                         ? AppColors.accentBlue
-                        : AppColors.primaryInk,
+                        : AppColors.secondaryInk,
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -510,7 +519,7 @@ class _SaveButton extends ConsumerWidget {
           child: Icon(
             saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
             size: 21,
-            color: saved ? AppColors.accentBlue : AppColors.primaryInk,
+            color: AppColors.accentBlue,
           ),
         ),
       ),
@@ -704,47 +713,118 @@ class _OwnerArticleStatusBanner extends StatelessWidget {
   }
 }
 
-class _RelatedRouteCard extends StatelessWidget {
-  const _RelatedRouteCard({required this.routeId});
+/// Карточка привязки внизу статьи: обложка, название и подпись — со скрина
+/// «Страница блога». До этого здесь была одна строка «Статья о маршруте»
+/// без самого маршрута, и понять, куда ведёт стрелка, было нельзя.
+class _RelatedEntityCard extends ConsumerWidget {
+  const _RelatedEntityCard({this.routeId, this.placeId})
+    : assert(
+        (routeId == null) != (placeId == null),
+        'карточка привязана либо к маршруту, либо к месту',
+      );
 
-  final String routeId;
+  final String? routeId;
+  final String? placeId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final config = ref.watch(appConfigProvider);
+    final isRoute = routeId != null;
+    final (String? name, String? coverUrl) = isRoute
+        ? switch (ref.watch(routeDetailProvider(routeId!))) {
+            AsyncData(:final value) => (value.name, value.coverImageUrl),
+            _ => (null, null),
+          }
+        : switch (ref.watch(placeDetailProvider(placeId!))) {
+            AsyncData(:final value) => (value.name, value.coverImageUrl),
+            _ => (null, null),
+          };
+    final subtitle = isRoute ? 'Статья о маршруте' : 'Статья о месте';
+
     return Material(
-      color: AppColors.controlSurface,
+      color: AppColors.elevatedSurface,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        // Standalone-вариант деталей маршрута: он объявлен на корневом
-        // навигаторе, поэтому статья остаётся под ним и возврат ведёт обратно
-        // в неё. Push в `/routes/:id` (маршрут ветки таба) отсюда роняет
-        // Navigator и даёт пустой экран.
+        // Standalone-варианты деталей: они объявлены на корневом навигаторе,
+        // поэтому статья остаётся под ними и возврат ведёт обратно в неё.
+        // Push в маршрут ветки таба отсюда роняет Navigator и даёт пустой
+        // экран (баг 2026-09-03).
         onTap: () => unawaited(
-          context.pushNamed(
-            AppRouteNames.routeDetailsStandalone,
-            pathParameters: {'id': routeId},
-          ),
+          isRoute
+              ? context.pushNamed(
+                  AppRouteNames.routeDetailsStandalone,
+                  pathParameters: {'id': routeId!},
+                )
+              : context.pushNamed(
+                  AppRouteNames.placeDetailsStandalone,
+                  pathParameters: {'id': placeId!},
+                ),
         ),
-        child: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Row(
-            children: [
-              Icon(Icons.route_outlined, color: AppColors.primaryInk),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Статья о маршруте',
-                  style: TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryInk,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFEDEDEE)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: SizedBox.square(
+                    dimension: 48,
+                    child: name == null
+                        ? const ColoredBox(
+                            color: AppColors.controlSurface,
+                            child: Icon(
+                              Icons.route_outlined,
+                              size: 20,
+                              color: AppColors.secondaryInk,
+                            ),
+                          )
+                        : Image(
+                            image: articleImageProvider(
+                              config: config,
+                              url: coverUrl,
+                              fallbackSeed: routeId ?? placeId!,
+                            ),
+                            fit: BoxFit.cover,
+                          ),
                   ),
                 ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: AppColors.secondaryInk),
-            ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Пока название едет, карточка показывает только
+                      // подпись — прыжка высоты нет, строка одна и та же.
+                      if (name != null)
+                        Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.settingsRowTitle.copyWith(
+                            fontSize: 15,
+                          ),
+                        ),
+                      Text(
+                        subtitle,
+                        style: AppTypography.settingsRowSubtitle.copyWith(
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: AppColors.secondaryInk,
+                ),
+              ],
+            ),
           ),
         ),
       ),

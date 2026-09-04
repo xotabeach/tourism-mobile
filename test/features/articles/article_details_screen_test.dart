@@ -255,6 +255,59 @@ void main() {
       );
     });
 
+    testWidgets('a comment shows the author rank and folds a long body', (
+      tester,
+    ) async {
+      final article = _articleWith();
+      final comments = [
+        ArticleComment(
+          id: 'c1',
+          articleId: article.id,
+          authorUserId: 'other-user',
+          authorDisplayName: 'Никита',
+          authorRankTitle: 'Продвинутый пешеход',
+          body:
+              'По-моему скромному мнению, если смотреть через призму моего '
+              'пешеходного опыта, маршрут не достаточно интересен с точки '
+              'зрения сложности, не смотря на третий уровень. В остальном '
+              'новичкам подойдёт: набережная, канатка и один переезд между '
+              'посёлками, всё размечено и понятно даже без карты.',
+          status: ArticleCommentStatus.published,
+          createdAt: DateTime.now().toUtc(),
+        ),
+      ];
+      await _pump(tester, article: article, comments: comments);
+
+      // Ранг под именем и «Читать полностью» — со скрина «Страница блога».
+      expect(find.text('Продвинутый пешеход'), findsOneWidget);
+      final expand = find.byKey(const ValueKey('article-comment-expand'));
+      expect(expand, findsOneWidget);
+      expect(find.text('Читать полностью'), findsOneWidget);
+
+      await tester.ensureVisible(expand);
+      await tester.tap(expand);
+      await tester.pumpAndSettle();
+      expect(find.text('Свернуть'), findsOneWidget);
+    });
+
+    testWidgets('a short comment gets no "Читать полностью"', (tester) async {
+      final article = _articleWith();
+      final comments = [
+        ArticleComment(
+          id: 'c1',
+          articleId: article.id,
+          authorUserId: 'other-user',
+          authorDisplayName: 'Мария',
+          body: 'Отличный маршрут!',
+          status: ArticleCommentStatus.published,
+          createdAt: DateTime.now().toUtc(),
+        ),
+      ];
+      await _pump(tester, article: article, comments: comments);
+
+      expect(find.text('Читать полностью'), findsNothing);
+    });
+
     testWidgets('indents a reply under its parent comment', (tester) async {
       final article = _articleWith();
       final now = DateTime.now().toUtc();

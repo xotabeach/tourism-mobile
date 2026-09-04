@@ -430,6 +430,7 @@ class ArticleComment {
     required this.status,
     required this.createdAt,
     this.authorAvatarUrl,
+    this.authorRankTitle,
     this.replyToCommentId,
   });
 
@@ -438,6 +439,9 @@ class ArticleComment {
   final String authorUserId;
   final String authorDisplayName;
   final String? authorAvatarUrl;
+
+  /// Ранг автора под именем — как на макете страницы блога.
+  final String? authorRankTitle;
   final String body;
   final ArticleCommentStatus status;
   final String? replyToCommentId;
@@ -451,6 +455,7 @@ class ArticleComment {
       authorDisplayName:
           json['author_display_name'] as String? ?? 'Путешественник',
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorRankTitle: json['author_rank_title'] as String?,
       body: json['body'] as String? ?? '',
       status: ArticleCommentStatus.fromApi(json['status'] as String?),
       replyToCommentId: json['reply_to_comment_id'] as String?,

@@ -60,6 +60,7 @@ abstract final class AppRouteNames {
   static const articleDetails = 'article-details';
   static const routeDetailsStandalone = 'route-details-standalone';
   static const userProfileStandalone = 'user-profile-standalone';
+  static const placeDetailsStandalone = 'place-details-standalone';
   static const articleEditor = 'article-editor';
   static const chatHistory = 'chat-history';
   static const routePublish = 'route-publish';
@@ -195,6 +196,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return CupertinoPage<void>(
             key: state.pageKey,
             child: StandaloneRouteDetailsScreen(routeId: id),
+          );
+        },
+      ),
+      GoRoute(
+        // Место, открытое из статьи, — по той же причине, что и маршрут
+        // выше: `/home/places/:id` живёт в ветке таба «Главная».
+        name: AppRouteNames.placeDetailsStandalone,
+        path: '/place/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) {
+          final id = state.pathParameters['id']!;
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: PlaceDetailsScreen(placeId: id),
           );
         },
       ),

@@ -21,9 +21,10 @@ class TagChipPicker extends StatefulWidget {
     super.key,
   }) : displayOnly = false;
 
-  /// Read-only row of an article's own tags (the reading screen). Renders the
-  /// quieter filled-light chip from the design rather than the editor's
-  /// dark selected/outlined unselected pair — nothing here is a control.
+  /// Read-only row of an article's own tags (the reading screen). Тёмно-серая
+  /// «таблетка» со светлым текстом — со скрина «Страница блога» (замер
+  /// заливки #5E5E5E). Светлый чип, который был здесь раньше, спорил с
+  /// чипами-фильтрами: те выбираются, эти — просто подпись.
   const TagChipPicker.display({required this.tags, super.key})
     : selected = const {},
       onToggle = null,
@@ -148,12 +149,12 @@ class _TagChip extends StatelessWidget {
     final chip = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       padding: EdgeInsets.symmetric(
-        horizontal: displayOnly ? 13 : 15,
-        vertical: displayOnly ? 6 : 8,
+        horizontal: displayOnly ? 14 : 15,
+        vertical: displayOnly ? 7 : 8,
       ),
       decoration: BoxDecoration(
         color: displayOnly
-            ? const Color(0xFFF0F0F0)
+            ? const Color(0xFF5E5E5E)
             : selected
             ? AppColors.primaryInk
             : Colors.transparent,
@@ -169,8 +170,8 @@ class _TagChip extends StatelessWidget {
       child: Text(
         label,
         style: AppTypography.chip.copyWith(
-          fontSize: displayOnly ? 12 : 13,
-          color: selected && !displayOnly ? Colors.white : AppColors.primaryInk,
+          fontSize: 13,
+          color: displayOnly || selected ? Colors.white : AppColors.primaryInk,
           fontWeight: FontWeight.w500,
         ),
       ),
