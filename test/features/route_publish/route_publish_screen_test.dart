@@ -350,6 +350,10 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
   Future<void> discardDraft(String routeId) async => discarded.add(routeId);
 
   @override
+  Future<RouteDraft> loadForEdit(String routeId) async =>
+      RouteDraft(serverId: routeId);
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async {
     saved++;
     return RoutePublicationReceipt(

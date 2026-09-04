@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_expert_style.dart';
@@ -17,6 +16,7 @@ import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
@@ -25,6 +25,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/reviews/presentation/entity_reviews_section.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
+import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -445,20 +446,68 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   }
 
   Future<void> _editOwnRoute(RouteDetail route) async {
-    final draft = await ref.read(routeDraftRepositoryProvider).load();
+    final drafts = ref.read(routeDraftRepositoryProvider);
+    final local = await drafts.load();
     if (!mounted) return;
-    if (draft?.serverId == route.id) {
-      unawaited(
-        Navigator.of(context).push(
-          MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen()),
-        ),
-      );
+    if (local?.serverId == route.id) {
+      _openPublishScreen();
       return;
     }
-    _showMessage(
-      'Продолжить редактирование можно только на устройстве, где начат '
-      'черновик. Полное редактирование опубликованного маршрута появится '
-      'позже.',
+    // Черновик лежит локально, поэтому на другом телефоне его нет. Тянем
+    // маршрут с сервера и кладём в то же локальное хранилище, из которого
+    // читает редактор — правка перестаёт быть привязанной к устройству
+    // (жалоба 2026-09-04).
+    if (local != null && local.hasMeaningfulContent) {
+      final replace = await _confirmReplaceLocalDraft(local);
+      if (replace != true || !mounted) return;
+    }
+    try {
+      final remote = await ref
+          .read(routePublicationRepositoryProvider)
+          .loadForEdit(route.id);
+      await drafts.save(remote);
+      if (!mounted) return;
+      _openPublishScreen();
+    } on AppFailure catch (error) {
+      if (mounted) _showMessage(error.message);
+    } on Object {
+      if (mounted) _showMessage('Не удалось открыть маршрут для правки');
+    }
+  }
+
+  void _openPublishScreen() {
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen()),
+      ),
+    );
+  }
+
+  /// Загрузка чужого маршрута затрёт незавершённый черновик — спрашиваем.
+  Future<bool?> _confirmReplaceLocalDraft(RouteDraft local) {
+    final title = local.title.trim();
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Заменить черновик?'),
+        content: Text(
+          title.isEmpty
+              ? 'На этом устройстве есть незаконченный черновик. Он будет '
+                    'заменён этим маршрутом.'
+              : 'На этом устройстве есть незаконченный черновик «$title». '
+                    'Он будет заменён этим маршрутом.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Заменить'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -529,9 +578,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
           label: 'Пожаловаться на маршрут',
           onSelected: () => _reportRoute(route),
         ),
-        if (isOwner &&
-            (route.publicationStatus == 'draft' ||
-                route.publicationStatus == 'rejected'))
+        // Править можно и опубликованный маршрут: сохранение вернёт его на
+        // проверку, как и у статей.
+        if (isOwner && route.publicationStatus != 'archived')
           RouteMenuAction(
             icon: Icons.edit_outlined,
             label: 'Редактировать',

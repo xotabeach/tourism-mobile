@@ -17,6 +17,61 @@ final class ApiRoutePublicationRepository
   }
 
   @override
+  Future<RouteDraft> loadForEdit(String routeId) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/routes/$routeId/editable',
+      );
+      return _draftFromJson(response.data!);
+    });
+  }
+
+  /// Rebuilds the editor draft from the server payload.
+  ///
+  /// `place_ids` is sent flattened as start + stops + finish (see [_payload]),
+  /// so it is unflattened the same way here. A two-stop route is start and
+  /// finish with nothing between them.
+  RouteDraft _draftFromJson(Map<String, dynamic> json) {
+    final places = (json['places'] as List<dynamic>? ?? const [])
+        .cast<Map<String, dynamic>>()
+        .map(
+          (item) => RouteLocation(
+            id: item['id'] as String,
+            name: item['name'] as String? ?? '',
+            subtitle: item['subtitle'] as String? ?? '',
+            lat: (item['lat'] as num?)?.toDouble() ?? 0,
+            lng: (item['lng'] as num?)?.toDouble() ?? 0,
+          ),
+        )
+        .toList();
+    final middle = places.length > 2
+        ? places.sublist(1, places.length - 1)
+        : const <RouteLocation>[];
+    return RouteDraft(
+      serverId: json['id'] as String,
+      publicationStatus: RoutePublicationStatus.fromApi(
+        json['publication_status'] as String?,
+      ),
+      title: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      start: places.isNotEmpty ? places.first : null,
+      finish: places.length > 1 ? places.last : null,
+      stops: [
+        for (final place in middle) RouteStopDraft(location: place),
+      ],
+      filters: (json['filters'] as List<dynamic>? ?? const [])
+          .map((item) => item as String)
+          .toList(),
+      pace: TravelPace.values.firstWhere(
+        (value) => value.name == json['pace'],
+        orElse: () => TravelPace.calm,
+      ),
+      difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '')?.toUtc(),
+    );
+  }
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -98,6 +153,12 @@ final class InMemoryRoutePublicationRepository
 
   @override
   Future<void> discardDraft(String routeId) async {}
+
+  @override
+  Future<RouteDraft> loadForEdit(String routeId) async {
+    // Mock mode has no server copy; the local draft is the only one there is.
+    return RouteDraft(serverId: routeId);
+  }
 
   @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async {

@@ -16,6 +16,13 @@ final class UnavailableRoutePublicationRepository
   }
 
   @override
+  Future<RouteDraft> loadForEdit(String routeId) {
+    throw const UnexpectedFailure(
+      'Сервис публикации ещё не подключён — маршрут нельзя открыть на правку.',
+    );
+  }
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
     return _unavailable();
   }

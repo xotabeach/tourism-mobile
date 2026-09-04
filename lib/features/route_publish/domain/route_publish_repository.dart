@@ -9,6 +9,13 @@ abstract interface class RouteDraftRepository {
 }
 
 abstract interface class RoutePublicationRepository {
+  /// Own route pulled back from the server in editor shape.
+  ///
+  /// The local draft only exists on the device that started it, so without
+  /// this an author could not resume editing anywhere else — the app said
+  /// as much and stopped there (reported 2026-09-04).
+  Future<RouteDraft> loadForEdit(String routeId);
+
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft);
 
   Future<RoutePublicationReceipt> submit(RouteDraft draft);

@@ -330,7 +330,7 @@ void main() {
 /// the backend re-queues it for moderation on the edit itself, and calling
 /// submit on it answers 409 (2026-09-04).
 void _publishedEditingTests() {
-  Article _published() => Article(
+  Article published() => Article(
     id: 'article-live',
     title: 'Уже опубликована',
     status: ArticleStatus.published,
@@ -349,7 +349,7 @@ void _publishedEditingTests() {
   );
 
   test('a published article opens for editing but offers no submit', () async {
-    final repository = _FakeRepository(existing: _published());
+    final repository = _FakeRepository(existing: published());
     final controller = _controller(repository, articleId: 'article-live');
     await Future<void>.delayed(Duration.zero);
 
