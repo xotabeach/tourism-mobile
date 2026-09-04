@@ -318,7 +318,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    expect(find.text('Никита Можаров'), findsOneWidget);
+    // Имя встречается дважды: строкой подсказки и карточкой человека.
+    expect(find.text('Никита Можаров'), findsWidgets);
     expect(find.byType(DiscoveryProfileCard), findsOneWidget);
     expect(find.byType(RouteHeroCard), findsWidgets);
   });
@@ -447,7 +448,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Бахчисарая'), findsOneWidget);
+    // Название встречается и строкой подсказки, и карточкой маршрута.
+    expect(find.textContaining('Бахчисарая'), findsWidgets);
     expect(find.text('Классика Южного берега'), findsNothing);
 
     await tester.tap(find.byIcon(Icons.close_rounded));

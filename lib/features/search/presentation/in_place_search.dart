@@ -205,9 +205,50 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
                     : const <PlaceSummary>[]);
         }
 
+        final suggestions = searching
+            ? _suggestionsFor(
+                context,
+                query: trimmed,
+                people: showPeople ? people : const [],
+                routes: showRoutes ? routes : const [],
+                places: showPlaces ? places : const [],
+                articles: articles,
+              )
+            : const <_Suggestion>[];
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Подсказки идут первыми: по названию человек попадает сразу в
+            // нужное место, не пролистывая карусели карточек.
+            if (suggestions.isNotEmpty) ...[
+              const _SearchSectionTitle('Подсказки:'),
+              const SizedBox(height: 8),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.elevatedSurface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFEDEDEE)),
+                ),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < suggestions.length; i++) ...[
+                      if (i > 0)
+                        const Divider(
+                          height: 1,
+                          indent: 44,
+                          color: Color(0xFFEDEDEE),
+                        ),
+                      _SuggestionTile(
+                        suggestion: suggestions[i],
+                        query: trimmed,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+            ],
             if (history.isNotEmpty) ...[
               const _SearchSectionTitle('История:'),
               const SizedBox(height: 8),
@@ -410,6 +451,73 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
           return haystack.contains(needle);
         })
         .toList(growable: false);
+  }
+
+  /// До шести подсказок по названию: сначала те, что начинаются с запроса,
+  /// потом остальные совпадения. Порядок типов — места, маршруты, люди,
+  /// блоги: в поиске по названию чаще ищут точку на карте.
+  List<_Suggestion> _suggestionsFor(
+    BuildContext context, {
+    required String query,
+    required List<PublicUserProfile> people,
+    required List<RouteSummary> routes,
+    required List<PlaceSummary> places,
+    required List<ArticleSummary> articles,
+  }) {
+    final needle = query.toLowerCase();
+    final all = <_Suggestion>[
+      for (final place in places)
+        _Suggestion(
+          title: place.name,
+          subtitle: 'Локация',
+          icon: Icons.place_outlined,
+          onTap: () => unawaited(
+            context.pushNamed(
+              AppRouteNames.placeDetails,
+              pathParameters: {'id': place.id},
+            ),
+          ),
+        ),
+      for (final route in routes)
+        _Suggestion(
+          title: route.name,
+          subtitle: 'Маршрут',
+          icon: Icons.route_outlined,
+          onTap: () => unawaited(
+            context.pushNamed(
+              AppRouteNames.routeDetails,
+              pathParameters: {'id': route.id},
+            ),
+          ),
+        ),
+      for (final profile in people)
+        _Suggestion(
+          title: profile.displayName,
+          subtitle: profile.rankTitle,
+          icon: Icons.person_outline_rounded,
+          onTap: () => _openProfile(context, profile),
+        ),
+      for (final article in articles)
+        _Suggestion(
+          title: article.title,
+          subtitle: 'Блог',
+          icon: Icons.article_outlined,
+          onTap: () => unawaited(
+            context.pushNamed(
+              AppRouteNames.articleDetails,
+              pathParameters: {'id': article.id},
+            ),
+          ),
+        ),
+    ];
+    final matching =
+        all.where((item) => item.title.toLowerCase().contains(needle)).toList()
+          ..sort((a, b) {
+            final aStarts = a.title.toLowerCase().startsWith(needle) ? 0 : 1;
+            final bStarts = b.title.toLowerCase().startsWith(needle) ? 0 : 1;
+            return aStarts.compareTo(bStarts);
+          });
+    return matching.take(6).toList(growable: false);
   }
 
   void _openProfile(BuildContext context, PublicUserProfile profile) {
@@ -689,6 +797,82 @@ class _PlaceHeroSearchCard extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Одна подсказка: тип, название и переход в сам объект.
+class _Suggestion {
+  const _Suggestion({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+}
+
+class _SuggestionTile extends StatelessWidget {
+  const _SuggestionTile({required this.suggestion, required this.query});
+
+  final _Suggestion suggestion;
+  final String query;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: suggestion.onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+        child: Row(
+          children: [
+            Icon(suggestion.icon, size: 20, color: AppColors.secondaryInk),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text.rich(
+                _highlighted(suggestion.title, query),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              suggestion.subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Совпавшая часть выделяется жирным — так видно, почему подсказка здесь.
+  TextSpan _highlighted(String title, String query) {
+    const base = TextStyle(
+      fontFamily: AppFonts.rubik,
+      fontSize: 14,
+      color: AppColors.primaryInk,
+    );
+    final index = title.toLowerCase().indexOf(query.toLowerCase());
+    if (index < 0) {
+      return TextSpan(text: title, style: base);
+    }
+    return TextSpan(
+      style: base,
+      children: [
+        TextSpan(text: title.substring(0, index)),
+        TextSpan(
+          text: title.substring(index, index + query.length),
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        TextSpan(text: title.substring(index + query.length)),
+      ],
     );
   }
 }
