@@ -40,8 +40,7 @@ class EditorBlock {
   final BlockUploadStatus uploadStatus;
 
   bool get hasContent => switch (type) {
-    ArticleBlockType.text ||
-    ArticleBlockType.quote => text.trim().isNotEmpty,
+    ArticleBlockType.text || ArticleBlockType.quote => text.trim().isNotEmpty,
     ArticleBlockType.list => listItems.isNotEmpty,
     ArticleBlockType.image => imageUrl != null || pendingImagePath != null,
     ArticleBlockType.divider => true,
@@ -89,10 +88,13 @@ class EditorBlock {
       textContent: switch (type) {
         ArticleBlockType.text ||
         ArticleBlockType.quote => text.trim().isEmpty ? null : text.trim(),
-        ArticleBlockType.list => listItems.isEmpty ? null : listItems.join('\n'),
+        ArticleBlockType.list =>
+          listItems.isEmpty ? null : listItems.join('\n'),
         ArticleBlockType.image || ArticleBlockType.divider => null,
       },
-      caption: type == ArticleBlockType.quote && (caption?.trim().isNotEmpty ?? false)
+      caption:
+          type == ArticleBlockType.quote &&
+              (caption?.trim().isNotEmpty ?? false)
           ? caption!.trim()
           : null,
       listStyle: type == ArticleBlockType.list
@@ -145,17 +147,25 @@ class ArticleEditorState {
   bool get hasAnyContent =>
       title.trim().isNotEmpty || blocks.any((block) => block.hasContent);
 
+  /// Submitting only makes sense before the article has been through
+  /// moderation. One already in the queue has nothing to submit, and
+  /// editing a published one re-queues it by itself.
+  bool get canSubmitAtAll =>
+      status == ArticleStatus.draft || status == ArticleStatus.rejected;
+
   /// The backend rejects an empty article on submit, so the button is gated
   /// on the same rule instead of waiting for the 400.
   bool get canSubmit =>
+      canSubmitAtAll &&
       !submitting &&
       title.trim().isNotEmpty &&
       blocks.any((block) => block.hasContent) &&
-      blocks.every((block) => block.uploadStatus != BlockUploadStatus.uploading);
+      blocks.every(
+        (block) => block.uploadStatus != BlockUploadStatus.uploading,
+      );
 
-  int get imageCount => blocks
-      .where((block) => block.type == ArticleBlockType.image)
-      .length;
+  int get imageCount =>
+      blocks.where((block) => block.type == ArticleBlockType.image).length;
 
   ArticleEditorState copyWith({
     String? articleId,
@@ -182,11 +192,15 @@ class ArticleEditorState {
       title: title ?? this.title,
       tags: tags ?? this.tags,
       blocks: blocks ?? this.blocks,
-      relatedRouteId: clearRelated ? null : relatedRouteId ?? this.relatedRouteId,
+      relatedRouteId: clearRelated
+          ? null
+          : relatedRouteId ?? this.relatedRouteId,
       relatedRouteName: clearRelated
           ? null
           : relatedRouteName ?? this.relatedRouteName,
-      relatedPlaceId: clearRelated ? null : relatedPlaceId ?? this.relatedPlaceId,
+      relatedPlaceId: clearRelated
+          ? null
+          : relatedPlaceId ?? this.relatedPlaceId,
       relatedPlaceName: clearRelated
           ? null
           : relatedPlaceName ?? this.relatedPlaceName,
@@ -275,7 +289,11 @@ class ArticleEditorController extends StateNotifier<ArticleEditorState> {
       );
     } on AppFailure catch (error) {
       if (!mounted) return;
-      state = state.copyWith(loading: false, message: error.message, messageSerial: ++_messageSerial);
+      state = state.copyWith(
+        loading: false,
+        message: error.message,
+        messageSerial: ++_messageSerial,
+      );
     } on Object {
       if (!mounted) return;
       state = state.copyWith(
@@ -386,16 +404,16 @@ class ArticleEditorController extends StateNotifier<ArticleEditorState> {
   }
 
   void attachRoute({required String id, required String name}) {
-    state = state.copyWith(
-      clearRelated: true,
-    ).copyWith(relatedRouteId: id, relatedRouteName: name);
+    state = state
+        .copyWith(clearRelated: true)
+        .copyWith(relatedRouteId: id, relatedRouteName: name);
     _touch();
   }
 
   void attachPlace({required String id, required String name}) {
-    state = state.copyWith(
-      clearRelated: true,
-    ).copyWith(relatedPlaceId: id, relatedPlaceName: name);
+    state = state
+        .copyWith(clearRelated: true)
+        .copyWith(relatedPlaceId: id, relatedPlaceName: name);
     _touch();
   }
 

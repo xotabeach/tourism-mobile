@@ -199,16 +199,22 @@ void main() {
       expect(find.text('Черновик'), findsOneWidget);
     });
 
-    testWidgets('shows nothing for a published article, even to its author', (
+    testWidgets('warns the author that editing a live article re-queues it', (
       tester,
     ) async {
+      // Editing a published article is allowed, but it goes back through
+      // moderation — otherwise the review could be walked around by
+      // replacing the text after approval. The author has to know that
+      // before they tap Редактировать (2026-09-04).
       final article = _articleWith(
         status: ArticleStatus.published,
         authorUserId: _ownerId,
       );
       await _pump(tester, article: article);
 
-      expect(find.byKey(const ValueKey('article-owner-status')), findsNothing);
+      expect(find.byKey(const ValueKey('article-owner-status')), findsOneWidget);
+      expect(find.textContaining('повторную проверку'), findsOneWidget);
+      expect(find.text('Редактировать'), findsOneWidget);
     });
 
     testWidgets('shows nothing to a viewer who is not the author', (

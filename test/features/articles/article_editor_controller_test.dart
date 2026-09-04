@@ -20,7 +20,11 @@ class _FakeRepository implements ArticlesRepository {
   var submitted = false;
   var _articleCounter = 0;
 
-  Article _articleFrom(String id, List<ArticleBlockDraft> blocks, String title) {
+  Article _articleFrom(
+    String id,
+    List<ArticleBlockDraft> blocks,
+    String title,
+  ) {
     return Article(
       id: id,
       title: title,
@@ -126,6 +130,7 @@ ArticleEditorController _controller(
 }
 
 void main() {
+  _publishedEditingTests();
   test('a draft with no title is not saved, however much is typed', () async {
     final repository = _FakeRepository();
     final controller = _controller(repository)
@@ -138,73 +143,88 @@ void main() {
     expect(controller.state.savedAt, isNull);
   });
 
-  test('the first save creates a draft and adopts the server block ids', () async {
-    final repository = _FakeRepository();
-    final controller = _controller(repository)
-      ..setTitle('Заголовок')
-      ..addBlock(ArticleBlockType.text)
-      ..editBlockText('block-0', 'Абзац');
+  test(
+    'the first save creates a draft and adopts the server block ids',
+    () async {
+      final repository = _FakeRepository();
+      final controller = _controller(repository)
+        ..setTitle('Заголовок')
+        ..addBlock(ArticleBlockType.text)
+        ..editBlockText('block-0', 'Абзац');
 
-    await controller.save();
+      await controller.save();
 
-    expect(repository.createCalls, hasLength(1));
-    expect(controller.state.articleId, 'article-1');
-    expect(controller.state.blocks.single.serverId, 'server-block-0');
-    expect(controller.state.savedAt, isNotNull);
+      expect(repository.createCalls, hasLength(1));
+      expect(controller.state.articleId, 'article-1');
+      expect(controller.state.blocks.single.serverId, 'server-block-0');
+      expect(controller.state.savedAt, isNotNull);
 
-    // A second save updates rather than creating a duplicate.
-    controller.setTitle('Заголовок 2');
-    await controller.save();
-    expect(repository.createCalls, hasLength(1));
-    expect(repository.updateCalls, hasLength(1));
+      // A second save updates rather than creating a duplicate.
+      controller.setTitle('Заголовок 2');
+      await controller.save();
+      expect(repository.createCalls, hasLength(1));
+      expect(repository.updateCalls, hasLength(1));
 
-    // ...and it names the blocks it is updating. Without the server id the
-    // backend cannot tell this is the same block, so it re-creates it empty
-    // and archives the uploaded photo — images vanished on the next edit
-    // (2026-09-03).
-    expect(repository.updateCalls.single.single.id, 'server-block-0');
-  });
+      // ...and it names the blocks it is updating. Without the server id the
+      // backend cannot tell this is the same block, so it re-creates it empty
+      // and archives the uploaded photo — images vanished on the next edit
+      // (2026-09-03).
+      expect(repository.updateCalls.single.single.id, 'server-block-0');
+    },
+  );
 
-  test('an image is uploaded only after the save that mints its block id', () async {
-    final repository = _FakeRepository();
-    final controller = _controller(repository)
-      ..setTitle('С картинкой')
-      ..addBlock(ArticleBlockType.image)
-      ..attachImage('block-0', '/tmp/photo.jpg');
+  test(
+    'an image is uploaded only after the save that mints its block id',
+    () async {
+      final repository = _FakeRepository();
+      final controller = _controller(repository)
+        ..setTitle('С картинкой')
+        ..addBlock(ArticleBlockType.image)
+        ..attachImage('block-0', '/tmp/photo.jpg');
 
-    expect(
-      controller.state.blocks.single.uploadStatus,
-      BlockUploadStatus.waitingForSave,
-    );
-    expect(repository.uploads, isEmpty);
+      expect(
+        controller.state.blocks.single.uploadStatus,
+        BlockUploadStatus.waitingForSave,
+      );
+      expect(repository.uploads, isEmpty);
 
-    await controller.save();
+      await controller.save();
 
-    expect(repository.uploads, hasLength(1));
-    expect(repository.uploads.single.blockId, 'server-block-0');
-    expect(repository.uploads.single.path, '/tmp/photo.jpg');
-    expect(controller.state.blocks.single.uploadStatus, BlockUploadStatus.none);
-    expect(controller.state.blocks.single.imageUrl, isNotNull);
-  });
+      expect(repository.uploads, hasLength(1));
+      expect(repository.uploads.single.blockId, 'server-block-0');
+      expect(repository.uploads.single.path, '/tmp/photo.jpg');
+      expect(
+        controller.state.blocks.single.uploadStatus,
+        BlockUploadStatus.none,
+      );
+      expect(controller.state.blocks.single.imageUrl, isNotNull);
+    },
+  );
 
-  test('a failed upload is retried on its own, without re-saving the article', () async {
-    final repository = _FakeRepository(failUpload: true);
-    final controller = _controller(repository)
-      ..setTitle('С картинкой')
-      ..addBlock(ArticleBlockType.image)
-      ..attachImage('block-0', '/tmp/photo.jpg');
+  test(
+    'a failed upload is retried on its own, without re-saving the article',
+    () async {
+      final repository = _FakeRepository(failUpload: true);
+      final controller = _controller(repository)
+        ..setTitle('С картинкой')
+        ..addBlock(ArticleBlockType.image)
+        ..attachImage('block-0', '/tmp/photo.jpg');
 
-    await controller.save();
-    expect(controller.state.blocks.single.uploadStatus, BlockUploadStatus.failed);
-    expect(repository.createCalls, hasLength(1));
+      await controller.save();
+      expect(
+        controller.state.blocks.single.uploadStatus,
+        BlockUploadStatus.failed,
+      );
+      expect(repository.createCalls, hasLength(1));
 
-    await controller.retryUpload('block-0');
+      await controller.retryUpload('block-0');
 
-    // Two upload attempts, still exactly one article write.
-    expect(repository.uploads, hasLength(2));
-    expect(repository.createCalls, hasLength(1));
-    expect(repository.updateCalls, isEmpty);
-  });
+      // Two upload attempts, still exactly one article write.
+      expect(repository.uploads, hasLength(2));
+      expect(repository.createCalls, hasLength(1));
+      expect(repository.updateCalls, isEmpty);
+    },
+  );
 
   test('reordering blocks changes the order sent to the backend', () async {
     final repository = _FakeRepository();
@@ -218,10 +238,10 @@ void main() {
 
     await controller.save();
 
-    expect(
-      repository.createCalls.single.map((block) => block.textContent),
-      ['Второй', 'Первый'],
-    );
+    expect(repository.createCalls.single.map((block) => block.textContent), [
+      'Второй',
+      'Первый',
+    ]);
   });
 
   test('tags are capped and toggle off again', () {
@@ -303,5 +323,64 @@ void main() {
     expect(repository.createCalls, isEmpty);
     await Future<void>.delayed(const Duration(milliseconds: 40));
     expect(repository.createCalls, hasLength(1));
+  });
+}
+
+/// Editing a published article is allowed, but there is nothing to submit —
+/// the backend re-queues it for moderation on the edit itself, and calling
+/// submit on it answers 409 (2026-09-04).
+void _publishedEditingTests() {
+  Article _published() => Article(
+    id: 'article-live',
+    title: 'Уже опубликована',
+    status: ArticleStatus.published,
+    authorUserId: 'me',
+    authorDisplayName: 'Вы',
+    createdAt: DateTime.utc(2026, 9, 1),
+    publishedAt: DateTime.utc(2026, 9, 2),
+    blocks: const [
+      ArticleBlock(
+        id: 'b1',
+        position: 0,
+        blockType: ArticleBlockType.text,
+        textContent: 'Текст',
+      ),
+    ],
+  );
+
+  test('a published article opens for editing but offers no submit', () async {
+    final repository = _FakeRepository(existing: _published());
+    final controller = _controller(repository, articleId: 'article-live');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.title, 'Уже опубликована');
+    expect(controller.state.status, ArticleStatus.published);
+    expect(controller.state.canSubmitAtAll, isFalse);
+    expect(controller.state.canSubmit, isFalse);
+  });
+
+  test('an article awaiting review offers no submit either', () async {
+    final repository = _FakeRepository(
+      existing: Article(
+        id: 'article-queued',
+        title: 'На проверке',
+        status: ArticleStatus.pendingReview,
+        authorUserId: 'me',
+        authorDisplayName: 'Вы',
+        createdAt: DateTime.utc(2026, 9, 1),
+        blocks: const [
+          ArticleBlock(
+            id: 'b1',
+            position: 0,
+            blockType: ArticleBlockType.text,
+            textContent: 'Текст',
+          ),
+        ],
+      ),
+    );
+    final controller = _controller(repository, articleId: 'article-queued');
+    await Future<void>.delayed(Duration.zero);
+
+    expect(controller.state.canSubmitAtAll, isFalse);
   });
 }

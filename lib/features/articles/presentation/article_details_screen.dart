@@ -554,9 +554,6 @@ class _OwnerArticleStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (status == ArticleStatus.published) {
-      return const SizedBox.shrink();
-    }
     final (icon, label, description) = switch (status) {
       ArticleStatus.pendingReview => (
         Icons.schedule_rounded,
@@ -576,7 +573,8 @@ class _OwnerArticleStatusBanner extends StatelessWidget {
       ArticleStatus.published => (
         Icons.check_circle_outline_rounded,
         'Опубликована',
-        '',
+        'Правки отправят статью на повторную проверку — пока её не одобрят, '
+            'читатели её не увидят.',
       ),
       ArticleStatus.deleted => (Icons.delete_outline_rounded, 'Удалена', ''),
     };
@@ -608,8 +606,10 @@ class _OwnerArticleStatusBanner extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (status == ArticleStatus.draft ||
-                        status == ArticleStatus.rejected)
+                    // Править можно всё, кроме удалённой: бэкенд принимает
+                    // черновик, отклонённую, ждущую проверки и уже
+                    // опубликованную (последняя вернётся на модерацию).
+                    if (status != ArticleStatus.deleted)
                       TextButton(
                         onPressed: () => unawaited(
                           context.pushNamed(

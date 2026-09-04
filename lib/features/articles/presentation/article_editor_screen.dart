@@ -1108,37 +1108,42 @@ class _EditorBottomBar extends StatelessWidget {
             // Кнопка по содержимому, а не по доле строки: с flex она
             // растягивалась на весь остаток, и подпись внутри выглядела
             // сдвинутой относительно рамки.
-            Flexible(
-              fit: FlexFit.loose,
-              child: OutlinedButton(
-                onPressed: state.canSubmit
-                    ? () => unawaited(controller.submitForReview())
-                    : null,
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.primaryInk,
-                  side: const BorderSide(
-                    color: AppColors.primaryInk,
-                    width: 1.5,
+            //
+            // Для статьи на модерации и уже опубликованной кнопки нет:
+            // первой отправлять нечего, вторая уйдёт на проверку сама, как
+            // только правки сохранятся.
+            if (state.canSubmitAtAll)
+              Flexible(
+                fit: FlexFit.loose,
+                child: OutlinedButton(
+                  onPressed: state.canSubmit
+                      ? () => unawaited(controller.submitForReview())
+                      : null,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primaryInk,
+                    side: const BorderSide(
+                      color: AppColors.primaryInk,
+                      width: 1.5,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.capsule),
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 12,
+                    ),
+                    textStyle: AppTypography.chip.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(AppRadii.capsule),
+                  child: Text(
+                    state.submitting ? 'Отправка…' : 'Отправить на модерацию',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 22,
-                    vertical: 12,
-                  ),
-                  textStyle: AppTypography.chip.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                child: Text(
-                  state.submitting ? 'Отправка…' : 'Отправить на модерацию',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
           ],
         ),
       ),
