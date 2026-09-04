@@ -76,16 +76,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-			<key>night</key>
-			<dict>
-				<key>CFBundleIconFiles</key>
-				<array>
-					<string>AltIcons/AppIcon-night</string>
-				</array>
-				<key>UIPrerenderedIcon</key>
-				<false/>
-			</dict>
-		</dict>
-	</dict>
 </dict>
 </plist>
