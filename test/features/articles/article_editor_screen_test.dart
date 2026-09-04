@@ -72,13 +72,21 @@ Future<_FakeRepository> _pumpEditor(WidgetTester tester) async {
   return repository;
 }
 
+/// Подпись блока и кнопка в панели добавления теперь называются одинаково
+/// («Текст», «Список» — как на макете), поэтому подпись ищем внутри списка
+/// блоков, а не по всему экрану.
+Finder _blockLabel(String label) => find.descendant(
+  of: find.byType(ReorderableListView),
+  matching: find.text(label),
+);
+
 void main() {
   testWidgets('starts empty, with the submit button disabled', (tester) async {
     await _pumpEditor(tester);
 
     // Название экрана в теле, а в шапке — вордмарк (макет 2026-09-04).
     expect(find.text('КРЫМТРИП'), findsOneWidget);
-    expect(find.textContaining('Добавьте первый блок'), findsOneWidget);
+    expect(find.textContaining('Добавить первый блок'), findsOneWidget);
 
     final submit = tester.widget<FilledButton>(
       find.byKey(const ValueKey('editor-publish')),
@@ -94,8 +102,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.notes_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Добавьте первый блок'), findsNothing);
-    expect(find.text('ТЕКСТ'), findsOneWidget);
+    expect(find.textContaining('Добавить первый блок'), findsNothing);
+    expect(_blockLabel('Текст'), findsOneWidget);
   });
 
   testWidgets('each block type adds its own labelled tile', (tester) async {
@@ -103,7 +111,7 @@ void main() {
 
     for (final icon in [
       Icons.notes_rounded,
-      Icons.image_outlined,
+      Icons.add_a_photo_outlined,
       Icons.format_quote_rounded,
       Icons.format_list_bulleted_rounded,
       Icons.horizontal_rule_rounded,
@@ -112,11 +120,48 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    expect(find.text('ТЕКСТ'), findsOneWidget);
-    expect(find.text('КАРТИНКА'), findsOneWidget);
-    expect(find.text('ЦИТАТА'), findsOneWidget);
-    expect(find.text('СПИСОК'), findsOneWidget);
-    expect(find.text('РАЗДЕЛИТЕЛЬ'), findsOneWidget);
+    expect(_blockLabel('Текст'), findsOneWidget);
+    expect(_blockLabel('Картинка'), findsOneWidget);
+    expect(_blockLabel('Цитата'), findsOneWidget);
+    expect(_blockLabel('Список'), findsOneWidget);
+    expect(_blockLabel('Разделитель'), findsOneWidget);
+  });
+
+  testWidgets('an empty photo block shows one upload field, not two', (
+    tester,
+  ) async {
+    await _pumpEditor(tester);
+
+    await tester.tap(find.byIcon(Icons.add_a_photo_outlined));
+    await tester.pumpAndSettle();
+
+    // Пустая миниатюра 40×40 в шапке рядом с большим полем загрузки читалась
+    // как второе такое же поле (сообщено с устройства 2026-09-04).
+    final thumbnails = tester
+        .widgetList<Container>(find.byType(Container))
+        .where((container) {
+          final decoration = container.decoration;
+          return decoration is BoxDecoration && decoration.image != null;
+        });
+    expect(thumbnails, isEmpty);
+    expect(find.byIcon(Icons.add_photo_alternate_outlined), findsOneWidget);
+  });
+
+  testWidgets('the list block picks its style above the text field', (
+    tester,
+  ) async {
+    await _pumpEditor(tester);
+
+    await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded));
+    await tester.pumpAndSettle();
+
+    // Порядок с макета дизайнера: сначала вид списка, потом сами пункты.
+    expect(find.text('Маркеры'), findsOneWidget);
+    expect(find.text('Нумерация'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Маркеры')).dy,
+      lessThan(tester.getTopLeft(find.byType(TextField).last).dy),
+    );
   });
 
   testWidgets('deleting a block removes its tile', (tester) async {
@@ -124,13 +169,13 @@ void main() {
 
     await tester.tap(find.byIcon(Icons.format_quote_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('ЦИТАТА'), findsOneWidget);
+    expect(_blockLabel('Цитата'), findsOneWidget);
 
     await tester.tap(find.byIcon(Icons.delete_outline_rounded));
     await tester.pumpAndSettle();
 
-    expect(find.text('ЦИТАТА'), findsNothing);
-    expect(find.textContaining('Добавьте первый блок'), findsOneWidget);
+    expect(_blockLabel('Цитата'), findsNothing);
+    expect(find.textContaining('Добавить первый блок'), findsOneWidget);
   });
 
   testWidgets('a title plus content enables submitting', (tester) async {
@@ -198,11 +243,16 @@ void main() {
     await tester.pumpAndSettle();
 
     Iterable<String> labelOrder() => tester
-        .widgetList<Text>(find.byType(Text))
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(ReorderableListView),
+            matching: find.byType(Text),
+          ),
+        )
         .map((text) => text.data ?? '')
-        .where((value) => value == 'ТЕКСТ' || value == 'ЦИТАТА');
+        .where((value) => value == 'Текст' || value == 'Цитата');
 
-    expect(labelOrder(), ['ТЕКСТ', 'ЦИТАТА']);
+    expect(labelOrder(), ['Текст', 'Цитата']);
 
     // Свернём второй блок: добавленный открывается сам и высокий, из-за
     // чего перенос пришлось бы тащить сильно дальше.
@@ -226,7 +276,7 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
 
-    expect(labelOrder(), ['ЦИТАТА', 'ТЕКСТ']);
+    expect(labelOrder(), ['Цитата', 'Текст']);
   });
 
   testWidgets('only the first five tapped tags reach the backend', (

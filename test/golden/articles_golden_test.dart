@@ -231,6 +231,48 @@ void main() {
     );
   });
 
+  testWidgets('golden article editor — раскрытый блок списка', (tester) async {
+    await _pumpGolden(
+      tester,
+      const ArticleEditorScreen(articleId: 'article-1'),
+      overrides: [
+        articlesRepositoryProvider.overrideWithValue(
+          _GoldenArticlesRepository(),
+        ),
+      ],
+    );
+    // Вид списка выбирается над полем ввода — порядок с макета дизайнера.
+    // Первый «Список» — плитка блока, второй — кнопка в панели добавления.
+    await tester.tap(find.text('3 пункта'));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/article_editor_list_block.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
+  testWidgets('golden article editor — пустой блок фото', (tester) async {
+    await _pumpGolden(
+      tester,
+      const ArticleEditorScreen(),
+      overrides: [
+        articlesRepositoryProvider.overrideWithValue(
+          _GoldenArticlesRepository(),
+        ),
+      ],
+    );
+    // Пока фото не выбрано, миниатюры в шапке нет: два пустых поля рядом
+    // читались как одно сломанное (устройство, 2026-09-04).
+    await tester.tap(find.byIcon(Icons.add_a_photo_outlined));
+    await tester.pumpAndSettle();
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/article_editor_image_block.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
   testWidgets('golden article reading screen', (tester) async {
     await _pumpGolden(
       tester,

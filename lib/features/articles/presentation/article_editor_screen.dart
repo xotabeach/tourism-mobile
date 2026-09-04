@@ -22,6 +22,17 @@ import 'package:tourism_mobile/features/articles/presentation/article_attach_pic
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_images.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/tag_chip_picker.dart';
 
+/// Размеры экрана сняты со скринов дизайнера («редактирование блога»,
+/// 2026-09-04, 590×1571 при 1.5x): карточка блока — радиус 10, элементы
+/// управления внутри — 9, кнопка привязки — 33 в высоту, переключатель вида
+/// списка — 31. Скругления чуть меньше общих AppRadii.tile: на этом экране
+/// карточек много, и крупные радиусы делают список рыхлым.
+const _blockRadius = 10.0;
+const _controlRadius = 9.0;
+const _attachHeight = 33.0;
+const _segmentHeight = 31.0;
+const _fieldFill = Color(0xFFF1F1F3);
+
 /// Block editor (G.9). Blocks are held locally and pushed as one list on
 /// every save — the backend rebuilds them wholesale — while an image block's
 /// file travels separately, so a failed upload retries by itself.
@@ -205,7 +216,7 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
                           color: Colors.transparent,
                           elevation: 8 * t,
                           shadowColor: Colors.black26,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(_blockRadius),
                           child: inner,
                         ),
                       );
@@ -339,37 +350,48 @@ class _TitleField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    // Счётчик стоит внутри поля справа внизу — так на макете; под полем он
+    // занимал отдельную строку и разрывал ритм экрана.
+    return Stack(
       children: [
         TextField(
           controller: controller,
           onChanged: onChanged,
           maxLength: ArticleLimits.maxTitleLength,
           maxLines: 2,
-          minLines: 1,
+          minLines: 2,
           style: AppTypography.routeTitle.copyWith(
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w500,
             color: AppColors.primaryInk,
           ),
           decoration: InputDecoration(
-            hintText: 'Заголовок статьи',
+            hintText: 'Придумайте заголовок для статьи',
+            hintStyle: AppTypography.settingsRowSubtitle.copyWith(fontSize: 14),
             filled: true,
-            fillColor: const Color(0xFFF0F0F0),
+            fillColor: AppColors.controlSurface,
             counterText: '',
+            contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppRadii.tile),
+              borderRadius: BorderRadius.circular(_blockRadius),
               borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_blockRadius),
+              borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(_blockRadius),
+              borderSide: const BorderSide(color: AppColors.accentBlue),
             ),
           ),
         ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerRight,
+        Positioned(
+          right: 14,
+          bottom: 10,
           child: Text(
             '$length/${ArticleLimits.maxTitleLength}',
-            style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 11),
+            style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 12),
           ),
         ),
       ],
@@ -460,18 +482,19 @@ class _AttachKindOption extends StatelessWidget {
       selected: selected,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(_controlRadius),
         // Кнопка в синей рамке, как на макете, без радио-кружка: выбор всё
         // равно взаимоисключающий (на бэкенде CHECK разрешает либо маршрут,
         // либо место), и это видно по заливке выбранной кнопки.
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
+          height: _attachHeight,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.accentBlue.withValues(alpha: 0.08)
                 : Colors.white,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(_controlRadius),
             border: Border.all(
               color: selected ? AppColors.accentBlue : const Color(0xFFD9D9DB),
               width: selected ? 1.5 : 1,
@@ -597,8 +620,8 @@ class _DragDots extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const SizedBox(
-      width: 14,
-      height: 20,
+      width: 16,
+      height: 18,
       child: CustomPaint(painter: _DragDotsPainter()),
     );
   }
@@ -607,12 +630,26 @@ class _DragDots extends StatelessWidget {
 class _DragDotsPainter extends CustomPainter {
   const _DragDotsPainter();
 
+  /// Значок с макета: три строки и стрелка вверх-вниз рядом — «блок можно
+  /// переставить». Точки-решётка, которые были здесь раньше, на макете не
+  /// встречаются нигде.
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = const Color(0xFFD1D2D4);
-    for (final dy in const [4.0, 10.0, 16.0]) {
-      canvas.drawCircle(Offset(4, dy), 1.6, paint);
-      canvas.drawCircle(Offset(10, dy), 1.6, paint);
+    final stroke = Paint()
+      ..color = const Color(0xFFB9BABE)
+      ..strokeWidth = 1.4
+      ..strokeCap = StrokeCap.round;
+    for (final dy in const [3.0, 9.0, 15.0]) {
+      canvas.drawLine(Offset(0, dy), Offset(8.5, dy), stroke);
+    }
+    const x = 12.5;
+    canvas.drawLine(const Offset(x, 1), const Offset(x, 17), stroke);
+    for (final head in const [
+      [Offset(x, 1), Offset(x - 2.6, 4), Offset(x + 2.6, 4)],
+      [Offset(x, 17), Offset(x - 2.6, 14), Offset(x + 2.6, 14)],
+    ]) {
+      canvas.drawLine(head[0], head[1], stroke);
+      canvas.drawLine(head[0], head[2], stroke);
     }
   }
 
@@ -630,11 +667,11 @@ class _EmptyBlocksHint extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.tile),
+        borderRadius: BorderRadius.circular(_blockRadius),
         border: Border.all(color: const Color(0xFFEDEDEE)),
       ),
       child: const Text(
-        'Добавьте первый блок — текст, фото, цитату, список или разделитель.',
+        'Добавить первый блок — текст, фото, цитату,\nсписок или разделитель',
         textAlign: TextAlign.center,
         style: AppTypography.settingsRowSubtitle,
       ),
@@ -676,7 +713,7 @@ class _BlockEditorTile extends ConsumerWidget {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.tile),
+        borderRadius: BorderRadius.circular(_blockRadius),
         border: Border.all(color: const Color(0xFFEDEDEE)),
       ),
       padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
@@ -714,9 +751,7 @@ class _BlockEditorTile extends ConsumerWidget {
                         Text(
                           _label(block.type),
                           style: AppTypography.settingsRowSubtitle.copyWith(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.02,
+                            fontSize: 12,
                           ),
                         ),
                         if (!expanded) ...[
@@ -758,7 +793,19 @@ class _BlockEditorTile extends ConsumerWidget {
               child: expanded
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _body(context, ref),
+                      children: [
+                        // Тонкая линия под шапкой — как на макете: она
+                        // отделяет управление блоком от его содержимого.
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          child: Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFEDEDEE),
+                          ),
+                        ),
+                        ..._body(context, ref),
+                      ],
                     )
                   : const SizedBox(width: double.infinity),
             ),
@@ -785,6 +832,25 @@ class _BlockEditorTile extends ConsumerWidget {
       case ArticleBlockType.quote:
       case ArticleBlockType.list:
         return [
+          if (block.type == ArticleBlockType.list) ...[
+            Row(
+              children: [
+                for (final style in ListStyle.values) ...[
+                  if (style != ListStyle.values.first) const SizedBox(width: 9),
+                  Expanded(
+                    child: _ListStyleSegment(
+                      label: style == ListStyle.bullet
+                          ? 'Маркеры'
+                          : 'Нумерация',
+                      selected: (block.listStyle ?? ListStyle.bullet) == style,
+                      onTap: () => onListStyleChanged(style),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
           TextField(
             controller: textController,
             onChanged: onTextChanged,
@@ -807,11 +873,11 @@ class _BlockEditorTile extends ConsumerWidget {
                 _ => 'Текст абзаца',
               },
               filled: true,
-              fillColor: const Color(0xFFF0F0F0),
+              fillColor: _fieldFill,
               counterText: '',
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppRadii.tile),
-                borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                borderRadius: BorderRadius.circular(_controlRadius),
+                borderSide: const BorderSide(color: AppColors.hairline),
               ),
             ),
           ),
@@ -829,30 +895,13 @@ class _BlockEditorTile extends ConsumerWidget {
               decoration: InputDecoration(
                 hintText: 'Подпись (необязательно)',
                 filled: true,
-                fillColor: const Color(0xFFF0F0F0),
+                fillColor: _fieldFill,
                 counterText: '',
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppRadii.tile),
-                  borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+                  borderRadius: BorderRadius.circular(_controlRadius),
+                  borderSide: const BorderSide(color: AppColors.hairline),
                 ),
               ),
-            ),
-          ],
-          if (block.type == ArticleBlockType.list) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                for (final style in ListStyle.values) ...[
-                  if (style != ListStyle.values.first) const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(
-                      style == ListStyle.bullet ? 'Маркеры' : 'Нумерация',
-                    ),
-                    selected: (block.listStyle ?? ListStyle.bullet) == style,
-                    onSelected: (_) => onListStyleChanged(style),
-                  ),
-                ],
-              ],
             ),
           ],
         ];
@@ -865,8 +914,13 @@ class _BlockEditorTile extends ConsumerWidget {
     switch (block.type) {
       case ArticleBlockType.image:
         final config = ref.watch(appConfigProvider);
-        final hasImage =
-            block.imageUrl != null || block.pendingImagePath != null;
+        final localPath = block.pendingImagePath;
+        if (block.imageUrl == null && localPath == null) {
+          // Пока фото не выбрано, миниатюры нет: рядом с большим полем
+          // загрузки пустой квадратик читался как второе такое же поле
+          // (замечено на устройстве 2026-09-04).
+          return const [];
+        }
         return [
           Container(
             width: 40,
@@ -874,16 +928,16 @@ class _BlockEditorTile extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.controlSurface,
               borderRadius: BorderRadius.circular(8),
-              image: hasImage && block.imageUrl != null
-                  ? DecorationImage(
-                      image: articleImageProvider(
+              image: DecorationImage(
+                image: localPath != null
+                    ? FileImage(File(localPath))
+                    : articleImageProvider(
                         config: config,
                         url: block.imageUrl,
                         fallbackSeed: block.localId,
                       ),
-                      fit: BoxFit.cover,
-                    )
-                  : null,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -901,14 +955,6 @@ class _BlockEditorTile extends ConsumerWidget {
           const SizedBox(width: 10),
         ];
       case ArticleBlockType.list:
-        return const [
-          Icon(
-            Icons.format_list_bulleted_rounded,
-            size: 20,
-            color: AppColors.primaryInk,
-          ),
-          SizedBox(width: 10),
-        ];
       case ArticleBlockType.text:
       case ArticleBlockType.divider:
         return const [];
@@ -933,12 +979,58 @@ class _BlockEditorTile extends ConsumerWidget {
   }
 
   static String _label(ArticleBlockType type) => switch (type) {
-    ArticleBlockType.text => 'ТЕКСТ',
-    ArticleBlockType.image => 'КАРТИНКА',
-    ArticleBlockType.quote => 'ЦИТАТА',
-    ArticleBlockType.list => 'СПИСОК',
-    ArticleBlockType.divider => 'РАЗДЕЛИТЕЛЬ',
+    ArticleBlockType.text => 'Текст',
+    ArticleBlockType.image => 'Картинка',
+    ArticleBlockType.quote => 'Цитата',
+    ArticleBlockType.list => 'Список',
+    ArticleBlockType.divider => 'Разделитель',
   };
+}
+
+/// Переключатель вида списка: две кнопки во всю ширину, выбранная залита
+/// синим — так на макете. ChoiceChip выглядел как случайный чип посреди
+/// карточки и не занимал ширину.
+class _ListStyleSegment extends StatelessWidget {
+  const _ListStyleSegment({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(_controlRadius),
+        child: Container(
+          height: _segmentHeight,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentBlue : Colors.white,
+            borderRadius: BorderRadius.circular(_controlRadius),
+            border: Border.all(
+              color: selected ? AppColors.accentBlue : AppColors.hairline,
+            ),
+          ),
+          child: Text(
+            label,
+            style: AppTypography.chip.copyWith(
+              fontSize: 14,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+              color: selected ? Colors.white : AppColors.primaryInk,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _ImageBody extends StatelessWidget {
@@ -976,7 +1068,7 @@ class _ImageBody extends StatelessWidget {
       children: [
         if (preview != null)
           ClipRRect(
-            borderRadius: BorderRadius.circular(AppRadii.tile),
+            borderRadius: BorderRadius.circular(_blockRadius),
             child: AspectRatio(aspectRatio: 4 / 3, child: preview),
           )
         else
@@ -985,8 +1077,8 @@ class _ImageBody extends StatelessWidget {
             child: Container(
               height: 120,
               decoration: BoxDecoration(
-                color: AppColors.controlSurface,
-                borderRadius: BorderRadius.circular(AppRadii.tile),
+                color: _fieldFill,
+                borderRadius: BorderRadius.circular(_controlRadius),
               ),
               child: const Center(
                 child: Icon(
@@ -1060,14 +1152,16 @@ class _AddBlockBar extends StatelessWidget {
   Widget build(BuildContext context) {
     const entries = [
       (ArticleBlockType.text, Icons.notes_rounded, 'Текст'),
-      (ArticleBlockType.image, Icons.image_outlined, 'Фото'),
+      (ArticleBlockType.image, Icons.add_a_photo_outlined, 'Фото'),
       (ArticleBlockType.quote, Icons.format_quote_rounded, 'Цитата'),
       (ArticleBlockType.list, Icons.format_list_bulleted_rounded, 'Список'),
       (ArticleBlockType.divider, Icons.horizontal_rule_rounded, 'Разделитель'),
     ];
     return Container(
       color: AppColors.pageSurface,
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+      // Панель уже внутри списка с полями страницы — свои 16 давали двойной
+      // отступ, из-за него подписи не помещались в строку.
+      padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -1091,12 +1185,14 @@ class _AddBlockBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 SizedBox(
-                  width: 62,
+                  // «Разделитель» — самое длинное слово в панели; при 62
+                  // оно переносилось на вторую строку и ломало ряд.
+                  width: 70,
                   child: Text(
                     label,
                     textAlign: TextAlign.center,
                     style: AppTypography.settingsRowSubtitle.copyWith(
-                      fontSize: 10,
+                      fontSize: 11,
                     ),
                   ),
                 ),
