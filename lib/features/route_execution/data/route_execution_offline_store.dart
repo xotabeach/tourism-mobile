@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_port.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 
-enum RouteExecutionAction { completeStop, complete, cancel }
+enum RouteExecutionAction { start, completeStop, complete, cancel }
 
 class RouteExecutionOutboxEntry {
   const RouteExecutionOutboxEntry({
@@ -15,12 +15,22 @@ class RouteExecutionOutboxEntry {
     required this.createdAt,
     this.clientEventId,
     this.stopId,
+    this.routeId,
     this.attempts = 0,
   });
 
   final String id;
+
+  /// For [RouteExecutionAction.start] this is the client-generated *local*
+  /// execution id (see [RouteExecutionOfflineCoordinator.localExecutionPrefix])
+  /// — there is no server id yet. For every other action it is the real
+  /// server execution id.
   final String executionId;
   final String? stopId;
+
+  /// Only set for [RouteExecutionAction.start]: the route to start. Every
+  /// other action already has its target via [executionId].
+  final String? routeId;
 
   /// Sent to the API so a redelivery is deduped instead of applied twice.
   /// Entries written before this field existed replay without it.
@@ -33,6 +43,7 @@ class RouteExecutionOutboxEntry {
     id: id,
     executionId: executionId,
     stopId: stopId,
+    routeId: routeId,
     clientEventId: clientEventId,
     action: action,
     createdAt: createdAt,
@@ -43,6 +54,7 @@ class RouteExecutionOutboxEntry {
     'id': id,
     'execution_id': executionId,
     'stop_id': stopId,
+    'route_id': routeId,
     'client_event_id': clientEventId,
     'action': action.name,
     'created_at': createdAt.toUtc().toIso8601String(),
@@ -58,6 +70,7 @@ class RouteExecutionOutboxEntry {
       id: json['id'] as String,
       executionId: json['execution_id'] as String,
       stopId: json['stop_id'] as String?,
+      routeId: json['route_id'] as String?,
       clientEventId: json['client_event_id'] as String?,
       action: action,
       createdAt:

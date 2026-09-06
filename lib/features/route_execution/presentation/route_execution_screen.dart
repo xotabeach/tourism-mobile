@@ -11,9 +11,11 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_execution_offline_coordinator.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
@@ -92,6 +94,28 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         });
         return;
       }
+      // No run in progress at all yet — if this route was downloaded, a
+      // brand-new offline start is possible; the "start" outbox entry
+      // reconciles with the server once connectivity returns.
+      if (error is NetworkFailure) {
+        final downloaded = await ref
+            .read(offlineRouteStoreProvider)
+            .get(widget.routeId);
+        if (downloaded != null) {
+          final execution = await ref
+              .read(routeExecutionOfflineCoordinatorProvider)
+              .startOffline(downloaded.route);
+          if (!mounted) return;
+          await _refreshPendingActions();
+          setState(() {
+            _execution = execution;
+            _loading = false;
+            _offline = true;
+            _error = null;
+          });
+          return;
+        }
+      }
       if (!mounted) return;
       setState(() {
         _loading = false;
@@ -99,6 +123,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       });
     }
   }
+
+  bool get _isLocalPendingStart =>
+      _execution?.id.startsWith(
+        RouteExecutionOfflineCoordinator.localExecutionPrefix,
+      ) ??
+      false;
 
   Future<void> _completeStop(RouteExecutionStop stop) async {
     final execution = _execution;
@@ -108,6 +138,19 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     // server before the connection dropped, the replay is deduped.
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
+    if (_isLocalPendingStart) {
+      final updated = _completeStopLocally(execution, stop.id, occurredAt);
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.completeStop,
+        stopId: stop.id,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      if (mounted) setState(() => _busyStopId = null);
+      return;
+    }
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
@@ -146,6 +189,21 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     setState(() => _finishing = true);
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
+    if (_isLocalPendingStart) {
+      final updated = execution.copyWith(
+        status: RouteExecutionStatus.completed,
+        completedAt: occurredAt,
+      );
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.complete,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      if (mounted) setState(() => _finishing = false);
+      return;
+    }
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
@@ -202,6 +260,20 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     if (confirmed != true || !mounted) return;
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
+    if (_isLocalPendingStart) {
+      final updated = execution.copyWith(
+        status: RouteExecutionStatus.cancelled,
+        cancelledAt: occurredAt,
+      );
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.cancel,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      return;
+    }
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
@@ -265,13 +337,21 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   }) async {
     final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
     await coordinator.save(updated);
-    await coordinator.enqueue(
-      executionId: executionId,
-      action: action,
-      stopId: stopId,
-      clientEventId: clientEventId,
-      occurredAt: occurredAt,
-    );
+    // A run that hasn't synced its own "start" yet has no server-side target
+    // for this mutation — replayPending() catches the real execution up to
+    // this local snapshot's state once "start" itself succeeds, so queueing
+    // a separate entry here would just be replayed against the wrong id.
+    if (!executionId.startsWith(
+      RouteExecutionOfflineCoordinator.localExecutionPrefix,
+    )) {
+      await coordinator.enqueue(
+        executionId: executionId,
+        action: action,
+        stopId: stopId,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+      );
+    }
     await _refreshPendingActions();
     if (mounted) {
       setState(() {

@@ -7,6 +7,7 @@ import 'package:tourism_mobile/features/route_execution/data/mock_route_executio
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution_repository.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 void main() {
   test('parses execution progress and immutable routing facts', () {
@@ -196,6 +197,75 @@ void main() {
     expect((await store.listOutbox()).single.attempts, 1);
   });
 
+  test(
+    'starting fully offline reconciles local stop completions and the '
+    'final status against the real execution once online',
+    () async {
+      const route = RouteDetail(
+        id: 'route-offline-start',
+        name: 'Оффлайн маршрут',
+        slug: 'offline-route',
+        shortDescription: 'Описание',
+        stopsCount: 2,
+        description: 'Подробное описание',
+        stops: [
+          RouteStop(
+            id: 'stop-a',
+            position: 1,
+            placeId: 'place-a',
+            placeName: 'Точка A',
+            placeSlug: 'point-a',
+          ),
+          RouteStop(
+            id: 'stop-b',
+            position: 2,
+            placeId: 'place-b',
+            placeName: 'Точка B',
+            placeSlug: 'point-b',
+            isOptional: true,
+          ),
+        ],
+      );
+      final repository = _StartReconcileRepository();
+      final store = MemoryRouteExecutionOfflineStore();
+      final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+
+      final local = await coordinator.startOffline(route);
+      expect(
+        local.id,
+        startsWith(RouteExecutionOfflineCoordinator.localExecutionPrefix),
+      );
+      expect((await store.listOutbox()).single.action, RouteExecutionAction.start);
+
+      // The user completes the one required stop and finishes the route —
+      // all of this only ever touches the local snapshot (no separate
+      // outbox entries), matching what the screen does.
+      final completed = local.copyWith(
+        status: RouteExecutionStatus.completed,
+        completedAt: DateTime.utc(2026, 9, 6, 12),
+        completedStops: 1,
+        completedRequiredStops: 1,
+        stops: [
+          for (final stop in local.stops)
+            stop.id == 'stop-a'
+                ? stop.copyWith(completedAt: DateTime.utc(2026, 9, 6, 11, 55))
+                : stop,
+        ],
+      );
+      await store.saveSnapshot(completed);
+
+      final result = await coordinator.replayPending();
+
+      expect(await store.listOutbox(), isEmpty);
+      expect(repository.startedRouteIds, ['route-offline-start']);
+      expect(repository.completedStopServerIds, ['srv-stop-a']);
+      expect(repository.completedExecutionIds, ['srv-execution']);
+      expect(result?.id, 'srv-execution');
+      expect(result?.status, RouteExecutionStatus.completed);
+      expect((await store.getSnapshot())?.id, 'srv-execution');
+    },
+  );
+
   test('an action that keeps failing is dropped after the last try', () async {
     final repository = _StubExecutionRepository(
       failures: {'stop-broken': StateError('server said no')},
@@ -276,4 +346,119 @@ class _StubExecutionRepository implements RouteExecutionRepository {
 
   @override
   Future<RouteExecution> start(String routeId) async => _execution;
+}
+
+/// Simulates the server side of an offline-start reconciliation: `start`
+/// returns a fresh execution whose stops carry the *server's own* ids while
+/// still exposing the original `routeStopId`, exactly like the real backend.
+class _StartReconcileRepository implements RouteExecutionRepository {
+  final startedRouteIds = <String>[];
+  final completedStopServerIds = <String>[];
+  final completedExecutionIds = <String>[];
+
+  @override
+  Future<RouteExecution> start(String routeId) async {
+    startedRouteIds.add(routeId);
+    return RouteExecution(
+      id: 'srv-execution',
+      routeId: routeId,
+      routeName: 'Оффлайн маршрут',
+      status: RouteExecutionStatus.active,
+      startedAt: DateTime.utc(2026, 9, 6, 11, 50),
+      totalStops: 2,
+      completedStops: 0,
+      requiredStops: 1,
+      completedRequiredStops: 0,
+      stops: const [
+        RouteExecutionStop(
+          id: 'srv-stop-a',
+          routeStopId: 'stop-a',
+          position: 1,
+          placeName: 'Точка A',
+          isOptional: false,
+        ),
+        RouteExecutionStop(
+          id: 'srv-stop-b',
+          routeStopId: 'stop-b',
+          position: 2,
+          placeName: 'Точка B',
+          isOptional: true,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<RouteExecution> completeStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    completedStopServerIds.add(stopId);
+    return RouteExecution(
+      id: executionId,
+      routeId: 'route-offline-start',
+      routeName: 'Оффлайн маршрут',
+      status: RouteExecutionStatus.active,
+      startedAt: DateTime.utc(2026, 9, 6, 11, 50),
+      totalStops: 2,
+      completedStops: 1,
+      requiredStops: 1,
+      completedRequiredStops: 1,
+      stops: [
+        RouteExecutionStop(
+          id: 'srv-stop-a',
+          routeStopId: 'stop-a',
+          position: 1,
+          placeName: 'Точка A',
+          isOptional: false,
+          completedAt: occurredAt,
+        ),
+        const RouteExecutionStop(
+          id: 'srv-stop-b',
+          routeStopId: 'stop-b',
+          position: 2,
+          placeName: 'Точка B',
+          isOptional: true,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Future<RouteExecution> complete(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    completedExecutionIds.add(executionId);
+    return RouteExecution(
+      id: executionId,
+      routeId: 'route-offline-start',
+      routeName: 'Оффлайн маршрут',
+      status: RouteExecutionStatus.completed,
+      startedAt: DateTime.utc(2026, 9, 6, 11, 50),
+      completedAt: occurredAt,
+      totalStops: 2,
+      completedStops: 1,
+      requiredStops: 1,
+      completedRequiredStops: 1,
+      stops: const [],
+    );
+  }
+
+  @override
+  Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<RouteExecution?> getActive() async => null;
+
+  @override
+  Future<List<RouteExecution>> list({int limit = 20, int offset = 0}) async =>
+      const [];
 }
