@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/storage/secure_storage_port.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/auth/data/auth_repository_impl.dart';
 import 'package:tourism_mobile/features/auth/domain/auth_repository.dart';
+import 'package:tourism_mobile/features/onboarding/data/session_identity_cache.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 
@@ -34,6 +35,7 @@ class SessionState {
     this.alternativesCount = 1,
     this.advancedFiltersEnabled = false,
     this.otpConsentsRequired = true,
+    this.isOffline = false,
   });
 
   final bool isHydrated;
@@ -55,6 +57,12 @@ class SessionState {
   final int alternativesCount;
   final bool advancedFiltersEnabled;
   final bool otpConsentsRequired;
+
+  /// True only when hydrate/refresh most recently failed with a connectivity
+  /// error and the session shown is a cached fallback, not a live one — the
+  /// access token may be stale or absent. Never set for an outright
+  /// auth-rejection (invalid/expired refresh token).
+  final bool isOffline;
 
   bool get isAuthenticated =>
       onboardingCompleted && (accessToken != null || userId != null);
@@ -79,6 +87,7 @@ class SessionState {
     int? alternativesCount,
     bool? advancedFiltersEnabled,
     bool? otpConsentsRequired,
+    bool? isOffline,
     bool clearAccessToken = false,
     bool clearAvatarUrl = false,
     bool clearCoverUrl = false,
@@ -110,6 +119,7 @@ class SessionState {
       advancedFiltersEnabled:
           advancedFiltersEnabled ?? this.advancedFiltersEnabled,
       otpConsentsRequired: otpConsentsRequired ?? this.otpConsentsRequired,
+      isOffline: isOffline ?? this.isOffline,
     );
   }
 }
@@ -119,14 +129,17 @@ class SessionController extends StateNotifier<SessionState> {
     required AuthRepository authRepository,
     required SecureStoragePort secureStorage,
     required this.useMockData,
+    SessionIdentityCache? identityCache,
     this.onSessionCleared,
     SessionState? initial,
   }) : _auth = authRepository,
        _storage = secureStorage,
+       _identityCache = identityCache ?? MemorySessionIdentityCache(),
        super(initial ?? const SessionState());
 
   final AuthRepository _auth;
   final SecureStoragePort _storage;
+  final SessionIdentityCache _identityCache;
   final bool useMockData;
   final FutureOr<void> Function()? onSessionCleared;
   Future<String?>? _refreshInFlight;
@@ -222,6 +235,7 @@ class SessionController extends StateNotifier<SessionState> {
     state = state.copyWith(
       isHydrated: true,
       onboardingCompleted: true,
+      isOffline: false,
       displayName: me.displayName,
       phone: me.phone,
       userId: me.id,
@@ -239,6 +253,7 @@ class SessionController extends StateNotifier<SessionState> {
       alternativesCount: me.alternativesCount,
       advancedFiltersEnabled: me.advancedFiltersEnabled,
     );
+    unawaited(_cacheIdentity(me));
   }
 
   /// Mock OTP accept — no network. Kept for tests that call completeOnboarding.
@@ -356,6 +371,25 @@ class SessionController extends StateNotifier<SessionState> {
       clearTravelPlusPlan: me.travelPlusPlan == null,
       clearTravelPlusExpiresAt: me.travelPlusExpiresAt == null,
     );
+    unawaited(_cacheIdentity(me));
+  }
+
+  /// Best-effort: a failure to write the offline fallback cache must never
+  /// surface as an error on the caller's live, successful request.
+  Future<void> _cacheIdentity(MeProfile me) async {
+    try {
+      await _identityCache.save(
+        CachedIdentity(
+          userId: me.id,
+          displayName: me.displayName,
+          phone: me.phone,
+          avatarUrl: me.avatarUrl,
+          coverUrl: me.coverUrl,
+        ),
+      );
+    } on Object {
+      // Ignore — this cache only matters for a future offline cold start.
+    }
   }
 
   Future<void> activateTravelPlus({required bool yearly}) async {
@@ -398,6 +432,7 @@ class SessionController extends StateNotifier<SessionState> {
       state = state.copyWith(
         isHydrated: true,
         onboardingCompleted: true,
+        isOffline: false,
         displayName: me.displayName,
         phone: me.phone,
         userId: me.id,
@@ -418,6 +453,35 @@ class SessionController extends StateNotifier<SessionState> {
         clearCoverUrl: me.coverUrl == null,
         clearTravelPlusPlan: me.travelPlusPlan == null,
         clearTravelPlusExpiresAt: me.travelPlusExpiresAt == null,
+      );
+      unawaited(_cacheIdentity(me));
+    } on NetworkFailure {
+      // No connectivity is not "the refresh token was rejected" — keep the
+      // token and restore whatever identity was cached from the last
+      // successful getMe() so a cold start offline doesn't read as logged
+      // out. A stale/absent access token here is fine: every live API call
+      // already has its own NetworkFailure handling, and the offline stores
+      // (routes, route execution) work from cached data regardless.
+      final cached = await _identityCache.read();
+      if (cached == null) {
+        // Nothing to restore — most likely a corrupted/never-written cache.
+        // Fall through to the same behavior as an auth rejection rather than
+        // claim a session we cannot actually describe.
+        await _storage.delete(key: SecureStorageKeys.refreshToken);
+        state = const SessionState(isHydrated: true);
+        return;
+      }
+      state = state.copyWith(
+        isHydrated: true,
+        onboardingCompleted: true,
+        isOffline: true,
+        displayName: cached.displayName,
+        phone: cached.phone,
+        userId: cached.userId,
+        avatarUrl: cached.avatarUrl,
+        coverUrl: cached.coverUrl,
+        clearAvatarUrl: cached.avatarUrl == null,
+        clearCoverUrl: cached.coverUrl == null,
       );
     } on Object {
       await _storage.delete(key: SecureStorageKeys.refreshToken);
@@ -451,8 +515,15 @@ class SessionController extends StateNotifier<SessionState> {
         key: SecureStorageKeys.refreshToken,
         value: tokens.refreshToken,
       );
-      state = state.copyWith(accessToken: tokens.accessToken);
+      state = state.copyWith(accessToken: tokens.accessToken, isOffline: false);
       return tokens.accessToken;
+    } on NetworkFailure {
+      // A mid-session 401 retry failing to reach the server is not a
+      // rejected token — leave the session and stored token untouched so a
+      // transient blip doesn't force a logout. The request that triggered
+      // this refresh will simply surface its own NetworkFailure.
+      state = state.copyWith(isOffline: true);
+      return null;
     } on Object {
       await clearSession();
       return null;
@@ -469,6 +540,11 @@ class SessionController extends StateNotifier<SessionState> {
       }
     }
     await _storage.delete(key: SecureStorageKeys.refreshToken);
+    try {
+      await _identityCache.clear();
+    } on Object {
+      // Best-effort; the token deletion above is what actually matters.
+    }
     state = const SessionState(isHydrated: true);
     await onSessionCleared?.call();
   }
@@ -488,6 +564,10 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return ApiAuthRepository(dio);
 });
 
+final sessionIdentityCacheProvider = Provider<SessionIdentityCache>((ref) {
+  return SharedPreferencesSessionIdentityCache();
+});
+
 final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
   ref,
 ) {
@@ -496,6 +576,7 @@ final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
     authRepository: ref.watch(authRepositoryProvider),
     secureStorage: ref.watch(secureStorageProvider),
     useMockData: ref.watch(appConfigProvider).useMockData,
+    identityCache: ref.watch(sessionIdentityCacheProvider),
     onSessionCleared: () async {
       cacheRegistry.invalidateAll();
       // Offline snapshots may contain private/user-created route data. Do

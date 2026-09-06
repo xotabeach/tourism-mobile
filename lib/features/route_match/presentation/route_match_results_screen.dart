@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/network/connectivity_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
@@ -164,6 +165,49 @@ class _RouteMatchResultsScreenState
   @override
   Widget build(BuildContext context) {
     final top = MediaQuery.paddingOf(context).top;
+
+    if (!ref.watch(isOnlineProvider)) {
+      return Scaffold(
+        backgroundColor: AppColors.pageSurface,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.cloud_off_rounded,
+                    color: AppColors.accentBlue,
+                    size: 32,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Недоступно в офлайн-режиме',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.sectionTitle,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Подбор маршрута требует подключения к интернету.',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.greetingSubtitle.copyWith(
+                      color: AppColors.secondaryInk,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextButton(
+                    onPressed: () => context.pop(),
+                    child: const Text('Назад'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final match = ref.watch(lastRouteMatchResultProvider);
 
     if (match == null) {

@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/data/mock_profile.dart';
+import 'package:tourism_mobile/features/profile/data/offline_own_routes_cache.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -13,6 +17,10 @@ final publicProfileRepositoryProvider = Provider<PublicProfileRepository>((
   ref,
 ) {
   return ApiPublicProfileRepository(ref.watch(dioProvider));
+});
+
+final offlineOwnRoutesCacheProvider = Provider<OfflineOwnRoutesCache>((ref) {
+  return SharedPreferencesOfflineOwnRoutesCache();
 });
 
 final profileProvider = Provider<ProfileSnapshot>((ref) {
@@ -195,39 +203,80 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
     );
   }
 
-  final bundle = await ref.watch(publicProfileRepositoryProvider).fetch(userId);
-  final achievements = await ref.watch(userAchievementsProvider(userId).future);
-  String? resolve(String? raw) => AppImages.resolveMediaUrl(config, raw);
-  final rank = _rankFromUser(bundle.user);
-  final achievementPages = pageUnlockedAchievements(achievements);
+  final own = isOwn ? ref.watch(profileProvider) : null;
+  try {
+    final bundle = await ref
+        .watch(publicProfileRepositoryProvider)
+        .fetch(userId);
+    final achievements = await ref.watch(
+      userAchievementsProvider(userId).future,
+    );
+    String? resolve(String? raw) => AppImages.resolveMediaUrl(config, raw);
+    final rank = _rankFromUser(bundle.user);
+    final achievementPages = pageUnlockedAchievements(achievements);
 
-  if (isOwn) {
-    final own = ref.watch(profileProvider);
-    final ownRoutes = await ref.watch(routesRepositoryProvider).listMyRoutes();
-    // Своё фото берём с сервера, а не из сессии. Сессия знает только то, что
-    // загрузили на этом устройстве: после переустановки или входа с другого
-    // телефона там пусто, и профиль показывал моковую заглушку вместо
-    // настоящего аватара (баг 2026-09-04).
-    //
-    // Локальный file:// — исключение: это снимок, который прямо сейчас
-    // выбрали и ещё не догрузили, и он должен быть виден сразу.
-    String? ownImage(String? local, String? remote) {
-      if (local != null && local.startsWith('file://')) {
-        return local;
+    if (isOwn) {
+      final ownSnapshot = own!;
+      final ownRoutes = await ref
+          .watch(routesRepositoryProvider)
+          .listMyRoutes();
+      unawaited(
+        ref.read(offlineOwnRoutesCacheProvider).save(ownRoutes.items),
+      );
+      // Своё фото берём с сервера, а не из сессии. Сессия знает только то,
+      // что загрузили на этом устройстве: после переустановки или входа с
+      // другого телефона там пусто, и профиль показывал моковую заглушку
+      // вместо настоящего аватара (баг 2026-09-04).
+      //
+      // Локальный file:// — исключение: это снимок, который прямо сейчас
+      // выбрали и ещё не догрузили, и он должен быть виден сразу.
+      String? ownImage(String? local, String? remote) {
+        if (local != null && local.startsWith('file://')) {
+          return local;
+        }
+        return resolve(remote) ?? local;
       }
-      return resolve(remote) ?? local;
+
+      return ProfileSnapshot(
+        displayName: ownSnapshot.displayName,
+        rank: rank,
+        coverImageAsset: ownSnapshot.coverImageAsset,
+        avatarImageAsset: ownSnapshot.avatarImageAsset,
+        avatarImageUrl: ownImage(
+          ownSnapshot.avatarImageUrl,
+          bundle.user.avatarUrl,
+        ),
+        coverImageUrl: ownImage(
+          ownSnapshot.coverImageUrl,
+          bundle.user.coverUrl,
+        ),
+        achievementPages: achievementPages,
+        publishedRoutes: ownRoutes.items,
+        likedByMe: false,
+        isExpert: bundle.user.isExpert,
+        expertTitle: bundle.user.expertTitle,
+        travelPoints: bundle.user.travelPoints,
+        followersCount: bundle.user.followersCount,
+        followingCount: bundle.user.followingCount,
+        completedRoutesCount: bundle.user.completedRoutesCount,
+        publishedRoutesCount: bundle.user.publishedRoutesCount,
+        reviewsWrittenCount: bundle.user.reviewsWrittenCount,
+        totalDistanceMeters: bundle.user.totalDistanceMeters,
+        publishedArticlesCount: bundle.user.publishedArticlesCount,
+        articleLikesCount: bundle.user.articleLikesCount,
+      );
     }
 
     return ProfileSnapshot(
-      displayName: own.displayName,
+      displayName: bundle.user.displayName,
       rank: rank,
-      coverImageAsset: own.coverImageAsset,
-      avatarImageAsset: own.avatarImageAsset,
-      avatarImageUrl: ownImage(own.avatarImageUrl, bundle.user.avatarUrl),
-      coverImageUrl: ownImage(own.coverImageUrl, bundle.user.coverUrl),
+      coverImageAsset: AppImages.welcomeSunset,
+      avatarImageAsset: AppImages.travelerPortrait,
+      avatarImageUrl: resolve(bundle.user.avatarUrl),
+      coverImageUrl: resolve(bundle.user.coverUrl),
       achievementPages: achievementPages,
-      publishedRoutes: ownRoutes.items,
-      likedByMe: false,
+      publishedRoutes: bundle.routes,
+      likedByMe: bundle.user.likedByMe,
       isExpert: bundle.user.isExpert,
       expertTitle: bundle.user.expertTitle,
       travelPoints: bundle.user.travelPoints,
@@ -240,30 +289,32 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       publishedArticlesCount: bundle.user.publishedArticlesCount,
       articleLikesCount: bundle.user.articleLikesCount,
     );
+  } on NetworkFailure {
+    // A visitor's profile has no reasonable offline story — only the owner
+    // gets a degraded fallback, built entirely from local data (session
+    // cache + the last successful own-routes fetch), never fabricated
+    // numbers.
+    if (own == null) {
+      rethrow;
+    }
+    final cachedRoutes =
+        await ref.read(offlineOwnRoutesCacheProvider).read() ?? const [];
+    return ProfileSnapshot(
+      displayName: own.displayName,
+      rank: const ProfileRank(
+        title: 'Недоступно офлайн',
+        progressPoints: 0,
+        nextRankPoints: 1,
+        leaderboardPlace: 0,
+      ),
+      coverImageAsset: own.coverImageAsset,
+      avatarImageAsset: own.avatarImageAsset,
+      avatarImageUrl: own.avatarImageUrl,
+      coverImageUrl: own.coverImageUrl,
+      achievementPages: const [],
+      publishedRoutes: cachedRoutes,
+    );
   }
-
-  return ProfileSnapshot(
-    displayName: bundle.user.displayName,
-    rank: rank,
-    coverImageAsset: AppImages.welcomeSunset,
-    avatarImageAsset: AppImages.travelerPortrait,
-    avatarImageUrl: resolve(bundle.user.avatarUrl),
-    coverImageUrl: resolve(bundle.user.coverUrl),
-    achievementPages: achievementPages,
-    publishedRoutes: bundle.routes,
-    likedByMe: bundle.user.likedByMe,
-    isExpert: bundle.user.isExpert,
-    expertTitle: bundle.user.expertTitle,
-    travelPoints: bundle.user.travelPoints,
-    followersCount: bundle.user.followersCount,
-    followingCount: bundle.user.followingCount,
-    completedRoutesCount: bundle.user.completedRoutesCount,
-    publishedRoutesCount: bundle.user.publishedRoutesCount,
-    reviewsWrittenCount: bundle.user.reviewsWrittenCount,
-    totalDistanceMeters: bundle.user.totalDistanceMeters,
-    publishedArticlesCount: bundle.user.publishedArticlesCount,
-    articleLikesCount: bundle.user.articleLikesCount,
-  );
 });
 
 final profileLikeControllerProvider =

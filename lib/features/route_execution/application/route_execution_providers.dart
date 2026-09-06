@@ -24,6 +24,19 @@ final activeRouteExecutionProvider =
       (ref) => ref.watch(routeExecutionRepositoryProvider).getActive(),
     );
 
+/// Same as [activeRouteExecutionProvider], but falls back to the offline
+/// snapshot on any failure — for surfaces (Favorites) that just need to know
+/// "is there a run in progress right now", online or not, rather than the
+/// execution screen's own routeId-matching/replay logic.
+final activeOrCachedExecutionProvider =
+    FutureProvider.autoDispose<RouteExecution?>((ref) async {
+      try {
+        return await ref.watch(routeExecutionRepositoryProvider).getActive();
+      } on Object {
+        return ref.read(routeExecutionOfflineStoreProvider).getSnapshot();
+      }
+    });
+
 final routeExecutionOfflineStoreProvider = Provider<RouteExecutionOfflineStore>(
   (ref) {
     return SecureRouteExecutionOfflineStore(ref.watch(secureStorageProvider));

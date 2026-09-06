@@ -15,7 +15,9 @@ import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/offline_banner.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/network/connectivity_provider.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
@@ -27,6 +29,7 @@ import 'package:tourism_mobile/features/profile/application/profile_providers.da
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -151,6 +154,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     });
 
     final top = MediaQuery.paddingOf(context).top;
+    final isOnline = ref.watch(isOnlineProvider);
     final favorites = ref.watch(favoritesProvider);
     final routesAsync = ref.watch(routesListProvider);
     final subscriptionsAsync = ref.watch(profileSubscriptionsProvider);
@@ -320,6 +324,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                   ),
                 ),
               )
+            else if (_tab == MyRoutesTab.favorites && !isOnline)
+              ..._offlineFavoritesSlivers()
             else
               ..._routeListSlivers(routesAsync, filtered: filtered),
           ],
@@ -383,6 +389,65 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
         ];
       },
     );
+  }
+
+  /// Offline: "Избранное" cannot show the live favorites list (it depends on
+  /// the catalog), so it shows exactly what is actually usable offline —
+  /// downloaded routes plus the run in progress, if any.
+  List<Widget> _offlineFavoritesSlivers() {
+    final offlineAsync = ref.watch(offlineRoutesProvider);
+    final records = offlineAsync.valueOrNull ?? const [];
+    final activeExecution = ref.watch(activeOrCachedExecutionProvider).valueOrNull;
+    final showActiveCard =
+        activeExecution != null &&
+        activeExecution.status == RouteExecutionStatus.active;
+
+    if (records.isEmpty && !showActiveCard) {
+      return [
+        const SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 0),
+          sliver: SliverToBoxAdapter(
+            child: OfflineBanner(
+              message:
+                  'Офлайн. Скачайте маршрут заранее, чтобы он был доступен '
+                  'здесь.',
+            ),
+          ),
+        ),
+        const SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Text('Пока пусто', style: AppTypography.settingsRowSubtitle),
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
+        sliver: SliverList(
+          delegate: SliverChildListDelegate([
+            const OfflineBanner(
+              message: 'Офлайн. Показаны скачанные маршруты.',
+            ),
+            const SizedBox(height: 12),
+            if (showActiveCard) ...[
+              _ExecutionHistoryTile(execution: activeExecution),
+              const SizedBox(height: 16),
+            ],
+            for (final record in records) ...[
+              _FavoriteRouteTile(
+                key: ValueKey('offline-route-${record.route.id}'),
+                route: record.route,
+                onRemove: () => removeDownloadedRoute(ref, record.route.id),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ]),
+        ),
+      ),
+    ];
   }
 
   List<Widget> _executionHistorySlivers(

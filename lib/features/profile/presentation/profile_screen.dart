@@ -18,7 +18,9 @@ import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
+import 'package:tourism_mobile/core/design/components/offline_banner.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/network/connectivity_provider.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
@@ -191,6 +193,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final onMore = isOwn
         ? () => context.pushNamed(AppRouteNames.settings)
         : null;
+    final showOfflineBanner = isOwn && !ref.watch(isOnlineProvider);
     final onLike = isOwn
         ? null
         : () {
@@ -227,6 +230,19 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  if (showOfflineBanner)
+                    const Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        AppSpacing.page,
+                        AppSpacing.xl,
+                        AppSpacing.page,
+                        0,
+                      ),
+                      child: OfflineBanner(
+                        message:
+                            'Офлайн. Показаны сохранённые данные профиля.',
+                      ),
+                    ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(
                       AppSpacing.page,

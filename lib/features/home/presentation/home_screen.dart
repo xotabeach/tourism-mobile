@@ -18,6 +18,8 @@ import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/offline_banner.dart';
+import 'package:tourism_mobile/core/network/connectivity_provider.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
@@ -28,6 +30,7 @@ import 'package:tourism_mobile/features/places/application/places_providers.dart
 import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_card.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
+import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -281,6 +284,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required double topInset,
     required bool searchActive,
   }) {
+    final isOnline = ref.watch(isOnlineProvider);
+    if (!isOnline) {
+      return _buildOfflineRoutesList(
+        context,
+        name: name,
+        avatarUrl: avatarUrl,
+        topInset: topInset,
+      );
+    }
     final routesAsync = ref.watch(homeRoutesProvider);
     return routesAsync.when(
       skipLoadingOnReload: true,
@@ -342,6 +354,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         topInset: topInset,
         searchActive: searchActive,
       ),
+    );
+  }
+
+  /// Offline: the feed is whatever the user explicitly downloaded, not a
+  /// generic "last seen" cache — search and the chip filters don't apply to
+  /// such a small, deliberate set.
+  Widget _buildOfflineRoutesList(
+    BuildContext context, {
+    required String name,
+    required String? avatarUrl,
+    required double topInset,
+  }) {
+    final offlineAsync = ref.watch(offlineRoutesProvider);
+    final records = offlineAsync.valueOrNull ?? const [];
+    return ListView.builder(
+      controller: _scrollController,
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      padding: _homeScrollPadding(topInset),
+      itemCount: 2 + (records.isEmpty ? 1 : records.length),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _homeHeader(
+            name: name,
+            avatarUrl: avatarUrl,
+            searchActive: false,
+          );
+        }
+        if (index == 1) {
+          return const OfflineBanner(
+            message:
+                'Офлайн. Показаны скачанные маршруты — остальное появится '
+                'при подключении.',
+          );
+        }
+        if (records.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 32),
+            child: Center(
+              child: Text('Нет скачанных маршрутов для просмотра офлайн'),
+            ),
+          );
+        }
+        final route = records[index - 2].route;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: RouteHeroCard(route: route, height: 304),
+        );
+      },
     );
   }
 
