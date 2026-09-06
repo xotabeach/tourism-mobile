@@ -14,11 +14,15 @@ class RouteExecutionSummaryScreen extends StatelessWidget {
 
   final RouteExecution execution;
 
+  /// Wall-clock time minus any paused stretches — "how long you actually
+  /// walked," not "how long the run sat open."
   Duration? get _elapsed {
     final completedAt = execution.completedAt;
     if (completedAt == null) return null;
-    final elapsed = completedAt.difference(execution.startedAt);
-    return elapsed.isNegative ? null : elapsed;
+    final elapsed =
+        completedAt.difference(execution.startedAt) -
+        Duration(seconds: execution.pausedDurationSeconds);
+    return elapsed.isNegative ? Duration.zero : elapsed;
   }
 
   @override

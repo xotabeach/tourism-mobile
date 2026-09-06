@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_port.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 
-enum RouteExecutionAction { start, completeStop, complete, cancel }
+enum RouteExecutionAction { start, completeStop, complete, cancel, pause, resume }
 
 class RouteExecutionOutboxEntry {
   const RouteExecutionOutboxEntry({

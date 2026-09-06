@@ -1,7 +1,8 @@
-enum RouteExecutionStatus { active, completed, cancelled }
+enum RouteExecutionStatus { active, paused, completed, cancelled }
 
 RouteExecutionStatus routeExecutionStatusFromJson(Object? value) {
   return switch (value) {
+    'paused' => RouteExecutionStatus.paused,
     'completed' => RouteExecutionStatus.completed,
     'cancelled' => RouteExecutionStatus.cancelled,
     _ => RouteExecutionStatus.active,
@@ -143,6 +144,7 @@ class RouteExecution {
     this.cancelledAt,
     this.routing,
     this.awardedPoints = 0,
+    this.pausedDurationSeconds = 0,
   });
 
   final String id;
@@ -158,6 +160,9 @@ class RouteExecution {
   /// Travel points granted on completion (`rewards.py:travel_points_for_effort`
   /// server-side) — zero until the run is completed.
   final int awardedPoints;
+
+  /// Total time spent paused so far, so elapsed-time displays can net it out.
+  final int pausedDurationSeconds;
   final int totalStops;
   final int completedStops;
   final int requiredStops;
@@ -190,6 +195,7 @@ class RouteExecution {
         completedRequiredStops ?? this.completedRequiredStops,
     stops: stops ?? this.stops,
     awardedPoints: awardedPoints,
+    pausedDurationSeconds: pausedDurationSeconds,
   );
 
   Map<String, dynamic> toJson() => {
@@ -197,6 +203,7 @@ class RouteExecution {
     'route_id': routeId,
     'route_name': routeName,
     'awarded_points': awardedPoints,
+    'paused_duration_seconds': pausedDurationSeconds,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -235,6 +242,8 @@ class RouteExecution {
       completedRequiredStops:
           (json['completed_required_stops'] as num?)?.toInt() ?? 0,
       awardedPoints: (json['awarded_points'] as num?)?.toInt() ?? 0,
+      pausedDurationSeconds:
+          (json['paused_duration_seconds'] as num?)?.toInt() ?? 0,
       stops: rawStops is List
           ? rawStops
                 .whereType<Map<dynamic, dynamic>>()

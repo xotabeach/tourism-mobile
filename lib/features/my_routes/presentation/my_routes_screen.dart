@@ -1144,11 +1144,13 @@ class _ExecutionHistoryTile extends ConsumerWidget {
       RouteExecutionStatus.completed => AppColors.positiveSwipeTint,
       RouteExecutionStatus.cancelled => AppColors.secondaryInk,
       RouteExecutionStatus.active => AppColors.accentBlue,
+      RouteExecutionStatus.paused => AppColors.secondaryInk,
     };
     final statusLabel = switch (execution.status) {
       RouteExecutionStatus.completed => 'Завершён',
       RouteExecutionStatus.cancelled => 'Остановлен',
       RouteExecutionStatus.active => 'В процессе',
+      RouteExecutionStatus.paused => 'На паузе',
     };
     final date = execution.startedAt;
     final dateLabel =
@@ -1177,11 +1179,13 @@ class _ExecutionHistoryTile extends ConsumerWidget {
                   width: 52,
                   height: 52,
                   child: Icon(
-                    execution.status == RouteExecutionStatus.completed
-                        ? Icons.check_rounded
-                        : execution.status == RouteExecutionStatus.active
-                        ? Icons.directions_walk_rounded
-                        : Icons.pause_rounded,
+                    switch (execution.status) {
+                      RouteExecutionStatus.completed => Icons.check_rounded,
+                      RouteExecutionStatus.active =>
+                        Icons.directions_walk_rounded,
+                      RouteExecutionStatus.paused => Icons.pause_rounded,
+                      RouteExecutionStatus.cancelled => Icons.stop_rounded,
+                    },
                     color: statusColor,
                   ),
                 ),

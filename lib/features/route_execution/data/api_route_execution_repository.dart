@@ -91,6 +91,34 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
     );
   }
 
+  @override
+  Future<RouteExecution> pause(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) {
+    return _mutate(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-executions/$executionId/pause',
+        data: _eventBody(clientEventId, occurredAt),
+      ),
+    );
+  }
+
+  @override
+  Future<RouteExecution> resume(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) {
+    return _mutate(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-executions/$executionId/resume',
+        data: _eventBody(clientEventId, occurredAt),
+      ),
+    );
+  }
+
   /// The API rejects unknown fields, so send only what the caller provided.
   static Map<String, dynamic>? _eventBody(
     String? clientEventId,

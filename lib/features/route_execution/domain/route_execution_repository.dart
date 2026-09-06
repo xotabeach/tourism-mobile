@@ -27,4 +27,16 @@ abstract interface class RouteExecutionRepository {
     String? clientEventId,
     DateTime? occurredAt,
   });
+
+  Future<RouteExecution> pause(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
+
+  Future<RouteExecution> resume(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
 }

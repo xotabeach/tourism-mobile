@@ -95,6 +95,48 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
     return _active!;
   }
 
+  @override
+  Future<RouteExecution> pause(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    final current = await _requireActive();
+    _active = RouteExecution(
+      id: current.id,
+      routeId: current.routeId,
+      routeName: current.routeName,
+      status: RouteExecutionStatus.paused,
+      startedAt: current.startedAt,
+      totalStops: current.totalStops,
+      completedStops: current.completedStops,
+      requiredStops: current.requiredStops,
+      completedRequiredStops: current.completedRequiredStops,
+      stops: current.stops,
+      routing: current.routing,
+      awardedPoints: current.awardedPoints,
+      pausedDurationSeconds: current.pausedDurationSeconds,
+    );
+    return _active!;
+  }
+
+  @override
+  Future<RouteExecution> resume(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    final current = _active;
+    if (current == null || current.status != RouteExecutionStatus.paused) {
+      throw StateError('Маршрут не на паузе');
+    }
+    // A mock stand-in for the server's paused-time accounting.
+    _active = current.copyWith(
+      status: RouteExecutionStatus.active,
+    );
+    return _active!;
+  }
+
   Future<RouteExecution> _requireActive() async {
     final value = _active;
     if (value == null || !value.isActive) {

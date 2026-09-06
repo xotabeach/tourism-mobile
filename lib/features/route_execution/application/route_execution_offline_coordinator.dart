@@ -172,6 +172,8 @@ class RouteExecutionOfflineCoordinator {
         real.id,
         occurredAt: local.cancelledAt,
       );
+    } else if (local.status == RouteExecutionStatus.paused) {
+      real = await repository.pause(real.id);
     }
     return real;
   }
@@ -193,6 +195,16 @@ class RouteExecutionOfflineCoordinator {
         occurredAt: entry.createdAt,
       ),
       RouteExecutionAction.cancel => repository.cancel(
+        entry.executionId,
+        clientEventId: entry.clientEventId,
+        occurredAt: entry.createdAt,
+      ),
+      RouteExecutionAction.pause => repository.pause(
+        entry.executionId,
+        clientEventId: entry.clientEventId,
+        occurredAt: entry.createdAt,
+      ),
+      RouteExecutionAction.resume => repository.resume(
         entry.executionId,
         clientEventId: entry.clientEventId,
         occurredAt: entry.createdAt,

@@ -1003,6 +1003,7 @@ List<_ReportRouteOption> _reportRouteOptions(
     }
     final subtitle = switch (execution.status) {
       RouteExecutionStatus.active => 'Проходится сейчас',
+      RouteExecutionStatus.paused => 'На паузе',
       RouteExecutionStatus.completed =>
         'Пройден: ${_reportRouteDate(execution.completedAt ?? execution.startedAt)}',
       RouteExecutionStatus.cancelled =>

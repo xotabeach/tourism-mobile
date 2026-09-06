@@ -60,9 +60,13 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     try {
       final repository = ref.read(routeExecutionRepositoryProvider);
       final active = await repository.getActive();
-      if (active != null &&
-          active.isActive &&
-          active.routeId != widget.routeId) {
+      // A paused run still counts as "the one you're on" — getActive()
+      // already returns it (see get_active_execution), so it must block a
+      // different route here the same way an active run does.
+      final inProgress =
+          active?.status == RouteExecutionStatus.active ||
+          active?.status == RouteExecutionStatus.paused;
+      if (active != null && inProgress && active.routeId != widget.routeId) {
         if (mounted) {
           setState(() => _blockingExecution = active);
         }
@@ -254,9 +258,15 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     );
   }
 
+  /// Active or paused — the run in progress must expose cancel either way;
+  /// only complete/complete_stop stay gated to strictly active.
+  bool get _isInProgress =>
+      _execution?.status == RouteExecutionStatus.active ||
+      _execution?.status == RouteExecutionStatus.paused;
+
   Future<void> _cancelRoute() async {
     final execution = _execution;
-    if (execution == null || !execution.isActive) return;
+    if (execution == null || !_isInProgress) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -314,6 +324,88 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.cancel,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      if (mounted) _showError(_friendlyError(error));
+    }
+  }
+
+  Future<void> _pauseRoute() async {
+    final execution = _execution;
+    if (execution == null || execution.status != RouteExecutionStatus.active) {
+      return;
+    }
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
+    if (_isLocalPendingStart) {
+      final updated = execution.copyWith(status: RouteExecutionStatus.paused);
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.pause,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      return;
+    }
+    try {
+      final updated = await ref
+          .read(routeExecutionRepositoryProvider)
+          .pause(execution.id, clientEventId: clientEventId, occurredAt: occurredAt);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
+      if (mounted) setState(() => _execution = updated);
+    } on Object catch (error) {
+      if (error is! NetworkFailure) {
+        if (mounted) _showError(_friendlyError(error));
+        return;
+      }
+      final updated = execution.copyWith(status: RouteExecutionStatus.paused);
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.pause,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      if (mounted) _showError(_friendlyError(error));
+    }
+  }
+
+  Future<void> _resumeRoute() async {
+    final execution = _execution;
+    if (execution == null || execution.status != RouteExecutionStatus.paused) {
+      return;
+    }
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
+    if (_isLocalPendingStart) {
+      final updated = execution.copyWith(status: RouteExecutionStatus.active);
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.resume,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      return;
+    }
+    try {
+      final updated = await ref
+          .read(routeExecutionRepositoryProvider)
+          .resume(execution.id, clientEventId: clientEventId, occurredAt: occurredAt);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
+      if (mounted) setState(() => _execution = updated);
+    } on Object catch (error) {
+      if (error is! NetworkFailure) {
+        if (mounted) _showError(_friendlyError(error));
+        return;
+      }
+      final updated = execution.copyWith(status: RouteExecutionStatus.active);
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.resume,
         clientEventId: clientEventId,
         occurredAt: occurredAt,
         updated: updated,
@@ -419,7 +511,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           icon: const Icon(Icons.arrow_back_rounded),
         ),
         actions: [
-          if (_execution?.isActive == true)
+          if (_isInProgress)
             IconButton(
               tooltip: 'Отменить',
               onPressed: _cancelRoute,
@@ -540,6 +632,22 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
               enabled: execution.isActive,
               onComplete: () => unawaited(_completeStop(stop)),
             ),
+        if (execution.status == RouteExecutionStatus.paused) ...[
+          const SizedBox(height: 22),
+          FilledButton.icon(
+            onPressed: _resumeRoute,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('Возобновить'),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Маршрут на паузе. Остановки недоступны, пока не возобновишь.',
+            textAlign: TextAlign.center,
+            style: AppTypography.routeMetadata.copyWith(
+              color: AppColors.secondaryInk,
+            ),
+          ),
+        ],
         if (!completed && !cancelled && execution.isActive) ...[
           const SizedBox(height: 22),
           FilledButton.icon(
@@ -551,6 +659,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
                   )
                 : const Icon(Icons.flag_rounded),
             label: const Text('Завершить маршрут'),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _pauseRoute,
+            icon: const Icon(Icons.pause_rounded),
+            label: const Text('Пауза'),
           ),
           const SizedBox(height: 8),
           Text(
@@ -584,6 +698,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   static String _statusLabel(RouteExecutionStatus status) {
     return switch (status) {
       RouteExecutionStatus.active => 'Маршрут начат — сохраняем прогресс',
+      RouteExecutionStatus.paused => 'На паузе',
       RouteExecutionStatus.completed => 'Маршрут завершён',
       RouteExecutionStatus.cancelled => 'Прохождение отменено',
     };

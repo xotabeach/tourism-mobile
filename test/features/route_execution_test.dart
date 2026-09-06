@@ -266,6 +266,29 @@ void main() {
     },
   );
 
+  test('pause and resume replay through the same offline outbox', () async {
+    final repository = MockRouteExecutionRepository();
+    final execution = await repository.start('route-pausable');
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+
+    await coordinator.enqueue(
+      executionId: execution.id,
+      action: RouteExecutionAction.pause,
+    );
+    final paused = await coordinator.replayPending();
+    expect(paused?.status, RouteExecutionStatus.paused);
+    expect(await store.listOutbox(), isEmpty);
+
+    await coordinator.enqueue(
+      executionId: execution.id,
+      action: RouteExecutionAction.resume,
+    );
+    final resumed = await coordinator.replayPending();
+    expect(resumed?.status, RouteExecutionStatus.active);
+    expect(await store.listOutbox(), isEmpty);
+  });
+
   test('an action that keeps failing is dropped after the last try', () async {
     final repository = _StubExecutionRepository(
       failures: {'stop-broken': StateError('server said no')},
@@ -332,6 +355,20 @@ class _StubExecutionRepository implements RouteExecutionRepository {
 
   @override
   Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => _execution;
+
+  @override
+  Future<RouteExecution> pause(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => _execution;
+
+  @override
+  Future<RouteExecution> resume(
     String executionId, {
     String? clientEventId,
     DateTime? occurredAt,
@@ -450,6 +487,20 @@ class _StartReconcileRepository implements RouteExecutionRepository {
 
   @override
   Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<RouteExecution> pause(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<RouteExecution> resume(
     String executionId, {
     String? clientEventId,
     DateTime? occurredAt,
