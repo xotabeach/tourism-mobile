@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/features/settings/application/company_details_providers.dart';
 import 'package:tourism_mobile/features/settings/domain/company_details.dart';
 import 'package:tourism_mobile/features/settings/domain/legal_documents.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -80,13 +81,15 @@ class SettingsLegalDocumentScreen extends StatelessWidget {
 }
 
 /// Реквизиты компании — таблица «поле → значение».
-class SettingsCompanyDetailsScreen extends StatelessWidget {
+class SettingsCompanyDetailsScreen extends ConsumerWidget {
   const SettingsCompanyDetailsScreen({super.key});
 
   static const routePath = 'company';
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final companyDetails =
+        ref.watch(companyDetailsProvider).valueOrNull ?? const CompanyDetails();
     return SettingsScaffold(
       title: 'Реквизиты компании:',
       spaceChildren: false,
@@ -138,6 +141,8 @@ class SettingsContactsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final config = ref.watch(appConfigProvider);
+    final companyDetails =
+        ref.watch(companyDetailsProvider).valueOrNull ?? const CompanyDetails();
     final email = companyDetails.email.isNotEmpty
         ? companyDetails.email
         : (config.supportEmail ?? '');
