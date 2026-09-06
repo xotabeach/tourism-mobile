@@ -28,6 +28,7 @@ class RouteStaticMap extends StatefulWidget {
     this.interactive = true,
     this.selectedIndex,
     this.onStopTap,
+    this.livePosition,
     super.key,
   });
 
@@ -48,6 +49,11 @@ class RouteStaticMap extends StatefulWidget {
   /// matching row in the stop list (and vice versa).
   final int? selectedIndex;
   final ValueChanged<int>? onStopTap;
+
+  /// The walker's current GPS fix, if a caller is tracking live location
+  /// (route execution) and it's available. Drawn as an overlay on the same
+  /// already-loaded raster via [MapProjection] — no live map SDK needed.
+  final ({double lat, double lng})? livePosition;
 
   @override
   State<RouteStaticMap> createState() => _RouteStaticMapState();
@@ -99,6 +105,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
       for (final point
           in widget.geometry?.coordinates ?? const <RouteCoordinate>[])
         (lat: point.lat, lng: point.lng),
+      if (widget.livePosition != null) widget.livePosition!,
     ];
   }
 
@@ -162,6 +169,8 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                   ),
                 ),
                 for (final stop in located) _positionedPin(projection, stop),
+                if (widget.livePosition != null)
+                  _positionedLiveMarker(projection, widget.livePosition!),
                 if (selectedStop != null)
                   _StopCallout(
                     stop: selectedStop,
@@ -221,6 +230,23 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
           behavior: HitTestBehavior.opaque,
           onTap: () => _selectStop(stopIndex),
           child: _MapPinDot(label: '${stop.position}', selected: selected),
+        ),
+      ),
+    );
+  }
+
+  Widget _positionedLiveMarker(
+    MapProjection projection,
+    ({double lat, double lng}) position,
+  ) {
+    final pixel = projection.toPixel(position.lat, position.lng);
+    return Positioned(
+      left: pixel.dx - 10,
+      top: pixel.dy - 10,
+      child: IgnorePointer(
+        child: Semantics(
+          label: 'Ваше местоположение',
+          child: const _LiveDot(),
         ),
       ),
     );
@@ -294,6 +320,49 @@ class _MapPinDot extends StatelessWidget {
           fontSize: 14,
           color: selected ? Colors.white : AppColors.primaryInk,
         ),
+      ),
+    );
+  }
+}
+
+/// "You are here" marker for [RouteStaticMap.livePosition] — a solid dot
+/// with a soft halo, distinct from the numbered stop pins.
+class _LiveDot extends StatelessWidget {
+  const _LiveDot();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            width: 20,
+            height: 20,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accentBlue.withValues(alpha: 0.22),
+            ),
+          ),
+          Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.accentBlue,
+              border: Border.all(color: Colors.white, width: 2),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x33000000),
+                  blurRadius: 4,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

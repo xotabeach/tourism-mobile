@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
@@ -11,10 +12,12 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/route_execution/application/live_location_provider.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_offline_coordinator.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/route_execution_summary_screen.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -201,7 +204,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         occurredAt: occurredAt,
         updated: updated,
       );
-      if (mounted) setState(() => _finishing = false);
+      if (mounted) {
+        setState(() => _finishing = false);
+        await _showSummary(updated);
+      }
       return;
     }
     try {
@@ -213,7 +219,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             occurredAt: occurredAt,
           );
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
-      if (mounted) setState(() => _execution = updated);
+      if (mounted) {
+        setState(() => _execution = updated);
+        await _showSummary(updated);
+      }
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
@@ -235,6 +244,14 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     } finally {
       if (mounted) setState(() => _finishing = false);
     }
+  }
+
+  Future<void> _showSummary(RouteExecution execution) {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => RouteExecutionSummaryScreen(execution: execution),
+      ),
+    );
   }
 
   Future<void> _cancelRoute() async {
@@ -443,6 +460,27 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     final completed = execution.status == RouteExecutionStatus.completed;
     final cancelled = execution.status == RouteExecutionStatus.cancelled;
     final title = route?.name ?? execution.routeName;
+    // GPS is only worth reading while the run is actually in progress — no
+    // point tracking position on a finished or cancelled screen.
+    final livePosition = execution.isActive
+        ? ref.watch(liveLocationProvider).valueOrNull
+        : null;
+    final liveLatLng = livePosition == null
+        ? null
+        : (lat: livePosition.latitude, lng: livePosition.longitude);
+    final nextStop = execution.isActive
+        ? execution.stops
+              .where((stop) => !stop.isCompleted && stop.lat != null && stop.lng != null)
+              .firstOrNull
+        : null;
+    final nextStopDistanceMeters = liveLatLng != null && nextStop != null
+        ? Geolocator.distanceBetween(
+            liveLatLng.lat,
+            liveLatLng.lng,
+            nextStop.lat!,
+            nextStop.lng!,
+          )
+        : null;
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 10, 18, 36),
       children: [
@@ -475,6 +513,14 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             geometry: route.geometry,
             config: ref.watch(appConfigProvider),
             footerLabel: routePointsLabel(route.stops.length),
+            livePosition: liveLatLng,
+          ),
+        ],
+        if (nextStopDistanceMeters != null) ...[
+          const SizedBox(height: 12),
+          _NextStopDistanceChip(
+            placeName: nextStop!.placeName,
+            distanceMeters: nextStopDistanceMeters,
           ),
         ],
         if (execution.routing?.warnings.isNotEmpty == true) ...[
@@ -598,6 +644,59 @@ class _ProgressCard extends StatelessWidget {
                   : '${execution.completedStops} из ${execution.totalStops} остановок',
               style: AppTypography.routeMetadata.copyWith(
                 color: AppColors.secondaryInk,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Soft GPS hint — distance to the next incomplete stop. Purely informative:
+/// nothing here ever gates the "Готово" button, since place coordinates
+/// aren't reliable enough to make arrival a hard requirement.
+class _NextStopDistanceChip extends StatelessWidget {
+  const _NextStopDistanceChip({
+    required this.placeName,
+    required this.distanceMeters,
+  });
+
+  final String placeName;
+  final double distanceMeters;
+
+  String get _distanceLabel {
+    if (distanceMeters < 1000) {
+      return '≈${distanceMeters.round()} м';
+    }
+    return '≈${(distanceMeters / 1000).toStringAsFixed(1)} км';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.controlSurface,
+        borderRadius: BorderRadius.circular(AppRadii.card),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.near_me_rounded,
+              size: 18,
+              color: AppColors.accentBlue,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '$_distanceLabel до точки «$placeName»',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.routeMetadata.copyWith(
+                  color: AppColors.primaryInk,
+                ),
               ),
             ),
           ],

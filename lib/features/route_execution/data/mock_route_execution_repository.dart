@@ -63,6 +63,8 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       completedRequiredStops: current.completedRequiredStops,
       stops: current.stops,
       routing: current.routing,
+      // Mirrors rewards.py's shape closely enough for a mock preview.
+      awardedPoints: 10 + current.completedRequiredStops * 3,
     );
     _history.insert(0, _active!);
     return _active!;

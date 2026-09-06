@@ -142,6 +142,7 @@ class RouteExecution {
     this.completedAt,
     this.cancelledAt,
     this.routing,
+    this.awardedPoints = 0,
   });
 
   final String id;
@@ -153,6 +154,10 @@ class RouteExecution {
   final DateTime? completedAt;
   final DateTime? cancelledAt;
   final RouteExecutionRouting? routing;
+
+  /// Travel points granted on completion (`rewards.py:travel_points_for_effort`
+  /// server-side) — zero until the run is completed.
+  final int awardedPoints;
   final int totalStops;
   final int completedStops;
   final int requiredStops;
@@ -184,12 +189,14 @@ class RouteExecution {
     completedRequiredStops:
         completedRequiredStops ?? this.completedRequiredStops,
     stops: stops ?? this.stops,
+    awardedPoints: awardedPoints,
   );
 
   Map<String, dynamic> toJson() => {
     'id': id,
     'route_id': routeId,
     'route_name': routeName,
+    'awarded_points': awardedPoints,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -227,6 +234,7 @@ class RouteExecution {
       requiredStops: (json['required_stops'] as num?)?.toInt() ?? 0,
       completedRequiredStops:
           (json['completed_required_stops'] as num?)?.toInt() ?? 0,
+      awardedPoints: (json['awarded_points'] as num?)?.toInt() ?? 0,
       stops: rawStops is List
           ? rawStops
                 .whereType<Map<dynamic, dynamic>>()
