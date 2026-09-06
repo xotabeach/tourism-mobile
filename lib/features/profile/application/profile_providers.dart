@@ -23,6 +23,27 @@ final offlineOwnRoutesCacheProvider = Provider<OfflineOwnRoutesCache>((ref) {
   return SharedPreferencesOfflineOwnRoutesCache();
 });
 
+/// Placeholder rank for the real-mode skeleton below — never fabricated
+/// numbers, just "we don't know yet".
+const _unknownRank = ProfileRank(
+  title: 'Недоступно',
+  progressPoints: 0,
+  nextRankPoints: 1,
+  leaderboardPlace: 0,
+);
+
+/// Synchronous "what we know without a network round-trip" snapshot: own
+/// display name/avatar/cover from the session, nothing else. [publicProfileProvider]
+/// overlays the real rank/achievements/stats on top of this once it loads —
+/// this value should only ever reach the screen as a brief pre-load skeleton
+/// or an error fallback, so it must never carry fabricated progress numbers
+/// (bug found 2026-09-06: an API error other than [NetworkFailure] used to
+/// fall back to this provider, which returned [MockProfile]'s fake rank and
+/// achievements as if they were real).
+///
+/// `DATA_SOURCE=mock` builds are the one deliberate exception — there is no
+/// backend to overlay real data on top, so this *is* the full preview
+/// experience, and it stays [MockProfile] in full.
 final profileProvider = Provider<ProfileSnapshot>((ref) {
   final session = ref.watch(sessionProvider);
   final config = ref.watch(appConfigProvider);
@@ -36,10 +57,25 @@ final profileProvider = Provider<ProfileSnapshot>((ref) {
     return AppImages.resolveMediaUrl(config, raw);
   }
 
-  return MockProfile.snapshot(
-    displayName: session.displayName,
+  if (config.useMockData) {
+    return MockProfile.snapshot(
+      displayName: session.displayName,
+      avatarImageUrl: resolvedOrLocal(session.avatarUrl),
+      coverImageUrl: resolvedOrLocal(session.coverUrl),
+    );
+  }
+
+  return ProfileSnapshot(
+    displayName: (session.displayName?.trim().isNotEmpty ?? false)
+        ? session.displayName!.trim()
+        : '',
+    rank: _unknownRank,
+    coverImageAsset: AppImages.welcomeSunset,
+    avatarImageAsset: AppImages.travelerPortrait,
     avatarImageUrl: resolvedOrLocal(session.avatarUrl),
     coverImageUrl: resolvedOrLocal(session.coverUrl),
+    achievementPages: const [],
+    publishedRoutes: const [],
   );
 });
 
@@ -220,9 +256,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       final ownRoutes = await ref
           .watch(routesRepositoryProvider)
           .listMyRoutes();
-      unawaited(
-        ref.read(offlineOwnRoutesCacheProvider).save(ownRoutes.items),
-      );
+      unawaited(ref.read(offlineOwnRoutesCacheProvider).save(ownRoutes.items));
       // Своё фото берём с сервера, а не из сессии. Сессия знает только то,
       // что загрузили на этом устройстве: после переустановки или входа с
       // другого телефона там пусто, и профиль показывал моковую заглушку
