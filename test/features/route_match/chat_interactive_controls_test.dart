@@ -97,5 +97,13 @@ void main() {
     // Animated dots + short label, no enclosing bubble anymore.
     expect(find.text('Тревел Агент печатает…'), findsNothing);
     expect(find.textContaining('думает'), findsOneWidget);
+
+    // A healthy turn runs 7-17s against the real backend; the reassurance
+    // only shows up once the wait is genuinely long, not on every message.
+    expect(find.byKey(const ValueKey('chat-typing-patience')), findsNothing);
+    await tester.pump(const Duration(seconds: 7));
+    expect(find.byKey(const ValueKey('chat-typing-patience')), findsOneWidget);
+    // Let the repeating dot animation stop before the test ends.
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

@@ -10,12 +10,21 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
 
   final Dio _dio;
 
+  /// The shared client allows 20s, which is right for plain CRUD but not for
+  /// a turn that runs a model. Measured against production: a chat turn takes
+  /// 7-17s (the model answers, asks for a tool, then answers again), so 20s
+  /// reported "Network request failed" on perfectly healthy turns. The server
+  /// caps its own work at `ai_turn_budget_seconds`, so this only has to be
+  /// comfortably above that.
+  static final _aiOptions = Options(receiveTimeout: const Duration(seconds: 60));
+
   @override
   Future<RouteMatchResult> match(RouteMatchParams params) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/route-builder/match',
         data: params.toJson(),
+        options: _aiOptions,
       );
       return RouteMatchResult.fromJson(response.data!);
     });
@@ -30,6 +39,7 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/route-builder/generate',
         data: {'channel': channel, 'params': params.toJson()},
+        options: _aiOptions,
       );
       return RouteGenerateResult.fromJson(response.data!);
     });
@@ -125,6 +135,7 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
           'action_id': ?actionId,
           'control_value': ?controlValue,
         },
+        options: _aiOptions,
       );
       return RoutePlanningMessageResult.fromJson(response.data!);
     });

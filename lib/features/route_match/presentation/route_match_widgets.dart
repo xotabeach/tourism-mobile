@@ -2892,6 +2892,14 @@ class _TypingDots extends StatefulWidget {
 class _TypingDotsState extends State<_TypingDots>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  Timer? _patienceTimer;
+  var _takingLong = false;
+
+  /// A healthy turn answers in 7-17s (the model replies, asks for a tool,
+  /// then replies again), so three dots alone leave the longer half of those
+  /// waits looking like the app is stuck. The line appears only once the wait
+  /// is actually unusual instead of promising a delay on every message.
+  static const _patience = Duration(seconds: 6);
 
   @override
   void initState() {
@@ -2901,10 +2909,16 @@ class _TypingDotsState extends State<_TypingDots>
       duration: const Duration(milliseconds: 900),
     );
     unawaited(_controller.repeat());
+    _patienceTimer = Timer(_patience, () {
+      if (mounted) {
+        setState(() => _takingLong = true);
+      }
+    });
   }
 
   @override
   void dispose() {
+    _patienceTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -2912,28 +2926,50 @@ class _TypingDotsState extends State<_TypingDots>
   @override
   Widget build(BuildContext context) {
     final px = RouteBuilderScale.of(context).px;
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var i = 0; i < 3; i++) ...[
-              if (i > 0) SizedBox(width: px(5)),
-              _TypingDot(px: px, phase: (_controller.value + i / 3) % 1),
-            ],
-            SizedBox(width: px(8)),
-            Text(
-              'думает…',
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) SizedBox(width: px(5)),
+                  _TypingDot(px: px, phase: (_controller.value + i / 3) % 1),
+                ],
+                SizedBox(width: px(8)),
+                Text(
+                  'думает…',
+                  style: RouteBuilderDesignTokens.rubik(
+                    fontSize: px(13),
+                    color: RouteBuilderDesignTokens.textSecondary,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+        if (_takingLong) ...[
+          SizedBox(height: px(6)),
+          SizedBox(
+            width: px(240),
+            child: Text(
+              'Подбираю места и сверяюсь с картой — это может занять '
+              'до полуминуты.',
+              key: const ValueKey('chat-typing-patience'),
               style: RouteBuilderDesignTokens.rubik(
-                fontSize: px(13),
+                fontSize: px(12),
                 color: RouteBuilderDesignTokens.textSecondary,
-                height: 1.1,
+                height: 1.25,
               ),
             ),
-          ],
-        );
-      },
+          ),
+        ],
+      ],
     );
   }
 }
