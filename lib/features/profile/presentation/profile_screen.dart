@@ -923,30 +923,19 @@ class _HeaderActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: AppGlassCircle(
-        dimension: 44,
-        blur: 10,
-        fillColor: fillColor,
-        borderColor: Colors.white.withValues(alpha: 0.28),
-        contentColor: iconColor,
-        child: Material(
-          color: Colors.transparent,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: () {
-              unawaited(AppHaptics.selectionClick());
-              onTap();
-            },
-            customBorder: const CircleBorder(),
-            child: Center(
-              child: iconWidget ?? Icon(icon, size: 22, color: iconColor),
-            ),
-          ),
-        ),
-      ),
+    return AppGlassIconButton(
+      semanticLabel: tooltip,
+      onPressed: () {
+        unawaited(AppHaptics.selectionClick());
+        onTap();
+      },
+      icon: iconWidget == null ? icon : null,
+      iconWidget: iconWidget,
+      dimension: 44,
+      iconSize: 22,
+      foregroundColor: iconColor,
+      fillColor: fillColor,
+      borderColor: Colors.white.withValues(alpha: 0.28),
     );
   }
 }

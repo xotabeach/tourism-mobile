@@ -203,6 +203,17 @@ class AppGlassCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Theme.of(context).platform == TargetPlatform.iOS &&
+        AppGlassSettings.enabled) {
+      // Passive surface, no onTap of its own (e.g. a decorative affordance
+      // inside a tappable card) — GlassContainer, not GlassButton/IconButton.
+      return GlassContainer(
+        width: dimension,
+        height: dimension,
+        shape: const LiquidOval(),
+        child: Center(child: child),
+      );
+    }
     return SizedBox.square(
       dimension: dimension,
       child: AppGlassSurface(
@@ -223,18 +234,27 @@ class AppGlassIconButton extends StatelessWidget {
     required this.onPressed,
     this.icon,
     this.iconAsset,
+    this.iconWidget,
     this.dimension = 52,
     this.iconSize = 24,
     this.foregroundColor = AppColors.primaryInk,
     this.fillColor = AppColors.glassFill,
+    this.borderColor = AppColors.glassBorder,
     super.key,
   }) : assert(
-         (icon == null) != (iconAsset == null),
-         'Provide exactly one of icon or iconAsset.',
+         (icon != null ? 1 : 0) +
+                 (iconAsset != null ? 1 : 0) +
+                 (iconWidget != null ? 1 : 0) ==
+             1,
+         'Provide exactly one of icon, iconAsset or iconWidget.',
        );
 
   final IconData? icon;
   final String? iconAsset;
+
+  /// A ready-made icon widget (e.g. `AppFavoriteIcon`) for glyphs that
+  /// aren't a plain `Icon`/asset — carries its own color/size already.
+  final Widget? iconWidget;
   final String semanticLabel;
   final VoidCallback? onPressed;
   final double dimension;
@@ -242,21 +262,29 @@ class AppGlassIconButton extends StatelessWidget {
   final Color foregroundColor;
   final Color fillColor;
 
+  /// Fallback-path border only (Android, or iOS with the setting off) —
+  /// real glass draws its own.
+  final Color borderColor;
+
   bool _useRealGlass(BuildContext context) =>
       Theme.of(context).platform == TargetPlatform.iOS &&
       AppGlassSettings.enabled;
 
+  Widget _icon({required bool themed}) {
+    if (iconWidget != null) return iconWidget!;
+    if (iconAsset != null) {
+      return AppAssetIcon(iconAsset!, size: iconSize, color: foregroundColor);
+    }
+    // A bare Icon(icon) (no explicit color) lets GlassIconButton apply its
+    // own adaptive IconTheme (see brightnessResolver in main.dart).
+    return themed ? Icon(icon) : Icon(icon, color: foregroundColor);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_useRealGlass(context)) {
-      // A bare Icon(icon) (no explicit color) lets GlassIconButton apply its
-      // own adaptive IconTheme (see brightnessResolver in main.dart) —
-      // AppAssetIcon isn't an Icon, so it stays explicitly colored either way.
-      final glassIcon = iconAsset == null
-          ? Icon(icon)
-          : AppAssetIcon(iconAsset!, size: iconSize, color: foregroundColor);
       return GlassIconButton(
-        icon: glassIcon,
+        icon: _icon(themed: true),
         onPressed: onPressed,
         size: dimension,
         iconSize: iconSize,
@@ -276,16 +304,11 @@ class AppGlassIconButton extends StatelessWidget {
             shape: NativeLiquidGlassShape.circle,
             interactive: onPressed != null,
             fillColor: fillColor,
+            borderColor: borderColor,
             contentColor: foregroundColor,
             child: IconButton(
               onPressed: onPressed,
-              icon: iconAsset == null
-                  ? Icon(icon)
-                  : AppAssetIcon(
-                      iconAsset!,
-                      size: iconSize,
-                      color: foregroundColor,
-                    ),
+              icon: _icon(themed: false),
               iconSize: iconSize,
               color: foregroundColor,
               padding: EdgeInsets.zero,

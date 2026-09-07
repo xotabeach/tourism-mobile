@@ -258,34 +258,27 @@ class CollapsingHeroAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fg = onPhoto ? Colors.white : AppColors.primaryInk;
+
+    if (onPhoto) {
+      return AppGlassIconButton(
+        semanticLabel: semanticLabel,
+        onPressed: onPressed,
+        icon: iconWidget == null && iconAsset == null ? icon : null,
+        iconAsset: iconWidget == null ? iconAsset : null,
+        iconWidget: iconWidget,
+        dimension: dimension,
+        iconSize: 22,
+        foregroundColor: Colors.white,
+        fillColor: Colors.black.withValues(alpha: 0.26),
+        borderColor: Colors.white.withValues(alpha: 0.22),
+      );
+    }
+
     final child =
         iconWidget ??
         (iconAsset != null
             ? AppAssetIcon(iconAsset!, size: 22, color: fg)
             : Icon(icon, size: 22, color: fg));
-
-    if (onPhoto) {
-      return Semantics(
-        button: true,
-        label: semanticLabel,
-        child: AppGlassCircle(
-          dimension: dimension,
-          blur: 10,
-          fillColor: Colors.black.withValues(alpha: 0.26),
-          borderColor: Colors.white.withValues(alpha: 0.22),
-          contentColor: Colors.white,
-          child: Material(
-            color: Colors.transparent,
-            shape: const CircleBorder(),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              onTap: onPressed,
-              child: Center(child: child),
-            ),
-          ),
-        ),
-      );
-    }
 
     return Semantics(
       button: true,

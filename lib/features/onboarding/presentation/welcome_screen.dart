@@ -85,30 +85,10 @@ class WelcomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: SizedBox(
+                        child: AppAdaptivePrimaryButton(
+                          label: 'Начать путешествие',
+                          onPressed: enterApp,
                           height: _profileButtonSize,
-                          child: AppGlassSurface(
-                            borderRadius: 999,
-                            blur: 18,
-                            fillColor: Colors.white.withValues(alpha: 0.22),
-                            borderColor: Colors.white.withValues(alpha: 0.52),
-                            contentColor: Colors.white,
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(999),
-                                onTap: enterApp,
-                                child: Center(
-                                  child: Text(
-                                    'Начать путешествие',
-                                    style: AppTypography.button.copyWith(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
                       ),
                     ],
@@ -179,24 +159,14 @@ class _WelcomeProfileButton extends StatelessWidget {
       );
     }
 
-    return AppGlassCircle(
+    return AppGlassIconButton(
+      semanticLabel: 'Открыть профиль',
+      onPressed: onPressed,
+      iconAsset: AppIconography.profileSelected,
       dimension: WelcomeScreen._profileButtonSize,
-      blur: 16,
+      iconSize: 28,
+      foregroundColor: AppColors.primaryInk,
       fillColor: Colors.white.withValues(alpha: 0.82),
-      child: Semantics(
-        button: true,
-        label: 'Открыть профиль',
-        child: IconButton(
-          onPressed: onPressed,
-          tooltip: 'Открыть профиль',
-          icon: const AppAssetIcon(
-            AppIconography.profileSelected,
-            color: AppColors.primaryInk,
-            size: 28,
-          ),
-          padding: EdgeInsets.zero,
-        ),
-      ),
     );
   }
 }

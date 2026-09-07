@@ -180,20 +180,15 @@ class _PlaceFavoriteButton extends ConsumerWidget {
     );
     return Semantics(
       key: ValueKey('favorite-toggle-$placeId'),
-      button: true,
       toggled: selected,
-      label: selected ? 'Удалить из избранного' : 'Добавить в избранное',
-      child: AppGlassCircle(
+      child: AppGlassIconButton(
+        semanticLabel: selected ? 'Удалить из избранного' : 'Добавить в избранное',
+        onPressed: () => unawaited(_toggle(ref, context)),
+        iconWidget: AppFavoriteIcon(selected: selected, size: 22),
         dimension: 44,
-        blur: 10,
+        foregroundColor: Colors.white,
         fillColor: Colors.black.withValues(alpha: 0.42),
         borderColor: Colors.white.withValues(alpha: 0.16),
-        contentColor: Colors.white,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => unawaited(_toggle(ref, context)),
-          child: AppFavoriteIcon(selected: selected, size: 22),
-        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -965,80 +966,12 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                                       ),
                                     ),
                                     const SizedBox(height: 22),
-                                    SizedBox(
-                                      width: 244,
-                                      height: 62,
-                                      child: AppGlassSurface(
-                                        key: const ValueKey(
-                                          'route-swipe-coach-cta-glass',
-                                        ),
-                                        borderRadius: AppRadii.capsule,
-                                        blur: useCupertinoGlass
-                                            ? 18 * eased
-                                            : 0,
-                                        fillColor: Colors.white.withValues(
-                                          alpha:
-                                              (useCupertinoGlass
-                                                  ? 0.38
-                                                  : 0.24) *
-                                              eased,
-                                        ),
-                                        borderColor: Colors.white.withValues(
-                                          alpha:
-                                              (useCupertinoGlass
-                                                  ? 0.88
-                                                  : 0.46) *
-                                              eased,
-                                        ),
-                                        contentColor: Colors.white,
-                                        borderWidth: useCupertinoGlass
-                                            ? 1.2
-                                            : 1,
-                                        boxShadow: useCupertinoGlass
-                                            ? [
-                                                BoxShadow(
-                                                  color: const Color(0x30000000)
-                                                      .withValues(
-                                                        alpha: 0.22 * eased,
-                                                      ),
-                                                  blurRadius: 18,
-                                                  offset: const Offset(0, 8),
-                                                ),
-                                                BoxShadow(
-                                                  color: const Color(0x66FFFFFF)
-                                                      .withValues(
-                                                        alpha: 0.45 * eased,
-                                                      ),
-                                                  blurRadius: 14,
-                                                  offset: const Offset(0, -3),
-                                                ),
-                                              ]
-                                            : AppShadows.glass,
-                                        child: Material(
-                                          color: Colors.transparent,
-                                          child: InkWell(
-                                            borderRadius: BorderRadius.circular(
-                                              AppRadii.capsule,
-                                            ),
-                                            onTap: _dismiss,
-                                            child: Center(
-                                              child: Opacity(
-                                                opacity: eased,
-                                                child: Text(
-                                                  'Хорошо',
-                                                  style: AppTypography.button
-                                                      .copyWith(
-                                                        color: Colors.white,
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                      ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                    _SwipeCoachCta(
+                                      useGlass:
+                                          useCupertinoGlass &&
+                                          AppGlassSettings.enabled,
+                                      eased: eased,
+                                      onTap: _dismiss,
                                     ),
                                   ],
                                 ),
@@ -1060,6 +993,83 @@ class _RouteSwipeCoachCardState extends State<RouteSwipeCoachCard>
                 child: coachSurface,
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The "Хорошо" dismiss button on the swipe-gesture coach overlay.
+///
+/// [eased] drives the coach's fade-in — the button (real glass or not)
+/// fades in with everything else instead of popping in fully opaque.
+class _SwipeCoachCta extends StatelessWidget {
+  const _SwipeCoachCta({
+    required this.useGlass,
+    required this.eased,
+    required this.onTap,
+  });
+
+  final bool useGlass;
+  final double eased;
+  final VoidCallback onTap;
+
+  static const _label = 'Хорошо';
+
+  @override
+  Widget build(BuildContext context) {
+    if (useGlass) {
+      return AppFilteredOpacity(
+        opacity: eased,
+        child: SizedBox(
+          width: 244,
+          height: 62,
+          child: GlassButton.custom(
+            key: const ValueKey('route-swipe-coach-cta-glass'),
+            onTap: onTap,
+            shape: const LiquidRoundedRectangle(borderRadius: AppRadii.capsule),
+            child: const Text(
+              _label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return SizedBox(
+      width: 244,
+      height: 62,
+      child: AppGlassSurface(
+        key: const ValueKey('route-swipe-coach-cta-glass'),
+        borderRadius: AppRadii.capsule,
+        blur: 0,
+        fillColor: Colors.white.withValues(alpha: 0.24 * eased),
+        borderColor: Colors.white.withValues(alpha: 0.46 * eased),
+        contentColor: Colors.white,
+        boxShadow: AppShadows.glass,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(AppRadii.capsule),
+            onTap: onTap,
+            child: Center(
+              child: Opacity(
+                opacity: eased,
+                child: Text(
+                  _label,
+                  style: AppTypography.button.copyWith(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),

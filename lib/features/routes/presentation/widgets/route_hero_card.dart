@@ -744,21 +744,15 @@ class _EditRouteButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Редактировать маршрут',
-      child: AppGlassCircle(
-        dimension: 44,
-        blur: 10,
-        fillColor: Colors.black.withValues(alpha: 0.42),
-        borderColor: Colors.white.withValues(alpha: 0.16),
-        contentColor: Colors.white,
-        child: IconButton(
-          onPressed: onTap,
-          padding: EdgeInsets.zero,
-          icon: const Icon(Icons.edit_outlined, color: Colors.white, size: 20),
-        ),
-      ),
+    return AppGlassIconButton(
+      semanticLabel: 'Редактировать маршрут',
+      onPressed: onTap,
+      icon: Icons.edit_outlined,
+      dimension: 44,
+      iconSize: 20,
+      foregroundColor: Colors.white,
+      fillColor: Colors.black.withValues(alpha: 0.42),
+      borderColor: Colors.white.withValues(alpha: 0.16),
     );
   }
 }
@@ -822,23 +816,18 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
     );
     return Semantics(
       key: ValueKey('favorite-toggle-${widget.routeId}'),
-      button: true,
       toggled: selected,
-      label: selected ? 'Удалить из избранного' : 'Добавить в избранное',
-      child: AppGlassCircle(
+      child: AppGlassIconButton(
+        semanticLabel: selected ? 'Удалить из избранного' : 'Добавить в избранное',
+        onPressed: _toggle,
+        iconWidget: ScaleTransition(
+          scale: _scale,
+          child: AppFavoriteIcon(selected: selected, size: 22),
+        ),
         dimension: 44,
-        blur: 10,
+        foregroundColor: Colors.white,
         fillColor: Colors.black.withValues(alpha: 0.42),
         borderColor: Colors.white.withValues(alpha: 0.16),
-        contentColor: Colors.white,
-        child: IconButton(
-          onPressed: _toggle,
-          padding: EdgeInsets.zero,
-          icon: ScaleTransition(
-            scale: _scale,
-            child: AppFavoriteIcon(selected: selected, size: 22),
-          ),
-        ),
       ),
     );
   }

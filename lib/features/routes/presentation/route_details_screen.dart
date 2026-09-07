@@ -1538,24 +1538,29 @@ class _AdaptiveInlineIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final button = IconButton(
-      onPressed: onPressed,
-      tooltip: tooltip,
-      icon: Icon(icon),
-      iconSize: iconSize,
-      color: AppColors.primaryInk,
-      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-      padding: EdgeInsets.zero,
-    );
     if (Theme.of(context).platform != TargetPlatform.iOS) {
-      return button;
+      // Bare icon button on Android — no glass background at all, unlike
+      // AppGlassIconButton's fallback (a filled circle). Kept exactly as it
+      // already was rather than folded into the shared component.
+      return IconButton(
+        onPressed: onPressed,
+        tooltip: tooltip,
+        icon: Icon(icon),
+        iconSize: iconSize,
+        color: AppColors.primaryInk,
+        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+        padding: EdgeInsets.zero,
+      );
     }
-    return AppGlassCircle(
+    return AppGlassIconButton(
+      semanticLabel: tooltip,
+      onPressed: onPressed,
+      icon: icon,
       dimension: 44,
-      blur: 22,
+      iconSize: iconSize,
+      foregroundColor: AppColors.primaryInk,
       fillColor: Colors.white.withValues(alpha: 0.5),
       borderColor: Colors.white.withValues(alpha: 0.8),
-      child: button,
     );
   }
 }

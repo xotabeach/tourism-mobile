@@ -211,11 +211,14 @@ void main() {
       const _RoutesGoldenFrame(showCoach: true),
       platform: TargetPlatform.iOS,
     );
-    final cta = tester.widget<AppGlassSurface>(
+    expect(
       find.byKey(const ValueKey('route-swipe-coach-cta-glass')),
+      findsOneWidget,
     );
-    expect(cta.blur, 18);
-    expect(cta.fillColor.a, closeTo(0.38, 0.01));
+    expect(
+      tester.widget(find.byKey(const ValueKey('route-swipe-coach-cta-glass'))),
+      isA<GlassButton>(),
+    );
     await expectLater(
       find.byKey(_goldenKey),
       matchesGoldenFile('goldens/swipe_onboarding_ios.png'),
