@@ -378,7 +378,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
         crop: (path) => cropPickedPhoto(
           context,
           sourcePath: path,
-          shape: PhotoCropShape.wide,
+          shape: PhotoCropShape.original,
           title: 'Фото маршрута',
         ),
       );

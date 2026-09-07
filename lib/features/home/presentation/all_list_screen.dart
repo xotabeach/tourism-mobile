@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -176,6 +177,16 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
           _routeItems.addAll(page.items);
           _total = page.total;
           _offset = _routeItems.length;
+        });
+      } else if (mode == HomeListMode.articles) {
+        final page = await ref
+            .read(articlesRepositoryProvider)
+            .listArticles(limit: _pageSize, offset: offset);
+        if (!mounted || generation != _loadGeneration || mode != _mode) return;
+        setState(() {
+          _articleItems.addAll(page.items);
+          _total = page.total;
+          _offset = _articleItems.length;
         });
       } else {
         final page = await ref

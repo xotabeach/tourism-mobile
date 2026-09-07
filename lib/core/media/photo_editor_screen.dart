@@ -18,11 +18,17 @@ enum PhotoCropShape {
   wide(aspectRatio: 16 / 9),
 
   /// Article and review photos, where the author frames what they want.
-  free(aspectRatio: 4 / 3);
+  free(aspectRatio: 4 / 3),
 
-  const PhotoCropShape({required this.aspectRatio, this.circular = false});
+  /// Route photos: the frame takes the photo's own proportions, so nothing
+  /// is cut off. Rotating and zooming still work — only the fixed 16:9
+  /// window is gone, since a route photo is shown whole, not as a banner.
+  original();
 
-  final double aspectRatio;
+  const PhotoCropShape({this.aspectRatio, this.circular = false});
+
+  /// `null` means "follow the photo" — see [original].
+  final double? aspectRatio;
   final bool circular;
 }
 
@@ -91,14 +97,37 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     super.dispose();
   }
 
+  /// Aspect the crop window is drawn at. Follows the photo (as rotated) when
+  /// the shape has none of its own, so `coverScale` lands on an exact fit and
+  /// the whole picture survives.
+  double _windowAspectRatio() {
+    final fixed = widget.shape.aspectRatio;
+    if (fixed != null) {
+      return fixed;
+    }
+    final image = _image;
+    if (image == null) {
+      return 4 / 3;
+    }
+    final rotated = rotatedImageSize(
+      Size(image.width.toDouble(), image.height.toDouble()),
+      _transform.quarterTurns,
+    );
+    if (rotated.width <= 0 || rotated.height <= 0) {
+      return 4 / 3;
+    }
+    return rotated.width / rotated.height;
+  }
+
   Size _windowSize(BoxConstraints constraints) {
     final maxWidth = constraints.maxWidth - 32;
     final maxHeight = constraints.maxHeight - 32;
+    final aspectRatio = _windowAspectRatio();
     var width = maxWidth;
-    var height = width / widget.shape.aspectRatio;
+    var height = width / aspectRatio;
     if (height > maxHeight) {
       height = maxHeight;
-      width = height * widget.shape.aspectRatio;
+      width = height * aspectRatio;
     }
     return Size(width, height);
   }

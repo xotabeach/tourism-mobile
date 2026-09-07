@@ -2,11 +2,13 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/core/media/photo_crop_geometry.dart';
+import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 
 /// The maths behind the photo editor. Kept as plain functions precisely so it
 /// can be pinned here — the preview and the final render both use it, and if
 /// they disagreed the upload would not match what the user framed.
 void main() {
+  _originalShapeGroup();
   group('rotation', () {
     test('a quarter turn swaps width and height', () {
       const image = Size(400, 300);
@@ -95,6 +97,38 @@ void main() {
 
     test('a zero window still produces a drawable size', () {
       expect(croppedPixelSize(Size.zero), const Size(1, 1));
+    });
+  });
+}
+
+void _originalShapeGroup() {
+  group('PhotoCropShape.original', () {
+    test('has no fixed aspect, so the window can follow the photo', () {
+      expect(PhotoCropShape.original.aspectRatio, isNull);
+      expect(PhotoCropShape.original.circular, isFalse);
+      // The shapes that do frame to a fixed window keep theirs.
+      expect(PhotoCropShape.wide.aspectRatio, closeTo(16 / 9, 1e-9));
+      expect(PhotoCropShape.avatar.aspectRatio, 1);
+    });
+
+    test('a window matching the photo crops nothing away', () {
+      // What the editor does for `original`: window aspect = photo aspect.
+      // coverScale then lands on an exact fit instead of overflowing, which
+      // is what "no crop" means in practice.
+      const portrait = Size(1080, 1920);
+      final window = Size(360, 360 * portrait.height / portrait.width);
+      final scale = coverScale(portrait, window, 0);
+      expect(portrait.width * scale, closeTo(window.width, 0.001));
+      expect(portrait.height * scale, closeTo(window.height, 0.001));
+    });
+
+    test('the same holds once the photo is rotated a quarter turn', () {
+      const portrait = Size(1080, 1920);
+      final rotated = rotatedImageSize(portrait, 1);
+      final window = Size(360, 360 * rotated.height / rotated.width);
+      final scale = coverScale(portrait, window, 1);
+      expect(rotated.width * scale, closeTo(window.width, 0.001));
+      expect(rotated.height * scale, closeTo(window.height, 0.001));
     });
   });
 }
