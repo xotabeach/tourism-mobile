@@ -244,10 +244,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
       left: pixel.dx - 10,
       top: pixel.dy - 10,
       child: IgnorePointer(
-        child: Semantics(
-          label: 'Ваше местоположение',
-          child: const _LiveDot(),
-        ),
+        child: Semantics(label: 'Ваше местоположение', child: const _LiveDot()),
       ),
     );
   }
@@ -279,6 +276,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             stops: widget.stops,
             geometry: widget.geometry,
             config: widget.config,
+            livePosition: widget.livePosition,
           ),
         ),
       ),
@@ -469,6 +467,7 @@ class _FullScreenRouteMap extends StatelessWidget {
     required this.stops,
     required this.geometry,
     required this.config,
+    this.livePosition,
   });
 
   /// Backend preview endpoint for this route, or null when the server does
@@ -477,6 +476,10 @@ class _FullScreenRouteMap extends StatelessWidget {
   final List<RouteStop> stops;
   final RouteGeometry? geometry;
   final AppConfig config;
+
+  /// Carried over from the inline map — without it, expanding to full
+  /// screen during a live run silently drops the "you are here" marker.
+  final ({double lat, double lng})? livePosition;
 
   @override
   Widget build(BuildContext context) {
@@ -499,6 +502,7 @@ class _FullScreenRouteMap extends StatelessWidget {
                 geometry: geometry,
                 config: config,
                 height: constraints.maxHeight,
+                livePosition: livePosition,
                 // Already full screen: tapping should not stack another one.
                 interactive: false,
               ),

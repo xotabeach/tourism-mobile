@@ -353,7 +353,11 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
-          .pause(execution.id, clientEventId: clientEventId, occurredAt: occurredAt);
+          .pause(
+            execution.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
     } on Object catch (error) {
@@ -394,7 +398,11 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     try {
       final updated = await ref
           .read(routeExecutionRepositoryProvider)
-          .resume(execution.id, clientEventId: clientEventId, occurredAt: occurredAt);
+          .resume(
+            execution.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
     } on Object catch (error) {
@@ -560,9 +568,21 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     final liveLatLng = livePosition == null
         ? null
         : (lat: livePosition.latitude, lng: livePosition.longitude);
+    // A stray fix (stale cache, simulator default location, no GPS lock yet)
+    // can land hundreds of km from the route — feeding that into the map's
+    // fit would zoom it out to a near-global view instead of the route
+    // itself. The distance-to-next-stop chip below is still shown as-is:
+    // an implausible distance there just reads as "very far", not broken.
+    final mapLivePosition =
+        liveLatLng != null && route != null && _isNearRoute(liveLatLng, route)
+        ? liveLatLng
+        : null;
     final nextStop = execution.isActive
         ? execution.stops
-              .where((stop) => !stop.isCompleted && stop.lat != null && stop.lng != null)
+              .where(
+                (stop) =>
+                    !stop.isCompleted && stop.lat != null && stop.lng != null,
+              )
               .firstOrNull
         : null;
     final nextStopDistanceMeters = liveLatLng != null && nextStop != null
@@ -605,7 +625,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             geometry: route.geometry,
             config: ref.watch(appConfigProvider),
             footerLabel: routePointsLabel(route.stops.length),
-            livePosition: liveLatLng,
+            livePosition: mapLivePosition,
           ),
         ],
         if (nextStopDistanceMeters != null) ...[
@@ -702,6 +722,33 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       RouteExecutionStatus.completed => 'Маршрут завершён',
       RouteExecutionStatus.cancelled => 'Прохождение отменено',
     };
+  }
+
+  /// Whether [position] is close enough to any stop to plausibly be a real
+  /// fix for this run, rather than a stale cache or a simulator's default
+  /// location. Routes are all local (Crimea is ~300km across at most), so a
+  /// fix past this radius from every stop is not worth fitting the map to.
+  static const _plausibleFixRadiusMeters = 150000;
+
+  static bool _isNearRoute(
+    ({double lat, double lng}) position,
+    RouteDetail route,
+  ) {
+    for (final stop in route.stops) {
+      if (stop.lat == null || stop.lng == null) {
+        continue;
+      }
+      final distance = Geolocator.distanceBetween(
+        position.lat,
+        position.lng,
+        stop.lat!,
+        stop.lng!,
+      );
+      if (distance <= _plausibleFixRadiusMeters) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
