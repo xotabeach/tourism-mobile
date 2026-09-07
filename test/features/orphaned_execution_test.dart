@@ -77,7 +77,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await selectMyRoutesSection(tester, 'История');
+    await selectMyRoutesSection(tester, 'Прохождения');
 
     // The backend refuses to start any new route while a run is active
     // (active_route_execution_exists), so a tile with no way out would lock
@@ -93,5 +93,50 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(repository.cancelledId, 'exec-orphan');
+  });
+
+  testWidgets('a paused run shows its own status, not "В процессе"', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1400);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    final paused = RouteExecution(
+      id: 'exec-paused',
+      routeId: 'route-paused',
+      routeName: 'Маршрут на паузе',
+      status: RouteExecutionStatus.paused,
+      startedAt: DateTime(2026, 8, 30),
+      totalStops: 3,
+      completedStops: 1,
+      requiredStops: 3,
+      completedRequiredStops: 1,
+      stops: const [],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...testSessionOverrides(onboardingCompleted: true),
+          routeExecutionHistoryProvider.overrideWith((ref) async => [paused]),
+        ],
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: MyRoutesScreen()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await selectMyRoutesSection(tester, 'Прохождения');
+
+    expect(find.textContaining('На паузе'), findsOneWidget);
+    expect(find.textContaining('В процессе'), findsNothing);
   });
 }

@@ -265,7 +265,10 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                         ),
                         SectionOption(
                           value: MyRoutesTab.history,
-                          label: 'История',
+                          // "История" read as a general app history — this
+                          // tab only ever shows route executions (active,
+                          // paused or finished), so name it after that.
+                          label: 'Прохождения',
                           icon: Icons.history_rounded,
                           count: historyAsync.valueOrNull?.length,
                         ),

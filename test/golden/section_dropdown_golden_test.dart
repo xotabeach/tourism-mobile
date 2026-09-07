@@ -41,7 +41,7 @@ const _options = [
   ),
   SectionOption(
     value: MyRoutesTab.history,
-    label: 'История',
+    label: 'Прохождения',
     icon: Icons.history_rounded,
   ),
 ];
