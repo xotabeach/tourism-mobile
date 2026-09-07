@@ -25,6 +25,12 @@ abstract final class AppColors {
   static const Color inactiveNavigationIcon = Color(0xFF77797D);
 
   static const Color positiveSwipeTint = Color(0xFF294638);
+
+  /// Статусы прохождения маршрута («Прохождения» в Избранном). Отдельные
+  /// цвета, а не [positiveSwipeTint]: тот почти чёрно-зелёный и на светлой
+  /// подложке в 12–16% альфы выглядит серым, а не «пройдено».
+  static const Color statusCompleted = Color(0xFF2E9E5B);
+  static const Color statusPaused = Color(0xFFE0A324);
   static const Color negativeSwipeTint = Color(0xFF563837);
   static const Color imageScrim = Color(0xFF111113);
 

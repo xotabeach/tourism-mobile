@@ -1048,6 +1048,7 @@ class _SwipeCoachCta extends StatelessWidget {
         key: const ValueKey('route-swipe-coach-cta-glass'),
         borderRadius: AppRadii.capsule,
         blur: 0,
+        plain: true,
         fillColor: Colors.white.withValues(alpha: 0.24 * eased),
         borderColor: Colors.white.withValues(alpha: 0.46 * eased),
         contentColor: Colors.white,

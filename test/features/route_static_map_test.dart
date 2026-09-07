@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 
@@ -48,47 +49,88 @@ bool _hasProgressPainter(WidgetTester tester, {Finder? within}) => tester
     .any((w) => w.painter.runtimeType.toString() == '_RouteProgressPainter');
 
 void main() {
-  testWidgets(
-    'expanding to full screen keeps the live position marker '
-    '(regression: _openFullScreen used to drop livePosition entirely)',
-    (tester) async {
+  testWidgets('expanding to full screen keeps the live position marker '
+      '(regression: _openFullScreen used to drop livePosition entirely)', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 852);
+    addTearDown(() {
       tester.view
-        ..devicePixelRatio = 1
-        ..physicalSize = const Size(393, 852);
-      addTearDown(() {
-        tester.view
-          ..resetDevicePixelRatio()
-          ..resetPhysicalSize();
-      });
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: RouteStaticMap(
-              staticMapUrl: 'https://example.com/static-map.png',
-              stops: _stops,
-              config: _config,
-              livePosition: (lat: 44.42, lng: 34.08),
-            ),
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: RouteStaticMap(
+            staticMapUrl: 'https://example.com/static-map.png',
+            stops: _stops,
+            config: _config,
+            livePosition: (lat: 44.42, lng: 34.08),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(find.bySemanticsLabel(_liveMarkerLabel), findsOneWidget);
+    expect(find.bySemanticsLabel(_liveMarkerLabel), findsOneWidget);
 
-      await tester.tap(find.byType(RouteStaticMap));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byType(RouteStaticMap));
+    await tester.pumpAndSettle();
 
-      expect(
-        find.bySemanticsLabel(_liveMarkerLabel),
-        findsOneWidget,
-        reason:
-            'the full-screen map must still show "you are here" — it was '
-            'silently dropped before this fix',
-      );
-    },
-  );
+    expect(
+      find.bySemanticsLabel(_liveMarkerLabel),
+      findsOneWidget,
+      reason:
+          'the full-screen map must still show "you are here" — it was '
+          'silently dropped before this fix',
+    );
+  });
+
+  testWidgets('marks completed stops on the map', (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 852);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: RouteStaticMap(
+            staticMapUrl: 'https://example.com/static-map.png',
+            stops: _stops,
+            geometry: _geometry,
+            config: _config,
+            // The first stop sits on the geometry's first point, so the line
+            // overlay alone would still show nothing here.
+            completedStopPositions: {1},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final pinFills = tester
+        .widgetList<AnimatedContainer>(find.byType(AnimatedContainer))
+        .map((c) => c.decoration)
+        .whereType<BoxDecoration>()
+        .map((d) => d.color)
+        .whereType<Color>()
+        .toList();
+    expect(
+      pinFills.where((c) => c == AppColors.statusCompleted),
+      hasLength(1),
+      reason: 'only the completed stop gets the green pin',
+    );
+    expect(pinFills.where((c) => c == Colors.white), hasLength(1));
+  });
 
   testWidgets('draws the walked-progress overlay only when given a fraction', (
     tester,
@@ -134,55 +176,54 @@ void main() {
     expect(_hasProgressPainter(tester), isTrue);
   });
 
-  testWidgets(
-    'expanding to full screen keeps the progress overlay '
-    '(regression: _openFullScreen used to drop completedFraction entirely)',
-    (tester) async {
+  testWidgets('expanding to full screen keeps the progress overlay '
+      '(regression: _openFullScreen used to drop completedFraction entirely)', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 852);
+    addTearDown(() {
       tester.view
-        ..devicePixelRatio = 1
-        ..physicalSize = const Size(393, 852);
-      addTearDown(() {
-        tester.view
-          ..resetDevicePixelRatio()
-          ..resetPhysicalSize();
-      });
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
 
-      await tester.pumpWidget(
-        const MaterialApp(
-          home: Scaffold(
-            body: RouteStaticMap(
-              staticMapUrl: 'https://example.com/static-map.png',
-              stops: _stops,
-              geometry: _geometry,
-              config: _config,
-              completedFraction: 0.5,
-            ),
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: RouteStaticMap(
+            staticMapUrl: 'https://example.com/static-map.png',
+            stops: _stops,
+            geometry: _geometry,
+            config: _config,
+            completedFraction: 0.5,
           ),
         ),
-      );
-      await tester.pumpAndSettle();
-      expect(_hasProgressPainter(tester), isTrue);
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_hasProgressPainter(tester), isTrue);
 
-      await tester.tap(find.byType(RouteStaticMap));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byType(RouteStaticMap));
+    await tester.pumpAndSettle();
 
-      // Scope the check to the pushed full-screen page specifically, rather
-      // than trusting there's only one CustomPaint in the tree.
-      final fullScreenPage = find.ancestor(
-        of: find.text('Карта маршрута'),
-        matching: find.byType(Scaffold),
-      );
-      expect(fullScreenPage, findsOneWidget);
-      expect(
-        _hasProgressPainter(
-          tester,
-          within: find.descendant(
-            of: fullScreenPage,
-            matching: find.byType(CustomPaint),
-          ),
+    // Scope the check to the pushed full-screen page specifically, rather
+    // than trusting there's only one CustomPaint in the tree.
+    final fullScreenPage = find.ancestor(
+      of: find.text('Карта маршрута'),
+      matching: find.byType(Scaffold),
+    );
+    expect(fullScreenPage, findsOneWidget);
+    expect(
+      _hasProgressPainter(
+        tester,
+        within: find.descendant(
+          of: fullScreenPage,
+          matching: find.byType(CustomPaint),
         ),
-        isTrue,
-      );
-    },
-  );
+      ),
+      isTrue,
+    );
+  });
 }

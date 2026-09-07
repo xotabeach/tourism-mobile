@@ -4,21 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_glass_settings.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 
-/// «Жидкое стекло» в настройках (iOS only) — см.
-/// `LiquidGlassPreferenceController`. Плоское статическое поле, а не
-/// провайдер: кнопки ниже — простые StatelessWidget, как и остальной core/design,
-/// и не должны становиться Consumer ради одного флага. [TourismApp] держит
-/// `ref.watch(liquidGlassEnabledProvider)` в корне, чтобы смена настройки
-/// перестраивала всё дерево — тот же приём, что и для `reduceMotion`.
-abstract final class AppGlassSettings {
-  static bool enabled = true;
-}
+export 'package:tourism_mobile/core/design/app_glass_settings.dart'
+    show AppGlassSettings;
 
 /// Compositor-safe alpha for subtrees that contain backdrop filters.
 class AppFilteredOpacity extends StatelessWidget {
@@ -75,6 +69,7 @@ class AppGlassSurface extends StatelessWidget {
     this.boxShadow = AppShadows.glass,
     this.showInnerHighlight = true,
     this.contentColor,
+    this.plain = false,
     super.key,
   });
 
@@ -91,20 +86,31 @@ class AppGlassSurface extends StatelessWidget {
   /// glyphs switch the fill to solid nav chrome; dark glyphs keep [fillColor].
   final Color? contentColor;
 
+  /// Marks this surface as one of the controls the «Жидкое стекло» setting
+  /// covers, so turning the setting off gives it Android's flat treatment
+  /// instead of a blurred pane with no glass behind it. See
+  /// [AppPerf.plainControls].
+  final bool plain;
+
   @override
   Widget build(BuildContext context) {
     // Android mid-range GPUs stall hard on live BackdropFilter during nav /
     // swipe animations. Blur is always dropped; solid black chrome is only used
     // when the control's icon/label is white (see [contentColor]).
-    final effectiveBlur = AppPerf.glassBlur(blur);
-    final darkChrome = AppPerf.useDarkGlassChrome(contentColor: contentColor);
+    final effectiveBlur = AppPerf.glassBlur(blur, plain: plain);
+    final darkChrome = AppPerf.useDarkGlassChrome(
+      contentColor: contentColor,
+      plain: plain,
+    );
     final effectiveFill = AppPerf.glassFill(
       fillColor,
       foreground: contentColor,
+      plain: plain,
     );
     final effectiveBorder = AppPerf.glassBorder(
       borderColor,
       foreground: contentColor,
+      plain: plain,
     );
     final surface = DecoratedBox(
       decoration: BoxDecoration(
@@ -222,6 +228,7 @@ class AppGlassCircle extends StatelessWidget {
         fillColor: fillColor,
         borderColor: borderColor,
         contentColor: contentColor,
+        plain: true,
         child: Center(child: child),
       ),
     );
@@ -306,6 +313,7 @@ class AppGlassIconButton extends StatelessWidget {
             fillColor: fillColor,
             borderColor: borderColor,
             contentColor: foregroundColor,
+            plain: true,
             child: IconButton(
               onPressed: onPressed,
               icon: _icon(themed: false),

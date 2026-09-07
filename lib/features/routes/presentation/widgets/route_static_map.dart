@@ -31,6 +31,7 @@ class RouteStaticMap extends StatefulWidget {
     this.onStopTap,
     this.livePosition,
     this.completedFraction,
+    this.completedStopPositions = const {},
     super.key,
   });
 
@@ -63,6 +64,12 @@ class RouteStaticMap extends StatefulWidget {
   /// default) draws nothing, so callers with no execution in progress (e.g.
   /// the route details screen) see no change.
   final double? completedFraction;
+
+  /// `position` of every stop already checked off, so the map can mark them
+  /// done. Without it a walk in progress looks identical to one not started:
+  /// [completedFraction] alone stays 0 until the walker leaves the first
+  /// stop, which sits on the geometry's very first point.
+  final Set<int> completedStopPositions;
 
   @override
   State<RouteStaticMap> createState() => _RouteStaticMapState();
@@ -237,17 +244,24 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
     final stopIndex = widget.stops.indexOf(stop);
     final pixel = projection.toPixel(stop.lat!, stop.lng!);
     final selected = _selectedStopIndex == stopIndex;
+    final completed = widget.completedStopPositions.contains(stop.position);
     return Positioned(
       left: pixel.dx - 17,
       top: pixel.dy - 17,
       child: Semantics(
         button: true,
         selected: selected,
-        label: 'Точка ${stop.position}, ${stop.placeName}',
+        label: completed
+            ? 'Точка ${stop.position}, ${stop.placeName}, пройдена'
+            : 'Точка ${stop.position}, ${stop.placeName}',
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => _selectStop(stopIndex),
-          child: _MapPinDot(label: '${stop.position}', selected: selected),
+          child: _MapPinDot(
+            label: '${stop.position}',
+            selected: selected,
+            completed: completed,
+          ),
         ),
       ),
     );
@@ -325,6 +339,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             config: widget.config,
             livePosition: widget.livePosition,
             completedFraction: widget.completedFraction,
+            completedStopPositions: widget.completedStopPositions,
           ),
         ),
       ),
@@ -373,24 +388,34 @@ class _RouteProgressPainter extends CustomPainter {
 }
 
 class _MapPinDot extends StatelessWidget {
-  const _MapPinDot({required this.label, required this.selected});
+  const _MapPinDot({
+    required this.label,
+    required this.selected,
+    this.completed = false,
+  });
 
   final String label;
   final bool selected;
+  final bool completed;
 
   @override
   Widget build(BuildContext context) {
+    final background = selected
+        ? AppColors.primaryInk
+        : completed
+        ? AppColors.statusCompleted
+        : Colors.white;
+    final foreground = selected || completed
+        ? Colors.white
+        : AppColors.primaryInk;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 160),
       width: 34,
       height: 34,
       decoration: BoxDecoration(
-        color: selected ? AppColors.primaryInk : Colors.white,
+        color: background,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: selected ? Colors.white : AppColors.primaryInk,
-          width: 2,
-        ),
+        border: Border.all(color: foreground, width: 2),
         boxShadow: const [
           BoxShadow(
             color: Color(0x33000000),
@@ -402,10 +427,7 @@ class _MapPinDot extends StatelessWidget {
       alignment: Alignment.center,
       child: Text(
         label,
-        style: AppTypography.button.copyWith(
-          fontSize: 14,
-          color: selected ? Colors.white : AppColors.primaryInk,
-        ),
+        style: AppTypography.button.copyWith(fontSize: 14, color: foreground),
       ),
     );
   }
@@ -557,6 +579,7 @@ class _FullScreenRouteMap extends StatelessWidget {
     required this.config,
     this.livePosition,
     this.completedFraction,
+    this.completedStopPositions = const {},
   });
 
   /// Backend preview endpoint for this route, or null when the server does
@@ -572,6 +595,10 @@ class _FullScreenRouteMap extends StatelessWidget {
 
   /// Carried over from the inline map — see [RouteStaticMap.completedFraction].
   final double? completedFraction;
+
+  /// Carried over from the inline map — see
+  /// [RouteStaticMap.completedStopPositions].
+  final Set<int> completedStopPositions;
 
   @override
   Widget build(BuildContext context) {
@@ -596,6 +623,7 @@ class _FullScreenRouteMap extends StatelessWidget {
                 height: constraints.maxHeight,
                 livePosition: livePosition,
                 completedFraction: completedFraction,
+                completedStopPositions: completedStopPositions,
                 // Already full screen: tapping should not stack another one.
                 interactive: false,
               ),

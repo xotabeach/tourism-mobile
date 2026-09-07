@@ -578,7 +578,15 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         liveLatLng != null && route != null && _isNearRoute(liveLatLng, route)
         ? liveLatLng
         : null;
-    final completedFraction = _completedRouteFraction(execution, route);
+    final completedFraction = _completedRouteFraction(
+      execution,
+      route,
+      mapLivePosition,
+    );
+    final completedStopPositions = {
+      for (final stop in execution.stops)
+        if (stop.isCompleted) stop.position,
+    };
     final nextStop = execution.isActive
         ? execution.stops
               .where(
@@ -629,6 +637,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             footerLabel: routePointsLabel(route.stops.length),
             livePosition: mapLivePosition,
             completedFraction: completedFraction,
+            completedStopPositions: completedStopPositions,
           ),
         ],
         if (nextStopDistanceMeters != null) ...[
@@ -754,12 +763,18 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     return false;
   }
 
-  /// How far along [route]'s geometry the walk has gotten, based on the
-  /// furthest completed stop — see [MapProjection.completedFraction]. Null
-  /// when nothing is completed yet or there's no geometry to color.
+  /// How far along [route]'s geometry the walk has gotten. Null when nothing
+  /// is completed yet or there's no geometry to color.
+  ///
+  /// Two references, whichever is further along: the last completed stop, and
+  /// the walker's current position. The stop alone is not enough — the first
+  /// stop sits on the geometry's first point, so checking it off would color
+  /// nothing at all; [livePosition] is what makes the line grow while walking
+  /// the leg towards the next stop.
   static double? _completedRouteFraction(
     RouteExecution execution,
     RouteDetail? route,
+    ({double lat, double lng})? livePosition,
   ) {
     final coordinates = route?.geometry?.coordinates;
     if (coordinates == null || coordinates.length < 2) {
@@ -777,10 +792,19 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     if (furthest == null) {
       return null;
     }
-    return MapProjection.completedFraction(
-      coordinates: [for (final c in coordinates) (lat: c.lat, lng: c.lng)],
+    final points = [for (final c in coordinates) (lat: c.lat, lng: c.lng)];
+    final reached = MapProjection.completedFraction(
+      coordinates: points,
       reference: (lat: furthest.lat!, lng: furthest.lng!),
     );
+    if (livePosition == null) {
+      return reached;
+    }
+    final walked = MapProjection.completedFraction(
+      coordinates: points,
+      reference: livePosition,
+    );
+    return walked > reached ? walked : reached;
   }
 }
 

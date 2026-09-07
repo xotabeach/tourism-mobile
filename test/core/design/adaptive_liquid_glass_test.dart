@@ -116,6 +116,57 @@ void main() {
     }
   });
 
+  testWidgets(
+    'iOS with «Жидкое стекло» off falls back to the Android treatment',
+    (tester) async {
+      AppGlassSettings.enabled = false;
+      // AppPerf reads defaultTargetPlatform, which flutter_test pins to
+      // Android — without this override the test would silently check the
+      // Android path instead of iOS-with-the-setting-off.
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: Scaffold(
+              body: AppGlassIconButton(
+                semanticLabel: 'Назад',
+                icon: Icons.arrow_back_rounded,
+                foregroundColor: Colors.white,
+                fillColor: const Color(0x4DFFFFFF),
+                onPressed: () {},
+              ),
+            ),
+          ),
+        );
+
+        // Blurring a backdrop that no longer has glass over it was exactly
+        // the "кривой" look the setting is meant to avoid.
+        expect(find.byType(BackdropFilter), findsNothing);
+        final fills = tester
+            .widgetList<DecoratedBox>(find.byType(DecoratedBox))
+            .map((box) => box.decoration)
+            .whereType<BoxDecoration>()
+            .map((d) => d.color)
+            .whereType<Color>();
+        expect(
+          fills.any(
+            (c) =>
+                c.r == AppColors.activeNavigationFill.r &&
+                c.g == AppColors.activeNavigationFill.g &&
+                c.b == AppColors.activeNavigationFill.b &&
+                c.a == 1,
+          ),
+          isTrue,
+          reason: 'white glyph controls must get solid chrome, like on Android',
+        );
+      } finally {
+        AppGlassSettings.enabled = true;
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
   testWidgets('Android glass with dark glyph keeps light fill', (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     try {

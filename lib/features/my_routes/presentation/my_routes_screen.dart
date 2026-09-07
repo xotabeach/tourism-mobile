@@ -1154,10 +1154,10 @@ class _ExecutionHistoryTile extends ConsumerWidget {
     final orphanedActive =
         routeId == null && execution.status == RouteExecutionStatus.active;
     final statusColor = switch (execution.status) {
-      RouteExecutionStatus.completed => AppColors.positiveSwipeTint,
+      RouteExecutionStatus.completed => AppColors.statusCompleted,
       RouteExecutionStatus.cancelled => AppColors.secondaryInk,
       RouteExecutionStatus.active => AppColors.accentBlue,
-      RouteExecutionStatus.paused => AppColors.secondaryInk,
+      RouteExecutionStatus.paused => AppColors.statusPaused,
     };
     final statusLabel = switch (execution.status) {
       RouteExecutionStatus.completed => 'Завершён',
@@ -1185,7 +1185,7 @@ class _ExecutionHistoryTile extends ConsumerWidget {
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.12),
+                  color: statusColor.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: SizedBox(
