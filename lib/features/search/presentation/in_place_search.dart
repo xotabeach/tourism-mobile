@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
@@ -131,206 +132,216 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
         ? ref.watch(universalSearchProvider(trimmed))
         : const AsyncValue.data(UniversalSearchResults());
 
-    return results.when(
-      skipLoadingOnReload: true,
-      skipLoadingOnRefresh: true,
-      skipError: true,
-      loading: () => const _SearchResultsSkeleton(),
-      error: (_, _) => const Padding(
-        padding: EdgeInsets.symmetric(vertical: 48),
-        child: Center(child: Text('Не удалось выполнить поиск')),
-      ),
-      data: (raw) {
-        final data = _applyFilters(
-          raw,
-          scope: widget.scope,
-          filters: widget.filters,
-        );
-        final showPeople = useLocal
-            ? widget.localProfiles != null
-            : widget.scope == SearchScope.global ||
-                  widget.scope == SearchScope.profiles;
-        final showRoutes = useLocal
-            ? widget.localRoutes != null
-            : widget.scope == SearchScope.global ||
-                  widget.scope == SearchScope.routes;
-        final showPlaces = useLocal
-            ? widget.localPlaces != null
-            : widget.scope == SearchScope.global ||
-                  widget.scope == SearchScope.places;
-        // Блоги ищутся только по запросу: в «пустом» состоянии экран
-        // показывает подборки, а лента статей живёт на своём экране.
-        final showArticles =
-            !useLocal &&
-            (widget.scope == SearchScope.global ||
-                widget.scope == SearchScope.articles);
-
-        late final List<PublicUserProfile> people;
-        late final List<RouteSummary> routes;
-        late final List<PlaceSummary> places;
-        final articles = searching && showArticles
-            ? data.articles
-            : const <ArticleSummary>[];
-        if (useLocal) {
-          people = _filterLocalProfiles(
-            widget.localProfiles ?? const [],
-            trimmed,
+    return TapRegion(
+      groupId: searchFieldTapRegionGroup,
+      child: results.when(
+        skipLoadingOnReload: true,
+        skipLoadingOnRefresh: true,
+        skipError: true,
+        loading: () => const _SearchResultsSkeleton(),
+        error: (_, _) => const Padding(
+          padding: EdgeInsets.symmetric(vertical: 48),
+          child: Center(child: Text('Не удалось выполнить поиск')),
+        ),
+        data: (raw) {
+          final data = _applyFilters(
+            raw,
+            scope: widget.scope,
+            filters: widget.filters,
           );
-          routes = _filterLocalRoutes(widget.localRoutes ?? const [], trimmed);
-          places = _filterLocalPlaces(widget.localPlaces ?? const [], trimmed);
-        } else {
-          final discoveryPeople = ref.watch(topTravelersProvider);
-          final discoveryRoutes = ref.watch(homeRoutesProvider);
-          final discoveryPlaces = ref.watch(placesListProvider);
-          people = searching
-              ? data.profiles
-              : (showPeople
-                    ? discoveryPeople.valueOrNull ?? const <PublicUserProfile>[]
-                    : const <PublicUserProfile>[]);
-          routes = searching
-              ? data.routes
-              : (showRoutes
-                    ? (discoveryRoutes.valueOrNull?.items ??
-                              const <RouteSummary>[])
-                          .take(5)
-                          .toList()
-                    : const <RouteSummary>[]);
-          places = searching
-              ? data.places
-              : (showPlaces
-                    ? (discoveryPlaces.valueOrNull?.items ??
-                              const <PlaceSummary>[])
-                          .take(5)
-                          .toList()
-                    : const <PlaceSummary>[]);
-        }
+          final showPeople = useLocal
+              ? widget.localProfiles != null
+              : widget.scope == SearchScope.global ||
+                    widget.scope == SearchScope.profiles;
+          final showRoutes = useLocal
+              ? widget.localRoutes != null
+              : widget.scope == SearchScope.global ||
+                    widget.scope == SearchScope.routes;
+          final showPlaces = useLocal
+              ? widget.localPlaces != null
+              : widget.scope == SearchScope.global ||
+                    widget.scope == SearchScope.places;
+          // Блоги ищутся только по запросу: в «пустом» состоянии экран
+          // показывает подборки, а лента статей живёт на своём экране.
+          final showArticles =
+              !useLocal &&
+              (widget.scope == SearchScope.global ||
+                  widget.scope == SearchScope.articles);
 
-        final suggestions = searching
-            ? _suggestionsFor(
-                context,
-                query: trimmed,
-                people: showPeople ? people : const [],
-                routes: showRoutes ? routes : const [],
-                places: showPlaces ? places : const [],
-                articles: articles,
-              )
-            : const <_Suggestion>[];
+          late final List<PublicUserProfile> people;
+          late final List<RouteSummary> routes;
+          late final List<PlaceSummary> places;
+          final articles = searching && showArticles
+              ? data.articles
+              : const <ArticleSummary>[];
+          if (useLocal) {
+            people = _filterLocalProfiles(
+              widget.localProfiles ?? const [],
+              trimmed,
+            );
+            routes = _filterLocalRoutes(
+              widget.localRoutes ?? const [],
+              trimmed,
+            );
+            places = _filterLocalPlaces(
+              widget.localPlaces ?? const [],
+              trimmed,
+            );
+          } else {
+            final discoveryPeople = ref.watch(topTravelersProvider);
+            final discoveryRoutes = ref.watch(homeRoutesProvider);
+            final discoveryPlaces = ref.watch(placesListProvider);
+            people = searching
+                ? data.profiles
+                : (showPeople
+                      ? discoveryPeople.valueOrNull ??
+                            const <PublicUserProfile>[]
+                      : const <PublicUserProfile>[]);
+            routes = searching
+                ? data.routes
+                : (showRoutes
+                      ? (discoveryRoutes.valueOrNull?.items ??
+                                const <RouteSummary>[])
+                            .take(5)
+                            .toList()
+                      : const <RouteSummary>[]);
+            places = searching
+                ? data.places
+                : (showPlaces
+                      ? (discoveryPlaces.valueOrNull?.items ??
+                                const <PlaceSummary>[])
+                            .take(5)
+                            .toList()
+                      : const <PlaceSummary>[]);
+          }
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Подсказки идут первыми: по названию человек попадает сразу в
-            // нужное место, не пролистывая карусели карточек.
-            if (suggestions.isNotEmpty) ...[
-              const _SearchSectionTitle('Подсказки:'),
-              const SizedBox(height: 8),
-              DecoratedBox(
-                decoration: BoxDecoration(
-                  color: AppColors.elevatedSurface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFEDEDEE)),
-                ),
-                child: Column(
-                  children: [
-                    for (var i = 0; i < suggestions.length; i++) ...[
-                      if (i > 0)
-                        const Divider(
-                          height: 1,
-                          indent: 44,
-                          color: Color(0xFFEDEDEE),
+          final suggestions = searching
+              ? _suggestionsFor(
+                  context,
+                  query: trimmed,
+                  people: showPeople ? people : const [],
+                  routes: showRoutes ? routes : const [],
+                  places: showPlaces ? places : const [],
+                  articles: articles,
+                )
+              : const <_Suggestion>[];
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Подсказки идут первыми: по названию человек попадает сразу в
+              // нужное место, не пролистывая карусели карточек.
+              if (suggestions.isNotEmpty) ...[
+                const _SearchSectionTitle('Подсказки:'),
+                const SizedBox(height: 8),
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.elevatedSurface,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFEDEDEE)),
+                  ),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < suggestions.length; i++) ...[
+                        if (i > 0)
+                          const Divider(
+                            height: 1,
+                            indent: 44,
+                            color: Color(0xFFEDEDEE),
+                          ),
+                        _SuggestionTile(
+                          suggestion: suggestions[i],
+                          query: trimmed,
                         ),
-                      _SuggestionTile(
-                        suggestion: suggestions[i],
-                        query: trimmed,
-                      ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 18),
-            ],
-            if (history.isNotEmpty) ...[
-              const _SearchSectionTitle('История:'),
-              const SizedBox(height: 8),
-              for (var i = 0; i < history.length; i++) ...[
-                if (i > 0) const Divider(height: 1),
-                _HistoryTile(
-                  label: history[i],
-                  onTap: () => widget.onQueryFromHistory?.call(history[i]),
-                ),
+                const SizedBox(height: 18),
               ],
-              const SizedBox(height: 16),
-            ],
-            if (showPeople && people.isNotEmpty)
-              _SearchResultBlock(
-                title: 'Люди:',
-                child: _HorizontalCards<PublicUserProfile>(
-                  items: people.take(5).toList(),
-                  height: 88,
-                  itemBuilder: (context, profile) => DiscoveryProfileCard(
-                    profile: profile,
+              if (history.isNotEmpty) ...[
+                const _SearchSectionTitle('История:'),
+                const SizedBox(height: 8),
+                for (var i = 0; i < history.length; i++) ...[
+                  if (i > 0) const Divider(height: 1),
+                  _HistoryTile(
+                    label: history[i],
+                    onTap: () => widget.onQueryFromHistory?.call(history[i]),
+                  ),
+                ],
+                const SizedBox(height: 16),
+              ],
+              if (showPeople && people.isNotEmpty)
+                _SearchResultBlock(
+                  title: 'Люди:',
+                  child: _HorizontalCards<PublicUserProfile>(
+                    items: people.take(5).toList(),
                     height: 88,
-                    onTap: () => _openProfile(context, profile),
+                    itemBuilder: (context, profile) => DiscoveryProfileCard(
+                      profile: profile,
+                      height: 88,
+                      onTap: () => _openProfile(context, profile),
+                    ),
                   ),
                 ),
-              ),
-            if (showRoutes && routes.isNotEmpty)
-              _SearchResultBlock(
-                title: 'Маршруты:',
-                child: _HorizontalCards<RouteSummary>(
-                  items: routes.take(5).toList(),
-                  height: 220,
-                  itemBuilder: (context, route) =>
-                      RouteHeroCard(route: route, height: 220),
-                ),
-              ),
-            if (showPlaces && places.isNotEmpty)
-              _SearchResultBlock(
-                title: 'Места:',
-                onSeeAll: widget.scope == SearchScope.global
-                    ? () => unawaited(context.pushNamed(AppRouteNames.places))
-                    : null,
-                seeAllSemanticLabel: 'Все места',
-                child: _HorizontalCards<PlaceSummary>(
-                  items: places.take(5).toList(),
-                  height: 220,
-                  itemBuilder: (context, place) => _PlaceHeroSearchCard(
-                    place: place,
-                    onTap: () {
-                      unawaited(
-                        context.pushNamed(
-                          AppRouteNames.placeDetails,
-                          pathParameters: {'id': place.id},
-                        ),
-                      );
-                    },
+              if (showRoutes && routes.isNotEmpty)
+                _SearchResultBlock(
+                  title: 'Маршруты:',
+                  child: _HorizontalCards<RouteSummary>(
+                    items: routes.take(5).toList(),
+                    height: 220,
+                    itemBuilder: (context, route) =>
+                        RouteHeroCard(route: route, height: 220),
                   ),
                 ),
-              ),
-            if (articles.isNotEmpty)
-              _SearchResultBlock(
-                title: 'Блоги:',
-                child: _HorizontalCards<ArticleSummary>(
-                  items: articles.take(5).toList(),
-                  height: 300,
-                  itemBuilder: (context, article) =>
-                      ArticleCard(article: article, width: 260, height: 300),
+              if (showPlaces && places.isNotEmpty)
+                _SearchResultBlock(
+                  title: 'Места:',
+                  onSeeAll: widget.scope == SearchScope.global
+                      ? () => unawaited(context.pushNamed(AppRouteNames.places))
+                      : null,
+                  seeAllSemanticLabel: 'Все места',
+                  child: _HorizontalCards<PlaceSummary>(
+                    items: places.take(5).toList(),
+                    height: 220,
+                    itemBuilder: (context, place) => _PlaceHeroSearchCard(
+                      place: place,
+                      onTap: () {
+                        unawaited(
+                          context.pushNamed(
+                            AppRouteNames.placeDetails,
+                            pathParameters: {'id': place.id},
+                          ),
+                        );
+                      },
+                    ),
+                  ),
                 ),
-              ),
-            if (searching &&
-                people.isEmpty &&
-                routes.isEmpty &&
-                places.isEmpty &&
-                articles.isEmpty &&
-                history.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
-                child: Center(child: Text('Ничего не найдено')),
-              ),
-            const SizedBox(height: 24),
-          ],
-        );
-      },
+              if (articles.isNotEmpty)
+                _SearchResultBlock(
+                  title: 'Блоги:',
+                  child: _HorizontalCards<ArticleSummary>(
+                    items: articles.take(5).toList(),
+                    height: 300,
+                    itemBuilder: (context, article) =>
+                        ArticleCard(article: article, width: 260, height: 300),
+                  ),
+                ),
+              if (searching &&
+                  people.isEmpty &&
+                  routes.isEmpty &&
+                  places.isEmpty &&
+                  articles.isEmpty &&
+                  history.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 48),
+                  child: Center(child: Text('Ничего не найдено')),
+                ),
+              const SizedBox(height: 24),
+            ],
+          );
+        },
+      ),
     );
   }
 

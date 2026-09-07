@@ -7,6 +7,13 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 
+/// Shared `TapRegion` identity for a search field and its own results panel
+/// (`InPlaceSearchBody`, which renders below the field, outside its bounds).
+/// Without this, tapping a result — a history row in particular — registers
+/// as an outside tap: the field unfocuses and the results panel can close
+/// mid-gesture, before the tap's own `onTap` fires.
+const Object searchFieldTapRegionGroup = Object();
+
 class AppSearchFilterRow extends StatelessWidget {
   const AppSearchFilterRow({
     this.onFilterTap,
@@ -213,6 +220,7 @@ class _ActiveSearchFieldState extends State<_ActiveSearchField> {
     final showClose = hasText || _focusNode.hasFocus;
 
     return TapRegion(
+      groupId: searchFieldTapRegionGroup,
       onTapOutside: (_) => _dismissFocus(),
       child: TextField(
         controller: widget.controller,

@@ -111,6 +111,69 @@ void main() {
     expect(applied, 'Крымский завтрак');
   });
 
+  testWidgets(
+    'tapping a history row on the live search field fills it '
+    '(regression: the field must not unfocus out from under the tap)',
+    (tester) async {
+      // Unlike the isolated-widget test above, this mounts the real search
+      // field (`AppSearchFilterRow`) alongside `InPlaceSearchBody`: the
+      // field's own tap-outside-to-unfocus handler used to fire on pointer
+      // down, unmounting the history row before its `onTap` (pointer up)
+      // could run — the tap landed on nothing.
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 1600);
+      addTearDown(() {
+        tester.view
+          ..resetDevicePixelRatio()
+          ..resetPhysicalSize();
+      });
+
+      final store = MemorySearchHistoryStore();
+      await store.save('mock-user', ['Крымский завтрак']);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...testSessionOverrides(
+              onboardingCompleted: true,
+              displayName: 'Никита Можаров',
+            ),
+            searchHistoryProvider.overrideWith(
+              (ref) => SearchHistoryController(
+                store: store,
+                ownerKey: 'mock-user',
+              ),
+            ),
+          ],
+          child: const TourismApp(),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final welcomeCta = find.text('Начать путешествие');
+      if (welcomeCta.evaluate().isNotEmpty) {
+        await tester.tap(welcomeCta);
+        await tester.pumpAndSettle();
+      }
+
+      await tester.tap(find.byType(TextField).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Крымский завтрак'), findsOneWidget);
+
+      final historyRow = find.text('Крымский завтрак');
+      final gesture = await tester.startGesture(tester.getCenter(historyRow));
+      await tester.pump(const Duration(milliseconds: 80));
+      await gesture.up();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(TextField, 'Крымский завтрак'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('tapping an active search target clears it', (tester) async {
     await pumpApp(tester);
 

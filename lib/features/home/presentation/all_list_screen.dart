@@ -124,6 +124,19 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     });
   }
 
+  /// Tapping a history row loses the field's focus immediately — applying
+  /// the query through the debounce would let the search body flicker
+  /// closed while `_searchQuery` is still empty, so it's set right away.
+  void _applyHistoryQuery(String value) {
+    _searchDebounce?.cancel();
+    _searchController
+      ..text = value
+      ..selection = TextSelection.fromPosition(
+        TextPosition(offset: value.length),
+      );
+    setState(() => _searchQuery = value.trim());
+  }
+
   bool get _hasMore => switch (_mode) {
     HomeListMode.routes => _routeItems.length < _total,
     HomeListMode.places => _placeItems.length < _total,
@@ -336,10 +349,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                         HomeListMode.places => SearchScope.places,
                         HomeListMode.articles => SearchScope.articles,
                       },
-                      onQueryFromHistory: (value) {
-                        _searchController.text = value;
-                        _onSearchChanged(value);
-                      },
+                      onQueryFromHistory: _applyHistoryQuery,
                     ),
                   )
                 : itemCount == 0 && _loading

@@ -73,6 +73,19 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
     });
   }
 
+  /// Tapping a history row loses the field's focus immediately — applying
+  /// the query through the debounce would let the search body flicker
+  /// closed while `_searchQuery` is still empty, so it's set right away.
+  void _applyHistoryQuery(String value) {
+    _searchDebounce?.cancel();
+    _searchController
+      ..text = value
+      ..selection = TextSelection.fromPosition(
+        TextPosition(offset: value.length),
+      );
+    setState(() => _searchQuery = value.trim());
+  }
+
   List<RouteSummary> _visibleRoutes(
     List<RouteSummary> items,
     Set<String> favoriteRouteIds,
@@ -211,10 +224,7 @@ class _RoutesCatalogScreenState extends ConsumerState<RoutesCatalogScreen> {
                     child: InPlaceSearchBody(
                       query: _searchQuery,
                       scope: SearchScope.routes,
-                      onQueryFromHistory: (value) {
-                        _searchController.text = value;
-                        _onSearchChanged(value);
-                      },
+                      onQueryFromHistory: _applyHistoryQuery,
                     ),
                   )
                 : routesAsync.when(

@@ -138,6 +138,19 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     });
   }
 
+  /// Tapping a history row loses the field's focus immediately — applying
+  /// the query through the debounce would let the search body flicker
+  /// closed while `_searchQuery` is still empty, so it's set right away.
+  void _applyHistoryQuery(String value) {
+    _searchDebounce?.cancel();
+    _searchController
+      ..text = value
+      ..selection = TextSelection.fromPosition(
+        TextPosition(offset: value.length),
+      );
+    setState(() => _searchQuery = value.trim());
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(tabScrollToTopProvider(_branchIndex), (previous, next) {
@@ -291,10 +304,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                         ? (visibleSubscriptionsAsync.valueOrNull ??
                               const <PublicUserProfile>[])
                         : null,
-                    onQueryFromHistory: (value) {
-                      _searchController.text = value;
-                      _onSearchChanged(value);
-                    },
+                    onQueryFromHistory: _applyHistoryQuery,
                   ),
                 ),
               )
