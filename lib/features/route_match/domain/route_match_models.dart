@@ -748,6 +748,8 @@ class RoutePlanningSession {
     this.confirmedFields = const [],
     this.createdAt,
     this.updatedAt,
+    this.messageCount = 0,
+    this.messageLimit = 0,
   });
 
   final String sessionId;
@@ -757,6 +759,10 @@ class RoutePlanningSession {
   final List<String> confirmedFields;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+
+  /// See [RoutePlanningMessageResult.sessionMessageCount].
+  final int messageCount;
+  final int messageLimit;
 
   factory RoutePlanningSession.fromJson(Map<String, dynamic> json) {
     final rawConstraints =
@@ -795,6 +801,8 @@ class RoutePlanningSession {
       aiPlanningEnabled: json['ai_planning_enabled'] as bool? ?? false,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
+      messageCount: (json['message_count'] as num?)?.toInt() ?? 0,
+      messageLimit: (json['message_limit'] as num?)?.toInt() ?? 0,
     );
   }
 }
@@ -842,6 +850,9 @@ class RoutePlanningMessageResult {
     this.confirmedFields = const [],
     this.askField,
     this.createdAt,
+    this.sessionStatus = 'active',
+    this.sessionMessageCount = 0,
+    this.sessionMessageLimit = 0,
   });
 
   final String messageId;
@@ -859,6 +870,15 @@ class RoutePlanningMessageResult {
   /// Only present on stored (history) rows — a fresh reply from `postMessage`
   /// is timestamped locally instead (see `_nowTime()` at the call site).
   final DateTime? createdAt;
+
+  /// How full the chat is after this reply. The server closes a session on
+  /// its last allowed message, so the app learns it from the answer itself
+  /// rather than by asking again.
+  final String sessionStatus;
+  final int sessionMessageCount;
+  final int sessionMessageLimit;
+
+  bool get sessionClosed => sessionStatus != 'active';
 
   factory RoutePlanningMessageResult.fromJson(Map<String, dynamic> json) {
     final proposalJson = json['proposal'] as Map<String, dynamic>?;
@@ -879,6 +899,9 @@ class RoutePlanningMessageResult {
           .toList(growable: false),
       askField: json['ask_field'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+      sessionStatus: json['session_status'] as String? ?? 'active',
+      sessionMessageCount: (json['session_message_count'] as num?)?.toInt() ?? 0,
+      sessionMessageLimit: (json['session_message_limit'] as num?)?.toInt() ?? 0,
     );
   }
 }

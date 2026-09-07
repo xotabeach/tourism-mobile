@@ -46,6 +46,8 @@ class RouteMatchChatState {
     this.sending = false,
     this.typing = false,
     this.lastFailure,
+    this.sessionFull = false,
+    this.limitNoticeDismissed = false,
   });
 
   final String? sessionId;
@@ -57,7 +59,18 @@ class RouteMatchChatState {
   final bool typing;
   final AppFailure? lastFailure;
 
+  /// The chat filled up: the server closed it, so nothing more can be sent.
+  /// The transcript stays readable — people go back through it to find the
+  /// routes they built.
+  final bool sessionFull;
+
+  /// The notice was closed by hand. It stops covering the chat, but the
+  /// composer stays locked and the notice can be brought back.
+  final bool limitNoticeDismissed;
+
   bool get busy => sending || typing || sessionStarting;
+
+  bool get canCompose => !sessionFull;
 
   RouteMatchChatState copyWith({
     String? sessionId,
@@ -68,6 +81,8 @@ class RouteMatchChatState {
     bool? sending,
     bool? typing,
     AppFailure? lastFailure,
+    bool? sessionFull,
+    bool? limitNoticeDismissed,
     bool clearSession = false,
     bool clearConstraints = false,
     bool clearFailure = false,
@@ -81,6 +96,11 @@ class RouteMatchChatState {
       sending: sending ?? this.sending,
       typing: typing ?? this.typing,
       lastFailure: clearFailure ? null : (lastFailure ?? this.lastFailure),
+      // A new chat resets both, otherwise the old chat's lock would carry over.
+      sessionFull: clearSession ? false : (sessionFull ?? this.sessionFull),
+      limitNoticeDismissed: clearSession
+          ? false
+          : (limitNoticeDismissed ?? this.limitNoticeDismissed),
     );
   }
 }
@@ -97,6 +117,21 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
   final String Function() _clockLabel;
   final Duration _cannedIntentDelay;
   Future<void>? _sessionInFlight;
+
+  /// Hides the "chat is full" sheet so the transcript can be re-read. The
+  /// composer stays locked — [RouteMatchChatState.canCompose] is what gates
+  /// it, not the sheet.
+  void dismissLimitNotice() {
+    if (state.sessionFull && !state.limitNoticeDismissed) {
+      state = state.copyWith(limitNoticeDismissed: true);
+    }
+  }
+
+  void showLimitNotice() {
+    if (state.sessionFull && state.limitNoticeDismissed) {
+      state = state.copyWith(limitNoticeDismissed: false);
+    }
+  }
 
   void clearFailure() {
     if (state.lastFailure != null) {
@@ -425,12 +460,23 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
         messages: appendReply
             ? [...state.messages, _agentMessageFromResult(result)]
             : state.messages,
+        // The server answers the turn that fills the chat and closes the
+        // session behind it, so this reply is the last one.
+        sessionFull: result.sessionClosed,
       );
     } on AppFailure catch (error) {
       if (!mounted) {
         return;
       }
-      state = state.copyWith(typing: false, sending: false, lastFailure: error);
+      // Reaching the cap from a stale screen (or a chat that went stale while
+      // it sat open) comes back as a 409 rather than a reply.
+      final full = error.code == 'session_message_limit' || error.code == 'session_closed';
+      state = state.copyWith(
+        typing: false,
+        sending: false,
+        lastFailure: full ? null : error,
+        sessionFull: full ? true : null,
+      );
     }
   }
 

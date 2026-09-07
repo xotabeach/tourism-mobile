@@ -17,17 +17,18 @@ Future<T> guardApiCall<T>(Future<T> Function() operation) async {
 AppFailure _mapDioFailure(DioException error) {
   final status = error.response?.statusCode;
   final apiMessage = _apiErrorMessage(error);
+  final apiCode = _apiErrorCode(error);
   if (status == 401 || status == 403) {
-    return AuthFailure(apiMessage ?? 'Authentication failed');
+    return AuthFailure(apiMessage ?? 'Authentication failed', apiCode);
   }
   if (status == 404) {
-    return NotFoundFailure(apiMessage ?? 'Resource not found');
+    return NotFoundFailure(apiMessage ?? 'Resource not found', apiCode);
   }
   if (_isFinalRejection(error)) {
-    return RejectedFailure(apiMessage ?? 'Request rejected');
+    return RejectedFailure(apiMessage ?? 'Request rejected', apiCode);
   }
   if (status != null && status >= 400 && status < 500 && apiMessage != null) {
-    return UnexpectedFailure(apiMessage);
+    return UnexpectedFailure(apiMessage, apiCode);
   }
   return switch (error.type) {
     DioExceptionType.connectionTimeout ||
@@ -60,6 +61,20 @@ bool _isFinalRejection(DioException error) {
   }
   final details = envelope['details'];
   return details is Map && details['retryable'] == false;
+}
+
+/// The envelope's machine-readable `error.code`, when there is one.
+String? _apiErrorCode(DioException error) {
+  final data = error.response?.data;
+  if (data is! Map) {
+    return null;
+  }
+  final envelope = data['error'];
+  if (envelope is! Map) {
+    return null;
+  }
+  final code = envelope['code'];
+  return code is String && code.isNotEmpty && code.length <= 64 ? code : null;
 }
 
 /// Controlled API envelope message only — never request paths or raw bodies.

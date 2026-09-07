@@ -2257,6 +2257,11 @@ class RouteAiChatView extends StatelessWidget {
     this.onOpenCatalogRoute,
     this.onNewChat,
     this.onControlChanged,
+    this.sessionFull = false,
+    this.limitNoticeDismissed = false,
+    this.onDismissLimitNotice,
+    this.onShowLimitNotice,
+    this.onSaveAllDrafts,
     super.key,
   });
 
@@ -2286,6 +2291,17 @@ class RouteAiChatView extends StatelessWidget {
   /// `tourism-platform/docs/ai-route-chat-mobile-implementation.md`.
   final VoidCallback? onNewChat;
   final void Function(Map<String, Object> values)? onControlChanged;
+
+  /// The chat filled up. The transcript stays scrollable — people go back
+  /// through it for the routes they built — but nothing more can be sent.
+  final bool sessionFull;
+  final bool limitNoticeDismissed;
+  final VoidCallback? onDismissLimitNotice;
+  final VoidCallback? onShowLimitNotice;
+
+  /// Saves every route the chat proposed into drafts, so a full chat is not
+  /// a dead end for work already done.
+  final VoidCallback? onSaveAllDrafts;
 
   @override
   Widget build(BuildContext context) {
@@ -2379,17 +2395,239 @@ class RouteAiChatView extends StatelessWidget {
           minimum: EdgeInsets.only(bottom: bottomInset),
           child: Padding(
             padding: EdgeInsets.fromLTRB(px(16), px(8), px(16), 0),
-            child: ChatComposer(
-              px: px,
-              controller: composerController,
-              focusNode: composerFocus,
-              canSend: canSend && !typing,
-              onChanged: onChanged,
-              onSend: onSend,
-            ),
+            child: sessionFull
+                ? _ChatLimitFooter(
+                    px: px,
+                    expanded: !limitNoticeDismissed,
+                    proposalCount: messages
+                        .where((message) => message.proposalId != null)
+                        .length,
+                    onDismiss: onDismissLimitNotice,
+                    onShow: onShowLimitNotice,
+                    onNewChat: onNewChat,
+                    onSaveAllDrafts: onSaveAllDrafts,
+                  )
+                : ChatComposer(
+                    px: px,
+                    controller: composerController,
+                    focusNode: composerFocus,
+                    canSend: canSend && !typing,
+                    onChanged: onChanged,
+                    onSend: onSend,
+                  ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Replaces the composer once the chat is full.
+///
+/// Expanded it explains the limit and offers the way out; collapsed it is a
+/// single locked row, so the transcript above stays readable — the whole
+/// point of not just kicking the user into a new chat.
+class _ChatLimitFooter extends StatelessWidget {
+  const _ChatLimitFooter({
+    required this.px,
+    required this.expanded,
+    required this.proposalCount,
+    required this.onDismiss,
+    required this.onShow,
+    required this.onNewChat,
+    required this.onSaveAllDrafts,
+  });
+
+  final RoutePx px;
+  final bool expanded;
+  final int proposalCount;
+  final VoidCallback? onDismiss;
+  final VoidCallback? onShow;
+  final VoidCallback? onNewChat;
+  final VoidCallback? onSaveAllDrafts;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSize(
+      duration: AppMotion.normal,
+      curve: AppMotion.standard,
+      alignment: Alignment.bottomCenter,
+      child: expanded ? _expanded(context) : _collapsed(context),
+    );
+  }
+
+  Widget _collapsed(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Диалог завершён, открыть подробности',
+      child: Material(
+        color: RouteBuilderDesignTokens.selectedLightBlue,
+        borderRadius: BorderRadius.circular(px(18)),
+        child: InkWell(
+          onTap: onShow,
+          borderRadius: BorderRadius.circular(px(18)),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: px(16),
+              vertical: px(13),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: px(18),
+                  color: RouteBuilderDesignTokens.textSecondary,
+                ),
+                SizedBox(width: px(10)),
+                Expanded(
+                  child: Text(
+                    'Диалог завершён — можно перечитать переписку',
+                    style: RouteBuilderDesignTokens.rubik(
+                      fontSize: px(13),
+                      color: RouteBuilderDesignTokens.textSecondary,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.keyboard_arrow_up_rounded,
+                  size: px(20),
+                  color: RouteBuilderDesignTokens.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _expanded(BuildContext context) {
+    return Container(
+      key: const ValueKey('chat-limit-notice'),
+      padding: EdgeInsets.fromLTRB(px(16), px(14), px(16), px(16)),
+      decoration: BoxDecoration(
+        color: RouteBuilderDesignTokens.selectedLightBlue,
+        borderRadius: BorderRadius.circular(px(18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  'Диалог достиг предела длины',
+                  style: RouteBuilderDesignTokens.rubik(
+                    fontSize: px(15),
+                    weight: FontWeight.w600,
+                    color: RouteBuilderDesignTokens.textPrimary,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+              Semantics(
+                button: true,
+                label: 'Свернуть уведомление',
+                child: InkResponse(
+                  onTap: onDismiss,
+                  radius: px(20),
+                  child: Icon(
+                    Icons.close_rounded,
+                    size: px(20),
+                    color: RouteBuilderDesignTokens.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: px(6)),
+          Text(
+            proposalCount > 0
+                ? 'Писать в него больше нельзя, но переписка останется — '
+                      'можно перечитать её и забрать собранные маршруты.'
+                : 'Писать в него больше нельзя, но переписку можно перечитать. '
+                      'Продолжить подбор — в новом чате.',
+            style: RouteBuilderDesignTokens.rubik(
+              fontSize: px(13),
+              color: RouteBuilderDesignTokens.textSecondary,
+              height: 1.35,
+            ),
+          ),
+          SizedBox(height: px(14)),
+          if (proposalCount > 0 && onSaveAllDrafts != null) ...[
+            _LimitAction(
+              px: px,
+              label: 'Сохранить маршруты в черновики',
+              icon: Icons.bookmark_add_outlined,
+              onTap: onSaveAllDrafts,
+            ),
+            SizedBox(height: px(8)),
+          ],
+          _LimitAction(
+            px: px,
+            label: 'Создать новый чат',
+            icon: Icons.add_comment_outlined,
+            primary: true,
+            onTap: onNewChat,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LimitAction extends StatelessWidget {
+  const _LimitAction({
+    required this.px,
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.primary = false,
+  });
+
+  final RoutePx px;
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool primary;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = primary
+        ? Colors.white
+        : RouteBuilderDesignTokens.textPrimary;
+    return Material(
+      color: primary
+          ? RouteBuilderDesignTokens.textPrimary
+          : RouteBuilderDesignTokens.surface,
+      borderRadius: BorderRadius.circular(px(14)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(px(14)),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: px(14), vertical: px(12)),
+          child: Row(
+            children: [
+              Icon(icon, size: px(18), color: foreground),
+              SizedBox(width: px(10)),
+              Expanded(
+                child: Text(
+                  label,
+                  style: RouteBuilderDesignTokens.rubik(
+                    fontSize: px(14),
+                    weight: FontWeight.w600,
+                    color: foreground,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

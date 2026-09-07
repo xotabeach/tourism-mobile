@@ -374,6 +374,38 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     );
   }
 
+  /// Keeps a finished chat from being a dead end: every route it proposed
+  /// goes to drafts in one tap, so the work survives the session.
+  Future<void> _saveAllProposalsToDrafts(
+    List<RouteChatMessage> messages,
+  ) async {
+    final ids = <String>{
+      for (final message in messages) ?message.proposalId,
+    };
+    if (ids.isEmpty) {
+      return;
+    }
+    var saved = 0;
+    for (final id in ids) {
+      final result = await _chat.acceptProposal(id);
+      if (!mounted) {
+        return;
+      }
+      if (result != null) {
+        saved++;
+      }
+    }
+    if (!mounted) {
+      return;
+    }
+    showAppNotice(
+      context,
+      saved == 0
+          ? 'Не удалось сохранить маршруты'
+          : 'Маршруты сохранены в черновики: $saved',
+    );
+  }
+
   Future<void> _acceptProposal(
     String proposalId, {
     required String message,
@@ -629,6 +661,13 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             },
                             onNewChat: () {
                               unawaited(_startNewChat());
+                            },
+                            sessionFull: chat.sessionFull,
+                            limitNoticeDismissed: chat.limitNoticeDismissed,
+                            onDismissLimitNotice: _chat.dismissLimitNotice,
+                            onShowLimitNotice: _chat.showLimitNotice,
+                            onSaveAllDrafts: () {
+                              unawaited(_saveAllProposalsToDrafts(messages));
                             },
                             bottomInset: px(8),
                           )
