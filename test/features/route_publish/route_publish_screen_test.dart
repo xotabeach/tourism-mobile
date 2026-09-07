@@ -1,5 +1,5 @@
-import 'dart:io';
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,8 +9,11 @@ import 'package:tourism_mobile/features/route_publish/data/route_media_picker.da
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
+import 'package:tourism_mobile/features/routes/data/mock_routes_repository.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 void main() {
+  _serverDraftsTests();
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadRubik);
 
@@ -145,6 +148,7 @@ void main() {
         drafts: drafts,
         mediaPicker: _NoopMediaPicker(),
         publication: _NoopPublicationRepository(),
+        routes: MockRoutesRepository(),
       );
       addTearDown(controller.dispose);
       await Future<void>.delayed(Duration.zero);
@@ -201,6 +205,7 @@ void main() {
       drafts: drafts,
       mediaPicker: _NoopMediaPicker(),
       publication: publication,
+      routes: MockRoutesRepository(),
     );
     addTearDown(controller.dispose);
     await Future<void>.delayed(Duration.zero);
@@ -227,6 +232,7 @@ void main() {
       drafts: drafts,
       mediaPicker: _NoopMediaPicker(),
       publication: publication,
+      routes: MockRoutesRepository(),
     );
     addTearDown(controller.dispose);
     await Future<void>.delayed(Duration.zero);
@@ -381,4 +387,57 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
       updatedAt: DateTime.utc(2026),
     );
   }
+}
+
+final class _DraftsRoutesRepository extends MockRoutesRepository {
+  @override
+  Future<RouteListPage> listMyRoutes() async => const RouteListPage(
+    items: [
+      RouteSummary(
+        id: 'draft-1',
+        name: 'Черновик про Ай-Петри',
+        slug: 'draft-1',
+        shortDescription: 'Черновик',
+        stopsCount: 2,
+        publicationStatus: 'draft',
+      ),
+      RouteSummary(
+        id: 'published-1',
+        name: 'Уже опубликован',
+        slug: 'published-1',
+        shortDescription: 'Опубликован',
+        stopsCount: 3,
+        publicationStatus: 'published',
+      ),
+    ],
+    total: 2,
+    limit: 50,
+    offset: 0,
+  );
+}
+
+void _serverDraftsTests() {
+  test('the prompt offers the other saved drafts, not published routes', () async {
+    final drafts = _MemoryDraftRepository()
+      ..value = const RouteDraft(
+        serverId: 'saved-route',
+        title: 'Сохранённый маршрут',
+      );
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      drafts: drafts,
+      mediaPicker: _NoopMediaPicker(),
+      publication: _NoopPublicationRepository(),
+      routes: _DraftsRoutesRepository(),
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      controller.state.serverDrafts.map((route) => route.id),
+      ['draft-1'],
+      reason: 'only routes still in draft can be reopened for editing',
+    );
+  });
 }

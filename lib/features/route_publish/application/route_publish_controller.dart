@@ -1,6 +1,6 @@
+
 import 'dart:async';
 import 'dart:math' as math;
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
@@ -12,6 +12,9 @@ import 'package:tourism_mobile/features/route_publish/data/route_media_picker.da
 import 'package:tourism_mobile/features/route_publish/data/secure_route_draft_repository.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
+import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/domain/routes_repository.dart';
 
 enum RoutePublishMode { production, golden }
 
@@ -19,6 +22,8 @@ class RoutePublishState {
   const RoutePublishState({
     required this.draft,
     this.availableDraft,
+    this.serverDrafts = const [],
+    this.isOpeningDraft = false,
     this.isHydrating = false,
     this.isPickingMedia = false,
     this.isSaving = false,
@@ -36,6 +41,12 @@ class RoutePublishState {
 
   final RouteDraft draft;
   final RouteDraft? availableDraft;
+
+  /// Drafts already saved on the server. The local `availableDraft` is only
+  /// ever the one unfinished edit on this device, so without these the
+  /// prompt could not offer the other drafts the user actually has.
+  final List<RouteSummary> serverDrafts;
+  final bool isOpeningDraft;
   final bool isHydrating;
   final bool isPickingMedia;
   final bool isSaving;
@@ -53,6 +64,8 @@ class RoutePublishState {
   RoutePublishState copyWith({
     RouteDraft? draft,
     RouteDraft? availableDraft,
+    List<RouteSummary>? serverDrafts,
+    bool? isOpeningDraft,
     bool clearAvailableDraft = false,
     bool? isHydrating,
     bool? isPickingMedia,
@@ -77,6 +90,8 @@ class RoutePublishState {
   }) {
     return RoutePublishState(
       draft: draft ?? this.draft,
+      serverDrafts: serverDrafts ?? this.serverDrafts,
+      isOpeningDraft: isOpeningDraft ?? this.isOpeningDraft,
       availableDraft: clearAvailableDraft
           ? null
           : availableDraft ?? this.availableDraft,
@@ -126,6 +141,7 @@ final routePublishControllerProvider = StateNotifierProvider.autoDispose
         drafts: ref.watch(routeDraftRepositoryProvider),
         mediaPicker: ref.watch(routeMediaPickerProvider),
         publication: ref.watch(routePublicationRepositoryProvider),
+        routes: ref.watch(routesRepositoryProvider),
       );
     });
 
@@ -135,6 +151,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     required this._drafts,
     required this._mediaPicker,
     required this._publication,
+    required this._routes,
   }) : _mode = mode,
        super(
          RoutePublishState(
@@ -155,6 +172,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   final RouteDraftRepository _drafts;
   final RouteMediaPicker _mediaPicker;
   final RoutePublicationRepository _publication;
+  final RoutesRepository _routes;
 
   Future<void> _hydrate() async {
     try {
@@ -175,6 +193,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         return;
       }
       state = state.copyWith(availableDraft: draft, isHydrating: false);
+      unawaited(_loadServerDrafts());
     } catch (_) {
       if (mounted) {
         state = state.copyWith(
@@ -182,6 +201,49 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
           message: 'Не удалось восстановить черновик',
           messageSerial: state.messageSerial + 1,
         );
+      }
+    }
+  }
+
+  /// Every route of the user's still sitting in `draft`. Best-effort: the
+  /// prompt works with just the local draft when this fails.
+  Future<void> _loadServerDrafts() async {
+    try {
+      final page = await _routes.listMyRoutes();
+      if (!mounted) {
+        return;
+      }
+      final drafts = page.items
+          .where((route) => route.publicationStatus == 'draft')
+          .toList(growable: false);
+      state = state.copyWith(serverDrafts: drafts);
+    } on Object {
+      // Offline or a failed call: the local draft is still offered.
+    }
+  }
+
+  /// Opens one of the server drafts in the editor, replacing whatever the
+  /// prompt was offering.
+  Future<void> openServerDraft(String routeId) async {
+    if (state.isOpeningDraft) {
+      return;
+    }
+    state = state.copyWith(isOpeningDraft: true);
+    try {
+      final draft = await _publication.loadForEdit(routeId);
+      if (!mounted) {
+        return;
+      }
+      state = state.copyWith(
+        draft: draft,
+        isOpeningDraft: false,
+        clearAvailableDraft: true,
+      );
+      await _drafts.save(draft);
+    } on Object {
+      if (mounted) {
+        state = state.copyWith(isOpeningDraft: false);
+        _message('Не удалось открыть черновик');
       }
     }
   }

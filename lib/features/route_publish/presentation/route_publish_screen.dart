@@ -329,8 +329,11 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                 Positioned.fill(
                   child: _DraftRecoveryOverlay(
                     draft: state.availableDraft!,
+                    serverDrafts: state.serverDrafts,
+                    busy: state.isOpeningDraft,
                     onContinue: controller.continueDraft,
                     onStartNew: controller.startNewDraft,
+                    onOpenServerDraft: controller.openServerDraft,
                   ),
                 ),
             ],
@@ -477,16 +480,35 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
   }
 }
 
-class _DraftRecoveryOverlay extends StatelessWidget {
+class _DraftRecoveryOverlay extends StatefulWidget {
   const _DraftRecoveryOverlay({
     required this.draft,
+    required this.serverDrafts,
+    required this.busy,
     required this.onContinue,
     required this.onStartNew,
+    required this.onOpenServerDraft,
   });
 
   final RouteDraft draft;
+
+  /// Other drafts the user has saved. Hidden behind a disclosure rather than
+  /// listed up front: the local draft is what they were last working on, and
+  /// that stays the one-tap answer.
+  final List<RouteSummary> serverDrafts;
+  final bool busy;
   final VoidCallback onContinue;
   final Future<void> Function() onStartNew;
+  final Future<void> Function(String routeId) onOpenServerDraft;
+
+  @override
+  State<_DraftRecoveryOverlay> createState() => _DraftRecoveryOverlayState();
+}
+
+class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
+  var _listOpen = false;
+
+  RouteDraft get draft => widget.draft;
 
   String get _updatedLabel {
     final value = draft.updatedAt?.toLocal();
@@ -580,14 +602,45 @@ class _DraftRecoveryOverlay extends StatelessWidget {
                         key: const ValueKey('route-draft-continue'),
                         label: 'Продолжить',
                         filled: true,
-                        onTap: onContinue,
+                        onTap: widget.busy ? null : widget.onContinue,
                       ),
+                      if (widget.serverDrafts.isNotEmpty) ...[
+                        const SizedBox(height: 9),
+                        _DraftChoiceButton(
+                          key: const ValueKey('route-draft-open-list'),
+                          label: _listOpen
+                              ? 'Скрыть черновики'
+                              : 'Открыть черновики'
+                                    ' (${widget.serverDrafts.length})',
+                          filled: false,
+                          onTap: widget.busy
+                              ? null
+                              : () => setState(() => _listOpen = !_listOpen),
+                        ),
+                        // Grows the card instead of replacing it, so the
+                        // choice above stays put while the list appears.
+                        AnimatedSize(
+                          duration: AppMotion.normal,
+                          curve: AppMotion.standard,
+                          alignment: Alignment.topCenter,
+                          child: _listOpen
+                              ? _DraftList(
+                                  drafts: widget.serverDrafts,
+                                  busy: widget.busy,
+                                  onOpen: (id) =>
+                                      unawaited(widget.onOpenServerDraft(id)),
+                                )
+                              : const SizedBox(width: double.infinity),
+                        ),
+                      ],
                       const SizedBox(height: 9),
                       _DraftChoiceButton(
                         key: const ValueKey('route-draft-start-new'),
                         label: 'Начать заново',
                         filled: false,
-                        onTap: () => unawaited(onStartNew()),
+                        onTap: widget.busy
+                            ? null
+                            : () => unawaited(widget.onStartNew()),
                       ),
                     ],
                   ),
@@ -596,6 +649,95 @@ class _DraftRecoveryOverlay extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Scrollable, height-capped list of saved drafts.
+///
+/// Capped because there is no upper bound on how many drafts someone keeps —
+/// an unbounded list would push the card past the screen and take the
+/// buttons with it.
+class _DraftList extends StatelessWidget {
+  const _DraftList({
+    required this.drafts,
+    required this.busy,
+    required this.onOpen,
+  });
+
+  static const double _maxHeight = 214;
+
+  final List<RouteSummary> drafts;
+  final bool busy;
+  final void Function(String routeId) onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 9),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxHeight: _maxHeight),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: PublishRouteDesignTokens.background,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: ListView.separated(
+            key: const ValueKey('route-draft-list'),
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            itemCount: drafts.length,
+            separatorBuilder: (_, _) => const Divider(
+              height: 1,
+              indent: 14,
+              endIndent: 14,
+              color: PublishRouteDesignTokens.border,
+            ),
+            itemBuilder: (context, index) {
+              final draft = drafts[index];
+              final title = draft.name.trim().isEmpty
+                  ? 'Маршрут без названия'
+                  : draft.name.trim();
+              return Semantics(
+                button: true,
+                label: 'Открыть черновик: $title',
+                child: InkWell(
+                  onTap: busy ? null : () => onOpen(draft.id),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: PublishRouteDesignTokens.rubik(
+                              fontSize: 15,
+                              weight: FontWeight.w500,
+                              color: PublishRouteDesignTokens.dark,
+                              height: 1.2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: PublishRouteDesignTokens.secondaryText,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -611,7 +753,7 @@ class _DraftChoiceButton extends StatelessWidget {
 
   final String label;
   final bool filled;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
