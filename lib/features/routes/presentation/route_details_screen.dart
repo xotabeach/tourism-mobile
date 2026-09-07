@@ -830,7 +830,10 @@ class _ArticlesForRouteSection extends ConsumerWidget {
       return const SizedBox.shrink();
     }
     final viewportWidth = MediaQuery.sizeOf(context).width;
-    const sectionHeight = 254.0;
+    // Divider + title + gap + the 320-tall card row below — must match the
+    // row's actual content or it overflows past its slot (OverflowBox
+    // doesn't clip) and bleeds into "Похожие маршруты".
+    const sectionHeight = 409.0;
     return SizedBox(
       height: sectionHeight,
       child: OverflowBox(

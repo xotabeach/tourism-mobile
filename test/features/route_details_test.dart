@@ -8,6 +8,9 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
+import 'package:tourism_mobile/features/articles/domain/article.dart';
+import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -29,7 +32,10 @@ double _headerPaintExtent(WidgetTester tester) {
   return render.geometry!.paintExtent;
 }
 
-Future<Element> _openRouteDetails(WidgetTester tester) async {
+Future<Element> _openRouteDetails(
+  WidgetTester tester, {
+  List<Override> overrides = const [],
+}) async {
   tester.view
     ..devicePixelRatio = 1
     ..physicalSize = const Size(393, 852);
@@ -41,7 +47,10 @@ Future<Element> _openRouteDetails(WidgetTester tester) async {
 
   await tester.pumpWidget(
     ProviderScope(
-      overrides: testSessionOverrides(onboardingCompleted: true),
+      overrides: [
+        ...testSessionOverrides(onboardingCompleted: true),
+        ...overrides,
+      ],
       child: const TourismApp(),
     ),
   );
@@ -592,6 +601,45 @@ void main() {
           .widget<AppFloatingNavBar>(find.byType(AppFloatingNavBar))
           .detailMode,
       isTrue,
+    );
+  });
+
+  testWidgets('"Статьи об этом маршруте" does not overlap "Похожие маршруты"', (
+    tester,
+  ) async {
+    final article = ArticleSummary(
+      id: 'article-south-coast-1',
+      title: 'Три дня на Южном берегу без машины',
+      status: ArticleStatus.published,
+      authorUserId: 'author-1',
+      authorDisplayName: 'Автор',
+      createdAt: DateTime(2026, 1, 1),
+      relatedRouteId: 'route-south-coast',
+    );
+
+    await _openRouteDetails(
+      tester,
+      overrides: [
+        articlesForRouteProvider('route-south-coast').overrideWith(
+          (ref) async => ArticleListPage(items: [article], total: 1),
+        ),
+      ],
+    );
+    await tester.pumpAndSettle();
+
+    final articleCard = find.byType(ArticleCard).first;
+    final similarRoutesTitle = find.text('Похожие маршруты:');
+    expect(articleCard, findsWidgets);
+    expect(similarRoutesTitle, findsOneWidget);
+
+    final articleCardBottom = tester.getBottomLeft(articleCard).dy;
+    final similarRoutesTop = tester.getTopLeft(similarRoutesTitle).dy;
+    expect(
+      articleCardBottom,
+      lessThanOrEqualTo(similarRoutesTop),
+      reason:
+          'the articles row (bottom=$articleCardBottom) must not paint '
+          'past the start of "Похожие маршруты" (top=$similarRoutesTop)',
     );
   });
 }
