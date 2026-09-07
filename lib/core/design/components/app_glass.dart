@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -8,6 +9,16 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/components/native_liquid_glass.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
+
+/// «Жидкое стекло» в настройках (iOS only) — см.
+/// `LiquidGlassPreferenceController`. Плоское статическое поле, а не
+/// провайдер: кнопки ниже — простые StatelessWidget, как и остальной core/design,
+/// и не должны становиться Consumer ради одного флага. [TourismApp] держит
+/// `ref.watch(liquidGlassEnabledProvider)` в корне, чтобы смена настройки
+/// перестраивала всё дерево — тот же приём, что и для `reduceMotion`.
+abstract final class AppGlassSettings {
+  static bool enabled = true;
+}
 
 /// Compositor-safe alpha for subtrees that contain backdrop filters.
 class AppFilteredOpacity extends StatelessWidget {
@@ -231,8 +242,27 @@ class AppGlassIconButton extends StatelessWidget {
   final Color foregroundColor;
   final Color fillColor;
 
+  bool _useRealGlass(BuildContext context) =>
+      Theme.of(context).platform == TargetPlatform.iOS &&
+      AppGlassSettings.enabled;
+
   @override
   Widget build(BuildContext context) {
+    if (_useRealGlass(context)) {
+      // A bare Icon(icon) (no explicit color) lets GlassIconButton apply its
+      // own adaptive IconTheme (see brightnessResolver in main.dart) —
+      // AppAssetIcon isn't an Icon, so it stays explicitly colored either way.
+      final glassIcon = iconAsset == null
+          ? Icon(icon)
+          : AppAssetIcon(iconAsset!, size: iconSize, color: foregroundColor);
+      return GlassIconButton(
+        icon: glassIcon,
+        onPressed: onPressed,
+        size: dimension,
+        iconSize: iconSize,
+        semanticLabel: semanticLabel,
+      );
+    }
     return Semantics(
       button: true,
       label: semanticLabel,
@@ -285,7 +315,12 @@ class AppAdaptivePrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (Theme.of(context).platform != TargetPlatform.iOS) {
+    final useGlass =
+        Theme.of(context).platform == TargetPlatform.iOS &&
+        AppGlassSettings.enabled;
+    if (!useGlass) {
+      // Android always lands here; iOS does too with the "Жидкое стекло"
+      // setting off — same plain button either way, per product decision.
       return SizedBox(
         height: height,
         width: double.infinity,
@@ -301,42 +336,16 @@ class AppAdaptivePrimaryButton extends StatelessWidget {
       child: SizedBox(
         height: height,
         width: double.infinity,
-        child: AppAdaptiveGlassSurface(
-          borderRadius: AppRadii.capsule,
-          blur: 28,
-          shape: NativeLiquidGlassShape.capsule,
-          interactive: enabled,
-          // Light frosted capsule — dark ink tint reads as a matte gray pill.
-          fillColor: Colors.white.withValues(alpha: enabled ? 0.42 : 0.2),
-          borderColor: Colors.white.withValues(alpha: enabled ? 0.92 : 0.48),
-          borderWidth: 1.2,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: enabled ? 0.16 : 0.05),
-              blurRadius: 22,
-              offset: const Offset(0, 9),
-            ),
-            BoxShadow(
-              color: Colors.white.withValues(alpha: enabled ? 0.35 : 0.12),
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onPressed,
-              borderRadius: BorderRadius.circular(AppRadii.capsule),
-              child: Center(
-                child: Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: AppColors.primaryInk.withValues(
-                      alpha: enabled ? 1 : 0.44,
-                    ),
-                  ),
-                ),
-              ),
+        child: GlassButton.custom(
+          onTap: onPressed ?? () {},
+          enabled: enabled,
+          width: double.infinity,
+          height: height,
+          shape: const LiquidRoundedRectangle(borderRadius: AppRadii.capsule),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: AppColors.primaryInk.withValues(alpha: enabled ? 1 : 0.44),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
@@ -17,6 +18,7 @@ import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/data/offline_route_store.dart';
+import 'package:tourism_mobile/features/settings/application/liquid_glass_preference.dart';
 import 'package:tourism_mobile/features/settings/application/motion_preference.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
@@ -249,6 +251,7 @@ class SettingsPerformanceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reduceMotion = ref.watch(reduceMotionProvider);
+    final liquidGlassEnabled = ref.watch(liquidGlassEnabledProvider);
     return SettingsScaffold(
       title: 'Анимации:',
       subtitle: 'Управляйте движением на экране и нагрузкой на телефон',
@@ -269,6 +272,25 @@ class SettingsPerformanceScreen extends ConsumerWidget {
             style: AppTypography.settingsRowSubtitle.copyWith(height: 1.45),
           ),
         ),
+        if (Platform.isIOS) ...[
+          const SizedBox(height: SettingsMetrics.rowGap),
+          SettingsToggleTile(
+            title: 'Жидкое стекло',
+            subtitle: 'Прозрачные кнопки с эффектом стекла',
+            icon: Icons.blur_on_rounded,
+            value: liquidGlassEnabled,
+            onChanged: (value) => unawaited(
+              ref.read(liquidGlassEnabledProvider.notifier).set(value),
+            ),
+          ),
+          SettingsFormCard(
+            child: Text(
+              'Выключите, если стекло выглядит тяжеловесно или садит батарею —'
+              ' кнопки станут обычными, как сейчас на Android.',
+              style: AppTypography.settingsRowSubtitle.copyWith(height: 1.45),
+            ),
+          ),
+        ],
       ],
     );
   }

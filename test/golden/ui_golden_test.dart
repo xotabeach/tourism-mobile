@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -244,7 +245,7 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(AppAdaptivePrimaryButton),
-        matching: find.byType(AppGlassSurface),
+        matching: find.byType(GlassButton),
       ),
       findsOneWidget,
     );
@@ -253,12 +254,40 @@ void main() {
     expect(
       find.descendant(
         of: find.byType(AppAdaptivePrimaryButton),
-        matching: find.byType(AppGlassSurface),
+        matching: find.byType(GlassButton),
       ),
       findsNothing,
     );
     expect(find.byType(FilledButton), findsOneWidget);
   });
+
+  testWidgets(
+    'primary command falls back to a plain button when Liquid Glass is off',
+    (tester) async {
+      const button = Center(
+        child: SizedBox(
+          width: 280,
+          child: AppAdaptivePrimaryButton(
+            label: 'Продолжить',
+            onPressed: _noop,
+          ),
+        ),
+      );
+      AppGlassSettings.enabled = false;
+      addTearDown(() => AppGlassSettings.enabled = true);
+
+      await _pumpGolden(tester, button, platform: TargetPlatform.iOS);
+
+      expect(
+        find.descendant(
+          of: find.byType(AppAdaptivePrimaryButton),
+          matching: find.byType(GlassButton),
+        ),
+        findsNothing,
+      );
+      expect(find.byType(FilledButton), findsOneWidget);
+    },
+  );
 
   testWidgets('golden swipe right progress', (tester) async {
     await _pumpGolden(tester, const _RoutesGoldenFrame(debugProgress: 0.72));

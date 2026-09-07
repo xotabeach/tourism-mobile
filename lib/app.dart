@@ -13,6 +13,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/settings/application/liquid_glass_preference.dart';
 import 'package:tourism_mobile/features/settings/application/motion_preference.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -44,6 +45,10 @@ class _TourismAppState extends ConsumerState<TourismApp> {
     final config = ref.watch(appConfigProvider);
     final router = ref.watch(appRouterProvider);
     ref.watch(appHapticsEnabledProvider);
+    // «Жидкое стекло» из настроек — читается напрямую через AppGlassSettings
+    // в build() кнопок (не Consumer), поэтому нужен watch здесь же, чтобы
+    // смена флага перестраивала дерево целиком: тот же приём, что и выше.
+    ref.watch(liquidGlassEnabledProvider);
     // Warm primary catalogs during bootstrap so tab switches / search do not
     // hitch on cold network+decode. Home later reuses the same cached futures.
     ref
