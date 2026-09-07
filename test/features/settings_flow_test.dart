@@ -69,7 +69,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(SettingsNotificationsScreen), findsOneWidget);
     expect(find.text('Пуш-уведомления'), findsOneWidget);
-    expect(find.text('Вибрация в приложении'), findsOneWidget);
     expect(find.textContaining('Новых уведомлений'), findsOneWidget);
 
     await tester.tap(find.text('Уведомления').last);
@@ -87,6 +86,23 @@ void main() {
     expect(find.byType(SettingsOfflineScreen), findsOneWidget);
     expect(find.text('Кэш приложения'), findsOneWidget);
     expect(find.text('Кеш API мест и маршрутов'), findsOneWidget);
+  });
+
+  testWidgets('appearance groups app icon, motion and vibration', (
+    tester,
+  ) async {
+    await pumpAuthedApp(tester);
+    await tester.tap(find.bySemanticsLabel('Профиль'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Настройки'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Внешний вид'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsAppearanceScreen), findsOneWidget);
+    expect(find.text('Иконка приложения'), findsOneWidget);
+    expect(find.text('Меньше анимаций'), findsOneWidget);
+    expect(find.text('Вибрация в приложении'), findsOneWidget);
   });
 
   testWidgets('support faq and travel plus open from settings', (tester) async {

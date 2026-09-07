@@ -83,7 +83,7 @@ abstract final class AppRouteNames {
   static const settingsOffline = 'settings-offline';
   static const settingsAbout = 'settings-about';
   static const settingsChangelog = 'settings-changelog';
-  static const settingsPerformance = 'settings-performance';
+  static const settingsAppearance = 'settings-appearance';
   static const settingsLegalDocument = 'settings-legal-document';
   static const settingsCompanyDetails = 'settings-company-details';
   static const settingsContacts = 'settings-contacts';
@@ -531,11 +531,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         ),
                       ),
                       GoRoute(
-                        name: AppRouteNames.settingsPerformance,
-                        path: SettingsPerformanceScreen.routePath,
+                        name: AppRouteNames.settingsAppearance,
+                        path: SettingsAppearanceScreen.routePath,
                         pageBuilder: (context, state) => CupertinoPage<void>(
                           key: state.pageKey,
-                          child: const SettingsPerformanceScreen(),
+                          child: const SettingsAppearanceScreen(),
                         ),
                       ),
                       GoRoute(

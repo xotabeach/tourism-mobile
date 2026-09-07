@@ -166,7 +166,6 @@ class _SettingsNotificationsScreenState
     final session = ref.watch(sessionProvider);
     final sessionCtl = ref.read(sessionProvider.notifier);
     final unread = ref.watch(notificationsUnreadCountProvider);
-    final appHapticsEnabled = ref.watch(appHapticsEnabledProvider);
     final inboxSubtitle = unread == 0
         ? 'У вас нет новых уведомлений'
         : 'Новых уведомлений: $unread';
@@ -222,40 +221,37 @@ class _SettingsNotificationsScreenState
             );
           },
         ),
-        SettingsToggleTile(
-          title: 'Вибрация в приложении',
-          subtitle: 'При нажатиях и жестах',
-          iconAsset: AppIconography.settingsVibro,
-          value: appHapticsEnabled,
-          onChanged: (value) {
-            unawaited(
-              ref.read(appHapticsEnabledProvider.notifier).setEnabled(value),
-            );
-          },
-        ),
       ],
     );
   }
 }
 
-/// Анимации и производительность.
+/// Внешний вид приложения: иконка на домашнем экране, анимации и стиль
+/// кнопок.
 ///
-/// Отдельный экран, а не строка среди оффлайна: сюда идут за тем, чтобы
-/// приложение перестало «дышать» — на слабом телефоне или когда движение на
-/// экране мешает.
-class SettingsPerformanceScreen extends ConsumerWidget {
-  const SettingsPerformanceScreen({super.key});
+/// Отдельный экран, а не строки среди уведомлений или профиля — сюда идут
+/// за тем, как приложение выглядит и ощущается, а не за тем, что оно умеет.
+class SettingsAppearanceScreen extends ConsumerWidget {
+  const SettingsAppearanceScreen({super.key});
 
-  static const routePath = 'performance';
+  static const routePath = 'appearance';
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final reduceMotion = ref.watch(reduceMotionProvider);
     final liquidGlassEnabled = ref.watch(liquidGlassEnabledProvider);
+    final appHapticsEnabled = ref.watch(appHapticsEnabledProvider);
     return SettingsScaffold(
-      title: 'Анимации:',
-      subtitle: 'Управляйте движением на экране и нагрузкой на телефон',
+      title: 'Внешний вид:',
+      subtitle: 'Иконка, анимации и стиль кнопок',
       children: [
+        SettingsNavTile(
+          title: 'Иконка приложения',
+          subtitle: 'Оформление на домашнем экране',
+          iconAsset: AppIconography.settingsChangePhoto,
+          onTap: () => context.pushNamed(AppRouteNames.settingsAppIcon),
+        ),
+        const SizedBox(height: SettingsMetrics.rowGap),
         SettingsToggleTile(
           title: 'Меньше анимаций',
           subtitle: 'Переходы и мерцание загрузки — мгновенно',
@@ -271,6 +267,18 @@ class SettingsPerformanceScreen extends ConsumerWidget {
             'и вёрстка не меняются — только движение.',
             style: AppTypography.settingsRowSubtitle.copyWith(height: 1.45),
           ),
+        ),
+        const SizedBox(height: SettingsMetrics.rowGap),
+        SettingsToggleTile(
+          title: 'Вибрация в приложении',
+          subtitle: 'При нажатиях и жестах',
+          iconAsset: AppIconography.settingsVibro,
+          value: appHapticsEnabled,
+          onChanged: (value) {
+            unawaited(
+              ref.read(appHapticsEnabledProvider.notifier).setEnabled(value),
+            );
+          },
         ),
         if (Platform.isIOS) ...[
           const SizedBox(height: SettingsMetrics.rowGap),

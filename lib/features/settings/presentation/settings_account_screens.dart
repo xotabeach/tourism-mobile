@@ -47,12 +47,6 @@ class SettingsAccountScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsChangePhoto),
         ),
         SettingsNavTile(
-          title: 'Иконка приложения',
-          subtitle: 'Оформление на домашнем экране',
-          iconAsset: AppIconography.settingsChangePhoto,
-          onTap: () => context.pushNamed(AppRouteNames.settingsAppIcon),
-        ),
-        SettingsNavTile(
           title: 'Сменить номер телефона',
           subtitle: phone,
           iconAsset: AppIconography.settingsChangePhone,

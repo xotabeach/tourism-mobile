@@ -49,7 +49,7 @@ void main() {
         container: container,
         child: MaterialApp(
           theme: AppTheme.light,
-          home: const SettingsPerformanceScreen(),
+          home: const SettingsAppearanceScreen(),
         ),
       ),
     );
