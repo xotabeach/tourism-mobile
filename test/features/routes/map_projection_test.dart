@@ -66,4 +66,62 @@ void main() {
       isNull,
     );
   });
+
+  group('completedFraction', () {
+    // Five evenly-spaced points along a straight line — index i sits at
+    // fraction i/4 of the route.
+    final coordinates = [
+      for (var i = 0; i <= 4; i++) (lat: 44.0 + i * 0.1, lng: 34.0 + i * 0.1),
+    ];
+
+    test('0 at the very start of the route', () {
+      final fraction = MapProjection.completedFraction(
+        coordinates: coordinates,
+        reference: coordinates.first,
+      );
+      expect(fraction, 0);
+    });
+
+    test('1 at the very end of the route', () {
+      final fraction = MapProjection.completedFraction(
+        coordinates: coordinates,
+        reference: coordinates.last,
+      );
+      expect(fraction, 1);
+    });
+
+    test('a midpoint stop lands at its own index fraction', () {
+      final fraction = MapProjection.completedFraction(
+        coordinates: coordinates,
+        reference: coordinates[2],
+      );
+      expect(fraction, closeTo(0.5, 1e-9));
+    });
+
+    test('snaps to the nearest point for an off-path reference', () {
+      // Closer to index 3 (lat 44.3) than index 2 (lat 44.2) or 4 (lat 44.4).
+      final fraction = MapProjection.completedFraction(
+        coordinates: coordinates,
+        reference: (lat: 44.32, lng: 34.32),
+      );
+      expect(fraction, closeTo(0.75, 1e-9));
+    });
+
+    test('0 for fewer than two coordinates', () {
+      expect(
+        MapProjection.completedFraction(
+          coordinates: const [],
+          reference: (lat: 44.5, lng: 34.1),
+        ),
+        0,
+      );
+      expect(
+        MapProjection.completedFraction(
+          coordinates: [coordinates.first],
+          reference: (lat: 44.5, lng: 34.1),
+        ),
+        0,
+      );
+    });
+  });
 }

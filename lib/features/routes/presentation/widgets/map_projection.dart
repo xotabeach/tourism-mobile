@@ -96,4 +96,27 @@ class MapProjection {
       size: size,
     );
   }
+
+  /// Fraction (0–1) of [coordinates] walked so far, taken as the position of
+  /// the point closest to [reference] (typically the last completed stop) —
+  /// used to color the completed portion of the route line. [coordinates]
+  /// must be ordered along the route. Returns 0 for fewer than 2 points.
+  static double completedFraction({
+    required List<({double lat, double lng})> coordinates,
+    required ({double lat, double lng}) reference,
+  }) {
+    if (coordinates.length < 2) return 0;
+    var bestIndex = 0;
+    var bestDistanceSq = double.infinity;
+    for (var i = 0; i < coordinates.length; i++) {
+      final dLat = coordinates[i].lat - reference.lat;
+      final dLng = coordinates[i].lng - reference.lng;
+      final distanceSq = dLat * dLat + dLng * dLng;
+      if (distanceSq < bestDistanceSq) {
+        bestDistanceSq = distanceSq;
+        bestIndex = i;
+      }
+    }
+    return bestIndex / (coordinates.length - 1);
+  }
 }

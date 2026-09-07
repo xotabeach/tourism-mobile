@@ -21,6 +21,7 @@ import 'package:tourism_mobile/features/route_execution/presentation/route_execu
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -577,6 +578,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         liveLatLng != null && route != null && _isNearRoute(liveLatLng, route)
         ? liveLatLng
         : null;
+    final completedFraction = _completedRouteFraction(execution, route);
     final nextStop = execution.isActive
         ? execution.stops
               .where(
@@ -626,6 +628,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             config: ref.watch(appConfigProvider),
             footerLabel: routePointsLabel(route.stops.length),
             livePosition: mapLivePosition,
+            completedFraction: completedFraction,
           ),
         ],
         if (nextStopDistanceMeters != null) ...[
@@ -749,6 +752,35 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       }
     }
     return false;
+  }
+
+  /// How far along [route]'s geometry the walk has gotten, based on the
+  /// furthest completed stop — see [MapProjection.completedFraction]. Null
+  /// when nothing is completed yet or there's no geometry to color.
+  static double? _completedRouteFraction(
+    RouteExecution execution,
+    RouteDetail? route,
+  ) {
+    final coordinates = route?.geometry?.coordinates;
+    if (coordinates == null || coordinates.length < 2) {
+      return null;
+    }
+    RouteExecutionStop? furthest;
+    for (final stop in execution.stops) {
+      if (!stop.isCompleted || stop.lat == null || stop.lng == null) {
+        continue;
+      }
+      if (furthest == null || stop.position > furthest.position) {
+        furthest = stop;
+      }
+    }
+    if (furthest == null) {
+      return null;
+    }
+    return MapProjection.completedFraction(
+      coordinates: [for (final c in coordinates) (lat: c.lat, lng: c.lng)],
+      reference: (lat: furthest.lat!, lng: furthest.lng!),
+    );
   }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
@@ -29,6 +30,7 @@ class RouteStaticMap extends StatefulWidget {
     this.selectedIndex,
     this.onStopTap,
     this.livePosition,
+    this.completedFraction,
     super.key,
   });
 
@@ -54,6 +56,13 @@ class RouteStaticMap extends StatefulWidget {
   /// (route execution) and it's available. Drawn as an overlay on the same
   /// already-loaded raster via [MapProjection] — no live map SDK needed.
   final ({double lat, double lng})? livePosition;
+
+  /// Fraction (0–1) of [geometry] walked so far — see
+  /// [MapProjection.completedFraction]. Drawn as a colored overlay on top of
+  /// the vendor's own route line, from the start up to that point. Null (the
+  /// default) draws nothing, so callers with no execution in progress (e.g.
+  /// the route details screen) see no change.
+  final double? completedFraction;
 
   @override
   State<RouteStaticMap> createState() => _RouteStaticMapState();
@@ -168,6 +177,15 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                           ),
                   ),
                 ),
+                if (_progressPoints(projection) case final points?
+                    when points.length >= 2)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _RouteProgressPainter(points),
+                      ),
+                    ),
+                  ),
                 for (final stop in located) _positionedPin(projection, stop),
                 if (widget.livePosition != null)
                   _positionedLiveMarker(projection, widget.livePosition!),
@@ -249,6 +267,35 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
     );
   }
 
+  /// Projected pixel points for the walked portion of [widget.geometry], up
+  /// to [widget.completedFraction]. Null when there's nothing to draw.
+  List<Offset>? _progressPoints(MapProjection projection) {
+    final fraction = widget.completedFraction;
+    final coordinates = widget.geometry?.coordinates;
+    if (fraction == null || coordinates == null || coordinates.length < 2) {
+      return null;
+    }
+    final clamped = fraction.clamp(0.0, 1.0);
+    final exactIndex = clamped * (coordinates.length - 1);
+    final wholeIndex = exactIndex.floor().clamp(0, coordinates.length - 1);
+    final points = [
+      for (var i = 0; i <= wholeIndex; i++)
+        projection.toPixel(coordinates[i].lat, coordinates[i].lng),
+    ];
+    final segmentT = exactIndex - wholeIndex;
+    if (segmentT > 0 && wholeIndex < coordinates.length - 1) {
+      final a = coordinates[wholeIndex];
+      final b = coordinates[wholeIndex + 1];
+      points.add(
+        projection.toPixel(
+          a.lat + (b.lat - a.lat) * segmentT,
+          a.lng + (b.lng - a.lng) * segmentT,
+        ),
+      );
+    }
+    return points;
+  }
+
   ImageProvider<Object>? _mapImage(MapProjection projection, Size size) {
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final scale = devicePixelRatio >= 2 ? 2 : 1;
@@ -277,11 +324,52 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             geometry: widget.geometry,
             config: widget.config,
             livePosition: widget.livePosition,
+            completedFraction: widget.completedFraction,
           ),
         ),
       ),
     );
   }
+}
+
+/// Overlays the walked portion of the route on top of the vendor's own
+/// (uncolored) route line, from the start up to the current progress point.
+class _RouteProgressPainter extends CustomPainter {
+  const _RouteProgressPainter(this.points);
+
+  final List<Offset> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    // A light halo first so the green reads on both light and dark basemap
+    // tiles, same idea as the pins' white border.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.85)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppColors.positiveSwipeTint
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _RouteProgressPainter oldDelegate) =>
+      !listEquals(points, oldDelegate.points);
 }
 
 class _MapPinDot extends StatelessWidget {
@@ -468,6 +556,7 @@ class _FullScreenRouteMap extends StatelessWidget {
     required this.geometry,
     required this.config,
     this.livePosition,
+    this.completedFraction,
   });
 
   /// Backend preview endpoint for this route, or null when the server does
@@ -480,6 +569,9 @@ class _FullScreenRouteMap extends StatelessWidget {
   /// Carried over from the inline map — without it, expanding to full
   /// screen during a live run silently drops the "you are here" marker.
   final ({double lat, double lng})? livePosition;
+
+  /// Carried over from the inline map — see [RouteStaticMap.completedFraction].
+  final double? completedFraction;
 
   @override
   Widget build(BuildContext context) {
@@ -503,6 +595,7 @@ class _FullScreenRouteMap extends StatelessWidget {
                 config: config,
                 height: constraints.maxHeight,
                 livePosition: livePosition,
+                completedFraction: completedFraction,
                 // Already full screen: tapping should not stack another one.
                 interactive: false,
               ),
