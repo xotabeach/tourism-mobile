@@ -44,9 +44,15 @@ class _ReleaseCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(
-                'Версия ${release.version}',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 16),
+              // Ужимается и номер версии: с «Готовится» рядом строка
+              // распиралась, как только номер стал длиннее («0.2.31»).
+              Flexible(
+                child: Text(
+                  'Версия ${release.version}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.settingsRowTitle.copyWith(fontSize: 16),
+                ),
               ),
               const SizedBox(width: 8),
               if (release.inProgress)

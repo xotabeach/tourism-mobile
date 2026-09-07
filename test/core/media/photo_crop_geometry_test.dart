@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 /// they disagreed the upload would not match what the user framed.
 void main() {
   _originalShapeGroup();
+  _onePanGroup();
   group('rotation', () {
     test('a quarter turn swaps width and height', () {
       const image = Size(400, 300);
@@ -97,6 +98,68 @@ void main() {
 
     test('a zero window still produces a drawable size', () {
       expect(croppedPixelSize(Size.zero), const Size(1, 1));
+    });
+  });
+}
+
+/// One finger drags the photo inside the frame; two fingers zoom. The editor
+/// feeds both through the same scale gesture (a single-pointer drag reports
+/// `scale == 1` and a moving focal point), so what decides whether a drag
+/// does anything is the slack these helpers leave.
+void _onePanGroup() {
+  group('dragging the photo', () {
+    test('a tall photo in a wide frame can be dragged up and down', () {
+      const photo = Size(400, 1200);
+      const window = Size(360, 202); // 16:9
+      final scale = coverScale(photo, window, 0);
+
+      final dragged = clampOffset(
+        offset: const Offset(0, -120),
+        image: photo,
+        window: window,
+        scale: scale,
+        quarterTurns: 0,
+      );
+      expect(dragged.dy, -120, reason: 'the drag is inside the slack');
+      expect(dragged.dx, 0, reason: 'nothing to pan sideways here');
+
+      // Past the edge it stops rather than exposing a transparent gap.
+      final overshot = clampOffset(
+        offset: const Offset(0, -100000),
+        image: photo,
+        window: window,
+        scale: scale,
+        quarterTurns: 0,
+      );
+      expect(overshot.dy, greaterThan(-100000));
+      expect(overshot.dy, lessThan(0));
+    });
+
+    test('zooming in gives a photo that exactly fits room to move', () {
+      const photo = Size(1200, 900);
+      const window = Size(360, 270); // same aspect: no slack at 1x
+      final fitted = coverScale(photo, window, 0);
+      expect(
+        clampOffset(
+          offset: const Offset(40, 40),
+          image: photo,
+          window: window,
+          scale: fitted,
+          quarterTurns: 0,
+        ),
+        Offset.zero,
+      );
+
+      expect(
+        clampOffset(
+          offset: const Offset(40, 40),
+          image: photo,
+          window: window,
+          scale: fitted * 2,
+          quarterTurns: 0,
+        ),
+        const Offset(40, 40),
+      );
     });
   });
 }
