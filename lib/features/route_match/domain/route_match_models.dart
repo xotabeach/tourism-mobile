@@ -1,3 +1,4 @@
+import 'package:tourism_mobile/features/route_match/domain/route_proposal_preview.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
@@ -227,6 +228,7 @@ class RouteProposalCardData {
     this.localityLabel,
     this.tags = const [],
     this.budgetLabel,
+    this.budgetCaption = 'Минимальный бюджет',
     this.difficultyLabel,
     this.primaryActionLabel = 'Пройти маршрут',
     this.cardVariant = RouteProposalCardVariant.compact,
@@ -250,6 +252,7 @@ class RouteProposalCardData {
   final String? localityLabel;
   final List<String> tags;
   final String? budgetLabel;
+  final String budgetCaption;
   final String? difficultyLabel;
   final String primaryActionLabel;
   final RouteProposalCardVariant cardVariant;
@@ -278,6 +281,7 @@ class RouteProposalCardData {
           .map((item) => item as String)
           .toList(),
       budgetLabel: json['budget_label'] as String?,
+      budgetCaption: json['budget_caption'] as String? ?? 'Минимальный бюджет',
       difficultyLabel: json['difficulty_label'] as String?,
       primaryActionLabel:
           json['primary_action_label'] as String? ?? 'Пройти маршрут',
@@ -701,6 +705,11 @@ class RouteGenerateResult {
 typedef RouteProposalResult = RouteProposal;
 
 abstract class RouteMatchRepository {
+  Future<RouteProposalPreview> previewProposal(String id);
+  Future<RouteProposalPreview> updateProposalDate(
+    String id,
+    DateTime startDate,
+  );
   Future<RouteMatchResult> match(RouteMatchParams params);
 
   Future<RouteGenerateResult> generate({
@@ -736,6 +745,7 @@ abstract class RouteMatchRepository {
     bool wantGenerate = false,
     String? actionId,
     Object? controlValue,
+    Map<String, Object>? controls,
   });
 }
 
@@ -900,8 +910,10 @@ class RoutePlanningMessageResult {
       askField: json['ask_field'] as String?,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
       sessionStatus: json['session_status'] as String? ?? 'active',
-      sessionMessageCount: (json['session_message_count'] as num?)?.toInt() ?? 0,
-      sessionMessageLimit: (json['session_message_limit'] as num?)?.toInt() ?? 0,
+      sessionMessageCount:
+          (json['session_message_count'] as num?)?.toInt() ?? 0,
+      sessionMessageLimit:
+          (json['session_message_limit'] as num?)?.toInt() ?? 0,
     );
   }
 }

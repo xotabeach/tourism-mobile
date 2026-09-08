@@ -295,7 +295,6 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
             text: 'Хорошо, соберём маршрут заново. Что изменить?',
             time: _clockLabel(),
             actions: const [
-              {'id': 'want_generate', 'label': 'Подбери маршрут'},
               {'id': 'pace_calm', 'label': 'Спокойный маршрут'},
               {'id': 'pace_active', 'label': 'Активный маршрут'},
             ],
@@ -316,7 +315,6 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
           text: 'Что хотите изменить — город, темп, интересы или длительность?',
           time: _clockLabel(),
           actions: const [
-            {'id': 'want_generate', 'label': 'Подбери маршрут'},
             {'id': 'pace_calm', 'label': 'Хочу спокойно'},
             {'id': 'pace_active', 'label': 'Хочу активно'},
             {'id': 'interest_sea', 'label': 'Больше моря'},
@@ -330,45 +328,42 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
 
   Future<void> onChatAction(String id, String label) async {
     if (id == 'want_generate') {
-      await sendMessage(
-        text: 'подбери маршрут',
-        wantGenerate: true,
-        actionId: id,
-      );
+      await sendMessage(text: label, wantGenerate: true, actionId: id);
       return;
     }
     await sendMessage(text: label, actionId: id);
   }
 
-  Future<void> confirmControls(Map<String, Object> values) async {
+  Future<bool> confirmControls(Map<String, Object> values) async {
     if (state.busy || values.isEmpty) {
-      return;
+      return false;
     }
-    final entries = values.entries.toList(growable: false);
-    for (var i = 0; i < entries.length; i++) {
-      final entry = entries[i];
-      await sendMessage(
-        text: _controlLabel(entry.key, entry.value),
-        actionId: entry.key,
-        controlValue: entry.value,
-        silent: true,
-        appendReply: i == entries.length - 1,
-      );
-    }
+    // Selects submit a natural-language answer; a group of switches/sliders
+    // is one atomic turn, including false values and the unchanged budget.
+    return sendMessage(
+      text: values.entries.map((e) => _controlLabel(e.key, e.value)).join(', '),
+      controls: {
+        for (final entry in values.entries)
+          entry.key: entry.value is num
+              ? (entry.value as num).round()
+              : entry.value,
+      },
+    );
   }
 
-  Future<void> sendMessage({
+  Future<bool> sendMessage({
     required String text,
     bool wantGenerate = false,
     String? actionId,
     Object? controlValue,
+    Map<String, Object>? controls,
     bool silent = false,
     bool appendReply = true,
     RouteMatchParams? draftForSession,
   }) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || state.sending || state.typing) {
-      return;
+    if (trimmed.isEmpty || state.sending || state.typing || state.sessionFull) {
+      return false;
     }
     var messages = state.messages;
     if (!silent) {
@@ -393,7 +388,7 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
         await Future<void>.delayed(_cannedIntentDelay);
       }
       if (!mounted) {
-        return;
+        return false;
       }
       state = state.copyWith(
         sending: false,
@@ -407,7 +402,6 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
                   isCrisis: intent == RouteMatchChatIntent.crisis,
                   actions: intent == RouteMatchChatIntent.offTopic
                       ? const [
-                          {'id': 'want_generate', 'label': 'Подбери маршрут'},
                           {'id': 'pace_calm', 'label': 'Хочу спокойно'},
                           {'id': 'interest_sea', 'label': 'Больше моря'},
                         ]
@@ -416,7 +410,7 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
               ]
             : state.messages,
       );
-      return;
+      return true;
     }
 
     state = state.copyWith(typing: true);
@@ -436,10 +430,10 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
       final sessionId = state.sessionId;
       if (sessionId == null) {
         if (!mounted) {
-          return;
+          return false;
         }
         state = state.copyWith(typing: false, sending: false);
-        return;
+        return false;
       }
       final result = await _repository.postMessage(
         sessionId: sessionId,
@@ -447,9 +441,10 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
         wantGenerate: wantGenerate,
         actionId: actionId,
         controlValue: controlValue,
+        controls: controls,
       );
       if (!mounted) {
-        return;
+        return false;
       }
       state = state.copyWith(
         typing: false,
@@ -464,19 +459,23 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
         // session behind it, so this reply is the last one.
         sessionFull: result.sessionClosed,
       );
+      return true;
     } on AppFailure catch (error) {
       if (!mounted) {
-        return;
+        return false;
       }
       // Reaching the cap from a stale screen (or a chat that went stale while
       // it sat open) comes back as a 409 rather than a reply.
-      final full = error.code == 'session_message_limit' || error.code == 'session_closed';
+      final full =
+          error.code == 'session_message_limit' ||
+          error.code == 'session_closed';
       state = state.copyWith(
         typing: false,
         sending: false,
         lastFailure: full ? null : error,
         sessionFull: full ? true : null,
       );
+      return false;
     }
   }
 
@@ -494,14 +493,20 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
     if (result.proposal != null) {
       return _agentProposalMessage(result.proposal!);
     }
+    final card = result.blocks
+        .whereType<RouteProposalCardBlock>()
+        .firstOrNull
+        ?.card;
     return RouteChatMessage(
       fromAgent: true,
       text: result.text,
-      time: _clockLabel(),
+      time: _storedTimeLabel(result.createdAt),
       isCrisis: result.intent == 'crisis',
+      proposalId: card?.proposalId,
+      proposalCard: card,
       placeChips: placeChipsFromBlocks(result.blocks),
       catalogMatch: catalogMatchFromBlocks(result.blocks),
-      actions: actionsFromBlocks(result.blocks),
+      actions: card == null ? actionsFromBlocks(result.blocks) : const [],
       actionsLayout: actionsLayoutFromBlocks(result.blocks),
       actionsSheetTitle: actionsSheetTitleFromBlocks(result.blocks),
       recommendations: recommendationsFromBlocks(result.blocks),
@@ -544,6 +549,8 @@ String _controlLabel(String id, Object value) => switch (id) {
   'budget_amount' => 'Бюджет ${value is num ? value.round() : value} ₽',
   'with_children' => value == true ? 'С детьми' : 'Без детей',
   'with_pets' => value == true ? 'С питомцами' : 'Без питомцев',
+  'avoid_crowds' =>
+    value == true ? 'Избегать толп и очередей' : 'Толпы и очереди не критичны',
   // У селекта значение уже человекочитаемое («Ялта»), его и отправляем.
   // Раньше сюда падал `_ => id`, и в чат уходило слово «city» — модель
   // видела его вместо названия города.

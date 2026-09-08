@@ -22,6 +22,8 @@ import 'package:tourism_mobile/features/route_match/domain/route_match_models.da
 import 'package:tourism_mobile/features/route_match/presentation/chat_history_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_results_screen.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart'
+    show RouteMatchMode;
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
@@ -164,9 +166,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: AppRouteNames.routeMatchResume,
         path: '${RouteMatchScreen.routePath}/resume',
         pageBuilder: (context, state) {
-          return _appTransitionPage(
-            state,
-            RouteMatchScreen(
+          return CupertinoPage<void>(
+            key: state.pageKey,
+            child: RouteMatchScreen(
               resumeSession: state.extra is RoutePlanningSession
                   ? state.extra! as RoutePlanningSession
                   : null,
@@ -370,6 +372,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: RouteMatchScreen.routePath,
                 builder: (context, state) => const RouteMatchScreen(),
                 routes: [
+                  GoRoute(
+                    path: 'chat',
+                    parentNavigatorKey: _rootNavigatorKey,
+                    pageBuilder: (context, state) => CupertinoPage<void>(
+                      key: state.pageKey,
+                      child: RouteMatchScreen(
+                        initialMode: RouteMatchMode.ai,
+                        draftParams: state.extra is RouteMatchParams
+                            ? state.extra! as RouteMatchParams
+                            : null,
+                      ),
+                    ),
+                  ),
                   GoRoute(
                     name: AppRouteNames.routeMatchResults,
                     path: RouteMatchResultsScreen.routePath,

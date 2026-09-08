@@ -2290,7 +2290,7 @@ class RouteAiChatView extends StatelessWidget {
   /// entry point should live is an open product/design question tracked in
   /// `tourism-platform/docs/ai-route-chat-mobile-implementation.md`.
   final VoidCallback? onNewChat;
-  final void Function(Map<String, Object> values)? onControlChanged;
+  final Future<bool> Function(Map<String, Object> values)? onControlChanged;
 
   /// The chat filled up. The transcript stays scrollable — people go back
   /// through it for the routes they built — but nothing more can be sent.
@@ -2467,10 +2467,7 @@ class _ChatLimitFooter extends StatelessWidget {
           onTap: onShow,
           borderRadius: BorderRadius.circular(px(18)),
           child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: px(16),
-              vertical: px(13),
-            ),
+            padding: EdgeInsets.symmetric(horizontal: px(16), vertical: px(13)),
             child: Row(
               children: [
                 Icon(
@@ -2656,7 +2653,7 @@ class AgentMessageBubble extends StatelessWidget {
   final void Function(String proposalId)? onProposalViewMap;
   final void Function(String id, String label)? onChatAction;
   final void Function(String routeId)? onOpenCatalogRoute;
-  final void Function(Map<String, Object> values)? onControlChanged;
+  final Future<bool> Function(Map<String, Object> values)? onControlChanged;
 
   String? get _proposalId =>
       message.proposalCard?.proposalId ?? message.proposalId;

@@ -7,6 +7,40 @@ import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_in
 double identityPx(double value) => value;
 
 void main() {
+  testWidgets('control confirmation can be retried after a failed request', (
+    tester,
+  ) async {
+    var calls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatControlsGroup(
+            px: identityPx,
+            sliders: const [],
+            toggles: const [
+              RouteChatToggleData(
+                id: 'with_pets',
+                label: 'С питомцами',
+                value: false,
+              ),
+            ],
+            onConfirm: (values) async {
+              calls++;
+              return calls > 1;
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Подтвердить'));
+    await tester.pumpAndSettle();
+    expect(find.text('Подтвердить'), findsOneWidget);
+    await tester.tap(find.text('Подтвердить'));
+    await tester.pumpAndSettle();
+    expect(find.text('Учтено'), findsOneWidget);
+    expect(calls, 2);
+  });
+
   testWidgets('ChatSliderControl shows a live value bubble and commits', (
     tester,
   ) async {

@@ -304,7 +304,7 @@ class ChatControlsGroup extends StatefulWidget {
   final RoutePx px;
   final List<RouteChatSliderData> sliders;
   final List<RouteChatToggleData> toggles;
-  final void Function(Map<String, Object> values) onConfirm;
+  final Future<bool> Function(Map<String, Object> values) onConfirm;
 
   @override
   State<ChatControlsGroup> createState() => _ChatControlsGroupState();
@@ -313,6 +313,7 @@ class ChatControlsGroup extends StatefulWidget {
 class _ChatControlsGroupState extends State<ChatControlsGroup> {
   late final Map<String, Object> _values;
   bool _confirmed = false;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -324,12 +325,19 @@ class _ChatControlsGroupState extends State<ChatControlsGroup> {
     };
   }
 
-  void _confirm() {
-    if (_confirmed) {
+  Future<void> _confirm() async {
+    if (_confirmed || _submitting) {
       return;
     }
-    setState(() => _confirmed = true);
-    widget.onConfirm(Map<String, Object>.from(_values));
+    setState(() => _submitting = true);
+    try {
+      final accepted = await widget.onConfirm(
+        Map<String, Object>.from(_values),
+      );
+      if (mounted) setState(() => _confirmed = accepted);
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -342,7 +350,7 @@ class _ChatControlsGroupState extends State<ChatControlsGroup> {
           ChatSliderControl(
             px: px,
             data: slider,
-            onCommit: _confirmed
+            onCommit: _confirmed || _submitting
                 ? (_, _) {}
                 : (id, value) => setState(() => _values[id] = value),
           ),
@@ -356,7 +364,7 @@ class _ChatControlsGroupState extends State<ChatControlsGroup> {
               label: toggle.label,
               value: _values[toggle.id] == true,
             ),
-            onChanged: _confirmed
+            onChanged: _confirmed || _submitting
                 ? (_, _) {}
                 : (id, value) => setState(() => _values[id] = value),
           ),
@@ -365,7 +373,7 @@ class _ChatControlsGroupState extends State<ChatControlsGroup> {
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: _confirmed ? null : _confirm,
+            onPressed: _confirmed || _submitting ? null : _confirm,
             style: FilledButton.styleFrom(
               backgroundColor: RouteBuilderDesignTokens.primaryBlue,
               disabledBackgroundColor: RouteBuilderDesignTokens.primaryBlue
@@ -380,7 +388,13 @@ class _ChatControlsGroupState extends State<ChatControlsGroup> {
                 height: 1.1,
               ),
             ),
-            child: Text(_confirmed ? 'Учтено' : 'Подтвердить'),
+            child: Text(
+              _confirmed
+                  ? 'Учтено'
+                  : _submitting
+                  ? 'Отправляем…'
+                  : 'Подтвердить',
+            ),
           ),
         ),
       ],

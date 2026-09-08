@@ -125,44 +125,47 @@ void main() {
     expect(find.text('Сообщение'), findsOneWidget);
   });
 
-  testWidgets('mode morph survives moving the switcher between scroll views', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(393, 852));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets(
+    'reference mode morph survives moving the switcher between scroll views',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(393, 852));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: testSessionOverrides(
-          onboardingCompleted: true,
-          travelPlusActive: true,
-          travelPlusPlan: 'monthly',
-          travelPlusExpiresAt: DateTime.now().add(const Duration(days: 10)),
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: testSessionOverrides(
+            onboardingCompleted: true,
+            travelPlusActive: true,
+            travelPlusPlan: 'monthly',
+            travelPlusExpiresAt: DateTime.now().add(const Duration(days: 10)),
+          ),
+          child: const MaterialApp(
+            home: RouteMatchScreen(pixelReference: true),
+          ),
         ),
-        child: const MaterialApp(home: RouteMatchScreen()),
-      ),
-    );
-    await tester.pump();
+      );
+      await tester.pump();
 
-    final params = find.byKey(const ValueKey('route-mode-params'));
-    final ai = find.byKey(const ValueKey('route-mode-ai'));
-    final initialParams = tester.getSize(params).width;
-    final initialAi = tester.getSize(ai).width;
+      final params = find.byKey(const ValueKey('route-mode-params'));
+      final ai = find.byKey(const ValueKey('route-mode-ai'));
+      final initialParams = tester.getSize(params).width;
+      final initialAi = tester.getSize(ai).width;
 
-    await tester.tap(find.bySemanticsLabel('Режим подбор с ИИ'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 32));
-    expect(tester.getSize(ai).width, greaterThan(initialAi + 1));
-    expect(tester.getSize(params).width, lessThan(initialParams - 1));
-    await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Режим подбор с ИИ'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 32));
+      expect(tester.getSize(ai).width, greaterThan(initialAi + 1));
+      expect(tester.getSize(params).width, lessThan(initialParams - 1));
+      await tester.pumpAndSettle();
 
-    final selectedAi = tester.getSize(ai).width;
-    await tester.tap(find.bySemanticsLabel('Режим по параметрам'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 32));
-    expect(tester.getSize(ai).width, lessThan(selectedAi - 1));
-    expect(tester.takeException(), isNull);
-  });
+      final selectedAi = tester.getSize(ai).width;
+      await tester.tap(find.bySemanticsLabel('Режим по параметрам'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 32));
+      expect(tester.getSize(ai).width, lessThan(selectedAi - 1));
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('AI chat renders hostile text as data without crash', (
     tester,

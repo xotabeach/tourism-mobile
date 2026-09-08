@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart' show CupertinoPageRoute;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +20,7 @@ import 'package:tourism_mobile/features/route_match/presentation/route_builder_d
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_safety.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
-import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_proposal_preview_screen.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Подбор маршрута — форма по параметрам + чат «Подбор с ИИ».
@@ -31,6 +32,7 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
     this.pixelReference = false,
     this.initialMode = RouteMatchMode.params,
     this.resumeSession,
+    this.draftParams,
   });
 
   static const routePath = '/match';
@@ -43,6 +45,7 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
   /// Set from [ChatHistoryScreen]: opens straight into chat mode on this
   /// existing session and replays its transcript instead of the params form.
   final RoutePlanningSession? resumeSession;
+  final RouteMatchParams? draftParams;
 
   @override
   ConsumerState<RouteMatchScreen> createState() => _RouteMatchScreenState();
@@ -128,6 +131,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       }
       if (resume != null) {
         unawaited(_resumeSession(resume));
+      } else if (_mode == RouteMatchMode.ai && !widget.pixelReference) {
+        unawaited(_chat.ensureSession(widget.draftParams ?? _draftParams()));
       }
     });
   }
@@ -226,6 +231,25 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _setMode(RouteMatchMode mode) {
+    if (!widget.pixelReference && mode != _mode) {
+      if (mode == RouteMatchMode.ai) {
+        if (!ref.read(sessionProvider).travelPlusActive) {
+          unawaited(context.push('/profile/settings/travel-plus'));
+          return;
+        }
+        unawaited(
+          context.push(
+            '${RouteMatchScreen.routePath}/chat',
+            extra: _draftParams(),
+          ),
+        );
+        return;
+      }
+      if (_mode == RouteMatchMode.ai && context.canPop()) {
+        context.pop();
+        return;
+      }
+    }
     if (mode == RouteMatchMode.ai &&
         !widget.pixelReference &&
         !ref.read(sessionProvider).travelPlusActive) {
@@ -281,6 +305,15 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _goBack() {
+    if (_mode == RouteMatchMode.ai) {
+      _aiFocus.unfocus();
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        _setMode(RouteMatchMode.params);
+      }
+      return;
+    }
     // Two very different homes for this screen: the tab-root instance has
     // no Navigator route beneath it (go to the Home tab is the only
     // meaningful "back"), but resumeSession pushes it as a real page from
@@ -379,9 +412,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   Future<void> _saveAllProposalsToDrafts(
     List<RouteChatMessage> messages,
   ) async {
-    final ids = <String>{
-      for (final message in messages) ?message.proposalId,
-    };
+    final ids = <String>{for (final message in messages) ?message.proposalId};
     if (ids.isEmpty) {
       return;
     }
@@ -409,6 +440,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   Future<void> _acceptProposal(
     String proposalId, {
     required String message,
+    bool startExecution = false,
   }) async {
     final result = await _chat.acceptProposal(proposalId);
     if (!mounted || result == null) {
@@ -416,23 +448,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
     showAppNotice(context, message);
     final routeId = result.routeId;
-    if (routeId != null && routeId.isNotEmpty) {
-      final userId = ref.read(sessionProvider).userId;
+    if (startExecution && routeId != null && routeId.isNotEmpty) {
       unawaited(
         context.pushNamed(
-          AppRouteNames.routeDetails,
+          AppRouteNames.routeExecution,
           pathParameters: {'id': routeId},
-          extra: RouteSummary(
-            id: routeId,
-            name: 'Сгенерированный маршрут',
-            slug: 'generated',
-            shortDescription: null,
-            stopsCount: 0,
-            ownerUserId: userId,
-            publicationStatus: 'draft',
-            visibility: 'private',
-            source: 'generated',
-          ),
         ),
       );
     }
@@ -452,7 +472,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     return _chat.onChatAction(id, label);
   }
 
-  Future<void> _onConfirmControls(Map<String, Object> values) {
+  Future<bool> _onConfirmControls(Map<String, Object> values) {
     return _chat.confirmControls(values);
   }
 
@@ -628,7 +648,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             },
                             onProposalCreate: (id) {
                               unawaited(
-                                _acceptProposal(id, message: 'Маршрут создан'),
+                                _acceptProposal(
+                                  id,
+                                  message: 'Маршрут создан',
+                                  startExecution: true,
+                                ),
                               );
                             },
                             onProposalSaveDraft: (id) {
@@ -643,22 +667,24 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                             onProposalReject: (id) {
                               unawaited(_onProposalReject(id));
                             },
-                            onProposalViewMap: (_) {
-                              showAppNotice(
-                                context,
-                                'Карта маршрута появится в одном из '
-                                'следующих обновлений',
+                            onProposalViewMap: (id) {
+                              unawaited(
+                                Navigator.of(context).push(
+                                  CupertinoPageRoute<void>(
+                                    builder: (_) => RouteProposalPreviewScreen(
+                                      proposalId: id,
+                                    ),
+                                  ),
+                                ),
                               );
                             },
                             onChatAction: (id, label) {
                               unawaited(_onChatAction(id, label));
                             },
                             onOpenCatalogRoute: (routeId) {
-                              unawaited(context.push('/routes/$routeId'));
+                              unawaited(context.push('/route/$routeId'));
                             },
-                            onControlChanged: (values) {
-                              unawaited(_onConfirmControls(values));
-                            },
+                            onControlChanged: _onConfirmControls,
                             onNewChat: () {
                               unawaited(_startNewChat());
                             },
@@ -696,6 +722,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       ),
     );
 
+    // Chat is a CupertinoPage above the form, like other detail screens.
+    // Its Navigator owns the interactive swipe and cancellation animation.
+    if (_mode == RouteMatchMode.ai) return body;
     return AppEdgeBackGesture(onBack: _goBack, child: body);
   }
 

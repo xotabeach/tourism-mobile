@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:tourism_mobile/core/domain/crimea_cities.dart';
 import 'package:tourism_mobile/core/network/api_guard.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_proposal_preview.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
@@ -16,7 +17,31 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
   /// reported "Network request failed" on perfectly healthy turns. The server
   /// caps its own work at `ai_turn_budget_seconds`, so this only has to be
   /// comfortably above that.
-  static final _aiOptions = Options(receiveTimeout: const Duration(seconds: 60));
+  static final _aiOptions = Options(
+    receiveTimeout: const Duration(seconds: 60),
+  );
+
+  @override
+  Future<RouteProposalPreview> previewProposal(String id) =>
+      guardApiCall(() async {
+        final response = await _dio.get<Map<String, dynamic>>(
+          '/api/v1/route-builder/proposals/$id/preview',
+          options: _aiOptions,
+        );
+        return RouteProposalPreview.fromJson(response.data!);
+      });
+
+  @override
+  Future<RouteProposalPreview> updateProposalDate(
+    String id,
+    DateTime startDate,
+  ) => guardApiCall(() async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '/api/v1/route-builder/proposals/$id/trip-date',
+      data: {'start_date': startDate.toIso8601String().split('T').first},
+    );
+    return RouteProposalPreview.fromJson(response.data!);
+  });
 
   @override
   Future<RouteMatchResult> match(RouteMatchParams params) {
@@ -125,6 +150,7 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
     bool wantGenerate = false,
     String? actionId,
     Object? controlValue,
+    Map<String, Object>? controls,
   }) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -134,6 +160,7 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
           'want_generate': wantGenerate,
           'action_id': ?actionId,
           'control_value': ?controlValue,
+          'controls': ?controls,
         },
         options: _aiOptions,
       );
@@ -144,6 +171,73 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
 
 /// Local fallback when DATA_SOURCE=mock (no backend).
 class MockRouteMatchRepository implements RouteMatchRepository {
+  final _proposalDates = <String, DateTime>{};
+
+  @override
+  Future<RouteProposalPreview> previewProposal(String id) async =>
+      RouteProposalPreview(
+        proposalId: id,
+        title: 'Маршрут по Крыму',
+        startDate: _proposalDates[id],
+        warnings: const ['Демонстрационный план: время ориентировочное.'],
+        days: const [
+          TripDay(
+            day: 1,
+            events: [
+              TripEvent(
+                kind: 'visit',
+                title: 'Набережная Ялты',
+                startMinute: 540,
+                durationMinutes: 45,
+                placeId: '1',
+              ),
+              TripEvent(
+                kind: 'travel',
+                title: 'Переход к Приморскому парку',
+                startMinute: 585,
+                durationMinutes: 25,
+              ),
+              TripEvent(
+                kind: 'visit',
+                title: 'Приморский парк',
+                startMinute: 610,
+                durationMinutes: 60,
+                placeId: '2',
+              ),
+            ],
+          ),
+        ],
+        stops: const [
+          RouteStop(
+            id: '1',
+            position: 1,
+            placeId: '1',
+            placeName: 'Набережная Ялты',
+            placeSlug: 'yalta',
+            lat: 44.492,
+            lng: 34.167,
+          ),
+          RouteStop(
+            id: '2',
+            position: 2,
+            placeId: '2',
+            placeName: 'Приморский парк',
+            placeSlug: 'park',
+            lat: 44.481,
+            lng: 34.156,
+          ),
+        ],
+      );
+
+  @override
+  Future<RouteProposalPreview> updateProposalDate(
+    String id,
+    DateTime startDate,
+  ) {
+    _proposalDates[id] = startDate;
+    return previewProposal(id);
+  }
+
   int _mockSessionSeq = 0;
 
   // Keyed insertion order = most-recent-last; listSessions reverses it so
@@ -347,12 +441,53 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     bool wantGenerate = false,
     String? actionId,
     Object? controlValue,
+    Map<String, Object>? controls,
   }) async {
+    // Mock accepts the same batch contract as the API.
     await Future<void>.delayed(const Duration(milliseconds: 200));
     if (wantGenerate ||
         actionId == 'want_generate' ||
         text.toLowerCase().contains('подбери маршрут') ||
         text.toLowerCase().trim() == 'давай') {
+      final matched = await match(
+        _mockSessions[sessionId]?.constraints ??
+            const RouteMatchParams(
+              city: 'Ялта',
+              duration: RouteDurationOption.d3_5,
+              people: 2,
+              interests: ['Пляж'],
+              pace: RoutePace.calm,
+            ),
+      );
+      return _recordExchange(
+        sessionId,
+        text,
+        RoutePlanningMessageResult(
+          messageId: 'mock-match',
+          sessionId: sessionId,
+          role: 'assistant',
+          text: 'Вот готовые маршруты, которые можно сравнить:',
+          blocks: [
+            CatalogMatchBlock(
+              routes: [
+                for (final hit in [...matched.ideal, ...matched.close])
+                  CatalogRouteItem(
+                    routeId: hit.route.id,
+                    title: hit.route.name,
+                    coverUrl: hit.route.coverImageUrl,
+                  ),
+              ],
+            ),
+            const ActionsBlock(
+              actions: [
+                {'id': 'build_custom_route', 'label': 'Собрать свой маршрут'},
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+    if (actionId == 'build_custom_route') {
       final generated = await generate(
         channel: 'chat',
         params: const RouteMatchParams(
@@ -380,12 +515,10 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     }
     final lowered = text.toLowerCase();
     var actions = <Map<String, String>>[
-      {'id': 'want_generate', 'label': 'Подбери маршрут'},
       {'id': 'pace_calm', 'label': 'Хочу спокойно'},
       {'id': 'pace_active', 'label': 'Хочу активно'},
     ];
-    var reply =
-        'Понял: «$text». Уточните параметры поездки или нажмите «Подбери маршрут».';
+    var reply = 'Что тебе ближе — спокойная прогулка или активный отдых?';
     var askField = 'pace';
     // Стартовый город спрашиваем селектом, а не чипами: городов десять,
     // в ряд чипов они не помещаются.
@@ -415,7 +548,6 @@ class MockRouteMatchRepository implements RouteMatchRepository {
         {'id': 'transport_car', 'label': 'На машине'},
         {'id': 'transport_public', 'label': 'Общественный транспорт'},
         {'id': 'transport_walk', 'label': 'Пешком'},
-        {'id': 'want_generate', 'label': 'Подбери маршрут'},
       ];
       reply =
           'Принято. Подскажите, вы планируете поездку на машине, '
@@ -428,7 +560,6 @@ class MockRouteMatchRepository implements RouteMatchRepository {
         {'id': 'pace_calm', 'label': 'Хочу спокойно'},
         {'id': 'pace_moderate', 'label': 'Умеренный темп'},
         {'id': 'pace_active', 'label': 'Хочу активно'},
-        {'id': 'want_generate', 'label': 'Подбери маршрут'},
       ];
       reply = 'Какой темп вам ближе — спокойный, умеренный или активный?';
       askField = 'pace';
@@ -439,7 +570,6 @@ class MockRouteMatchRepository implements RouteMatchRepository {
         {'id': 'interest_sea', 'label': 'Больше моря'},
         {'id': 'interest_mountains', 'label': 'Больше гор'},
         {'id': 'interest_romance', 'label': 'Романтика'},
-        {'id': 'want_generate', 'label': 'Подбери маршрут'},
       ];
       reply = 'Что важнее — море, горы или романтика?';
       askField = 'interests';

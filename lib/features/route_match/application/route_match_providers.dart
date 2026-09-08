@@ -4,6 +4,12 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/features/route_match/data/route_match_repository.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_proposal_preview.dart';
+
+final proposalPreviewProvider = FutureProvider.autoDispose
+    .family<RouteProposalPreview, String>((ref, id) {
+      return ref.watch(routeMatchRepositoryProvider).previewProposal(id);
+    });
 
 final routeMatchRepositoryProvider = Provider<RouteMatchRepository>((ref) {
   final config = ref.watch(appConfigProvider);

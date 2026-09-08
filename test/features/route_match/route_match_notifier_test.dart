@@ -3,11 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_notifier.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_proposal_preview.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 
 class FakeRouteMatchRepository implements RouteMatchRepository {
+  @override
+  Future<RouteProposalPreview> previewProposal(String id) async =>
+      RouteProposalPreview(proposalId: id, title: 'Маршрут', stops: const []);
+  @override
+  Future<RouteProposalPreview> updateProposalDate(String id, DateTime date) =>
+      previewProposal(id);
   var createSessionCalls = 0;
   var postMessageCalls = 0;
+  Map<String, Object>? lastControls;
   final acceptCalls = <String>[];
   final rejectCalls = <String>[];
   var sessionSeq = 0;
@@ -89,8 +97,10 @@ class FakeRouteMatchRepository implements RouteMatchRepository {
     bool wantGenerate = false,
     String? actionId,
     Object? controlValue,
+    Map<String, Object>? controls,
   }) async {
     postMessageCalls += 1;
+    lastControls = controls;
     if (postError != null) {
       throw postError!;
     }
@@ -169,6 +179,29 @@ RouteMatchNotifier _notifier(FakeRouteMatchRepository repo) {
 }
 
 void main() {
+  test('confirming four controls sends one complete turn', () async {
+    final repo = FakeRouteMatchRepository();
+    final chat = _notifier(repo);
+    addTearDown(chat.dispose);
+    final ok = await chat.confirmControls({
+      'budget_amount': 5500.0,
+      'with_children': true,
+      'with_pets': false,
+      'avoid_crowds': true,
+    });
+    expect(ok, isTrue);
+    expect(repo.postMessageCalls, 1);
+    expect(repo.lastControls, {
+      'budget_amount': 5500,
+      'with_children': true,
+      'with_pets': false,
+      'avoid_crowds': true,
+    });
+    final userText = chat.state.messages.where((m) => !m.fromAgent).single.text;
+    expect(userText, contains('Избегать толп'));
+    expect(userText, isNot(contains('avoid_crowds')));
+  });
+
   test('ensureSession calls createSession once across sends', () async {
     final repo = FakeRouteMatchRepository();
     final chat = _notifier(repo);
@@ -253,12 +286,23 @@ void main() {
             blocks: const [],
             createdAt: DateTime.utc(2026, 8, 25, 9, 30),
           ),
-          const RoutePlanningMessageResult(
+          RoutePlanningMessageResult(
             messageId: 'm2',
             sessionId: 'sess-history',
             role: 'assistant',
             text: 'Собрал черновик маршрута из Ялты.',
-            blocks: [],
+            createdAt: DateTime.utc(2026, 8, 25, 9, 31),
+            blocks: const [
+              RouteProposalCardBlock(
+                card: RouteProposalCardData(
+                  proposalId: 'stored-proposal',
+                  title: 'Маршрут по Ялте',
+                  stopsCount: 3,
+                  durationMinutes: 180,
+                  cardVariant: RouteProposalCardVariant.assembled,
+                ),
+              ),
+            ],
           ),
         ];
       final chat = _notifier(repo);
@@ -282,7 +326,9 @@ void main() {
       // Stored rows keep their own timestamp; only rows without one fall back
       // to the clock.
       expect(chat.state.messages.first.time, isNot('12:00'));
-      expect(chat.state.messages.last.time, '12:00');
+      expect(chat.state.messages.last.time, isNot('12:00'));
+      expect(chat.state.messages.last.proposalId, 'stored-proposal');
+      expect(chat.state.messages.last.hasProposalCard, isTrue);
       expect(chat.state.sessionStarting, isFalse);
     },
   );

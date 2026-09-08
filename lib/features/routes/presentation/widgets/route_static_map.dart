@@ -32,6 +32,7 @@ class RouteStaticMap extends StatefulWidget {
     this.livePosition,
     this.completedFraction,
     this.completedStopPositions = const {},
+    this.imageHeaders = const {},
     super.key,
   });
 
@@ -70,6 +71,7 @@ class RouteStaticMap extends StatefulWidget {
   /// [completedFraction] alone stays 0 until the walker leaves the first
   /// stop, which sits on the geometry's very first point.
   final Set<int> completedStopPositions;
+  final Map<String, String> imageHeaders;
 
   @override
   State<RouteStaticMap> createState() => _RouteStaticMapState();
@@ -324,6 +326,15 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
         '&pins=none';
     final resolved = AppImages.resolveMediaUrl(widget.config, path);
     if (resolved == null) return null;
+    if (widget.imageHeaders.isNotEmpty) {
+      // Auth headers are only attached to the application's own API.
+      final target = Uri.tryParse(resolved);
+      final api = Uri.tryParse(widget.config.apiBaseUrl);
+      if (target == null || api == null || target.origin != api.origin) {
+        return null;
+      }
+      return NetworkImage(resolved, headers: widget.imageHeaders);
+    }
     return AppImages.imageProvider(resolvedUrl: resolved);
   }
 
@@ -340,6 +351,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             livePosition: widget.livePosition,
             completedFraction: widget.completedFraction,
             completedStopPositions: widget.completedStopPositions,
+            imageHeaders: widget.imageHeaders,
           ),
         ),
       ),
@@ -580,6 +592,7 @@ class _FullScreenRouteMap extends StatelessWidget {
     this.livePosition,
     this.completedFraction,
     this.completedStopPositions = const {},
+    this.imageHeaders = const {},
   });
 
   /// Backend preview endpoint for this route, or null when the server does
@@ -599,6 +612,7 @@ class _FullScreenRouteMap extends StatelessWidget {
   /// Carried over from the inline map — see
   /// [RouteStaticMap.completedStopPositions].
   final Set<int> completedStopPositions;
+  final Map<String, String> imageHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -624,6 +638,7 @@ class _FullScreenRouteMap extends StatelessWidget {
                 livePosition: livePosition,
                 completedFraction: completedFraction,
                 completedStopPositions: completedStopPositions,
+                imageHeaders: imageHeaders,
                 // Already full screen: tapping should not stack another one.
                 interactive: false,
               ),

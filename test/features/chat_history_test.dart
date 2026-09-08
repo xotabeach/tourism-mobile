@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
+import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/chat_history_screen.dart';
@@ -138,9 +138,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(RouteMatchScreen), findsOneWidget);
 
-      tester
-          .widget<AppEdgeBackGesture>(find.byType(AppEdgeBackGesture))
-          .onBack();
+      tester.widget<AppScrollBrandBar>(find.byType(AppScrollBrandBar)).onBack();
       await tester.pumpAndSettle();
 
       expect(find.byType(ChatHistoryScreen), findsOneWidget);

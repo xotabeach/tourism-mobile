@@ -27,6 +27,85 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadGoldenFonts);
 
+  testWidgets('golden assembled chat bubble — narrow reference', (
+    tester,
+  ) async {
+    await _pumpGolden(
+      tester,
+      Material(
+        child: SingleChildScrollView(
+          child: AgentMessageBubble(
+            px: (value) => value,
+            message: const RouteChatMessage(
+              fromAgent: true,
+              text: 'Собрал маршрут по твоим параметрам:',
+              time: '17:53',
+              proposalCard: RouteProposalCardData(
+                proposalId: 'p3',
+                title: 'Собранный маршрут',
+                stopsCount: 4,
+                durationMinutes: 280,
+                cardVariant: RouteProposalCardVariant.assembled,
+                galleryUrls: [
+                  AppImages.coastalBayHills,
+                  AppImages.coastalBayHills,
+                  AppImages.coastalBayHills,
+                  AppImages.coastalBayHills,
+                ],
+                startLabel: 'Площадь Ленина',
+                startSubtitle: 'г. Симферополь',
+                finishLabel: 'Площадь Ленина',
+                finishSubtitle: 'г. Симферополь',
+                locations: [
+                  ProposalLocationItem(
+                    id: '1',
+                    title: 'Подножье горы',
+                    subtitle: '1,7 км',
+                    index: 1,
+                  ),
+                  ProposalLocationItem(
+                    id: '2',
+                    title: 'Подножье горы',
+                    subtitle: '1,7 км',
+                    index: 2,
+                  ),
+                  ProposalLocationItem(
+                    id: '3',
+                    title: 'Подножье горы',
+                    subtitle: '1,7 км',
+                    index: 3,
+                  ),
+                  ProposalLocationItem(
+                    id: '4',
+                    title: 'Подножье горы',
+                    subtitle: '1,7 км',
+                    index: 4,
+                  ),
+                ],
+                tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                budgetLabel: '2 500 ₽',
+                difficultyLabel: '3/5',
+                localityLabel: 'Бахчисарай',
+                distanceKm: 8.6,
+              ),
+            ),
+            onProposalCreate: (_) {},
+            onProposalSaveDraft: (_) {},
+            onProposalRefine: (_) {},
+            onProposalReject: (_) {},
+            onProposalViewMap: (_) {},
+          ),
+        ),
+      ),
+      size: const Size(265, 1000),
+    );
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/chat_assembled_reference.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
   testWidgets('golden route match — AI chat, as shipped today', (tester) async {
     await _pumpGolden(
       tester,
@@ -287,6 +366,7 @@ Future<void> _pumpGolden(
   await tester.runAsync(() async {
     await Future.wait([
       for (final asset in [
+        'assets/images/route_header.jpg',
         AppImages.coastPineTwilight,
         AppImages.capeFiolentFog,
         AppImages.travelerPortrait,

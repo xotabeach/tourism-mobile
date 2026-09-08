@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
+import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_checkout_screen.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -99,6 +100,11 @@ void main() {
       initialLocation: '/match',
       routes: [
         GoRoute(path: '/match', builder: (_, _) => const RouteMatchScreen()),
+        GoRoute(
+          path: '/match/chat',
+          builder: (_, _) =>
+              const RouteMatchScreen(initialMode: RouteMatchMode.ai),
+        ),
         GoRoute(
           path: '/profile/settings/travel-plus',
           builder: (_, _) => const Scaffold(body: Text('TRAVEL_PLUS_GATE')),

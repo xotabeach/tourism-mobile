@@ -219,7 +219,7 @@ class _AssembledProposalCardState
 
     return Material(
       color: AppColors.elevatedSurface,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.zero,
       clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -228,9 +228,9 @@ class _AssembledProposalCardState
             // Design export shows a horizontal strip of ~4 thumbnails with a
             // page indicator underneath — not one full-bleed hero image.
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 0, 0),
+              padding: EdgeInsets.zero,
               child: SizedBox(
-                height: 66,
+                height: 83,
                 child: PageView.builder(
                   controller: _galleryController,
                   padEnds: false,
@@ -239,9 +239,9 @@ class _AssembledProposalCardState
                       setState(() => _galleryPage = index),
                   itemBuilder: (context, index) {
                     return Padding(
-                      padding: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: 4),
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(5),
                         child: AppImages.coverImage(
                           config: ref.watch(appConfigProvider),
                           coverImageUrl: gallery[index],
@@ -289,7 +289,7 @@ class _AssembledProposalCardState
               ),
             ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            padding: const EdgeInsets.only(top: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -329,7 +329,7 @@ class _AssembledProposalCardState
                           ? null
                           : () => widget.onPointEdit!(location.id),
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 2),
                   ],
                 ],
                 if (widget.onViewMap != null) ...[
@@ -339,8 +339,11 @@ class _AssembledProposalCardState
                   // weight, not two.
                   OutlinedButton(
                     onPressed: widget.onViewMap,
-                    style: _proposalActionStyle(height: 42),
-                    child: const Text('Посмотреть на карте'),
+                    style: _proposalActionStyle(height: 28),
+                    child: const Text(
+                      'Посмотреть на карте',
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -416,11 +419,18 @@ class _ProposalDetailsSection extends StatelessWidget {
         ],
         RouteParamsBlock(
           budgetLabel: card.budgetLabel,
+          budgetCaption: card.budgetCaption,
           difficultyLabel: card.difficultyLabel,
           localityLabel: card.localityLabel,
           distanceLabel: distanceLabel,
-          durationLabel: formatRouteDuration(card.durationMinutes),
-          stopsLabel: card.stopsCount > 0 ? '${card.stopsCount}' : null,
+          durationLabel: card.cardVariant == RouteProposalCardVariant.assembled
+              ? null
+              : formatRouteDuration(card.durationMinutes),
+          stopsLabel: card.cardVariant == RouteProposalCardVariant.assembled
+              ? null
+              : card.stopsCount > 0
+              ? '${card.stopsCount}'
+              : null,
         ),
         const SizedBox(height: 12),
         if (onCreate != null) ...[
@@ -428,8 +438,8 @@ class _ProposalDetailsSection extends StatelessWidget {
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: onCreate,
-            style: _proposalActionStyle(height: 44),
-            child: Text(card.primaryActionLabel),
+            style: _proposalActionStyle(height: 28),
+            child: Text(card.primaryActionLabel, textAlign: TextAlign.center),
           ),
         ],
         if (secondaryActions.isNotEmpty) ...[
@@ -441,8 +451,11 @@ class _ProposalDetailsSection extends StatelessWidget {
                 if (i > 0) const SizedBox(height: 8),
                 OutlinedButton(
                   onPressed: secondaryActions[i].$2,
-                  style: _proposalActionStyle(height: 42),
-                  child: Text(secondaryActions[i].$1),
+                  style: _proposalActionStyle(height: 28),
+                  child: Text(
+                    secondaryActions[i].$1,
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ],
@@ -492,7 +505,7 @@ class _PointEditRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
           child: Row(
             children: [
               Expanded(
@@ -527,8 +540,9 @@ class _PointEditRow extends StatelessWidget {
                 ),
               ),
               const Icon(
-                Icons.chevron_right_rounded,
-                color: RouteBuilderDesignTokens.textSecondary,
+                Icons.arrow_forward_ios,
+                size: 14,
+                color: RouteBuilderDesignTokens.textPrimary,
               ),
             ],
           ),
@@ -559,7 +573,7 @@ class _LocationRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4),
+          padding: const EdgeInsets.symmetric(vertical: 1),
           child: Row(
             children: [
               Container(
@@ -611,9 +625,9 @@ class _LocationRow extends StatelessWidget {
                 ),
               ),
               const Icon(
-                Icons.chevron_right_rounded,
-                color: RouteBuilderDesignTokens.textSecondary,
-                size: 20,
+                Icons.arrow_forward_ios,
+                color: RouteBuilderDesignTokens.textPrimary,
+                size: 14,
               ),
             ],
           ),
@@ -691,15 +705,15 @@ class RoutePreviewTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF33343A),
+        color: const Color(0xFF666666),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Text(
         label,
         style: RouteBuilderDesignTokens.rubik(
-          fontSize: 11,
+          fontSize: 10,
           color: Colors.white,
           height: 1.0,
         ),
@@ -714,6 +728,7 @@ class RoutePreviewTagChip extends StatelessWidget {
 class RouteParamsBlock extends StatelessWidget {
   const RouteParamsBlock({
     this.budgetLabel,
+    this.budgetCaption = 'Минимальный бюджет',
     this.difficultyLabel,
     this.localityLabel,
     this.distanceLabel,
@@ -723,6 +738,7 @@ class RouteParamsBlock extends StatelessWidget {
   });
 
   final String? budgetLabel;
+  final String budgetCaption;
   final String? difficultyLabel;
   final String? localityLabel;
   final String? distanceLabel;
@@ -738,7 +754,7 @@ class RouteParamsBlock extends StatelessWidget {
       if (budgetLabel != null)
         _ParamRowData(
           Icons.account_balance_wallet_outlined,
-          'Минимальный бюджет:',
+          '$budgetCaption:',
           budgetLabel!,
         ),
       if (difficultyLabel != null)
@@ -774,7 +790,7 @@ class RouteParamsBlock extends StatelessWidget {
                         text: '${row.label} ',
                         style: RouteBuilderDesignTokens.rubik(
                           fontSize: 12,
-                          color: const Color(0xFF3A3A3C),
+                          color: RouteBuilderDesignTokens.textSecondary,
                           height: 1.15,
                         ),
                       ),
@@ -782,7 +798,7 @@ class RouteParamsBlock extends StatelessWidget {
                         text: row.value,
                         style: RouteBuilderDesignTokens.rubik(
                           fontSize: 12,
-                          weight: FontWeight.w700,
+                          weight: FontWeight.w500,
                           color: const Color(0xFF1C1C1E),
                           height: 1.15,
                         ),
@@ -809,7 +825,11 @@ ButtonStyle _proposalActionStyle({required double height}) {
     foregroundColor: RouteBuilderDesignTokens.primaryBlue,
     side: const BorderSide(color: RouteBuilderDesignTokens.chatHairline),
     minimumSize: Size.fromHeight(height),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    textStyle: RouteBuilderDesignTokens.rubik(fontSize: 13, height: 1.15),
+    alignment: Alignment.center,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
   );
 }
 
