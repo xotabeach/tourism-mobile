@@ -246,7 +246,9 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     }
     final media = <RouteMediaItem>[];
     for (final item in draft.media) {
-      if (item.isAsset) {
+      if (item.isAsset || item.isRemote) {
+        // A file the server already stores is not on this device at all;
+        // looking for it would drop every photo of a resumed draft.
         media.add(item);
         continue;
       }

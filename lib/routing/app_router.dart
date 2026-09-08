@@ -627,7 +627,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                             pageBuilder: (context, state) =>
                                 CupertinoPage<void>(
                                   key: state.pageKey,
-                                  child: const SettingsChatScreen(),
+                                  child: SettingsChatScreen(
+                                    initialMessage: state.extra is String
+                                        ? state.extra as String
+                                        : null,
+                                  ),
                                 ),
                           ),
                           GoRoute(

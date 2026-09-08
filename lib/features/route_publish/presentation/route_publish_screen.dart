@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/domain/content_tags.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
+import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
@@ -961,13 +962,13 @@ class RouteMediaCarousel extends StatelessWidget {
   }
 }
 
-class _RouteMediaPreview extends StatelessWidget {
+class _RouteMediaPreview extends ConsumerWidget {
   const _RouteMediaPreview({required this.item});
 
   final RouteMediaItem item;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (item.kind == RouteMediaKind.video) {
       return const ColoredBox(
         color: PublishRouteDesignTokens.dark,
@@ -985,16 +986,28 @@ class _RouteMediaPreview extends StatelessWidget {
         ),
       );
     }
-    return item.isAsset
-        ? Image.asset(item.path, fit: BoxFit.cover)
-        : Image.file(
-            File(item.path),
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => const ColoredBox(
-              color: PublishRouteDesignTokens.fieldBackground,
-              child: Icon(Icons.broken_image_outlined),
-            ),
-          );
+    if (item.isAsset) {
+      return Image.asset(item.path, fit: BoxFit.cover);
+    }
+    // A photo the draft already stores on the server has a public path, not
+    // a file path. Opening it as a file left the tile showing a broken-image
+    // icon while the very same photo rendered on the route card in the
+    // profile (reported 2026-09-08).
+    if (item.isRemote) {
+      return AppImages.coverImage(
+        config: ref.watch(appConfigProvider),
+        coverImageUrl: item.path,
+        fallbackSeed: item.id,
+      );
+    }
+    return Image.file(
+      File(item.path),
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => const ColoredBox(
+        color: PublishRouteDesignTokens.fieldBackground,
+        child: Icon(Icons.broken_image_outlined),
+      ),
+    );
   }
 }
 

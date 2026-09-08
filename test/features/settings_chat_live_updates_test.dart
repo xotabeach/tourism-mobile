@@ -7,6 +7,30 @@ import 'package:tourism_mobile/features/settings/data/support_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_support_screens.dart';
 
 void main() {
+  testWidgets('operator handoff prefills but does not send the question', (
+    tester,
+  ) async {
+    final repository = _LiveChatRepository(canSend: true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [supportRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(
+          home: Scaffold(
+            body: SettingsChatScreen(initialMessage: 'Не начислились баллы'),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final composer = tester.widget<TextField>(find.byType(TextField));
+    expect(composer.controller!.text, 'Не начислились баллы');
+    expect(repository._ticket.messages, hasLength(1));
+    await tester.tap(find.byIcon(Icons.send_rounded));
+    await tester.pumpAndSettle();
+    expect(repository._ticket.messages.last.body, 'Не начислились баллы');
+    expect(repository._ticket.messages, hasLength(2));
+  });
+
   testWidgets('shows an operator reply while the chat remains open', (
     tester,
   ) async {
@@ -61,6 +85,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Ответ оператора'), findsOneWidget);
+    expect(find.text('Оператор поддержки'), findsOneWidget);
   });
 
   testWidgets('keeps keyboard focus after sending a message', (tester) async {

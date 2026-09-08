@@ -18,7 +18,10 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/settings/application/support_providers.dart';
+import 'package:tourism_mobile/features/settings/data/support_faq_content.dart';
 import 'package:tourism_mobile/features/settings/data/support_repository.dart';
+import 'package:tourism_mobile/features/settings/domain/support_faq_item.dart';
+import 'package:tourism_mobile/features/settings/presentation/help_search_panel.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -55,120 +58,6 @@ class RateAppTile extends ConsumerWidget {
   }
 }
 
-class SupportFaqItem {
-  const SupportFaqItem({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.answer,
-  });
-
-  final String id;
-  final String title;
-  final String subtitle;
-  final String answer;
-}
-
-const kRoutesNavigationFaq = <SupportFaqItem>[
-  SupportFaqItem(
-    id: 'difficulty',
-    title: 'Уровень сложности',
-    subtitle: 'Как понять, справлюсь ли я?',
-    answer:
-        'В карточке маршрута указана сложность (лёгкий/средний/сложный) и ключевые параметры — расстояние, набор высоты, тип покрытия и ориентировочное время прохождения.',
-  ),
-  SupportFaqItem(
-    id: 'offline',
-    title: 'Офлайн-прохождение',
-    subtitle: 'Можно ли пройти маршрут без интернета?',
-    answer:
-        'Да: скачайте маршрут заранее в разделе «Оффлайн маршруты». Навигация по точкам работает из локального кеша.',
-  ),
-  SupportFaqItem(
-    id: 'route-error',
-    title: 'Ошибка на маршруте',
-    subtitle: 'Куда сообщить о закрытой тропе или неточности?',
-    answer:
-        'Откройте «Сообщить об ошибке» → «Ошибка на маршруте» и опишите проблему. Мы проверим данные и обновим карточку.',
-  ),
-  SupportFaqItem(
-    id: 'order',
-    title: 'Порядок точек',
-    subtitle: 'Обязательно ли идти строго по очереди?',
-    answer:
-        'Рекомендуем порядок из карточки, но отдельные остановки можно пропустить. Прогресс сохранится по отмеченным точкам.',
-  ),
-  SupportFaqItem(
-    id: 'season',
-    title: 'Сезонность',
-    subtitle: 'Как узнать, доступен ли маршрут сейчас?',
-    answer:
-        'В карточке маршрута и места указана сезонность и предупреждения. Перед выходом сверяйте погоду и закрытия троп.',
-  ),
-];
-
-const kAppQuestionsFaq = <SupportFaqItem>[
-  SupportFaqItem(
-    id: 'account',
-    title: 'Смена номера телефона',
-    subtitle: 'Как поменять номер, привязанный к аккаунту?',
-    answer:
-        'В разделе «Настройки профиля» откройте номер телефона и запросите смену — придёт код подтверждения на новый номер.',
-  ),
-  SupportFaqItem(
-    id: 'notifications',
-    title: 'Уведомления',
-    subtitle: 'Почему не приходят пуш-уведомления?',
-    answer:
-        'Проверьте переключатель в «Уведомления» и разрешения приложения в системных настройках телефона. Часть уведомлений (например, о поддержке) всегда доступна внутри приложения, даже если push отключён.',
-  ),
-  SupportFaqItem(
-    id: 'ai-chat',
-    title: 'Подбор маршрута с ИИ',
-    subtitle: 'Как работает чат-подбор?',
-    answer:
-        'ИИ уточняет предпочтения и предлагает маршрут из каталога КрымТрип — это не свободная генерация, а подбор среди проверенных данных. История чатов сохраняется в разделе «История чатов с ИИ».',
-  ),
-  SupportFaqItem(
-    id: 'data',
-    title: 'Данные и приватность',
-    subtitle: 'Что происходит с моими данными при выходе из аккаунта?',
-    answer:
-        'Локально скачанные маршруты и черновики удаляются с устройства. Данные профиля на сервере сохраняются — повторный вход восстановит избранное, достижения и историю.',
-  ),
-];
-
-const kTravelPointsFaq = <SupportFaqItem>[
-  SupportFaqItem(
-    id: 'earn',
-    title: 'Как начисляются баллы',
-    subtitle: 'За что дают ТревелПоинты?',
-    answer:
-        'Сейчас +5 баллов начисляется за лайк профиля и за добавление чужого маршрута в избранное (с задержкой около 6 часов). Начисление за пройденные маршруты появится позже.',
-  ),
-  SupportFaqItem(
-    id: 'rank',
-    title: 'Звание',
-    subtitle: 'Как повысить звание в профиле?',
-    answer:
-        'Звание растёт по накопленным ТревелПоинтам — пороги видны в профиле рядом с прогрессом до следующего звания.',
-  ),
-  SupportFaqItem(
-    id: 'achievements',
-    title: 'Достижения',
-    subtitle: 'Как получить достижение?',
-    answer:
-        'Часть достижений выдаётся автоматически при регистрации, остальные открываются по мере активности в приложении. Полный список — locked и полученные — доступен в профиле.',
-  ),
-  SupportFaqItem(
-    id: 'leaderboard',
-    title: 'Топ пользователей',
-    subtitle: 'Как попасть в топ?',
-    answer:
-        'Место в топе считается по общей сумме ТревелПоинтов и обновляется вместе с начислением баллов.',
-  ),
-];
-
 List<Widget> _supportActionRows(BuildContext context) {
   return [
     SettingsNavTile(
@@ -191,6 +80,10 @@ class SettingsSupportScreen extends StatelessWidget {
       title: 'Поддержка и обратная связь:',
       spaceChildren: false,
       children: [
+        HelpSearchPanel(
+          onContactSupport: (question) =>
+              context.pushNamed(AppRouteNames.settingsChat, extra: question),
+        ),
         SettingsNavTile(
           title: 'Маршруты и навигация',
           iconAsset: AppIconography.settingsFaqRoutes,
@@ -313,7 +206,6 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
         break;
       }
     }
-    item ??= items.isEmpty ? null : items.first;
     if (item == null) {
       return const SettingsScaffold(
         title: 'Вопрос',
@@ -365,7 +257,7 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Асистент поддержки',
+                  'Справка КрымТрип',
                   style: AppTypography.settingsRowSubtitle.copyWith(
                     fontWeight: FontWeight.w600,
                     color: SettingsColors.link,
@@ -379,8 +271,6 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
                     height: 1.35,
                     color: AppColors.settingsInk,
                   ),
-                  maxLines: 12,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
@@ -394,7 +284,9 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
 }
 
 class SettingsChatScreen extends ConsumerStatefulWidget {
-  const SettingsChatScreen({super.key});
+  const SettingsChatScreen({this.initialMessage, super.key});
+
+  final String? initialMessage;
 
   @override
   ConsumerState<SettingsChatScreen> createState() => _SettingsChatScreenState();
@@ -419,6 +311,7 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
   @override
   void initState() {
     super.initState();
+    _composer.text = widget.initialMessage ?? '';
     WidgetsBinding.instance.addObserver(this);
     _composerFocus.addListener(_onComposerFocusChange);
     unawaited(_bootstrap());
@@ -505,7 +398,9 @@ class _SettingsChatScreenState extends ConsumerState<SettingsChatScreen>
     try {
       final repo = ref.read(supportRepositoryProvider);
       final tickets = await repo.listTickets();
-      final chat = tickets.where((t) => t.kind == 'chat').firstOrNull;
+      final chat = tickets
+          .where((t) => t.kind == 'chat' && t.status != 'closed')
+          .firstOrNull;
       if (chat != null) {
         _ticket = await repo.getTicket(chat.id);
         _lastMessageCount = _ticket?.messages.length ?? 0;
@@ -872,9 +767,11 @@ class _ChatBubble extends StatelessWidget {
                   : CrossAxisAlignment.start,
               children: [
                 if (!isUser)
-                  const Text(
-                    'Асистент поддержки',
-                    style: TextStyle(
+                  Text(
+                    message.author == 'operator'
+                        ? 'Оператор поддержки'
+                        : 'Помощник поддержки',
+                    style: const TextStyle(
                       fontFamily: AppFonts.rubik,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,

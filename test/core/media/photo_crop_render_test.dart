@@ -54,8 +54,11 @@ void main() {
 
       final decoded = await decodeImageFromList(bytes);
       addTearDown(decoded.dispose);
-      expect(decoded.width, 320);
-      expect(decoded.height, 180);
+      // 16:9, at the source's own resolution: the 400px-tall photo is drawn
+      // at 0.8 to cover a 320x180 window, so the framed area is 400x225.
+      expect(decoded.width, 400);
+      expect(decoded.height, 225);
+      expect(decoded.width / decoded.height, closeTo(320 / 180, 0.01));
     });
   });
 
@@ -77,6 +80,28 @@ void main() {
       addTearDown(decoded.dispose);
       expect(decoded.width, 512);
       expect(decoded.height, 256);
+    });
+  });
+
+  testWidgets('the render keeps the source resolution, not the window size', (
+    tester,
+  ) async {
+    await tester.runAsync(() async {
+      // The real case: a large photo framed in a phone-sized window. Written
+      // at the window's size it came back a thumbnail (reported 2026-09-08).
+      final image = await _sample(width: 2000, height: 2000);
+      addTearDown(image.dispose);
+
+      final bytes = await renderCroppedPhoto(
+        image: image,
+        window: const Size(360, 360),
+        transform: const PhotoCropTransform(),
+      );
+
+      final decoded = await decodeImageFromList(bytes);
+      addTearDown(decoded.dispose);
+      expect(decoded.width, 2000);
+      expect(decoded.height, 2000);
     });
   });
 

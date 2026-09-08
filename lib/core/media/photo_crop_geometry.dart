@@ -84,17 +84,50 @@ Offset clampOffset({
   );
 }
 
+/// How many source pixels one window pixel is showing.
+///
+/// The crop window is a *viewport* onto the photo, not a statement about its
+/// resolution: a 12MP photo framed in a ~360pt window is drawn at roughly a
+/// tenth of its size, so one window pixel covers ~10 source pixels. Rendering
+/// the crop at the window's own size therefore threw away everything but a
+/// thumbnail, and every uploaded photo came back visibly soft (reported
+/// 2026-09-08 as "фотки в ужаснейшем качестве").
+///
+/// Never below 1: when the photo is smaller than the window — or zoomed past
+/// its own resolution — the extra pixels would be invented, not recovered.
+double sourcePixelsPerWindowPixel({
+  required Size image,
+  required Size window,
+  required PhotoCropTransform transform,
+}) {
+  final drawn =
+      coverScale(image, window, transform.quarterTurns) * transform.scale;
+  if (drawn <= 0) {
+    return 1;
+  }
+  return math.max(1, 1 / drawn);
+}
+
 /// Output pixel size for a crop window, capped so a huge photo does not turn
 /// into a huge upload.
-Size croppedPixelSize(Size window, {double maxSide = 2048}) {
-  final longest = math.max(window.width, window.height);
+///
+/// [resolution] is the output pixels wanted per window pixel — see
+/// [sourcePixelsPerWindowPixel]. The default of 1 renders the window as-is.
+Size croppedPixelSize(
+  Size window, {
+  double resolution = 1,
+  double maxSide = 2048,
+}) {
+  final width = window.width * resolution;
+  final height = window.height * resolution;
+  final longest = math.max(width, height);
   if (longest <= 0) {
     return const Size(1, 1);
   }
   final factor = longest > maxSide ? maxSide / longest : 1.0;
   return Size(
-    math.max(1, (window.width * factor).roundToDouble()),
-    math.max(1, (window.height * factor).roundToDouble()),
+    math.max(1, (width * factor).roundToDouble()),
+    math.max(1, (height * factor).roundToDouble()),
   );
 }
 
@@ -110,14 +143,22 @@ Future<Uint8List> renderCroppedPhoto({
   required PhotoCropTransform transform,
   double maxSide = 2048,
 }) async {
-  final output = croppedPixelSize(window, maxSide: maxSide);
+  final imageSize = Size(image.width.toDouble(), image.height.toDouble());
+  final output = croppedPixelSize(
+    window,
+    resolution: sourcePixelsPerWindowPixel(
+      image: imageSize,
+      window: window,
+      transform: transform,
+    ),
+    maxSide: maxSide,
+  );
   final ratio = output.width / window.width;
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(
     recorder,
     Rect.fromLTWH(0, 0, output.width, output.height),
   );
-  final imageSize = Size(image.width.toDouble(), image.height.toDouble());
   final scale =
       coverScale(imageSize, window, transform.quarterTurns) *
       transform.scale *

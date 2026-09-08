@@ -90,6 +90,67 @@ void main() {
       expect(croppedPixelSize(const Size(300, 300)), const Size(300, 300));
     });
 
+    test('the crop keeps the resolution the photo actually has', () {
+      // A 12MP photo behind a phone-sized crop window: one window pixel is
+      // showing about eight source pixels, and rendering at the window's own
+      // size threw seven of every eight away.
+      const window = Size(360, 360);
+      const photo = Size(4032, 3024);
+      final resolution = sourcePixelsPerWindowPixel(
+        image: photo,
+        window: window,
+        transform: const PhotoCropTransform(),
+      );
+      expect(resolution, closeTo(3024 / 360, 0.001));
+      expect(
+        croppedPixelSize(window, resolution: resolution, maxSide: 4096),
+        const Size(3024, 3024),
+      );
+      // The default cap still applies — this is resolution recovered up to
+      // the upload ceiling, not an uncapped one.
+      expect(croppedPixelSize(window, resolution: resolution), const Size(2048, 2048));
+    });
+
+    test('a photo smaller than the window is not invented into one', () {
+      final resolution = sourcePixelsPerWindowPixel(
+        image: const Size(120, 90),
+        window: const Size(360, 360),
+        transform: const PhotoCropTransform(),
+      );
+      expect(resolution, 1);
+    });
+
+    test('zooming in spends resolution, so the cap still applies', () {
+      const window = Size(360, 360);
+      const photo = Size(4032, 3024);
+      final resolution = sourcePixelsPerWindowPixel(
+        image: photo,
+        window: window,
+        transform: const PhotoCropTransform(scale: 4),
+      );
+      // Four times the zoom is a quarter of the source pixels per window
+      // pixel — the framed area really is that much smaller.
+      expect(resolution, closeTo(3024 / 360 / 4, 0.001));
+      expect(
+        croppedPixelSize(window, resolution: resolution, maxSide: 2048),
+        const Size(756, 756),
+      );
+    });
+
+    test('a big source is still capped', () {
+      final resolution = sourcePixelsPerWindowPixel(
+        image: const Size(8000, 6000),
+        window: const Size(360, 360),
+        transform: const PhotoCropTransform(),
+      );
+      final size = croppedPixelSize(
+        const Size(360, 360),
+        resolution: resolution,
+        maxSide: 2048,
+      );
+      expect(size, const Size(2048, 2048));
+    });
+
     test('a huge window is capped without distorting the aspect', () {
       final size = croppedPixelSize(const Size(4000, 2000), maxSide: 2048);
       expect(size.width, 2048);

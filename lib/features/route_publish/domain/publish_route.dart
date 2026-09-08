@@ -26,12 +26,25 @@ class RouteMediaItem {
     required this.path,
     required this.kind,
     this.isAsset = false,
+    this.isRemote = false,
   });
 
   final String id;
+
+  /// Where the file is: a filesystem path for a freshly picked photo, a
+  /// bundled asset key when [isAsset], and the API's public path
+  /// (`/media/routes/...`) when [isRemote].
   final String path;
   final RouteMediaKind kind;
   final bool isAsset;
+
+  /// The file already lives on the server — it came back with the draft.
+  ///
+  /// Without this the editor could not tell a public path from a local one:
+  /// it tried to open `/media/routes/...` as a file (broken-image tile) and
+  /// re-uploading dropped it, so saving a draft opened from the server wiped
+  /// its photos (reported 2026-09-08).
+  final bool isRemote;
 
   RouteMediaItem copyWith({String? path}) {
     return RouteMediaItem(
@@ -39,6 +52,7 @@ class RouteMediaItem {
       path: path ?? this.path,
       kind: kind,
       isAsset: isAsset,
+      isRemote: isRemote,
     );
   }
 
@@ -47,6 +61,7 @@ class RouteMediaItem {
     'path': path,
     'kind': kind.name,
     'is_asset': isAsset,
+    'is_remote': isRemote,
   };
 
   factory RouteMediaItem.fromJson(Map<String, Object?> json) {
@@ -55,6 +70,7 @@ class RouteMediaItem {
       path: json['path']! as String,
       kind: RouteMediaKind.values.byName(json['kind']! as String),
       isAsset: json['is_asset'] as bool? ?? false,
+      isRemote: json['is_remote'] as bool? ?? false,
     );
   }
 }

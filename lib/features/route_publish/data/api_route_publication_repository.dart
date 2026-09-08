@@ -67,6 +67,23 @@ final class ApiRoutePublicationRepository
         orElse: () => TravelPace.calm,
       ),
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
+      // Photos the draft already has on the server. Dropping them here made
+      // the editor look empty even though the route card in the profile
+      // showed them, and — because an empty media list means "delete
+      // everything" on save — resuming a draft and saving it erased them.
+      media: [
+        for (final item
+            in (json['media'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>())
+          RouteMediaItem(
+            id: item['id'] as String,
+            path: item['public_path'] as String? ?? '',
+            kind: item['kind'] == 'video'
+                ? RouteMediaKind.video
+                : RouteMediaKind.image,
+            isRemote: true,
+          ),
+      ],
       updatedAt: DateTime.tryParse(
         json['updated_at'] as String? ?? '',
       )?.toUtc(),
@@ -104,27 +121,31 @@ final class ApiRoutePublicationRepository
     });
   }
 
-  /// Replaces the draft's stored media with what the form now holds.
+  /// Brings the draft's stored media in line with what the form now holds.
   ///
-  /// Files already served from the API are re-sent by path only when they
-  /// are local; a remote item is already where it belongs.
+  /// Two steps, because the two kinds of item need opposite treatment: what
+  /// the server already stores is kept by id (the editor never had those
+  /// bytes to re-send — asking it to would have meant downloading every
+  /// photo just to upload it back), and only genuinely new files are posted.
+  /// The list index is the position in both steps, so removing, reordering
+  /// and adding all land in one order.
   Future<void> _uploadDraftMedia(String routeId, RouteDraft draft) async {
-    final local = [
+    final uploadable = [
       for (final item in draft.media)
-        if (!item.isAsset && !item.path.startsWith('http') && item.path.isNotEmpty)
-          item,
+        if (!item.isAsset && item.path.isNotEmpty) item,
     ];
-    if (local.isEmpty && draft.media.isEmpty) {
-      await _dio.delete<void>('/api/v1/routes/drafts/$routeId/media');
-      return;
-    }
-    if (local.isEmpty) {
-      return;
-    }
-    await _dio.delete<void>('/api/v1/routes/drafts/$routeId/media');
-    for (var index = 0; index < local.length; index++) {
-      final media = local[index];
-      if (!await File(media.path).exists()) {
+    await _dio.put<void>(
+      '/api/v1/routes/drafts/$routeId/media',
+      data: {
+        'keep': [
+          for (final item in uploadable)
+            if (item.isRemote) item.id,
+        ],
+      },
+    );
+    for (var index = 0; index < uploadable.length; index++) {
+      final media = uploadable[index];
+      if (media.isRemote || !await File(media.path).exists()) {
         continue;
       }
       await _dio.post<Map<String, dynamic>>(
@@ -144,20 +165,9 @@ final class ApiRoutePublicationRepository
       if (routeId == null || routeId.isEmpty) {
         throw StateError('Route draft must be saved before submission');
       }
-      await _dio.delete<void>('/api/v1/routes/drafts/$routeId/media');
-      for (var index = 0; index < draft.media.length; index++) {
-        final media = draft.media[index];
-        if (media.isAsset) {
-          continue;
-        }
-        await _dio.post<Map<String, dynamic>>(
-          '/api/v1/routes/drafts/$routeId/media',
-          data: FormData.fromMap({
-            'file': await MultipartFile.fromFile(media.path),
-            'position': index,
-          }),
-        );
-      }
+      // Same reconciliation as a save: submitting a draft that was reopened
+      // from the server must not archive the photos it came back with.
+      await _uploadDraftMedia(routeId, draft);
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/routes/$routeId/submit',
       );
