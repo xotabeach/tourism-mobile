@@ -32,7 +32,6 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
     this.pixelReference = false,
     this.initialMode = RouteMatchMode.params,
     this.resumeSession,
-    this.draftParams,
   });
 
   static const routePath = '/match';
@@ -45,7 +44,6 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
   /// Set from [ChatHistoryScreen]: opens straight into chat mode on this
   /// existing session and replays its transcript instead of the params form.
   final RoutePlanningSession? resumeSession;
-  final RouteMatchParams? draftParams;
 
   @override
   ConsumerState<RouteMatchScreen> createState() => _RouteMatchScreenState();
@@ -132,7 +130,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       if (resume != null) {
         unawaited(_resumeSession(resume));
       } else if (_mode == RouteMatchMode.ai && !widget.pixelReference) {
-        unawaited(_chat.ensureSession(widget.draftParams ?? _draftParams()));
+        unawaited(_chat.ensureSession(_draftParams()));
       }
     });
   }
@@ -230,26 +228,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     }
   }
 
+  /// Both modes are one screen on purpose: the selector morphs between them
+  /// and the layout swaps in place. Pushing chat as its own page bought an
+  /// interactive iOS pop but replaced that morph with a whole screen sliding
+  /// in, which is not what this screen is designed around.
   void _setMode(RouteMatchMode mode) {
-    if (!widget.pixelReference && mode != _mode) {
-      if (mode == RouteMatchMode.ai) {
-        if (!ref.read(sessionProvider).travelPlusActive) {
-          unawaited(context.push('/profile/settings/travel-plus'));
-          return;
-        }
-        unawaited(
-          context.push(
-            '${RouteMatchScreen.routePath}/chat',
-            extra: _draftParams(),
-          ),
-        );
-        return;
-      }
-      if (_mode == RouteMatchMode.ai && context.canPop()) {
-        context.pop();
-        return;
-      }
-    }
     if (mode == RouteMatchMode.ai &&
         !widget.pixelReference &&
         !ref.read(sessionProvider).travelPlusActive) {
@@ -305,15 +288,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _goBack() {
-    if (_mode == RouteMatchMode.ai) {
-      _aiFocus.unfocus();
-      if (context.canPop()) {
-        context.pop();
-      } else {
-        _setMode(RouteMatchMode.params);
-      }
-      return;
-    }
+    // Same gesture, same destination in both modes — chat is a mode of this
+    // screen, not a page stacked on top of it, so there is nothing mode
+    // specific left to pop.
+    _aiFocus.unfocus();
     // Two very different homes for this screen: the tab-root instance has
     // no Navigator route beneath it (go to the Home tab is the only
     // meaningful "back"), but resumeSession pushes it as a real page from
@@ -722,9 +700,8 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       ),
     );
 
-    // Chat is a CupertinoPage above the form, like other detail screens.
-    // Its Navigator owns the interactive swipe and cancellation animation.
-    if (_mode == RouteMatchMode.ai) return body;
+    // One gesture for both modes: chat is a mode of this screen, not a page
+    // over it, so there is no Navigator underneath to own the swipe.
     return AppEdgeBackGesture(onBack: _goBack, child: body);
   }
 
