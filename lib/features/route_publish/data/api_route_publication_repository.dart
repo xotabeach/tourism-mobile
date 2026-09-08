@@ -165,9 +165,10 @@ final class ApiRoutePublicationRepository
       if (routeId == null || routeId.isEmpty) {
         throw StateError('Route draft must be saved before submission');
       }
-      // Same reconciliation as a save: submitting a draft that was reopened
-      // from the server must not archive the photos it came back with.
-      await _uploadDraftMedia(routeId, draft);
+      // No media work here on purpose. Publishing always saves first (see
+      // `RoutePublishController.publish`), and that save already reconciled
+      // the gallery — doing it again uploaded every photo a second time and
+      // made publishing take twice as long as it needed to.
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/routes/$routeId/submit',
       );

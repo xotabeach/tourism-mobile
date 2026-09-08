@@ -391,9 +391,9 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
     if (source != null && mounted) {
       await controller.addMedia(
         source,
-        crop: (path) => cropPickedPhoto(
+        crop: (paths) => cropPickedPhotos(
           context,
-          sourcePath: path,
+          sourcePaths: paths,
           shape: PhotoCropShape.original,
           title: 'Фото маршрута',
         ),

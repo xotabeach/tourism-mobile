@@ -4,7 +4,19 @@ import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart'
 enum RouteMediaSource { galleryImage, cameraImage, galleryVideo, cameraVideo }
 
 abstract interface class RouteMediaPicker {
+  /// One file, for the camera and for video.
   Future<RouteMediaItem?> pick(RouteMediaSource source);
+
+  /// Every photo the author selected in one visit to the gallery.
+  ///
+  /// Adding a gallery one photo at a time — pick, crop, back to the form,
+  /// pick again — is most of the work of publishing a route. Sources that
+  /// cannot select more than one (the camera, video) return a single-item
+  /// list, so call sites do not have to branch.
+  Future<List<RouteMediaItem>> pickMany(
+    RouteMediaSource source, {
+    required int limit,
+  });
 }
 
 final class ImagePickerRouteMediaPicker implements RouteMediaPicker {
@@ -49,6 +61,36 @@ final class ImagePickerRouteMediaPicker implements RouteMediaPicker {
     if (file == null) {
       return null;
     }
+    return _validated(file, kind);
+  }
+
+  @override
+  Future<List<RouteMediaItem>> pickMany(
+    RouteMediaSource source, {
+    required int limit,
+  }) async {
+    if (limit <= 0) {
+      return const [];
+    }
+    if (source != RouteMediaSource.galleryImage) {
+      // The camera takes one shot, and multi-select for video is not offered.
+      final single = await pick(source);
+      return single == null ? const [] : [single];
+    }
+    final files = await _picker.pickMultiImage(
+      limit: limit,
+      maxWidth: 4096,
+      maxHeight: 4096,
+      imageQuality: 90,
+    );
+    final items = <RouteMediaItem>[];
+    for (final file in files.take(limit)) {
+      items.add(await _validated(file, RouteMediaKind.image));
+    }
+    return items;
+  }
+
+  Future<RouteMediaItem> _validated(XFile file, RouteMediaKind kind) async {
     final bytes = await file.length();
     if (bytes > 100 * 1024 * 1024) {
       throw const FormatException('Файл больше допустимых 100 МБ');

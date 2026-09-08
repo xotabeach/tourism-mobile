@@ -350,6 +350,12 @@ final class _MemoryDraftRepository implements RouteDraftRepository {
 final class _NoopMediaPicker implements RouteMediaPicker {
   @override
   Future<RouteMediaItem?> pick(RouteMediaSource source) async => null;
+
+  @override
+  Future<List<RouteMediaItem>> pickMany(
+    RouteMediaSource source, {
+    required int limit,
+  }) async => const [];
 }
 
 final class _NoopPublicationRepository implements RoutePublicationRepository {

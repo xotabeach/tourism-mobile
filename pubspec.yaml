@@ -30,6 +30,10 @@ dependencies:
   # back files in temp directories the OS is free to purge.
   path_provider: ^2.1.6
   liquid_glass_widgets: ^1.3.0
+  # JPEG encoding for cropped photos. dart:ui can only hand back PNG, and a
+  # 2048px PNG is several megabytes — slow to upload over mobile data for a
+  # picture the backend re-encodes to WebP anyway.
+  image: ^4.9.2
 
 dev_dependencies:
   # Used by the draft-media test to point path_provider at a scratch dir.

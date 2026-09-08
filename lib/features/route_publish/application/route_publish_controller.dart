@@ -362,45 +362,73 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   /// [crop] позволяет экрану вклиниться между выбором и добавлением, чтобы
   /// автор сам выбрал кадр. Контроллер не знает про UI, поэтому редактор
   /// приходит колбэком; для видео он не вызывается — кадрировать там нечего.
+  ///
+  /// Выбрать можно сразу несколько фото: сколько ещё влезает до [maxMedia],
+  /// столько и разрешаем взять, а кадрирование получает всю пачку разом и
+  /// возвращает её в том же порядке.
   Future<void> addMedia(
     RouteMediaSource source, {
-    Future<String?> Function(String path)? crop,
+    Future<List<String>?> Function(List<String> paths)? crop,
   }) async {
     if (state.isPickingMedia) {
       return;
     }
-    if (state.draft.media.length >= maxMedia) {
+    final room = maxMedia - state.draft.media.length;
+    if (room <= 0) {
       _message('Можно добавить не больше $maxMedia файлов');
       return;
     }
     state = state.copyWith(isPickingMedia: true, clearMediaError: true);
     try {
-      final picked = await _mediaPicker.pick(source);
-      if (picked == null || !mounted) {
+      final picked = await _mediaPicker.pickMany(source, limit: room);
+      if (picked.isEmpty || !mounted) {
         return;
       }
-      var item = picked;
-      if (crop != null && picked.kind == RouteMediaKind.image) {
-        final cropped = await crop(picked.path);
+      var items = picked;
+      final images = [
+        for (final item in picked)
+          if (item.kind == RouteMediaKind.image) item,
+      ];
+      if (crop != null && images.isNotEmpty) {
+        final cropped = await crop([for (final item in images) item.path]);
         if (cropped == null || !mounted) {
           return;
         }
-        item = picked.copyWith(path: cropped);
+        // The editor may hand back fewer files than it was given — a photo
+        // it could not decode is dropped rather than failing the batch — so
+        // pair them up by position and keep only what came back.
+        items = [
+          for (var index = 0; index < cropped.length; index++)
+            images[index].copyWith(path: cropped[index]),
+        ];
       }
-      // The picker's and the cropper's files live in directories the OS may
-      // clear; a draft must not point at them.
-      item = item.copyWith(path: await _mediaStore.keep(item.path));
-      if (!mounted) {
-        return;
+      final added = <RouteMediaItem>[];
+      for (final item in items) {
+        // The picker's and the cropper's files live in directories the OS may
+        // clear; a draft must not point at them.
+        final kept = item.copyWith(path: await _mediaStore.keep(item.path));
+        if (!mounted) {
+          return;
+        }
+        final known = [...state.draft.media, ...added];
+        if (known.any((existing) => existing.path == kept.path)) {
+          continue;
+        }
+        added.add(kept);
       }
-      if (state.draft.media.any((existing) => existing.path == item.path)) {
-        _message('Этот файл уже добавлен');
+      if (added.isEmpty) {
+        _message('Эти файлы уже добавлены');
         return;
       }
       state = state.copyWith(
-        draft: state.draft.copyWith(media: [...state.draft.media, item]),
+        draft: state.draft.copyWith(
+          media: [...state.draft.media, ...added],
+        ),
         clearMediaError: true,
       );
+      if (picked.length == room && room < maxMedia) {
+        _message('Добавлено $room — это максимум для этого маршрута');
+      }
     } on FormatException catch (error) {
       _message(error.message);
     } catch (_) {

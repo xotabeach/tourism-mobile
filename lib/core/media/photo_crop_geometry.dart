@@ -1,8 +1,9 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:image/image.dart' as img;
 
 /// Geometry for the photo editor, kept as plain functions so the maths can be
 /// tested without rendering anything.
@@ -131,17 +132,23 @@ Size croppedPixelSize(
   );
 }
 
-/// Draws the framed area at upload resolution and returns it as PNG bytes.
+/// Draws the framed area at upload resolution and returns it as JPEG bytes.
 ///
 /// Deliberately the same arithmetic the preview painter uses, one scale
 /// factor apart: the crop window becomes the canvas, so what the user framed
 /// is exactly what is written out. Anything computed differently here would
 /// hand back a photo that does not match what they saw.
+///
+/// JPEG, not PNG: at upload resolution a PNG of a photograph runs to several
+/// megabytes, and uploading ten of them is the slowest part of saving a
+/// draft. The backend re-encodes everything to WebP regardless, so the only
+/// thing the extra bytes bought was waiting.
 Future<Uint8List> renderCroppedPhoto({
   required ui.Image image,
   required Size window,
   required PhotoCropTransform transform,
   double maxSide = 2048,
+  int quality = 90,
 }) async {
   final imageSize = Size(image.width.toDouble(), image.height.toDouble());
   final output = croppedPixelSize(
@@ -182,12 +189,69 @@ Future<Uint8List> renderCroppedPhoto({
   );
   picture.dispose();
   try {
-    final data = await rendered.toByteData(format: ui.ImageByteFormat.png);
+    // Raw RGBA rather than PNG: the PNG encoder's work would be thrown away
+    // by the JPEG re-encode below.
+    final data = await rendered.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    );
     if (data == null) {
       throw StateError('Пустой результат кадрирования');
     }
-    return data.buffer.asUint8List();
+    // Off the UI isolate: a pure-Dart JPEG encode of a multi-megapixel frame
+    // is long enough to drop frames, and the editor is animating a filmstrip
+    // while it runs.
+    return compute(
+      _encodeJob,
+      _JpegJob(
+        rgba: data.buffer.asUint8List(),
+        width: rendered.width,
+        height: rendered.height,
+        quality: quality,
+      ),
+    );
   } finally {
     rendered.dispose();
   }
+}
+
+@immutable
+class _JpegJob {
+  const _JpegJob({
+    required this.rgba,
+    required this.width,
+    required this.height,
+    required this.quality,
+  });
+
+  final Uint8List rgba;
+  final int width;
+  final int height;
+  final int quality;
+}
+
+Uint8List _encodeJob(_JpegJob job) => encodeCroppedJpeg(
+  rgba: job.rgba,
+  width: job.width,
+  height: job.height,
+  quality: job.quality,
+);
+
+/// JPEG bytes for a raw RGBA buffer.
+///
+/// Split out so the pixel work can be moved off the UI isolate and so the
+/// encoding can be tested without an engine binding.
+Uint8List encodeCroppedJpeg({
+  required Uint8List rgba,
+  required int width,
+  required int height,
+  int quality = 90,
+}) {
+  final frame = img.Image.fromBytes(
+    width: width,
+    height: height,
+    bytes: rgba.buffer,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  );
+  return img.encodeJpg(frame, quality: quality);
 }
