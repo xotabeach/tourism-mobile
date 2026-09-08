@@ -14,6 +14,7 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 void main() {
   _serverDraftsTests();
+  _routePreviewTests();
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(_loadRubik);
 
@@ -348,7 +349,30 @@ final class _NoopMediaPicker implements RouteMediaPicker {
 }
 
 final class _NoopPublicationRepository implements RoutePublicationRepository {
+  int previewCalls = 0;
+  List<String> lastPreviewPlaceIds = const [];
   int saved = 0;
+
+  @override
+  Future<RouteDraftPreview> previewRoute({
+    required List<String> placeIds,
+    String transportMode = 'walk',
+  }) async {
+    previewCalls++;
+    lastPreviewPlaceIds = placeIds;
+    return const RouteDraftPreview(
+      previewId: 'preview-1',
+      geometry: RouteGeometry(
+        coordinates: [
+          RouteCoordinate(lng: 34.10, lat: 44.39),
+          RouteCoordinate(lng: 34.05, lat: 44.45),
+        ],
+      ),
+      distanceMeters: 4200,
+      durationSeconds: 3600,
+      synthetic: false,
+    );
+  }
   int submitted = 0;
   final discarded = <String>[];
 
@@ -439,5 +463,94 @@ void _serverDraftsTests() {
       ['draft-1'],
       reason: 'only routes still in draft can be reopened for editing',
     );
+  });
+}
+
+void _routePreviewTests() {
+  test('start and finish alone already ask for the road between them', () async {
+    final publication = _NoopPublicationRepository();
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      drafts: _MemoryDraftRepository(),
+      mediaPicker: _NoopMediaPicker(),
+      publication: publication,
+      routes: MockRoutesRepository(),
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+
+    const start = RouteLocation(
+      id: 'place-start',
+      name: 'Ласточкино гнездо',
+      subtitle: 'Крым',
+      lat: 44.3927,
+      lng: 34.1131,
+    );
+    const finish = RouteLocation(
+      id: 'place-finish',
+      name: 'Ай-Петри',
+      subtitle: 'Крым',
+      lat: 44.4517,
+      lng: 34.0453,
+    );
+
+    controller.setStart(start);
+    // One point is not a route: nothing to ask the router about yet.
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    expect(publication.previewCalls, 0);
+
+    controller.setFinish(finish);
+    // The distance pass bails out without stops — the preview must not, or
+    // the author sees a placeholder until they add a third point.
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    expect(publication.previewCalls, 1);
+    expect(publication.lastPreviewPlaceIds, ['place-start', 'place-finish']);
+    expect(controller.state.routePreview?.previewId, 'preview-1');
+    expect(controller.state.isPreviewLoading, isFalse);
+  });
+
+  test('a burst of edits costs one routing call, and the last one wins', () async {
+    final publication = _NoopPublicationRepository();
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      drafts: _MemoryDraftRepository(),
+      mediaPicker: _NoopMediaPicker(),
+      publication: publication,
+      routes: MockRoutesRepository(),
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+
+    controller.setStart(
+      const RouteLocation(
+        id: 'a',
+        name: 'A',
+        subtitle: 'Крым',
+        lat: 44.30,
+        lng: 34.10,
+      ),
+    );
+    controller.setFinish(
+      const RouteLocation(
+        id: 'b',
+        name: 'B',
+        subtitle: 'Крым',
+        lat: 44.40,
+        lng: 34.20,
+      ),
+    );
+    controller.addStop(
+      const RouteLocation(
+        id: 'c',
+        name: 'C',
+        subtitle: 'Крым',
+        lat: 44.35,
+        lng: 34.15,
+      ),
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    expect(publication.previewCalls, 1, reason: 'debounced into one request');
+    expect(publication.lastPreviewPlaceIds, ['a', 'c', 'b']);
   });
 }

@@ -24,6 +24,8 @@ class RoutePublishState {
     this.availableDraft,
     this.serverDrafts = const [],
     this.isOpeningDraft = false,
+    this.routePreview,
+    this.isPreviewLoading = false,
     this.isHydrating = false,
     this.isPickingMedia = false,
     this.isSaving = false,
@@ -47,6 +49,12 @@ class RoutePublishState {
   /// prompt could not offer the other drafts the user actually has.
   final List<RouteSummary> serverDrafts;
   final bool isOpeningDraft;
+
+  /// Road geometry for the points placed so far, recomputed in the
+  /// background as they change. Null until the first answer comes back (or
+  /// when routing is unavailable) — the form then draws its own diagram.
+  final RouteDraftPreview? routePreview;
+  final bool isPreviewLoading;
   final bool isHydrating;
   final bool isPickingMedia;
   final bool isSaving;
@@ -66,6 +74,9 @@ class RoutePublishState {
     RouteDraft? availableDraft,
     List<RouteSummary>? serverDrafts,
     bool? isOpeningDraft,
+    RouteDraftPreview? routePreview,
+    bool? isPreviewLoading,
+    bool clearRoutePreview = false,
     bool clearAvailableDraft = false,
     bool? isHydrating,
     bool? isPickingMedia,
@@ -92,6 +103,10 @@ class RoutePublishState {
       draft: draft ?? this.draft,
       serverDrafts: serverDrafts ?? this.serverDrafts,
       isOpeningDraft: isOpeningDraft ?? this.isOpeningDraft,
+      routePreview: clearRoutePreview
+          ? null
+          : (routePreview ?? this.routePreview),
+      isPreviewLoading: isPreviewLoading ?? this.isPreviewLoading,
       availableDraft: clearAvailableDraft
           ? null
           : availableDraft ?? this.availableDraft,
@@ -173,6 +188,9 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   final RouteMediaPicker _mediaPicker;
   final RoutePublicationRepository _publication;
   final RoutesRepository _routes;
+
+  Timer? _previewDebounce;
+  int _previewGeneration = 0;
 
   Future<void> _hydrate() async {
     try {
@@ -578,7 +596,62 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         routeError == null;
   }
 
+  @override
+  void dispose() {
+    _previewDebounce?.cancel();
+    super.dispose();
+  }
+
+  /// Ordered place ids currently on the form: start, stops, finish.
+  List<String> _routePlaceIds() {
+    final draft = state.draft;
+    return [
+      if (draft.start != null) draft.start!.id,
+      for (final stop in draft.stops) stop.location.id,
+      if (draft.finish != null) draft.finish!.id,
+    ];
+  }
+
+  /// Asks the server for the road between the placed points.
+  ///
+  /// Debounced and generation-checked: placing a start and a finish fires
+  /// twice in a row, and reordering stops fires per drag, but only the last
+  /// answer may land. Failures leave the previous preview alone rather than
+  /// blanking the map the author is looking at.
+  void _refreshRoutePreview() {
+    _previewDebounce?.cancel();
+    final placeIds = _routePlaceIds();
+    if (placeIds.length < 2) {
+      state = state.copyWith(isPreviewLoading: false, clearRoutePreview: true);
+      return;
+    }
+    final generation = ++_previewGeneration;
+    state = state.copyWith(isPreviewLoading: true);
+    _previewDebounce = Timer(const Duration(milliseconds: 400), () async {
+      try {
+        final preview = await _publication.previewRoute(placeIds: placeIds);
+        if (!mounted || generation != _previewGeneration) {
+          return;
+        }
+        state = state.copyWith(
+          routePreview: preview.geometry == null ? null : preview,
+          clearRoutePreview: preview.geometry == null,
+          isPreviewLoading: false,
+        );
+      } on Object {
+        // Offline, or routing unavailable: the diagram is still drawn.
+        if (mounted && generation == _previewGeneration) {
+          state = state.copyWith(isPreviewLoading: false);
+        }
+      }
+    });
+  }
+
   void _recalculateDistances() {
+    // Before the early return below: start and finish alone are already a
+    // route worth drawing, which is exactly when the author first looks at
+    // the map.
+    _refreshRoutePreview();
     final start = state.draft.start;
     if (start == null || state.draft.stops.isEmpty) {
       return;

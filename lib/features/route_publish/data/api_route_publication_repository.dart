@@ -72,6 +72,20 @@ final class ApiRoutePublicationRepository
   }
 
   @override
+  Future<RouteDraftPreview> previewRoute({
+    required List<String> placeIds,
+    String transportMode = 'walk',
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/routes/drafts/preview',
+        data: {'place_ids': placeIds, 'transport_mode': transportMode},
+      );
+      return RouteDraftPreview.fromJson(response.data!);
+    });
+  }
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -158,6 +172,21 @@ final class InMemoryRoutePublicationRepository
   Future<RouteDraft> loadForEdit(String routeId) async {
     // Mock mode has no server copy; the local draft is the only one there is.
     return RouteDraft(serverId: routeId);
+  }
+
+  @override
+  Future<RouteDraftPreview> previewRoute({
+    required List<String> placeIds,
+    String transportMode = 'walk',
+  }) async {
+    // No server to route against; the form keeps its own drawing.
+    return const RouteDraftPreview(
+      previewId: '',
+      geometry: null,
+      distanceMeters: 0,
+      durationSeconds: 0,
+      synthetic: true,
+    );
   }
 
   @override

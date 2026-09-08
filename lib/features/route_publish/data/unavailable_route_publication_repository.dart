@@ -23,6 +23,16 @@ final class UnavailableRoutePublicationRepository
   }
 
   @override
+  Future<RouteDraftPreview> previewRoute({
+    required List<String> placeIds,
+    String transportMode = 'walk',
+  }) {
+    throw const UnexpectedFailure(
+      'Сервис публикации ещё не подключён — карту маршрута не построить.',
+    );
+  }
+
+  @override
   Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
     return _unavailable();
   }

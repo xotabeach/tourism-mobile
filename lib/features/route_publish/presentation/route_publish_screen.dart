@@ -1,10 +1,11 @@
+
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
@@ -17,10 +18,12 @@ import 'package:tourism_mobile/features/profile/application/profile_providers.da
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
+import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/publish_route_design_tokens.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_place_picker_sheet.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 
 class RoutePublishScreen extends ConsumerStatefulWidget {
   const RoutePublishScreen({
@@ -262,6 +265,8 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                                         golden:
                                             _mode == RoutePublishMode.golden,
                                         draft: state.draft,
+                                        preview: state.routePreview,
+                                        config: ref.watch(appConfigProvider),
                                         onTap: () => _pickLocation(
                                           title: 'Добавить точку на маршрут',
                                           onSelected: controller.addStop,
@@ -1845,6 +1850,8 @@ class RouteMapPreviewCard extends StatelessWidget {
     required this.golden,
     required this.draft,
     required this.onTap,
+    this.preview,
+    this.config,
     super.key,
   });
 
@@ -1853,6 +1860,12 @@ class RouteMapPreviewCard extends StatelessWidget {
   final RouteDraft draft;
   final VoidCallback onTap;
 
+  /// Road geometry for the points placed so far. Until it arrives (or when
+  /// routing is unavailable) the card keeps the stylised diagram — the
+  /// author still sees their points, just not the roads.
+  final RouteDraftPreview? preview;
+  final AppConfig? config;
+
   @override
   Widget build(BuildContext context) {
     final routeLocations = [
@@ -1860,6 +1873,20 @@ class RouteMapPreviewCard extends StatelessWidget {
       ...draft.stops.map((stop) => stop.location),
       if (draft.finish != null) draft.finish!,
     ];
+    final stops = [
+      for (var index = 0; index < routeLocations.length; index++)
+        RouteStop(
+          id: routeLocations[index].id,
+          position: index + 1,
+          placeId: routeLocations[index].id,
+          placeSlug: routeLocations[index].id,
+          placeName: routeLocations[index].name,
+          lat: routeLocations[index].lat,
+          lng: routeLocations[index].lng,
+        ),
+    ];
+    final routePreview = preview;
+    final previewConfig = config;
     return Semantics(
       button: true,
       label: 'Карта маршрута, ${routeLocations.length} точек',
@@ -1877,27 +1904,25 @@ class RouteMapPreviewCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     alignment: Alignment.bottomCenter,
                   )
+                : routePreview != null && previewConfig != null
+                ? IgnorePointer(
+                    child: RouteStaticMap(
+                      key: const ValueKey('route-map-preview-static'),
+                      staticMapUrl: routePreview.staticMapPath,
+                      stops: stops,
+                      geometry: routePreview.geometry,
+                      config: previewConfig,
+                      height: u(320),
+                      interactive: false,
+                      footerLabel: routePointsLabel(routeLocations.length),
+                    ),
+                  )
                 : IgnorePointer(
                     child: RouteMapPreview(
                       height: u(320),
                       selectedIndex: null,
                       onPinTap: (_) {},
-                      stops: [
-                        for (
-                          var index = 0;
-                          index < routeLocations.length;
-                          index++
-                        )
-                          RouteStop(
-                            id: routeLocations[index].id,
-                            position: index + 1,
-                            placeId: routeLocations[index].id,
-                            placeName: routeLocations[index].name,
-                            placeSlug: routeLocations[index].id,
-                            lat: routeLocations[index].lat,
-                            lng: routeLocations[index].lng,
-                          ),
-                      ],
+                      stops: stops,
                     ),
                   ),
           ),
