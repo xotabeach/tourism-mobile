@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
@@ -120,44 +121,47 @@ class _RouteCollapsingHeaderState extends State<RouteCollapsingHeader> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              PageView.builder(
-                controller: _pageController,
-                physics: const BouncingScrollPhysics(),
-                onPageChanged: (value) => setState(() => _page = value),
-                itemCount: widget.images.length,
-                itemBuilder: (context, index) {
-                  final provider = widget.images[index];
-                  final image = SizedBox.expand(
-                    child: Image(
-                      image: provider,
-                      fit: BoxFit.cover,
-                      gaplessPlayback: true,
-                    ),
-                  );
-                  if (index == 0 && widget.heroTag != null) {
-                    return Hero(
-                      tag: widget.heroTag!,
-                      transitionOnUserGestures: true,
-                      flightShuttleBuilder:
-                          (
-                            flightContext,
-                            animation,
-                            flightDirection,
-                            fromHeroContext,
-                            toHeroContext,
-                          ) {
-                            return Image(
-                              image: provider,
-                              fit: BoxFit.cover,
-                              gaplessPlayback: true,
-                            );
-                          },
-                      child: image,
+              if (widget.images.isEmpty)
+                const _MissingCoverPlaceholder()
+              else
+                PageView.builder(
+                  controller: _pageController,
+                  physics: const BouncingScrollPhysics(),
+                  onPageChanged: (value) => setState(() => _page = value),
+                  itemCount: widget.images.length,
+                  itemBuilder: (context, index) {
+                    final provider = widget.images[index];
+                    final image = SizedBox.expand(
+                      child: Image(
+                        image: provider,
+                        fit: BoxFit.cover,
+                        gaplessPlayback: true,
+                      ),
                     );
-                  }
-                  return image;
-                },
-              ),
+                    if (index == 0 && widget.heroTag != null) {
+                      return Hero(
+                        tag: widget.heroTag!,
+                        transitionOnUserGestures: true,
+                        flightShuttleBuilder:
+                            (
+                              flightContext,
+                              animation,
+                              flightDirection,
+                              fromHeroContext,
+                              toHeroContext,
+                            ) {
+                              return Image(
+                                image: provider,
+                                fit: BoxFit.cover,
+                                gaplessPlayback: true,
+                              );
+                            },
+                        child: image,
+                      );
+                    }
+                    return image;
+                  },
+                ),
               const IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -327,6 +331,39 @@ class _PageDots extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Shown instead of the cover when a route has no photo of its own.
+///
+/// A route without one used to borrow an unrelated stock picture chosen by
+/// hashing its slug, so an author's empty draft appeared to already have a
+/// photo — and a different one per route.
+class _MissingCoverPlaceholder extends StatelessWidget {
+  const _MissingCoverPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppColors.controlSurface,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.photo_camera_outlined,
+            size: 34,
+            color: AppColors.secondaryInk.withValues(alpha: 0.7),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Фото не загружено',
+            style: AppTypography.routeMetadata.copyWith(
+              color: AppColors.secondaryInk,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 import 'package:tourism_mobile/core/network/api_guard.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
@@ -92,8 +94,47 @@ final class ApiRoutePublicationRepository
         '/api/v1/routes/drafts',
         data: _payload(draft),
       );
-      return _receipt(response.data!);
+      final receipt = _receipt(response.data!);
+      // Photos belong to the saved draft, not only to the device that
+      // picked them. Uploading them at submit time meant a draft resumed on
+      // another device — or after reinstalling this one — came back without
+      // them (reported 2026-09-08).
+      await _uploadDraftMedia(receipt.id, draft);
+      return receipt;
     });
+  }
+
+  /// Replaces the draft's stored media with what the form now holds.
+  ///
+  /// Files already served from the API are re-sent by path only when they
+  /// are local; a remote item is already where it belongs.
+  Future<void> _uploadDraftMedia(String routeId, RouteDraft draft) async {
+    final local = [
+      for (final item in draft.media)
+        if (!item.isAsset && !item.path.startsWith('http') && item.path.isNotEmpty)
+          item,
+    ];
+    if (local.isEmpty && draft.media.isEmpty) {
+      await _dio.delete<void>('/api/v1/routes/drafts/$routeId/media');
+      return;
+    }
+    if (local.isEmpty) {
+      return;
+    }
+    await _dio.delete<void>('/api/v1/routes/drafts/$routeId/media');
+    for (var index = 0; index < local.length; index++) {
+      final media = local[index];
+      if (!await File(media.path).exists()) {
+        continue;
+      }
+      await _dio.post<Map<String, dynamic>>(
+        '/api/v1/routes/drafts/$routeId/media',
+        data: FormData.fromMap({
+          'file': await MultipartFile.fromFile(media.path),
+          'position': index,
+        }),
+      );
+    }
   }
 
   @override

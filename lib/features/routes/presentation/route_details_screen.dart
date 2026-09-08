@@ -631,7 +631,12 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     if (uploadedImages.isNotEmpty) {
       return uploadedImages;
     }
-    return [_routeCover(config, route)];
+    // Empty rather than a stock photo picked by hashing the slug: the header
+    // then says the route has no photo instead of implying it has one.
+    final cover = AppImages.isAssetPath(route.coverImageUrl)
+        ? AssetImage(route.coverImageUrl!) as ImageProvider
+        : _routeMediaImageProvider(config, route.coverImageUrl ?? '');
+    return cover == null ? const [] : [cover];
   }
 }
 
