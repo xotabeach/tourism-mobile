@@ -54,7 +54,7 @@ void main() {
     // The OS clears the temp directory; the draft's copy must not care.
     await picked.parent.delete(recursive: true);
     expect(await File(kept).exists(), isTrue);
-    expect(await store.existing([kept]), [kept]);
+    expect(await store.resolve(kept), kept);
   });
 
   test('a photo that vanished is reported as gone, not silently kept', () async {
@@ -62,7 +62,29 @@ void main() {
     final kept = await store.keep((await sourcePhoto('a.jpg')).path);
     await File(kept).delete();
 
-    expect(await store.existing([kept]), isEmpty);
+    expect(await store.resolve(kept), isNull);
+  });
+
+  test('a reinstall moves the container, and the photo is found anyway', () async {
+    final store = AppDirRouteDraftMediaStore();
+    final kept = await store.keep((await sourcePhoto('trip.jpg')).path);
+    final name = kept.split('/').last;
+
+    // What iOS does on reinstall: same files, new container UUID. The path
+    // saved in the draft yesterday now points nowhere.
+    final reinstalled = await Directory.systemTemp.createTemp('container-2');
+    addTearDown(() => reinstalled.delete(recursive: true));
+    final movedDir = Directory('${reinstalled.path}/route_draft_media');
+    await movedDir.create(recursive: true);
+    await File(kept).copy('${movedDir.path}/$name');
+    // The old container is gone with the previous install.
+    await File(kept).delete();
+    PathProviderPlatform.instance = _FakePathProvider(reinstalled.path);
+
+    final found = await store.resolve(kept);
+    expect(found, isNot(kept), reason: 'the old absolute path is dead');
+    expect(found, '${movedDir.path}/$name');
+    expect(await File(found!).exists(), isTrue);
   });
 
   test('copies outlive a week of editing but not an abandoned draft', () async {

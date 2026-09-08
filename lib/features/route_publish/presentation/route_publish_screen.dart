@@ -267,6 +267,13 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                                         draft: state.draft,
                                         preview: state.routePreview,
                                         config: ref.watch(appConfigProvider),
+                                        // The golden fixture renders a
+                                        // baked image and has no session to
+                                        // read a token from.
+                                        imageHeaders:
+                                            _mode == RoutePublishMode.golden
+                                            ? const {}
+                                            : _mapImageHeaders(ref),
                                         onTap: () => _pickLocation(
                                           title: 'Добавить точку на маршрут',
                                           onSelected: controller.addStop,
@@ -1844,6 +1851,14 @@ class RouteStopRow extends StatelessWidget {
   }
 }
 
+/// Bearer token for the private preview raster, when there is one.
+Map<String, String> _mapImageHeaders(WidgetRef ref) {
+  final token = ref.watch(sessionProvider).accessToken;
+  return token == null || token.isEmpty
+      ? const {}
+      : {'Authorization': 'Bearer $token'};
+}
+
 class RouteMapPreviewCard extends StatelessWidget {
   const RouteMapPreviewCard({
     required this.u,
@@ -1852,6 +1867,7 @@ class RouteMapPreviewCard extends StatelessWidget {
     required this.onTap,
     this.preview,
     this.config,
+    this.imageHeaders = const {},
     super.key,
   });
 
@@ -1865,6 +1881,11 @@ class RouteMapPreviewCard extends StatelessWidget {
   /// author still sees their points, just not the roads.
   final RouteDraftPreview? preview;
   final AppConfig? config;
+
+  /// The preview raster is private to its author, so it authenticates —
+  /// without the token the request 401s and the card silently falls back to
+  /// the stylised diagram (reported 2026-09-08 as "карта не отображается").
+  final Map<String, String> imageHeaders;
 
   @override
   Widget build(BuildContext context) {
@@ -1912,6 +1933,7 @@ class RouteMapPreviewCard extends StatelessWidget {
                       stops: stops,
                       geometry: routePreview.geometry,
                       config: previewConfig,
+                      imageHeaders: imageHeaders,
                       height: u(320),
                       interactive: false,
                       footerLabel: routePointsLabel(routeLocations.length),

@@ -515,6 +515,46 @@ void _routePreviewTests() {
     expect(controller.state.isPreviewLoading, isFalse);
   });
 
+  test('opening a saved draft draws its map without touching a point', () async {
+    final publication = _NoopPublicationRepository();
+    final drafts = _MemoryDraftRepository()
+      ..value = const RouteDraft(
+        title: 'Сохранённый маршрут',
+        start: RouteLocation(
+          id: 'place-start',
+          name: 'Старт',
+          subtitle: 'Крым',
+          lat: 44.39,
+          lng: 34.11,
+        ),
+        finish: RouteLocation(
+          id: 'place-finish',
+          name: 'Финиш',
+          subtitle: 'Крым',
+          lat: 44.45,
+          lng: 34.04,
+        ),
+      );
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      drafts: drafts,
+      mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
+      publication: publication,
+      routes: MockRoutesRepository(),
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+
+    controller.continueDraft();
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+
+    // The preview used to be computed only while editing points, so a
+    // restored draft kept the placeholder until the author moved something.
+    expect(publication.previewCalls, 1);
+    expect(controller.state.routePreview?.previewId, 'preview-1');
+  });
+
   test('a burst of edits costs one routing call, and the last one wins', () async {
     final publication = _NoopPublicationRepository();
     final controller = RoutePublishController(
@@ -573,5 +613,5 @@ final class _MemoryMediaStore implements RouteDraftMediaStore {
   Future<void> purgeExpired() async => purges++;
 
   @override
-  Future<List<String>> existing(List<String> paths) async => paths;
+  Future<String?> resolve(String path) async => path;
 }

@@ -244,13 +244,19 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     if (draft.media.isEmpty) {
       return draft;
     }
-    final alive = (await _mediaStore.existing([
-      for (final item in draft.media) item.path,
-    ])).toSet();
-    final media = [
-      for (final item in draft.media)
-        if (item.isAsset || alive.contains(item.path)) item,
-    ];
+    final media = <RouteMediaItem>[];
+    for (final item in draft.media) {
+      if (item.isAsset) {
+        media.add(item);
+        continue;
+      }
+      final resolved = await _mediaStore.resolve(item.path);
+      if (resolved != null) {
+        // Rewritten rather than merely kept: after a reinstall the stored
+        // path is stale even though the file is there.
+        media.add(item.copyWith(path: resolved));
+      }
+    }
     if (media.length == draft.media.length) {
       return draft;
     }
@@ -292,6 +298,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         isOpeningDraft: false,
         clearAvailableDraft: true,
       );
+      _refreshRoutePreview();
       await _drafts.save(draft);
     } on Object {
       if (mounted) {
@@ -307,6 +314,10 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       return;
     }
     state = state.copyWith(draft: draft, clearAvailableDraft: true);
+    // Opening a draft has to draw its map too. Previously the preview was
+    // only computed from the point-editing path, so a restored draft showed
+    // the placeholder until the author happened to move a point.
+    _refreshRoutePreview();
   }
 
   Future<void> startNewDraft() async {

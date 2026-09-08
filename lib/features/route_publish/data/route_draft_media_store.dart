@@ -22,8 +22,14 @@ abstract interface class RouteDraftMediaStore {
   /// Deletes copies older than the retention window.
   Future<void> purgeExpired();
 
-  /// Paths that still resolve to a file, in the order given.
-  Future<List<String>> existing(List<String> paths);
+  /// Where [path] lives now, or null if the photo is gone.
+  ///
+  /// Not just an existence check: iOS gives the app container a fresh UUID
+  /// on every reinstall, so an absolute path stored yesterday points into a
+  /// directory that no longer exists — even though the file was copied into
+  /// durable storage and is still there under the current container. The
+  /// copy is looked up again by name before it is given up for lost.
+  Future<String?> resolve(String path);
 }
 
 final class AppDirRouteDraftMediaStore implements RouteDraftMediaStore {
@@ -87,17 +93,16 @@ final class AppDirRouteDraftMediaStore implements RouteDraftMediaStore {
   }
 
   @override
-  Future<List<String>> existing(List<String> paths) async {
-    final kept = <String>[];
-    for (final path in paths) {
-      try {
-        if (await File(path).exists()) {
-          kept.add(path);
-        }
-      } on Object {
-        // Unreadable counts as gone.
+  Future<String?> resolve(String path) async {
+    try {
+      if (await File(path).exists()) {
+        return path;
       }
+      final directory = await _directory();
+      final relocated = File('${directory.path}/${path.split('/').last}');
+      return await relocated.exists() ? relocated.path : null;
+    } on Object {
+      return null;
     }
-    return kept;
   }
 }
