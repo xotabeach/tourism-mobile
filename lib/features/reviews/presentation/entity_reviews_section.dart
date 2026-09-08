@@ -14,6 +14,7 @@ import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/place_reviews_providers.dart';
@@ -609,8 +610,30 @@ class _ReviewComposerState extends ConsumerState<_ReviewComposer>
       if (!mounted) {
         return;
       }
-      setState(() => _images.addAll(accepted.take(available)));
-      if (accepted.length != picked.length) {
+      final oversized = accepted.length != picked.length;
+      if (accepted.isEmpty) {
+        if (oversized) {
+          showAppNotice(context, 'Фото больше 10 МБ не добавлены');
+        }
+        return;
+      }
+      // The whole batch goes through one editor: the author frames each
+      // photo, switching between them on the strip along the bottom, and
+      // confirms once. Attaching a photo used to mean whatever the gallery
+      // handed over, with no chance to straighten or crop it.
+      final framed = await cropPickedPhotos(
+        context,
+        sourcePaths: [for (final image in accepted.take(available)) image.path],
+        shape: PhotoCropShape.original,
+        title: 'Фото к отзыву',
+      );
+      if (framed == null || !mounted) {
+        return;
+      }
+      setState(() {
+        _images.addAll([for (final path in framed) XFile(path)]);
+      });
+      if (oversized) {
         showAppNotice(context, 'Фото больше 10 МБ не добавлены');
       }
     } on Object {

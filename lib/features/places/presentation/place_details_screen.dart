@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -15,6 +16,7 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
+import 'package:tourism_mobile/core/device/external_maps.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -740,94 +742,192 @@ class _InlineError extends StatelessWidget {
   }
 }
 
+/// The place on a map, as a card over the page rather than a sheet.
+///
+/// It used to be a 72%-tall bottom sheet: a drag handle, a title bar and one
+/// button framing a small square map, which read as a half-open drawer rather
+/// than a look at where the place is (reported 2026-09-09 as "несуразно").
+/// A dialog centres the map, dims what is behind it, and leaves room under it
+/// for the things people actually came to do with a coordinate.
 void _showPlaceMap(BuildContext context, PlaceDetail place, AppConfig config) {
   unawaited(
-    showModalBottomSheet<void>(
+    showDialog<void>(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
+      barrierColor: AppColors.imageScrim.withValues(alpha: 0.55),
+      barrierLabel: 'Закрыть карту',
+      builder: (dialogContext) => _PlaceMapDialog(place: place, config: config),
+    ),
+  );
+}
+
+class _PlaceMapDialog extends StatelessWidget {
+  const _PlaceMapDialog({required this.place, required this.config});
+
+  final PlaceDetail place;
+  final AppConfig config;
+
+  String get _coordinates =>
+      '${place.lat.toStringAsFixed(5)}, ${place.lng.toStringAsFixed(5)}';
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: '${place.lat}, ${place.lng}'));
+    if (context.mounted) {
+      _showMessage(context, 'Координаты скопированы');
+    }
+  }
+
+  Future<void> _navigate(BuildContext context) async {
+    final opened = await ExternalMaps.open(
+      lat: place.lat,
+      lng: place.lng,
+      label: place.name,
+    );
+    if (!opened && context.mounted) {
+      _showMessage(context, 'Не нашли приложение с картами на устройстве');
+    }
+  }
+
+  Future<void> _share() async {
+    await SharePlus.instance.share(
+      ShareParams(text: '${place.name}\n$_coordinates'),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final inset = MediaQuery.paddingOf(context);
+    // Never the whole screen: the dimmed page around it is what says this is
+    // a look at the map, not a new screen.
+    final maxHeight = size.height - inset.top - inset.bottom - 96;
+
+    return Dialog(
       backgroundColor: AppColors.elevatedSurface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadii.modal),
-        ),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 48),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.modal),
       ),
-      builder: (sheetContext) => SizedBox(
-        height: MediaQuery.sizeOf(sheetContext).height * 0.72,
+      child: ConstrainedBox(
+        // Keyed here rather than on the Dialog: the Dialog is the full-screen
+        // layout container that centres the card, so measuring it would say
+        // the card fills the screen when the point is that it does not.
+        key: const ValueKey('place-map-dialog'),
+        constraints: BoxConstraints(
+          maxWidth: 420,
+          maxHeight: maxHeight < 320 ? 320 : maxHeight,
+        ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 42,
-              height: 5,
-              decoration: BoxDecoration(
-                color: AppColors.controlSurface,
-                borderRadius: BorderRadius.circular(AppRadii.capsule),
-              ),
-            ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+              padding: const EdgeInsets.fromLTRB(20, 16, 8, 12),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(place.name, style: AppTypography.sectionTitle),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          place.name,
+                          style: AppTypography.sectionTitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          _coordinates,
+                          style: AppTypography.routeMetadata.copyWith(
+                            color: AppColors.secondaryInk,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   IconButton(
+                    key: const ValueKey('place-map-close'),
                     tooltip: 'Закрыть',
-                    onPressed: () => Navigator.of(sheetContext).pop(),
+                    onPressed: () => Navigator.of(context).pop(),
                     icon: const Icon(Icons.close_rounded),
                   ),
                 ],
               ),
             ),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) => RouteMapPreview(
-                  height: constraints.maxHeight,
-                  mapImage: _staticMapImage(config, place.staticMapUrl),
-                  selectedIndex: 0,
-                  onPinTap: (_) {},
-                  footerLabel:
-                      '${place.lat.toStringAsFixed(5)}, '
-                      '${place.lng.toStringAsFixed(5)}',
-                  stops: [
-                    RouteStop(
-                      id: place.id,
-                      position: 1,
-                      placeId: place.id,
-                      placeName: place.name,
-                      placeSlug: place.slug,
-                      lat: place.lat,
-                      lng: place.lng,
-                    ),
-                  ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: LayoutBuilder(
+                  builder: (context, constraints) => RouteMapPreview(
+                    height: constraints.maxHeight,
+                    mapImage: _staticMapImage(config, place.staticMapUrl),
+                    selectedIndex: 0,
+                    onPinTap: (_) {},
+                    stops: [
+                      RouteStop(
+                        id: place.id,
+                        position: 1,
+                        placeId: place.id,
+                        placeName: place.name,
+                        placeSlug: place.slug,
+                        lat: place.lat,
+                        lng: place.lng,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    await Clipboard.setData(
-                      ClipboardData(text: '${place.lat}, ${place.lng}'),
-                    );
-                    if (sheetContext.mounted) {
-                      _showMessage(sheetContext, 'Координаты скопированы');
-                    }
-                  },
-                  icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Скопировать координаты'),
-                ),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: FilledButton.icon(
+                      key: const ValueKey('place-map-navigate'),
+                      onPressed: () => unawaited(_navigate(context)),
+                      icon: const Icon(Icons.directions_rounded),
+                      label: const Text('Проложить маршрут'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('place-map-copy'),
+                            onPressed: () => unawaited(_copy(context)),
+                            icon: const Icon(Icons.copy_rounded, size: 18),
+                            label: const Text('Координаты'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SizedBox(
+                          height: 44,
+                          child: OutlinedButton.icon(
+                            key: const ValueKey('place-map-share'),
+                            onPressed: () => unawaited(_share()),
+                            icon: const Icon(Icons.ios_share_rounded, size: 18),
+                            label: const Text('Поделиться'),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 ImageProvider<Object>? _staticMapImage(AppConfig config, String? value) {
