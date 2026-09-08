@@ -8,6 +8,7 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/route_publish/data/api_route_publication_repository.dart';
+import 'package:tourism_mobile/features/route_publish/data/route_draft_media_store.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
 import 'package:tourism_mobile/features/route_publish/data/secure_route_draft_repository.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
@@ -133,6 +134,10 @@ final routeMediaPickerProvider = Provider<RouteMediaPicker>((ref) {
   return ImagePickerRouteMediaPicker(ImagePicker());
 });
 
+final routeDraftMediaStoreProvider = Provider<RouteDraftMediaStore>((ref) {
+  return AppDirRouteDraftMediaStore();
+});
+
 final routeDraftRepositoryProvider = Provider<RouteDraftRepository>((ref) {
   return SecureRouteDraftRepository(ref.watch(secureStorageProvider));
 });
@@ -155,6 +160,7 @@ final routePublishControllerProvider = StateNotifierProvider.autoDispose
         mode: mode,
         drafts: ref.watch(routeDraftRepositoryProvider),
         mediaPicker: ref.watch(routeMediaPickerProvider),
+        mediaStore: ref.watch(routeDraftMediaStoreProvider),
         publication: ref.watch(routePublicationRepositoryProvider),
         routes: ref.watch(routesRepositoryProvider),
       );
@@ -165,6 +171,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     required RoutePublishMode mode,
     required this._drafts,
     required this._mediaPicker,
+    required this._mediaStore,
     required this._publication,
     required this._routes,
   }) : _mode = mode,
@@ -186,6 +193,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   final RoutePublishMode _mode;
   final RouteDraftRepository _drafts;
   final RouteMediaPicker _mediaPicker;
+  final RouteDraftMediaStore _mediaStore;
   final RoutePublicationRepository _publication;
   final RoutesRepository _routes;
 
@@ -210,7 +218,11 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         }
         return;
       }
-      state = state.copyWith(availableDraft: draft, isHydrating: false);
+      unawaited(_mediaStore.purgeExpired());
+      state = state.copyWith(
+        availableDraft: await _withExistingMedia(draft),
+        isHydrating: false,
+      );
       unawaited(_loadServerDrafts());
     } catch (_) {
       if (mounted) {
@@ -221,6 +233,29 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         );
       }
     }
+  }
+
+  /// Drops photos whose file no longer exists.
+  ///
+  /// Drafts written before photos were copied somewhere durable still list
+  /// paths into cleared temp directories; keeping them would show the author
+  /// broken tiles they cannot remove or publish.
+  Future<RouteDraft> _withExistingMedia(RouteDraft draft) async {
+    if (draft.media.isEmpty) {
+      return draft;
+    }
+    final alive = (await _mediaStore.existing([
+      for (final item in draft.media) item.path,
+    ])).toSet();
+    final media = [
+      for (final item in draft.media)
+        if (item.isAsset || alive.contains(item.path)) item,
+    ];
+    if (media.length == draft.media.length) {
+      return draft;
+    }
+    _message('Часть фотографий из черновика больше недоступна');
+    return draft.copyWith(media: media);
   }
 
   /// Every route of the user's still sitting in `draft`. Best-effort: the
@@ -338,6 +373,12 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
           return;
         }
         item = picked.copyWith(path: cropped);
+      }
+      // The picker's and the cropper's files live in directories the OS may
+      // clear; a draft must not point at them.
+      item = item.copyWith(path: await _mediaStore.keep(item.path));
+      if (!mounted) {
+        return;
       }
       if (state.draft.media.any((existing) => existing.path == item.path)) {
         _message('Этот файл уже добавлен');

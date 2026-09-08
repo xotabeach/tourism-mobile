@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
+import 'package:tourism_mobile/features/route_publish/data/route_draft_media_store.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
@@ -148,6 +149,7 @@ void main() {
         mode: RoutePublishMode.production,
         drafts: drafts,
         mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
         publication: _NoopPublicationRepository(),
         routes: MockRoutesRepository(),
       );
@@ -205,6 +207,7 @@ void main() {
       mode: RoutePublishMode.production,
       drafts: drafts,
       mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
       publication: publication,
       routes: MockRoutesRepository(),
     );
@@ -232,6 +235,7 @@ void main() {
       mode: RoutePublishMode.production,
       drafts: drafts,
       mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
       publication: publication,
       routes: MockRoutesRepository(),
     );
@@ -451,6 +455,7 @@ void _serverDraftsTests() {
       mode: RoutePublishMode.production,
       drafts: drafts,
       mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
       publication: _NoopPublicationRepository(),
       routes: _DraftsRoutesRepository(),
     );
@@ -473,6 +478,7 @@ void _routePreviewTests() {
       mode: RoutePublishMode.production,
       drafts: _MemoryDraftRepository(),
       mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
       publication: publication,
       routes: MockRoutesRepository(),
     );
@@ -515,6 +521,7 @@ void _routePreviewTests() {
       mode: RoutePublishMode.production,
       drafts: _MemoryDraftRepository(),
       mediaPicker: _NoopMediaPicker(),
+      mediaStore: _MemoryMediaStore(),
       publication: publication,
       routes: MockRoutesRepository(),
     );
@@ -553,4 +560,18 @@ void _routePreviewTests() {
     expect(publication.previewCalls, 1, reason: 'debounced into one request');
     expect(publication.lastPreviewPlaceIds, ['a', 'c', 'b']);
   });
+}
+
+/// Keeps paths as they are: the durable-copy behaviour has its own tests.
+final class _MemoryMediaStore implements RouteDraftMediaStore {
+  int purges = 0;
+
+  @override
+  Future<String> keep(String path) async => path;
+
+  @override
+  Future<void> purgeExpired() async => purges++;
+
+  @override
+  Future<List<String>> existing(List<String> paths) async => paths;
 }
