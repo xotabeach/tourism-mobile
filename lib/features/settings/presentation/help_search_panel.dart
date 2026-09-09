@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,10 +27,20 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
   HelpSearchResult? _result;
   bool _busy = false;
   bool _failed = false;
+  /// Set once a search has been running long enough to look stuck.
+  ///
+  /// Questions asked at the same moment queue for the same model on the
+  /// server rather than being answered from the weaker lexical search, so a
+  /// few seconds of waiting is a normal outcome and worth naming.
+  bool _slow = false;
   int _generation = 0;
+  Timer? _slowTimer;
+
+  static const _slowAfter = Duration(seconds: 2, milliseconds: 500);
 
   @override
   void dispose() {
+    _slowTimer?.cancel();
     _query.dispose();
     _queryFocus.dispose();
     super.dispose();
@@ -41,7 +53,14 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
     setState(() {
       _busy = true;
       _failed = false;
+      _slow = false;
       _result = null;
+    });
+    _slowTimer?.cancel();
+    _slowTimer = Timer(_slowAfter, () {
+      if (mounted && _busy && generation == _generation) {
+        setState(() => _slow = true);
+      }
     });
     try {
       final result = await ref.read(helpRepositoryProvider).search(query);
@@ -51,7 +70,13 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
     } on Object {
       if (mounted && generation == _generation) setState(() => _failed = true);
     } finally {
-      if (mounted) setState(() => _busy = false);
+      _slowTimer?.cancel();
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _slow = false;
+        });
+      }
     }
   }
 
@@ -194,6 +219,15 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       ],
                     ),
                   ),
+                  if (_busy && _slow) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      key: ValueKey('help-search-slow'),
+                      'Сейчас много запросов — ищем по очереди, чтобы ответ '
+                      'был точным. Это займёт несколько секунд.',
+                      style: AppTypography.settingsRowSubtitle,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   if (_failed)
                     const Text(

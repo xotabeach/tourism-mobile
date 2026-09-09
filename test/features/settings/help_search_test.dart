@@ -139,6 +139,41 @@ void main() {
     expect(find.textContaining('Найдено статей'), findsNothing);
   });
 
+  testWidgets('a wait long enough to look stuck says why it is waiting', (
+    tester,
+  ) async {
+    // Questions asked at the same moment queue for one model on the server
+    // rather than being answered from the weaker lexical search, so a few
+    // seconds is a normal outcome — and silence for that long reads as a
+    // hang.
+    final repo = _HelpFake()..pending = Completer<HelpSearchResult>();
+    await pumpPanel(tester, repo);
+    await tester.enterText(find.byType(TextField), 'баллы');
+    await tester.pump();
+    await tester.tap(find.text('Найти инструкцию'));
+    await tester.pump();
+
+    expect(find.text('Ищем в справке…'), findsOneWidget);
+    expect(find.byKey(const ValueKey('help-search-slow')), findsNothing);
+
+    await tester.pump(const Duration(seconds: 3));
+    expect(find.byKey(const ValueKey('help-search-slow')), findsOneWidget);
+
+    repo.pending!.complete(repo.result);
+    await tester.pumpAndSettle();
+    // Gone the moment the answer lands, not left on screen.
+    expect(find.byKey(const ValueKey('help-search-slow')), findsNothing);
+    expect(find.text('Найдено статей: 1'), findsOneWidget);
+  });
+
+  testWidgets('a quick answer never shows the waiting notice', (tester) async {
+    final repo = _HelpFake();
+    await pumpPanel(tester, repo);
+    await search(tester);
+
+    expect(find.byKey(const ValueKey('help-search-slow')), findsNothing);
+  });
+
   testWidgets('late response cannot replace a changed question', (
     tester,
   ) async {
