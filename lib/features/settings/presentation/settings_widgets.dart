@@ -141,6 +141,7 @@ class SettingsScaffold extends StatelessWidget {
     this.padding,
     this.spaceChildren = true,
     this.pinTopBar = false,
+    this.extraBottomSpace = 0,
   });
 
   final String? title;
@@ -156,6 +157,7 @@ class SettingsScaffold extends StatelessWidget {
 
   /// Keep «КРЫМТРИП» + back above the scroll (home-style sticky chrome).
   final bool pinTopBar;
+  final double extraBottomSpace;
 
   @override
   Widget build(BuildContext context) {
@@ -214,7 +216,12 @@ class SettingsScaffold extends StatelessWidget {
                   else if (includeTopBar)
                     const SizedBox(height: SettingsMetrics.rowGap),
                   if (spaceChildren) ..._spaced(children) else ...children,
-                  const SizedBox(height: AppSpacing.shellBottomContent),
+                  SizedBox(
+                    height:
+                        AppSpacing.shellBottomContent +
+                        MediaQuery.viewPaddingOf(context).bottom +
+                        extraBottomSpace,
+                  ),
                 ],
               ),
             ),

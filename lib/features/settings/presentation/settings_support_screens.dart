@@ -78,6 +78,7 @@ class SettingsSupportScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return SettingsScaffold(
       title: 'Поддержка и обратная связь:',
+      extraBottomSpace: 32,
       spaceChildren: false,
       children: [
         HelpSearchPanel(

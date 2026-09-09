@@ -275,6 +275,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     // Route + place details share the Home-parked compact chrome and CTA.
     final showRouteAction = detailNavigationIndex == 0;
     final onTravelPlus = path.contains('/travel-plus');
+    final onSettings =
+        path == '/profile/settings' || path.startsWith('/profile/settings/');
     const detailActionLabel = 'Пройти маршрут';
     final VoidCallback? detailAction = showRouteAction
         ? () => _startRoute(context)
@@ -290,7 +292,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
           // readability scrim. Their own content already reserves nav space.
           if (showDetailsChrome &&
               detailNavigationIndex != _composeNavIndex &&
-              !onTravelPlus)
+              !onTravelPlus &&
+              !onSettings)
             Positioned(
               key: const ValueKey('app-shell-bottom-scrim'),
               left: 0,

@@ -9,6 +9,8 @@ import 'package:tourism_mobile/features/settings/presentation/settings_screen.da
 import 'package:tourism_mobile/features/settings/presentation/settings_support_screens.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_checkout_screen.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_travel_plus_screen.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
+import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 import '../support/test_overrides.dart';
 
@@ -49,11 +51,46 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
     expect(find.text('Настройки профиля'), findsOneWidget);
     expect(find.text('Уведомления'), findsOneWidget);
     expect(find.text('Оффлайн маршруты'), findsOneWidget);
     expect(find.text('ТРЕВЕЛ'), findsWidgets);
     expect(find.text('Первый месяц бесплатно'), findsOneWidget);
+  });
+
+  testWidgets('support chat scrolls fully above floating nav and opens', (
+    tester,
+  ) async {
+    await pumpAuthedApp(tester);
+    tester.view
+      ..physicalSize = const Size(393, 852)
+      ..padding = const FakeViewPadding(bottom: 34, top: 59);
+    addTearDown(tester.view.resetPadding);
+    await tester.pumpAndSettle();
+    await tester.tap(find.bySemanticsLabel('Профиль'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Настройки'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Поддержка'));
+    await tester.tap(find.text('Поддержка'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
+    final scroll = find.descendant(
+      of: find.byType(SettingsSupportScreen),
+      matching: find.byType(CustomScrollView),
+    );
+    await tester.drag(scroll, const Offset(0, -1800));
+    await tester.pumpAndSettle();
+    final cta = find.byType(SettingsChatCta);
+    expect(
+      tester.getRect(cta).bottom,
+      lessThan(tester.getRect(find.byType(AppFloatingNavBar)).top - 16),
+    );
+    await tester.tap(find.text('Чат с поддержкой'));
+    await tester.pumpAndSettle();
+    expect(find.byType(SettingsChatScreen), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('settings notifications and offline are reachable', (

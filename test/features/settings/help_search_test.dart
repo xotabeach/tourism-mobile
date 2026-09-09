@@ -85,12 +85,28 @@ void main() {
     await search(tester);
     expect(repo.queries, ['баллы']);
     expect(find.text('Найдено статей: 1'), findsOneWidget);
+    expect(find.text('Возможно, помогут эти инструкции:'), findsOneWidget);
     await tester.tap(find.text('Баллы'));
     await tester.pumpAndSettle();
     expect(repo.reads, 1);
     expect(find.text(_article.body!), findsOneWidget);
     expect(find.text('Справка КрымТрип · редакция 1'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('refine question selects text without a new request', (
+    tester,
+  ) async {
+    final repo = _HelpFake();
+    await pumpPanel(tester, repo);
+    await search(tester);
+    await tester.tap(find.text('Уточнить вопрос'));
+    await tester.pump();
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.focusNode!.hasFocus, isTrue);
+    expect(input.controller!.selection.baseOffset, 0);
+    expect(input.controller!.selection.extentOffset, 'баллы'.length);
+    expect(repo.queries, ['баллы']);
   });
 
   testWidgets('withdrawn source is not shown from the search preview', (

@@ -2,6 +2,10 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/settings/data/help_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 
@@ -17,6 +21,7 @@ class HelpSearchPanel extends ConsumerStatefulWidget {
 
 class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
   final _query = TextEditingController();
+  final _queryFocus = FocusNode();
   HelpSearchResult? _result;
   bool _busy = false;
   bool _failed = false;
@@ -25,6 +30,7 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
   @override
   void dispose() {
     _query.dispose();
+    _queryFocus.dispose();
     super.dispose();
   }
 
@@ -52,76 +58,208 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
   @override
   Widget build(BuildContext context) {
     final result = _result;
-    return Material(
-      color: Colors.transparent,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text('Помощник по справке'),
-          const SizedBox(height: 8),
-          const Text('Опишите проблему — предложим подходящие инструкции.'),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _query,
-            maxLength: 400,
-            minLines: 1,
-            maxLines: 3,
-            textInputAction: TextInputAction.search,
-            decoration: const InputDecoration(
-              hintText: 'Например: не начислились баллы',
-              border: OutlineInputBorder(),
-            ),
-            onSubmitted: (_) => _search(),
-            onChanged: (_) => setState(() {
-              _generation++;
-              _result = null;
-              _failed = false;
-            }),
-          ),
-          OutlinedButton(
-            onPressed: _busy || _query.text.trim().isEmpty ? null : _search,
-            child: Text(_busy ? 'Ищем в справке…' : 'Найти инструкцию'),
-          ),
-          if (_failed)
-            const Text(
-              'Поиск сейчас недоступен. Можно повторить, открыть разделы '
-              'справки ниже или написать оператору.',
-            ),
-          if (result != null) ...[
-            if (!result.available)
-              const Text(
-                'Для этой версии ещё нет опубликованных инструкций в поиске. '
-                'Можно открыть справку ниже или обратиться к оператору.',
-              )
-            else if (result.articles.isEmpty)
-              const Text(
-                'Подходящая инструкция не найдена. Уточните вопрос '
-                'или напишите оператору.',
-              )
-            else ...[
-              Text('Найдено статей: ${result.articles.length}'),
-              for (final article in result.articles)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(article.title),
-                  subtitle: Text(article.excerpt),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push<void>(
-                    CupertinoPageRoute<void>(
-                      builder: (_) => HelpArticleScreen(article: article),
+    final radius = BorderRadius.circular(AppRadii.settingsTile);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: SettingsMetrics.rowGap),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: AppShadows.settingsTile,
+        ),
+        child: Material(
+          key: const ValueKey('support-help-card'),
+          color: AppColors.elevatedSurface,
+          borderRadius: radius,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: DefaultTextStyle(
+              style: AppTypography.settingsRowSubtitle.copyWith(
+                color: AppColors.settingsInk,
+                height: 1.4,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentBlue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.help_outline_rounded,
+                          color: AppColors.accentBlueIcon,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Помощник по справке',
+                          style: AppTypography.settingsRowTitle,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Опишите проблему — предложим подходящие инструкции.',
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _query,
+                    focusNode: _queryFocus,
+                    maxLength: 400,
+                    minLines: 1,
+                    maxLines: 3,
+                    textInputAction: TextInputAction.search,
+                    style: AppTypography.settingsRowSubtitle.copyWith(
+                      color: AppColors.settingsInk,
+                      height: 1.4,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Например: не начислились баллы',
+                      hintStyle: AppTypography.settingsRowSubtitle,
+                      filled: true,
+                      fillColor: AppColors.pageSurface,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 14,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(
+                          color: AppColors.accentBlue,
+                        ),
+                      ),
+                      counterStyle: AppTypography.settingsRowSubtitle.copyWith(
+                        fontSize: 11,
+                      ),
+                    ),
+                    onSubmitted: (_) => _search(),
+                    onChanged: (_) => setState(() {
+                      _generation++;
+                      _result = null;
+                      _failed = false;
+                    }),
+                  ),
+                  FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.accentBlue,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(46),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      textStyle: AppTypography.settingsRowTitle.copyWith(
+                        fontSize: 14,
+                      ),
+                    ),
+                    onPressed: _busy || _query.text.trim().isEmpty
+                        ? null
+                        : _search,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        if (_busy)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          const Icon(Icons.search_rounded, size: 19),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _busy ? 'Ищем в справке…' : 'Найти инструкцию',
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-            ],
-          ],
-          TextButton(
-            onPressed: () => widget.onContactSupport(_query.text.trim()),
-            child: const Text('Написать оператору'),
+                  const SizedBox(height: 8),
+                  if (_failed)
+                    const Text(
+                      'Поиск сейчас недоступен. Можно повторить, открыть разделы '
+                      'справки ниже или написать оператору.',
+                    ),
+                  if (result != null) ...[
+                    if (!result.available)
+                      const Text(
+                        'Для этой версии ещё нет опубликованных инструкций в поиске. '
+                        'Можно открыть справку ниже или обратиться к оператору.',
+                      )
+                    else if (result.articles.isEmpty)
+                      const Text(
+                        'Подходящая инструкция не найдена. Уточните вопрос '
+                        'или напишите оператору.',
+                      )
+                    else ...[
+                      const Text('Возможно, помогут эти инструкции:'),
+                      Text('Найдено статей: ${result.articles.length}'),
+                      for (final article in result.articles)
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(article.title),
+                          titleTextStyle: AppTypography.settingsRowTitle
+                              .copyWith(fontSize: 14),
+                          subtitleTextStyle: AppTypography.settingsRowSubtitle
+                              .copyWith(height: 1.4),
+                          subtitle: Text(
+                            article.excerpt,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: const Icon(
+                            Icons.chevron_right_rounded,
+                            color: AppColors.accentBlueIcon,
+                          ),
+                          onTap: () => Navigator.of(context).push<void>(
+                            CupertinoPageRoute<void>(
+                              builder: (_) =>
+                                  HelpArticleScreen(article: article),
+                            ),
+                          ),
+                        ),
+                    ],
+                    TextButton(
+                      onPressed: () {
+                        _queryFocus.requestFocus();
+                        _query.selection = TextSelection(
+                          baseOffset: 0,
+                          extentOffset: _query.text.length,
+                        );
+                      },
+                      child: const Text('Уточнить вопрос'),
+                    ),
+                  ],
+                  TextButton(
+                    onPressed: () =>
+                        widget.onContactSupport(_query.text.trim()),
+                    child: const Text('Написать оператору'),
+                  ),
+                ],
+              ),
+            ),
           ),
-          const SizedBox(height: 16),
-          const SettingsHairline(),
-          const SizedBox(height: 16),
-        ],
+        ),
       ),
     );
   }
