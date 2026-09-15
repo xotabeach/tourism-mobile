@@ -20,6 +20,7 @@ workflow:
 stages:
   - lean
   - build
+  - publish
   - mirror
 
 .flutter-image: &flutter-image ghcr.io/cirruslabs/flutter:3.44.0
@@ -81,6 +82,60 @@ mobile-apk-test:
     - if: '$CI_PIPELINE_MODE == "full"'
       when: never
     - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "gamma"'
+      when: manual
+      allow_failure: true
+
+# The app is in neither store, so a link is the only way to hand someone a
+# build. Production env and the production API on purpose: this is what a
+# tester installs, not a debug variant.
+mobile-apk-publish:
+  stage: publish
+  image: *flutter-image
+  <<: *pub-cache
+  needs:
+    - ci-lean-notice
+  before_script:
+    - command -v ssh >/dev/null || (apt-get update -qq && apt-get install -y --no-install-recommends openssh-client >/dev/null)
+  script:
+    # Named one by one rather than looped: the loop needed eval, and a typo in
+    # an indirect expansion fails open — it reports the variable as present.
+    - |
+      if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] \
+        || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_STORE_PASSWORD:-}" ] \
+        || [ -z "${MOBILE_PROD_API_BASE_URL:-}" ]; then
+        echo "Signing / API CI variables missing — cannot build the release APK."
+        exit 1
+      fi
+      if [ -z "${DEPLOY_SSH_HOST:-}" ] || [ -z "${DEPLOY_SSH_PORT:-}" ] \
+        || [ -z "${DEPLOY_SSH_USER:-}" ] || [ -z "${DEPLOY_SSH_PRIVATE_KEY:-}" ] \
+        || [ -z "${DEPLOY_SSH_KNOWN_HOSTS:-}" ] || [ -z "${DEPLOY_BACKEND_CONTAINER:-}" ]; then
+        echo "Deploy CI variables missing — built APK cannot be published."
+        exit 1
+      fi
+    - bash scripts/ci-prepare-android-signing.sh
+    # The version name the build carries, so the archived copy is findable.
+    - export APK_VERSION="$(grep -m1 '^version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)"
+    - >
+      ./scripts/build-signed-apk.sh
+      --env production
+      --data-source api
+      --api-url "${MOBILE_PROD_API_BASE_URL}"
+    - test -f dist/CrimeaTrip-production-api.apk
+    - bash scripts/ci-publish-apk.sh dist/CrimeaTrip-production-api.apk "${APK_VERSION}"
+  # after_script, not the end of script: a failed build would otherwise leave
+  # the signing key on the runner.
+  after_script:
+    - rm -f android/key.properties android/ci-upload.jks
+  artifacts:
+    name: "crimeatrip-apk-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - dist/CrimeaTrip-production-api.apk
+    expire_in: 30 days
+    when: on_success
+  # Manual: it overwrites the link everyone installs from, so a human decides
+  # which commit becomes "latest".
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
       when: manual
       allow_failure: true
 

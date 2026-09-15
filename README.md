@@ -61,6 +61,28 @@ pipeline при `CI_PIPELINE_MODE=full`). Нужны CI variables keystore +
 `MOBILE_TEST_API_BASE_URL`; см.
 [ci-and-runners.md](../tourism-platform/docs/ci-and-runners.md).
 
+### Публикация APK по ссылке
+
+Приложения нет ни в одном сторе, поэтому единственный способ отдать кому-то
+сборку — ссылка. Job `mobile-apk-publish` (**manual**, только `main`) собирает
+релизный APK с боевым API и кладёт его в media-том бэкенда:
+
+```
+https://201-24-55-130.sslip.io/media/app/crimeatrip-latest.apk   # всегда последняя
+https://201-24-55-130.sslip.io/media/app/crimeatrip-0.2.4.apk    # архив по версии
+```
+
+Manual, потому что job перезаписывает ссылку, с которой все ставят
+приложение: какой коммит станет «latest», решает человек. Файл пишется под
+временным именем и переименовывается только после сверки размера — недокачанный
+APK ставится как повреждённый пакет.
+
+Нужны CI variables: keystore (как у `mobile-apk-test`), `MOBILE_PROD_API_BASE_URL`,
+и доступ к серверу — `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_SSH_USER`,
+`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`, `DEPLOY_BACKEND_CONTAINER`
+(имя контейнера бэкенда, в чей `/app/data/media` писать). Необязательная
+`APK_PUBLIC_BASE_URL` — чтобы в лог джобы попала готовая ссылка.
+
 Сборка iOS/Android, `dart-define`, signed APK/AAB:
 [mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md).
 
