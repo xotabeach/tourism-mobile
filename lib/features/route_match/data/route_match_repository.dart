@@ -22,6 +22,22 @@ class ApiRouteMatchRepository implements RouteMatchRepository {
   );
 
   @override
+  Future<List<RouteLocationSuggestion>> searchLocations(
+    String query, {
+    String regionSlug = 'crimea',
+  }) => guardApiCall(() async {
+    final response = await _dio.get<List<dynamic>>(
+      '/api/v1/geography/locations/search',
+      queryParameters: {'q': query, 'region_slug': regionSlug, 'limit': 12},
+    );
+    return [
+      for (final item in response.data ?? const <dynamic>[])
+        if (item is Map<String, dynamic>)
+          RouteLocationSuggestion.fromJson(item),
+    ].where((item) => item.id.isNotEmpty && item.name.isNotEmpty).toList();
+  });
+
+  @override
   Future<RouteProposalPreview> previewProposal(String id) =>
       guardApiCall(() async {
         final response = await _dio.get<Map<String, dynamic>>(
@@ -174,6 +190,50 @@ class MockRouteMatchRepository implements RouteMatchRepository {
   final _proposalDates = <String, DateTime>{};
 
   @override
+  Future<List<RouteLocationSuggestion>> searchLocations(
+    String query, {
+    String regionSlug = 'crimea',
+  }) async {
+    final needle = query.trim().toLowerCase();
+    if (needle.length < 2 || regionSlug != 'crimea') {
+      return const [];
+    }
+    const items = [
+      RouteLocationSuggestion(
+        kind: 'locality',
+        id: '00000000-0000-0000-0000-000000000001',
+        name: 'Форос',
+        subtitle: 'посёлок',
+      ),
+      RouteLocationSuggestion(
+        kind: 'locality',
+        id: '00000000-0000-0000-0000-000000000002',
+        name: 'Симеиз',
+        subtitle: 'посёлок',
+      ),
+      RouteLocationSuggestion(
+        kind: 'locality',
+        id: '00000000-0000-0000-0000-000000000003',
+        name: 'Партенит',
+        subtitle: 'посёлок',
+      ),
+      RouteLocationSuggestion(
+        kind: 'place',
+        id: '00000000-0000-0000-0000-000000000004',
+        name: 'Скала Дива',
+        subtitle: 'Симеиз',
+      ),
+    ];
+    return items
+        .where(
+          (item) =>
+              item.name.toLowerCase().contains(needle) ||
+              (item.subtitle ?? '').toLowerCase().contains(needle),
+        )
+        .toList(growable: false);
+  }
+
+  @override
   Future<RouteProposalPreview> previewProposal(String id) async =>
       RouteProposalPreview(
         proposalId: id,
@@ -290,7 +350,7 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     await Future<void>.delayed(const Duration(milliseconds: 200));
     final sample = RouteSummary(
       id: 'mock-match-1',
-      name: '${params.city} · подборка',
+      name: '${params.locationLabel} · подборка',
       slug: 'mock-match',
       shortDescription: 'Демо-результат локального mock match',
       stopsCount: 4,
@@ -326,7 +386,8 @@ class MockRouteMatchRepository implements RouteMatchRepository {
     const routeId = 'mock-generated-route-1';
     final card = RouteProposalCardData(
       proposalId: proposalId,
-      title: '${params.city} · ${params.interests.firstOrNull ?? "маршрут"}',
+      title:
+          '${params.locationLabel} · ${params.interests.firstOrNull ?? "маршрут"}',
       stopsCount: 4,
       durationMinutes: 280,
       placeIds: const ['p1', 'p2', 'p3', 'p4'],
@@ -337,7 +398,7 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       channel: channel,
       title: card.title,
       assistantText:
-          'Собрал черновик маршрута из ${params.city}. '
+          'Собрал черновик маршрута: ${params.locationLabel}. '
           'Можно создать маршрут, сохранить в черновик или уточнить параметры.',
       placeIds: card.placeIds,
       durationMinutes: card.durationMinutes,

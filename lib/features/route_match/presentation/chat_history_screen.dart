@@ -23,7 +23,7 @@ String routeMatchDurationLabel(RouteDurationOption option) {
 String chatSessionLabel(RoutePlanningSession session) {
   final c = session.constraints;
   final parts = [
-    c.city,
+    c.locationLabel,
     routeMatchDurationLabel(c.duration),
     if (c.interests.isNotEmpty) c.interests.first,
   ];

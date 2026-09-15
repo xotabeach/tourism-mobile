@@ -52,7 +52,12 @@ class RouteMatchScreen extends ConsumerStatefulWidget {
 class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     with WidgetsBindingObserver {
   late RouteMatchMode _mode;
-  String? _city;
+  String? _startQuery;
+  RouteLocationSuggestion? _selectedStartLocation;
+  List<RouteLocationSuggestion> _locationSuggestions = const [];
+  Timer? _locationSearchDebounce;
+  int _locationSearchGeneration = 0;
+  bool _locationSearchLoading = false;
   RouteTripType? _tripType = RouteTripType.romance;
   RouteDurationOption _duration = RouteDurationOption.d3_5;
   int _people = 2;
@@ -66,16 +71,15 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   bool _avoidCrowds = false;
   bool _paidOk = false;
 
-  final _cityController = TextEditingController();
+  final _startController = TextEditingController();
   final _budgetController = TextEditingController();
-  final _cityFocus = FocusNode(debugLabel: 'route-match-city');
+  final _startFocus = FocusNode(debugLabel: 'route-match-start-location');
   final _aiController = TextEditingController();
   final _aiFocus = FocusNode(debugLabel: 'route-match-ai');
   final _paramsScroll = ScrollController();
   final _aiScroll = ScrollController();
   final _modeSwitcherKey = GlobalKey();
 
-  bool _cityError = false;
   bool _composerDirty = false;
   double _appBarProgress = 0;
   double _lastViewInset = 0;
@@ -170,9 +174,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _cityController.dispose();
+    _locationSearchDebounce?.cancel();
+    _startController.dispose();
     _budgetController.dispose();
-    _cityFocus.dispose();
+    _startFocus.dispose();
     _aiController.dispose();
     _aiFocus
       ..removeListener(_onAiFocusChanged)
@@ -258,11 +263,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
 
   RouteMatchNotifier get _chat => ref.read(routeMatchNotifierProvider.notifier);
 
-  RouteMatchParams _draftParams() {
-    final city = _city?.trim();
-    final hasCity = city != null && city.isNotEmpty;
-    return _buildMatchParams(city: hasCity ? city : 'Крым');
-  }
+  RouteMatchParams _draftParams() => _buildMatchParams();
 
   Future<void> _startNewChat() async {
     if (widget.pixelReference) {
@@ -304,55 +305,96 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     context.go('/');
   }
 
-  void _selectCity(String city) {
+  void _selectStartLocation(RouteLocationSuggestion location) {
+    _locationSearchDebounce?.cancel();
+    _locationSearchGeneration += 1;
     setState(() {
-      _city = city;
-      _cityController.text = city;
-      _cityError = false;
+      _startQuery = location.name;
+      _selectedStartLocation = location;
+      _startController.text = location.name;
+      _startController.selection = TextSelection.collapsed(
+        offset: location.name.length,
+      );
+      _locationSuggestions = const [];
+      _locationSearchLoading = false;
     });
-    _cityFocus.unfocus();
+    _startFocus.unfocus();
   }
 
-  void _onCityTextChanged(String value) {
+  void _selectStartText(String value) {
+    _locationSearchDebounce?.cancel();
+    _locationSearchGeneration += 1;
     setState(() {
-      _city = value.trim().isEmpty ? null : value.trim();
-      _cityError = false;
+      _startQuery = value;
+      _selectedStartLocation = null;
+      _startController.text = value;
+      _startController.selection = TextSelection.collapsed(
+        offset: value.length,
+      );
+      _locationSuggestions = const [];
+      _locationSearchLoading = false;
     });
+    _startFocus.unfocus();
   }
 
-  void _clearCity() {
+  void _onStartTextChanged(String value) {
+    final query = value.trim();
+    _locationSearchDebounce?.cancel();
+    final generation = ++_locationSearchGeneration;
     setState(() {
-      _city = null;
-      _cityController.clear();
-      _cityError = false;
+      _startQuery = query.isEmpty ? null : query;
+      _selectedStartLocation = null;
+      _locationSuggestions = const [];
+      _locationSearchLoading = query.length >= 2;
     });
-  }
-
-  List<String> get _filteredSuggestions {
-    final q = _cityController.text.trim().toLowerCase();
-    if (q.isEmpty || (_city != null && _city!.toLowerCase() == q)) {
-      return const [];
+    if (query.length < 2) {
+      return;
     }
-    return crimeaCities
-        .where((c) => c.toLowerCase().contains(q) && c.toLowerCase() != q)
-        .take(5)
-        .toList();
+    _locationSearchDebounce = Timer(
+      const Duration(milliseconds: 280),
+      () => unawaited(_loadLocationSuggestions(query, generation)),
+    );
+  }
+
+  Future<void> _loadLocationSuggestions(String query, int generation) async {
+    try {
+      final suggestions = await ref
+          .read(routeMatchRepositoryProvider)
+          .searchLocations(query);
+      if (!mounted || generation != _locationSearchGeneration) {
+        return;
+      }
+      setState(() {
+        _locationSuggestions = suggestions;
+        _locationSearchLoading = false;
+      });
+    } on Object {
+      // Autocomplete is an aid, not a gate: a typed place can still be sent
+      // to the route service and an empty field means a flexible start.
+      if (!mounted || generation != _locationSearchGeneration) {
+        return;
+      }
+      setState(() {
+        _locationSuggestions = const [];
+        _locationSearchLoading = false;
+      });
+    }
+  }
+
+  void _clearStart() {
+    _locationSearchDebounce?.cancel();
+    _locationSearchGeneration += 1;
+    setState(() {
+      _startQuery = null;
+      _selectedStartLocation = null;
+      _startController.clear();
+      _locationSuggestions = const [];
+      _locationSearchLoading = false;
+    });
   }
 
   Future<void> _onMatchPressed() async {
-    final city = _city?.trim();
-    if (city == null || city.isEmpty) {
-      setState(() => _cityError = true);
-      unawaited(
-        _paramsScroll.animateTo(
-          0,
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-        ),
-      );
-      return;
-    }
-    final params = _buildMatchParams(city: city);
+    final params = _buildMatchParams();
     final result = await _chat.match(params);
     if (!mounted || result == null) {
       return;
@@ -362,13 +404,19 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     unawaited(context.pushNamed(AppRouteNames.routeMatchResults));
   }
 
-  RouteMatchParams _buildMatchParams({required String city}) {
+  RouteMatchParams _buildMatchParams() {
     final session = ref.read(sessionProvider);
     final advanced = session.advancedFiltersEnabled || session.travelPlusActive;
     final budgetRaw = _budgetController.text.trim();
     final budget = budgetRaw.isEmpty ? null : int.tryParse(budgetRaw);
+    final startQuery = _startQuery?.trim();
+    final hasStart = startQuery != null && startQuery.isNotEmpty;
+    final selected = _selectedStartLocation;
     return RouteMatchParams(
-      city: city,
+      startQuery: hasStart ? startQuery : null,
+      startLocalityId: selected?.isLocality == true ? selected?.id : null,
+      startPlaceId: selected?.isPlace == true ? selected?.id : null,
+      flexibleStart: !hasStart,
       tripType: _tripType,
       duration: _duration,
       people: _people,
@@ -711,7 +759,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     bool showAdvanced, {
     required bool matching,
   }) {
-    final suggestions = _filteredSuggestions;
+    final suggestions = _locationSuggestions;
     return ListView(
       key: const ValueKey('route-match-params-scroll'),
       controller: _paramsScroll,
@@ -722,28 +770,29 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
         SizedBox(height: px(15)),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: px(16)),
-          child: CitySearchField(
+          child: StartLocationSearchField(
             px: px,
-            controller: _cityController,
-            focusNode: _cityFocus,
-            hasError: _cityError,
-            onChanged: _onCityTextChanged,
-            onClear: _clearCity,
+            controller: _startController,
+            focusNode: _startFocus,
+            loading: _locationSearchLoading,
+            onChanged: _onStartTextChanged,
+            onClear: _clearStart,
           ),
         ),
         if (suggestions.isNotEmpty) ...[
           SizedBox(height: px(8)),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: px(16)),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: RouteBuilderDesignTokens.surface,
+            child: Material(
+              color: RouteBuilderDesignTokens.surface,
+              shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(px(12)),
-                border: Border.all(
+                side: BorderSide(
                   color: RouteBuilderDesignTokens.lightBorder,
                   width: px(1),
                 ),
               ),
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   for (var i = 0; i < suggestions.length; i++) ...[
@@ -754,14 +803,35 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                       ),
                     ListTile(
                       dense: true,
+                      leading: Icon(
+                        suggestions[i].isPlace
+                            ? Icons.place_outlined
+                            : Icons.location_city_outlined,
+                        size: px(20),
+                        color: RouteBuilderDesignTokens.primaryBlue,
+                      ),
                       title: Text(
-                        suggestions[i],
+                        suggestions[i].name,
                         style: RouteBuilderDesignTokens.rubik(
                           fontSize: px(14),
                           color: RouteBuilderDesignTokens.textPrimary,
                         ),
                       ),
-                      onTap: () => _selectCity(suggestions[i]),
+                      subtitle: suggestions[i].subtitle == null
+                          ? null
+                          : Text(
+                              suggestions[i].subtitle!,
+                              style: RouteBuilderDesignTokens.rubik(
+                                fontSize: px(12),
+                                color: RouteBuilderDesignTokens.textSecondary,
+                              ),
+                            ),
+                      trailing: Icon(
+                        Icons.north_west_rounded,
+                        size: px(17),
+                        color: RouteBuilderDesignTokens.textSecondary,
+                      ),
+                      onTap: () => _selectStartLocation(suggestions[i]),
                     ),
                   ],
                 ],
@@ -770,11 +840,11 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           ),
         ],
         SizedBox(height: px(9)),
-        CityQuickChips(
+        StartLocationQuickChips(
           px: px,
-          cities: popularCrimeaCities,
-          selected: _city,
-          onSelected: _selectCity,
+          locations: popularCrimeaStartLocations,
+          selected: _startQuery,
+          onSelected: _selectStartText,
         ),
         SizedBox(height: px(20)),
         TravelTypeSelector(

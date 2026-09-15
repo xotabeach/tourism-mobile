@@ -2,9 +2,53 @@ import 'package:tourism_mobile/features/route_match/domain/route_proposal_previe
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 
+class RouteLocationSuggestion {
+  const RouteLocationSuggestion({
+    required this.kind,
+    required this.id,
+    required this.name,
+    this.subtitle,
+    this.localityType,
+    this.centerLng,
+    this.centerLat,
+  });
+
+  final String kind;
+  final String id;
+  final String name;
+  final String? subtitle;
+  final String? localityType;
+  final double? centerLng;
+  final double? centerLat;
+
+  bool get isLocality => kind == 'locality';
+  bool get isPlace => kind == 'place';
+
+  factory RouteLocationSuggestion.fromJson(Map<String, dynamic> json) {
+    return RouteLocationSuggestion(
+      kind: json['kind'] as String? ?? 'locality',
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      subtitle: json['subtitle'] as String?,
+      localityType: json['locality_type'] as String?,
+      centerLng: (json['center_lng'] as num?)?.toDouble(),
+      centerLat: (json['center_lat'] as num?)?.toDouble(),
+    );
+  }
+}
+
 class RouteMatchParams {
   const RouteMatchParams({
-    required this.city,
+    this.city,
+    this.startQuery,
+    this.finishQuery,
+    this.startLocalityId,
+    this.finishLocalityId,
+    this.startPlaceId,
+    this.finishPlaceId,
+    this.searchArea,
+    this.preferredLocalities = const [],
+    this.flexibleStart = false,
     this.tripType,
     required this.duration,
     required this.people,
@@ -21,7 +65,18 @@ class RouteMatchParams {
     this.regionSlug = 'crimea',
   });
 
-  final String city;
+  /// Legacy compatibility with already stored sessions. New screens use the
+  /// typed start fields and never turn every settlement into a “city”.
+  final String? city;
+  final String? startQuery;
+  final String? finishQuery;
+  final String? startLocalityId;
+  final String? finishLocalityId;
+  final String? startPlaceId;
+  final String? finishPlaceId;
+  final String? searchArea;
+  final List<String> preferredLocalities;
+  final bool flexibleStart;
   final RouteTripType? tripType;
   final RouteDurationOption duration;
   final int people;
@@ -37,8 +92,20 @@ class RouteMatchParams {
   final bool? avoidCrowds;
   final String regionSlug;
 
+  String get locationLabel => startQuery ?? city ?? searchArea ?? 'Крым';
+
   Map<String, dynamic> toJson() => {
-    'city': city,
+    if (city != null) 'city': city,
+    if (startQuery != null) 'start_query': startQuery,
+    if (finishQuery != null) 'finish_query': finishQuery,
+    if (startLocalityId != null) 'start_locality_id': startLocalityId,
+    if (finishLocalityId != null) 'finish_locality_id': finishLocalityId,
+    if (startPlaceId != null) 'start_place_id': startPlaceId,
+    if (finishPlaceId != null) 'finish_place_id': finishPlaceId,
+    if (searchArea != null) 'search_area': searchArea,
+    if (preferredLocalities.isNotEmpty)
+      'preferred_localities': preferredLocalities,
+    if (flexibleStart) 'flexible_start': true,
     if (tripType != null) 'trip_type': tripType!.name,
     'duration': duration.name,
     'people': people,
@@ -56,7 +123,17 @@ class RouteMatchParams {
   };
 
   RouteMatchParams copyWith({
+    bool clearStart = false,
     String? city,
+    String? startQuery,
+    String? finishQuery,
+    String? startLocalityId,
+    String? finishLocalityId,
+    String? startPlaceId,
+    String? finishPlaceId,
+    String? searchArea,
+    List<String>? preferredLocalities,
+    bool? flexibleStart,
     RouteTripType? tripType,
     RouteDurationOption? duration,
     int? people,
@@ -73,7 +150,18 @@ class RouteMatchParams {
     String? regionSlug,
   }) {
     return RouteMatchParams(
-      city: city ?? this.city,
+      city: clearStart ? null : city ?? this.city,
+      startQuery: clearStart ? null : startQuery ?? this.startQuery,
+      finishQuery: finishQuery ?? this.finishQuery,
+      startLocalityId: clearStart
+          ? null
+          : startLocalityId ?? this.startLocalityId,
+      finishLocalityId: finishLocalityId ?? this.finishLocalityId,
+      startPlaceId: clearStart ? null : startPlaceId ?? this.startPlaceId,
+      finishPlaceId: finishPlaceId ?? this.finishPlaceId,
+      searchArea: searchArea ?? this.searchArea,
+      preferredLocalities: preferredLocalities ?? this.preferredLocalities,
+      flexibleStart: flexibleStart ?? this.flexibleStart,
       tripType: tripType ?? this.tripType,
       duration: duration ?? this.duration,
       people: people ?? this.people,
@@ -551,7 +639,7 @@ class SelectOptionItem {
 /// Сознательно общий, а не «выбор города»: агент присылает `select` с любым
 /// набором вариантов, клиент про смысл поля ничего не знает и возвращает
 /// выбранный `value` тем же путём, что значения слайдеров и переключателей.
-/// Сегодня так спрашивается только стартовый город.
+/// Может использоваться для любого небольшого закрытого набора вариантов.
 final class SelectBlock extends RouteChatBlock {
   const SelectBlock({
     required this.id,
@@ -705,6 +793,11 @@ class RouteGenerateResult {
 typedef RouteProposalResult = RouteProposal;
 
 abstract class RouteMatchRepository {
+  Future<List<RouteLocationSuggestion>> searchLocations(
+    String query, {
+    String regionSlug = 'crimea',
+  });
+
   Future<RouteProposalPreview> previewProposal(String id);
   Future<RouteProposalPreview> updateProposalDate(
     String id,
@@ -781,7 +874,20 @@ class RoutePlanningSession {
       sessionId: json['session_id'] as String,
       status: json['status'] as String? ?? 'active',
       constraints: RouteMatchParams(
-        city: rawConstraints['city'] as String? ?? 'Крым',
+        city: rawConstraints['city'] as String?,
+        startQuery: rawConstraints['start_query'] as String?,
+        finishQuery: rawConstraints['finish_query'] as String?,
+        startLocalityId: rawConstraints['start_locality_id'] as String?,
+        finishLocalityId: rawConstraints['finish_locality_id'] as String?,
+        startPlaceId: rawConstraints['start_place_id'] as String?,
+        finishPlaceId: rawConstraints['finish_place_id'] as String?,
+        searchArea: rawConstraints['search_area'] as String?,
+        preferredLocalities:
+            (rawConstraints['preferred_localities'] as List<dynamic>? ??
+                    const [])
+                .whereType<String>()
+                .toList(growable: false),
+        flexibleStart: rawConstraints['flexible_start'] as bool? ?? false,
         duration: RouteDurationOption.values.firstWhere(
           (item) =>
               item.name == (rawConstraints['duration'] as String? ?? 'd3_5'),

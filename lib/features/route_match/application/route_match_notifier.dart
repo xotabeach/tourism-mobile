@@ -419,7 +419,7 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
         await ensureSession(
           draftForSession ??
               const RouteMatchParams(
-                city: 'Крым',
+                flexibleStart: true,
                 duration: RouteDurationOption.d3_5,
                 people: 2,
                 interests: ['Природа'],
@@ -571,6 +571,7 @@ RouteMatchParams applyRouteMatchConstraintPatch(
   }
 
   return switch (actionId) {
+    'start_auto' => current.copyWith(clearStart: true, flexibleStart: true),
     'pace_calm' => current.copyWith(pace: RoutePace.calm),
     'pace_moderate' => current.copyWith(pace: RoutePace.moderate),
     'pace_active' => current.copyWith(pace: RoutePace.active),

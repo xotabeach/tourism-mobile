@@ -597,12 +597,12 @@ class _RouteModeSwitchPainter extends CustomPainter {
 
 // ── City search ─────────────────────────────────────────────────────────────
 
-class CitySearchField extends StatelessWidget {
-  const CitySearchField({
+class StartLocationSearchField extends StatelessWidget {
+  const StartLocationSearchField({
     required this.px,
     required this.controller,
     required this.focusNode,
-    required this.hasError,
+    required this.loading,
     required this.onChanged,
     required this.onClear,
     super.key,
@@ -611,16 +611,13 @@ class CitySearchField extends StatelessWidget {
   final RoutePx px;
   final TextEditingController controller;
   final FocusNode focusNode;
-  final bool hasError;
+  final bool loading;
   final ValueChanged<String> onChanged;
   final VoidCallback onClear;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(px(24));
-    final borderColor = hasError
-        ? const Color(0xFFE53935)
-        : RouteBuilderDesignTokens.borderGray;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -631,10 +628,7 @@ class CitySearchField extends StatelessWidget {
             decoration: BoxDecoration(
               color: RouteBuilderDesignTokens.fieldBackground,
               borderRadius: radius,
-              border: Border.all(
-                color: hasError ? borderColor : Colors.transparent,
-                width: px(1),
-              ),
+              border: Border.all(color: Colors.transparent, width: px(1)),
             ),
             child: Row(
               children: [
@@ -671,7 +665,7 @@ class CitySearchField extends StatelessWidget {
                       errorBorder: InputBorder.none,
                       focusedErrorBorder: InputBorder.none,
                       contentPadding: EdgeInsets.zero,
-                      hintText: 'Выберите стартовый город',
+                      hintText: 'Город, посёлок или место (необязательно)',
                       hintStyle: RouteBuilderDesignTokens.rubik(
                         fontSize: px(14),
                         color: RouteBuilderDesignTokens.textSecondary,
@@ -701,17 +695,34 @@ class CitySearchField extends StatelessWidget {
             ),
           ),
         ),
-        if (hasError) ...[
-          SizedBox(height: px(6)),
-          Text(
-            'Выберите стартовый город',
-            style: RouteBuilderDesignTokens.rubik(
-              fontSize: px(12),
-              color: const Color(0xFFE53935),
-              height: 1.1,
+        SizedBox(height: px(6)),
+        Row(
+          children: [
+            if (loading) ...[
+              SizedBox(
+                width: px(12),
+                height: px(12),
+                child: CircularProgressIndicator(
+                  strokeWidth: px(1.5),
+                  color: RouteBuilderDesignTokens.primaryBlue,
+                ),
+              ),
+              SizedBox(width: px(6)),
+            ],
+            Expanded(
+              child: Text(
+                loading
+                    ? 'Ищем населённые пункты и места'
+                    : 'Можно оставить пустым — предложим лучшую точку старта',
+                style: RouteBuilderDesignTokens.rubik(
+                  fontSize: px(11),
+                  color: RouteBuilderDesignTokens.textSecondary,
+                  height: 1.2,
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ],
     );
   }
@@ -747,17 +758,17 @@ class _SearchIconPainter extends CustomPainter {
 
 // ── City chips ──────────────────────────────────────────────────────────────
 
-class CityQuickChips extends StatelessWidget {
-  const CityQuickChips({
+class StartLocationQuickChips extends StatelessWidget {
+  const StartLocationQuickChips({
     required this.px,
-    required this.cities,
+    required this.locations,
     required this.selected,
     required this.onSelected,
     super.key,
   });
 
   final RoutePx px;
-  final List<String> cities;
+  final List<String> locations;
   final String? selected;
   final ValueChanged<String> onSelected;
 
@@ -770,19 +781,19 @@ class CityQuickChips extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: EdgeInsets.symmetric(horizontal: px(16)),
-            itemCount: cities.length,
+            itemCount: locations.length,
             separatorBuilder: (_, _) => SizedBox(width: px(8.5)),
             itemBuilder: (context, index) {
-              final city = cities[index];
-              final isSelected = city == selected;
+              final location = locations[index];
+              final isSelected = location == selected;
               return Semantics(
                 button: true,
                 selected: isSelected,
-                label: city,
+                label: location,
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () => onSelected(city),
+                    onTap: () => onSelected(location),
                     borderRadius: BorderRadius.circular(px(19)),
                     splashColor: Colors.transparent,
                     highlightColor: Colors.transparent,
@@ -801,7 +812,7 @@ class CityQuickChips extends StatelessWidget {
                       ),
                       child: Center(
                         child: Text(
-                          city,
+                          location,
                           style: RouteBuilderDesignTokens.rubik(
                             fontSize: px(13),
                             color: RouteBuilderDesignTokens.chipText,

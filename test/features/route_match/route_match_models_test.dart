@@ -36,6 +36,38 @@ void main() {
     expect(json.containsKey('role'), isFalse);
   });
 
+  test('RouteMatchParams serializes a typed place without a legacy city', () {
+    final json = const RouteMatchParams(
+      startQuery: 'Скала Дива',
+      startPlaceId: '11111111-1111-1111-1111-111111111111',
+      duration: RouteDurationOption.d1_2,
+      people: 1,
+      interests: ['Море'],
+      pace: RoutePace.calm,
+    ).toJson();
+
+    expect(json['start_query'], 'Скала Дива');
+    expect(json['start_place_id'], '11111111-1111-1111-1111-111111111111');
+    expect(json.containsKey('city'), isFalse);
+    expect(json.containsKey('flexible_start'), isFalse);
+  });
+
+  test('RouteMatchParams supports letting the planner choose the start', () {
+    const params = RouteMatchParams(
+      flexibleStart: true,
+      duration: RouteDurationOption.d1_2,
+      people: 1,
+      interests: ['Природа'],
+      pace: RoutePace.calm,
+    );
+    final json = params.toJson();
+
+    expect(json['flexible_start'], isTrue);
+    expect(json.containsKey('city'), isFalse);
+    expect(json.containsKey('start_query'), isFalse);
+    expect(params.locationLabel, 'Крым');
+  });
+
   test('RouteMatchResult parses ideal/close bands', () {
     final result = RouteMatchResult.fromJson({
       'strategy': 'algorithmic',

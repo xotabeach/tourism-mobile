@@ -93,6 +93,37 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('start search accepts a concrete place and remains optional', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(393, 852));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      const ProviderScope(child: MaterialApp(home: RouteMatchScreen())),
+    );
+    await tester.pump();
+
+    expect(
+      find.text('Можно оставить пустым — предложим лучшую точку старта'),
+      findsOneWidget,
+    );
+    await tester.enterText(find.byType(TextField).first, 'Див');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(find.text('Скала Дива'), findsOneWidget);
+    expect(find.text('Симеиз'), findsWidgets);
+    await tester.tap(find.text('Скала Дива'));
+    await tester.pump();
+
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller?.text,
+      'Скала Дива',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('RouteMatchScreen AI mode builds without overflow', (
     tester,
   ) async {

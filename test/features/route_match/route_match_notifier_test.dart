@@ -8,6 +8,12 @@ import 'package:tourism_mobile/features/route_match/presentation/route_match_wid
 
 class FakeRouteMatchRepository implements RouteMatchRepository {
   @override
+  Future<List<RouteLocationSuggestion>> searchLocations(
+    String query, {
+    String regionSlug = 'crimea',
+  }) async => const [];
+
+  @override
   Future<RouteProposalPreview> previewProposal(String id) async =>
       RouteProposalPreview(proposalId: id, title: 'Маршрут', stops: const []);
   @override
@@ -179,6 +185,25 @@ RouteMatchNotifier _notifier(FakeRouteMatchRepository repo) {
 }
 
 void main() {
+  test('automatic start clears a previously selected location', () {
+    const current = RouteMatchParams(
+      city: 'Ялта',
+      startQuery: 'Скала Дива',
+      startPlaceId: '11111111-1111-1111-1111-111111111111',
+      duration: RouteDurationOption.d1_2,
+      people: 1,
+      interests: ['Море'],
+      pace: RoutePace.calm,
+    );
+
+    final updated = applyRouteMatchConstraintPatch(current, 'start_auto');
+
+    expect(updated.flexibleStart, isTrue);
+    expect(updated.city, isNull);
+    expect(updated.startQuery, isNull);
+    expect(updated.startPlaceId, isNull);
+  });
+
   test('confirming four controls sends one complete turn', () async {
     final repo = FakeRouteMatchRepository();
     final chat = _notifier(repo);
