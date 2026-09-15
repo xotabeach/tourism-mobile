@@ -108,7 +108,7 @@ mobile-apk-publish:
       fi
       if [ -z "${DEPLOY_SSH_HOST:-}" ] || [ -z "${DEPLOY_SSH_PORT:-}" ] \
         || [ -z "${DEPLOY_SSH_USER:-}" ] || [ -z "${DEPLOY_SSH_PRIVATE_KEY:-}" ] \
-        || [ -z "${DEPLOY_SSH_KNOWN_HOSTS:-}" ] || [ -z "${DEPLOY_BACKEND_CONTAINER:-}" ]; then
+        || [ -z "${DEPLOY_SSH_KNOWN_HOSTS:-}" ]; then
         echo "Deploy CI variables missing — built APK cannot be published."
         exit 1
       fi

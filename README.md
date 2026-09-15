@@ -79,9 +79,43 @@ APK ставится как повреждённый пакет.
 
 Нужны CI variables: keystore (как у `mobile-apk-test`), `MOBILE_PROD_API_BASE_URL`,
 и доступ к серверу — `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_SSH_USER`,
-`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`, `DEPLOY_BACKEND_CONTAINER`
-(имя контейнера бэкенда, в чей `/app/data/media` писать). Необязательная
+`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`. Необязательная
 `APK_PUBLIC_BASE_URL` — чтобы в лог джобы попала готовая ссылка.
+
+#### Ключ, который умеет только это
+
+Пайплайну мобилки **не** отдаётся деплойный ключ бэкенда: он открывает полный
+SSH на прод вместе с миграциями, а для публикации APK нужно одно действие.
+Вместо этого — отдельный ключ, ограниченный на сервере forced command
+(`tourism-platform/deploy/test/apk-receive.sh`, установлен как
+`/opt/crimeatrip-test/apk-receive.sh`). С `command=` в `authorized_keys` sshd
+игнорирует то, что просит клиент, и запускает приёмник. Такой ключ не открывает
+шелл, не пробрасывает порты и не деплоит — он передаёт один APK.
+
+Приёмник принимает ровно `publish <major.minor.patch>` и проверяет входной
+поток: непустой, до 300 МБ, начинается с ZIP-заголовка. Версия сверяется с
+шаблоном и в шелл не попадает.
+
+Завести ключ (делается один раз, приватная половина через вас — не через CI):
+
+```bash
+ssh-keygen -t ed25519 -N '' -C crimeatrip-apk-publish -f ~/.ssh/crimeatrip-apk-publish
+
+printf 'command="/opt/crimeatrip-test/apk-receive.sh",no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding,no-user-rc %s\n' \
+  "$(cat ~/.ssh/crimeatrip-apk-publish.pub)" \
+  | ssh crimeatrip-prod 'cat >> /home/crimeatrip-deploy/.ssh/authorized_keys'
+
+glab variable set -R travel-platform2/tourism-mobile DEPLOY_SSH_PRIVATE_KEY \
+  --type file --protected --raw < ~/.ssh/crimeatrip-apk-publish
+
+rm ~/.ssh/crimeatrip-apk-publish        # в CI он уже есть, на машине не нужен
+```
+
+Проверить, что ключ действительно ограничен:
+
+```bash
+ssh -i ~/.ssh/crimeatrip-apk-publish crimeatrip-deploy@<host>    # должно отказать
+```
 
 Сборка iOS/Android, `dart-define`, signed APK/AAB:
 [mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md).
