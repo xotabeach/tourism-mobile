@@ -96,6 +96,12 @@ mobile-apk-publish:
     - ci-lean-notice
   before_script:
     - command -v ssh >/dev/null || (apt-get update -qq && apt-get install -y --no-install-recommends openssh-client >/dev/null)
+    - |
+      if [ -r /sys/fs/cgroup/memory.max ]; then
+        echo "CI cgroup memory.max=$(cat /sys/fs/cgroup/memory.max)"
+      elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
+        echo "CI cgroup memory.limit_in_bytes=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)"
+      fi
   script:
     # Named one by one rather than looped: the loop needed eval, and a typo in
     # an indirect expansion fails open — it reports the variable as present.
