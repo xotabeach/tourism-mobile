@@ -35,10 +35,10 @@ class MeProfile {
     this.travelPlusActive = false,
     this.travelPlusPlan,
     this.travelPlusExpiresAt,
-    this.aiChatEnabled = false,
-    this.maxRoutePoints = 5,
-    this.alternativesCount = 1,
-    this.advancedFiltersEnabled = false,
+    this.aiChatEnabled = true,
+    this.maxRoutePoints = 12,
+    this.alternativesCount = 3,
+    this.advancedFiltersEnabled = true,
   });
 
   final String id;

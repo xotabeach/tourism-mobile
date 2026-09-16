@@ -37,7 +37,7 @@ void _ignoreCheckoutListTileInkErrors() {
 }
 
 void main() {
-  testWidgets('checkout submit activates Travel+ and unlocks AI chat', (
+  testWidgets('checkout submit shows beta notice without activation', (
     tester,
   ) async {
     tester.view
@@ -92,38 +92,17 @@ void main() {
     await tester.tap(submit);
     await tester.pumpAndSettle();
 
-    expect(container.read(sessionProvider).travelPlusActive, isTrue);
-    expect(find.text('travel-plus-home'), findsOneWidget);
-
-    final matchRouter = GoRouter(
-      initialLocation: '/match',
-      routes: [
-        GoRoute(path: '/match', builder: (_, _) => const RouteMatchScreen()),
-        GoRoute(
-          path: '/profile/settings/travel-plus',
-          builder: (_, _) => const Scaffold(body: Text('TRAVEL_PLUS_GATE')),
-        ),
-      ],
+    expect(container.read(sessionProvider).travelPlusActive, isFalse);
+    expect(
+      find.text('В бета-версии покупка подписки недоступна'),
+      findsOneWidget,
     );
-    addTearDown(matchRouter.dispose);
-
-    await tester.pumpWidget(
-      UncontrolledProviderScope(container: container, child: _app(matchRouter)),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('route-mode-ai')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('TRAVEL_PLUS_GATE'), findsNothing);
-    expect(find.text('Тревел Агент'), findsWidgets);
+    expect(find.text('travel-plus-home'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('AI CTA without Travel+ opens the subscription screen', (
-    tester,
-  ) async {
+  testWidgets('AI CTA is available without Travel+', (tester) async {
     await tester.pumpWidget(const SizedBox.shrink());
     tester.view
       ..devicePixelRatio = 1
@@ -157,8 +136,8 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('route-mode-ai')));
     await tester.pumpAndSettle();
 
-    expect(find.text('TRAVEL_PLUS_GATE'), findsOneWidget);
-    expect(find.text('Тревел Агент'), findsNothing);
+    expect(find.text('TRAVEL_PLUS_GATE'), findsNothing);
+    expect(find.text('Тревел Агент'), findsWidgets);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

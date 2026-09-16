@@ -2093,7 +2093,7 @@ class _AdvancedToggle extends StatelessWidget {
 class RouteActionButtons extends StatelessWidget {
   const RouteActionButtons({
     required this.px,
-    required this.hasTravelPlus,
+    required this.aiEnabled,
     required this.matching,
     required this.onMatch,
     required this.onAi,
@@ -2101,7 +2101,7 @@ class RouteActionButtons extends StatelessWidget {
   });
 
   final RoutePx px;
-  final bool hasTravelPlus;
+  final bool aiEnabled;
   final bool matching;
   final VoidCallback onMatch;
   final VoidCallback onAi;
@@ -2112,7 +2112,7 @@ class RouteActionButtons extends StatelessWidget {
       children: [
         _PrimaryMatchButton(px: px, matching: matching, onPressed: onMatch),
         SizedBox(height: px(8)),
-        _AiMatchButton(px: px, hasTravelPlus: hasTravelPlus, onPressed: onAi),
+        _AiMatchButton(px: px, aiEnabled: aiEnabled, onPressed: onAi),
       ],
     );
   }
@@ -2177,20 +2177,20 @@ class _PrimaryMatchButton extends StatelessWidget {
 class _AiMatchButton extends StatelessWidget {
   const _AiMatchButton({
     required this.px,
-    required this.hasTravelPlus,
+    required this.aiEnabled,
     required this.onPressed,
   });
 
   final RoutePx px;
-  final bool hasTravelPlus;
+  final bool aiEnabled;
   final VoidCallback onPressed;
 
   @override
   Widget build(BuildContext context) {
     final radius = BorderRadius.circular(px(28));
-    final caption = hasTravelPlus
-        ? 'Подписка Тревел+ активна'
-        : 'Доступно с подпиской Тревел+';
+    final caption = aiEnabled
+        ? 'Доступно всем в бета-версии'
+        : 'Временно недоступно';
     return Semantics(
       button: true,
       label: 'Собрать маршрут с ИИ',

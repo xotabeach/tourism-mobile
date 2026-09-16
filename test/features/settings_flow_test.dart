@@ -56,7 +56,7 @@ void main() {
     expect(find.text('Уведомления'), findsOneWidget);
     expect(find.text('Оффлайн маршруты'), findsOneWidget);
     expect(find.text('ТРЕВЕЛ'), findsWidgets);
-    expect(find.text('Первый месяц бесплатно'), findsOneWidget);
+    expect(find.text('Скоро'), findsOneWidget);
   });
 
   testWidgets('support chat scrolls fully above floating nav and opens', (
@@ -163,21 +163,21 @@ void main() {
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new_rounded));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Первый месяц бесплатно'));
+    await tester.tap(find.text('Скоро'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsTravelPlusScreen), findsOneWidget);
     expect(find.text('999 ₽/год'), findsOneWidget);
     expect(find.text('99 ₽/мес'), findsOneWidget);
     expect(find.text('Продолжить'), findsNothing);
     expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
-    expect(find.text('Первый месяц бесплатно'), findsWidgets);
+    expect(find.text('Скоро'), findsOneWidget);
     expect(find.text('Поддержка и обратная связь'), findsOneWidget);
 
     await tester.tap(find.text('99 ₽/мес'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsTravelPlusCheckoutScreen), findsOneWidget);
-    expect(find.text('Оформление подписки'), findsOneWidget);
-    expect(find.text('Оформить подписку'), findsOneWidget);
+    expect(find.text('Скоро'), findsOneWidget);
+    expect(find.text('Недоступно в бета-версии'), findsOneWidget);
     expect(find.text('Месяц/Год'), findsOneWidget);
     expect(find.text('CVC/CVV'), findsOneWidget);
     expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);

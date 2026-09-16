@@ -25,7 +25,7 @@ void main() {
     await _pumpReferenceFrame(tester, const SettingsTravelPlusScreen());
 
     const benefits = [
-      'Неограниченный подбор',
+      'Расширенный подбор',
       'Искусственный интеллект',
       'Отсутствие рекламы',
       'Больше функций при поиске',
@@ -70,7 +70,7 @@ void main() {
   testWidgets('golden Travel Plus checkout content', (tester) async {
     await _pumpReferenceFrame(tester, const SettingsTravelPlusCheckoutScreen());
 
-    for (final title in ['Первый месяц бесплатно', 'Автопродление']) {
+    for (final title in ['Покупка пока закрыта', 'После запуска']) {
       expect(
         tester.getSize(find.byKey(ValueKey('travel-plus-info-$title'))).height,
         61,

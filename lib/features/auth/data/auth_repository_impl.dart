@@ -228,11 +228,10 @@ final class ApiAuthRepository implements AuthRepository {
       travelPlusActive: data['travel_plus_active'] as bool? ?? false,
       travelPlusPlan: data['travel_plus_plan'] as String?,
       travelPlusExpiresAt: _parseIsoDate(data['travel_plus_expires_at']),
-      aiChatEnabled: data['ai_chat_enabled'] as bool? ?? false,
-      maxRoutePoints: data['max_route_points'] as int? ?? 5,
-      alternativesCount: data['alternatives_count'] as int? ?? 1,
-      advancedFiltersEnabled:
-          data['advanced_filters_enabled'] as bool? ?? false,
+      aiChatEnabled: data['ai_chat_enabled'] as bool? ?? true,
+      maxRoutePoints: data['max_route_points'] as int? ?? 12,
+      alternativesCount: data['alternatives_count'] as int? ?? 3,
+      advancedFiltersEnabled: data['advanced_filters_enabled'] as bool? ?? true,
     );
   }
 
@@ -358,10 +357,10 @@ final class MockAuthRepository implements AuthRepository {
       travelPlusActive: _travelPlusActive,
       travelPlusPlan: _travelPlusPlan,
       travelPlusExpiresAt: _travelPlusExpiresAt,
-      aiChatEnabled: _travelPlusActive,
-      maxRoutePoints: _travelPlusActive ? 12 : 5,
-      alternativesCount: _travelPlusActive ? 3 : 1,
-      advancedFiltersEnabled: _travelPlusActive,
+      aiChatEnabled: true,
+      maxRoutePoints: 12,
+      alternativesCount: 3,
+      advancedFiltersEnabled: true,
     );
   }
 

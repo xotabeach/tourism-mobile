@@ -2,19 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
-import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
-import 'package:tourism_mobile/features/settings/application/settings_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
-import 'package:tourism_mobile/routing/app_router.dart';
 
-/// Mock checkout / activation for Travel+. Payment is not real.
+/// Read-only Travel+ checkout preview while billing is unavailable in beta.
 class SettingsTravelPlusCheckoutScreen extends ConsumerStatefulWidget {
   const SettingsTravelPlusCheckoutScreen({
     super.key,
@@ -58,29 +54,8 @@ class _SettingsTravelPlusCheckoutScreenState
     return '•••• ${digits.substring(digits.length - 4)}';
   }
 
-  Future<void> _submit() async {
-    final digits = _cardNumber.text.replaceAll(RegExp(r'\D'), '');
-    if (digits.length < 12 || digits.length > 19) {
-      showAppNotice(context, 'Проверьте номер карты');
-      return;
-    }
-    ref.read(settingsPreferencesProvider.notifier).setPaymentLast4(digits);
-    try {
-      await ref
-          .read(sessionProvider.notifier)
-          .activateTravelPlus(yearly: _yearly);
-    } on Object {
-      if (!mounted) {
-        return;
-      }
-      showAppNotice(context, 'Не удалось активировать подписку');
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-    showAppNotice(context, 'Подписка оформлена');
-    context.goNamed(AppRouteNames.settingsTravelPlus);
+  void _submit() {
+    showAppNotice(context, 'В бета-версии покупка подписки недоступна');
   }
 
   @override
@@ -100,7 +75,7 @@ class _SettingsTravelPlusCheckoutScreenState
           children: [
             TravelPlusHeroBackground(
               topInset: top,
-              subtitle: 'Оформление подписки',
+              subtitle: 'Скоро',
               child: const SizedBox(height: 36),
             ),
             Transform.translate(
@@ -315,23 +290,23 @@ class _SettingsTravelPlusCheckoutScreenState
                       ),
                     ),
                     const SizedBox(height: 10),
-                    _CheckoutInfoBanner(
+                    const _CheckoutInfoBanner(
                       icon: Icons.discount_outlined,
-                      title: 'Первый месяц бесплатно',
+                      title: 'Покупка пока закрыта',
                       subtitle:
-                          'Оплата $dueTodayLabel начнет списываться только со второго месяца пользования подпиской',
+                          'В бета-версии оформить подписку и привязать карту нельзя',
                     ),
                     const SizedBox(height: 8),
                     const _CheckoutInfoBanner(
                       icon: Icons.shield_outlined,
-                      title: 'Автопродление',
+                      title: 'После запуска',
                       subtitle:
-                          'Отменить автопродление можно в настройках подписки в любой момент',
+                          'Перед оплатой мы покажем окончательные условия подписки',
                     ),
                     const SizedBox(height: 14),
                     SettingsPrimaryButton(
                       key: const ValueKey('travel-plus-checkout-submit'),
-                      label: 'Оформить подписку',
+                      label: 'Недоступно в бета-версии',
                       height: 52,
                       textStyle: AppTypography.settingsCta.copyWith(
                         fontSize: 16,

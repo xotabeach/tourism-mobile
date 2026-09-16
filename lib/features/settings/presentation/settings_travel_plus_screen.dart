@@ -23,7 +23,7 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
 
     final subtitle = travelPlus.active
         ? 'Активна до ${travelPlus.expiresLabel}'
-        : 'Первый месяц бесплатно';
+        : 'Скоро';
 
     if (travelPlus.active) {
       return _TravelPlusActiveBody(topInset: top, travelPlus: travelPlus);
@@ -60,15 +60,15 @@ class SettingsTravelPlusScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 9),
                   const _BenefitCard(
-                    title: 'Неограниченный подбор',
+                    title: 'Расширенный подбор',
                     subtitle:
-                        'В бесплатной версии доступно всего 5 подборов в неделю',
+                        'В бета-версии всем доступно 5 генераций маршрута в сутки',
                   ),
                   const SizedBox(height: 8),
                   const _BenefitCard(
                     title: 'Искусственный интеллект',
                     subtitle:
-                        'Возможность пользоваться специально обученным ИИ для подбора маршрутов',
+                        'ИИ-подбор открыт всем пользователям на время бета-тестирования',
                   ),
                   const SizedBox(height: 8),
                   const _BenefitCard(
@@ -598,14 +598,14 @@ class _FreeMonthBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Первый месяц бесплатно',
+                  'Покупка позже',
                   style: AppTypography.settingsRowTitle,
                 ),
-                const SizedBox(height: 3),
+                const SizedBox(height: 2),
                 Text(
-                  'Оплата 99 ₽ начнет списываться только со второго месяца пользования подпиской',
+                  'Оформление откроется после бета-тестирования',
                   style: AppTypography.settingsRowSubtitle.copyWith(
-                    fontSize: 11.5,
+                    fontSize: 11,
                     height: 1.2,
                   ),
                   maxLines: 2,

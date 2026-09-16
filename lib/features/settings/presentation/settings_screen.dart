@@ -27,7 +27,7 @@ class SettingsScreen extends ConsumerWidget {
         active: travelPlus.active,
         subtitle: travelPlus.active
             ? 'Активна до ${travelPlus.expiresLabel}'
-            : 'Первый месяц бесплатно',
+            : 'Скоро',
         onTap: () => context.pushNamed(AppRouteNames.settingsTravelPlus),
       ),
       children: [

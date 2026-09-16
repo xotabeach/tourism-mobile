@@ -143,7 +143,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   /// history screen delegates there instead of rebuilding the transcript in
   /// this widget's own state.
   Future<void> _resumeSession(RoutePlanningSession session) async {
-    if (!ref.read(sessionProvider).travelPlusActive) {
+    if (!ref.read(sessionProvider).aiChatEnabled) {
       unawaited(context.push('/profile/settings/travel-plus'));
       return;
     }
@@ -240,7 +240,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   void _setMode(RouteMatchMode mode) {
     if (mode == RouteMatchMode.ai &&
         !widget.pixelReference &&
-        !ref.read(sessionProvider).travelPlusActive) {
+        !ref.read(sessionProvider).aiChatEnabled) {
       unawaited(context.push('/profile/settings/travel-plus'));
       return;
     }
@@ -510,7 +510,7 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   }
 
   void _onAiCtaPressed() {
-    if (!widget.pixelReference && !ref.read(sessionProvider).travelPlusActive) {
+    if (!widget.pixelReference && !ref.read(sessionProvider).aiChatEnabled) {
       unawaited(context.push('/profile/settings/travel-plus'));
       return;
     }
@@ -947,9 +947,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           padding: EdgeInsets.symmetric(horizontal: px(16)),
           child: RouteActionButtons(
             px: px,
-            hasTravelPlus:
+            aiEnabled:
                 widget.pixelReference ||
-                ref.watch(sessionProvider).travelPlusActive,
+                ref.watch(sessionProvider).aiChatEnabled,
             matching: matching,
             onMatch: () {
               unawaited(_onMatchPressed());
