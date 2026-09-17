@@ -50,3 +50,4 @@ app.*.map.json
 
 # Адрес API и прочие локальные параметры сборки — только на машине.
 scripts/build.env
+scripts/publish.env

@@ -5,13 +5,13 @@
 # build. The backend serves /media as static files, so the APK goes into that
 # volume under app/ and the landing proxies /download to it.
 #
-# This end is deliberately thin. The key in CI is restricted on the server by
+# This end is deliberately thin. The key is restricted on the server by
 # a forced command (see tourism-platform/deploy/test/apk-receive.sh), so it
 # cannot open a shell, forward a port or deploy anything — it can hand over
 # one APK and nothing else. All the placement logic lives there, where a
 # compromised pipeline cannot rewrite it.
 #
-# Required protected CI variables:
+# Required environment variables (values or paths to local files):
 #   DEPLOY_SSH_HOST, DEPLOY_SSH_PORT, DEPLOY_SSH_USER, DEPLOY_SSH_PRIVATE_KEY
 #   DEPLOY_SSH_KNOWN_HOSTS  — full known_hosts line(s) or a GitLab File var.
 # Optional:

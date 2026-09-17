@@ -56,37 +56,41 @@ Release без `APP_ENV` выбирает `production` и откажется с�
 ```
 
 CI lean (default): на `main`/`gamma` style/tests не гоняются — локально
-`./scripts/validate.sh`. APK: job `mobile-apk-test` **manual** (или полный
-pipeline при `CI_PIPELINE_MODE=full`). Нужны CI variables keystore +
-`MOBILE_TEST_API_BASE_URL`; см.
+`./scripts/validate.sh`. APK собирается локально, чтобы Android toolchain не
+конкурировал за память с production-контейнерами; см.
 [ci-and-runners.md](../tourism-platform/docs/ci-and-runners.md).
 
 ### Публикация APK по ссылке
 
 Приложения нет ни в одном сторе, поэтому единственный способ отдать кому-то
-сборку — ссылка. Job `mobile-apk-publish` (**manual**, только `main`) собирает
-релизный APK с боевым API и кладёт его в media-том бэкенда:
+сборку — ссылка. Одна локальная команда собирает подписанный релиз с боевым
+API и кладёт его в media-том бэкенда:
+
+```bash
+./scripts/publish-production-apk.sh --dry-run  # только проверка настроек
+./scripts/publish-production-apk.sh            # сборка и публикация
+```
 
 ```
 https://201-24-55-130.sslip.io/media/app/crimeatrip-latest.apk   # всегда последняя
-https://201-24-55-130.sslip.io/media/app/crimeatrip-0.2.4.apk    # архив по версии
+https://201-24-55-130.sslip.io/media/app/crimeatrip-0.2.5.apk    # архив по версии
 ```
 
-Manual, потому что job перезаписывает ссылку, с которой все ставят
-приложение: какой коммит станет «latest», решает человек. Файл пишется под
-временным именем и переименовывается только после сверки размера — недокачанный
-APK ставится как повреждённый пакет.
+Команда запускается вручную, потому что она перезаписывает ссылку, с которой
+все ставят приложение: какая сборка станет «latest», решает человек. Файл
+пишется под временным именем и переименовывается только после сверки размера —
+недокачанный APK ставится как повреждённый пакет.
 
-Нужны CI variables: keystore (как у `mobile-apk-test`), `MOBILE_PROD_API_BASE_URL`,
-и доступ к серверу — `DEPLOY_SSH_HOST`, `DEPLOY_SSH_PORT`, `DEPLOY_SSH_USER`,
-`DEPLOY_SSH_PRIVATE_KEY`, `DEPLOY_SSH_KNOWN_HOSTS`. Необязательная
-`APK_PUBLIC_BASE_URL` — чтобы в лог джобы попала готовая ссылка.
+Нужны локальные `android/key.properties`, `scripts/build.env`, ключ
+`~/.ssh/crimeatrip-apk-publish` и закреплённый ключ сервера в
+`~/.ssh/known_hosts`. Необязательные переопределения читаются из
+gitignored `scripts/publish.env`; шаблон — `scripts/publish.env.example`.
 
 #### Ключ, который умеет только это
 
-Пайплайну мобилки **не** отдаётся деплойный ключ бэкенда: он открывает полный
-SSH на прод вместе с миграциями, а для публикации APK нужно одно действие.
-Вместо этого — отдельный ключ, ограниченный на сервере forced command
+Локальной публикации **не** отдаётся деплойный ключ бэкенда: он открывает
+полный SSH на прод вместе с миграциями, а для APK нужно одно действие. Вместо
+этого используется отдельный ключ, ограниченный на сервере forced command
 (`tourism-platform/deploy/test/apk-receive.sh`, установлен как
 `/opt/crimeatrip-test/apk-receive.sh`). С `command=` в `authorized_keys` sshd
 игнорирует то, что просит клиент, и запускает приёмник. Такой ключ не открывает
@@ -96,7 +100,7 @@ SSH на прод вместе с миграциями, а для публика
 поток: непустой, до 300 МБ, начинается с ZIP-заголовка. Версия сверяется с
 шаблоном и в шелл не попадает.
 
-Завести ключ (делается один раз, приватная половина через вас — не через CI):
+Завести ключ на рабочей машине (делается один раз):
 
 ```bash
 ssh-keygen -t ed25519 -N '' -C crimeatrip-apk-publish -f ~/.ssh/crimeatrip-apk-publish
@@ -105,10 +109,8 @@ printf 'command="/opt/crimeatrip-test/apk-receive.sh",no-pty,no-port-forwarding,
   "$(cat ~/.ssh/crimeatrip-apk-publish.pub)" \
   | ssh crimeatrip-prod 'cat >> /home/crimeatrip-deploy/.ssh/authorized_keys'
 
-glab variable set -R travel-platform2/tourism-mobile DEPLOY_SSH_PRIVATE_KEY \
-  --type file --protected --raw < ~/.ssh/crimeatrip-apk-publish
-
-rm ~/.ssh/crimeatrip-apk-publish        # в CI он уже есть, на машине не нужен
+# Приватный ключ остаётся только локально и не добавляется в git.
+chmod 600 ~/.ssh/crimeatrip-apk-publish
 ```
 
 Проверить, что ключ действительно ограничен:

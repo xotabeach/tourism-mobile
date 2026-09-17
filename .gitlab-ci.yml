@@ -1,7 +1,7 @@
 # Lean CI for active development (saves GitLab shared-runner minutes).
 # Quality gates (format/analyze/test) run locally:
 #   ./scripts/validate.sh
-# Full DevSecOps + APK artifact pipeline: `.gitlab-ci.full.yml`
+# Full DevSecOps pipeline: `.gitlab-ci.full.yml`
 # Enable full: CI/CD variable CI_PIPELINE_MODE=full
 # Docs: tourism-platform/docs/ci-and-runners.md
 
@@ -19,23 +19,7 @@ workflow:
 
 stages:
   - lean
-  - build
-  - publish
   - mirror
-
-.flutter-image: &flutter-image ghcr.io/cirruslabs/flutter:3.44.0
-
-.pub-cache: &pub-cache
-  cache:
-    key:
-      files:
-        - pubspec.lock
-    paths:
-      - .pub-cache
-      - .dart_tool
-
-variables:
-  PUB_CACHE: "$CI_PROJECT_DIR/.pub-cache"
 
 ci-lean-notice:
   stage: lean
@@ -43,107 +27,11 @@ ci-lean-notice:
   script:
     # Quote whole lines: YAML treats unquoted `key: value` as a mapping.
     - 'echo "Lean CI — Flutter style/tests run locally (./scripts/validate.sh)."'
-    - 'echo "Signed APK: run job mobile-apk-test manually, or set CI_PIPELINE_MODE=full."'
+    - 'echo "Signed APK: build and publish locally with ./scripts/publish-production-apk.sh."'
   rules:
     - if: '$CI_PIPELINE_MODE == "full"'
       when: never
     - when: on_success
-
-# Optional signed test APK (manual only in lean mode — does not auto-burn minutes).
-mobile-apk-test:
-  stage: build
-  image: *flutter-image
-  <<: *pub-cache
-  needs:
-    - ci-lean-notice
-  script:
-    - |
-      if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] \
-        || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_STORE_PASSWORD:-}" ] \
-        || [ -z "${MOBILE_TEST_API_BASE_URL:-}" ]; then
-        echo "Signing / API CI variables missing — cannot build signed APK."
-        exit 1
-      fi
-    - bash scripts/ci-prepare-android-signing.sh
-    - >
-      ./scripts/build-signed-apk.sh
-      --env test
-      --data-source api
-      --api-url "${MOBILE_TEST_API_BASE_URL}"
-    - test -f dist/CrimeaTrip-test-api.apk
-    - rm -f android/key.properties android/ci-upload.jks
-  artifacts:
-    name: "crimeatrip-apk-$CI_COMMIT_SHORT_SHA"
-    paths:
-      - dist/CrimeaTrip-test-api.apk
-    expire_in: 14 days
-    when: on_success
-  rules:
-    - if: '$CI_PIPELINE_MODE == "full"'
-      when: never
-    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == "gamma"'
-      when: manual
-      allow_failure: true
-
-# The app is in neither store, so a link is the only way to hand someone a
-# build. Production env and the production API on purpose: this is what a
-# tester installs, not a debug variant.
-mobile-apk-publish:
-  stage: publish
-  image: *flutter-image
-  <<: *pub-cache
-  needs:
-    - ci-lean-notice
-  before_script:
-    - command -v ssh >/dev/null || (apt-get update -qq && apt-get install -y --no-install-recommends openssh-client >/dev/null)
-    - |
-      if [ -r /sys/fs/cgroup/memory.max ]; then
-        echo "CI cgroup memory.max=$(cat /sys/fs/cgroup/memory.max)"
-      elif [ -r /sys/fs/cgroup/memory/memory.limit_in_bytes ]; then
-        echo "CI cgroup memory.limit_in_bytes=$(cat /sys/fs/cgroup/memory/memory.limit_in_bytes)"
-      fi
-  script:
-    # Named one by one rather than looped: the loop needed eval, and a typo in
-    # an indirect expansion fails open — it reports the variable as present.
-    - |
-      if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ] || [ -z "${ANDROID_KEY_ALIAS:-}" ] \
-        || [ -z "${ANDROID_KEY_PASSWORD:-}" ] || [ -z "${ANDROID_STORE_PASSWORD:-}" ] \
-        || [ -z "${MOBILE_PROD_API_BASE_URL:-}" ]; then
-        echo "Signing / API CI variables missing — cannot build the release APK."
-        exit 1
-      fi
-      if [ -z "${DEPLOY_SSH_HOST:-}" ] || [ -z "${DEPLOY_SSH_PORT:-}" ] \
-        || [ -z "${DEPLOY_SSH_USER:-}" ] || [ -z "${DEPLOY_SSH_PRIVATE_KEY:-}" ] \
-        || [ -z "${DEPLOY_SSH_KNOWN_HOSTS:-}" ]; then
-        echo "Deploy CI variables missing — built APK cannot be published."
-        exit 1
-      fi
-    - bash scripts/ci-prepare-android-signing.sh
-    # The version name the build carries, so the archived copy is findable.
-    - export APK_VERSION="$(grep -m1 '^version:' pubspec.yaml | cut -d' ' -f2 | cut -d'+' -f1)"
-    - >
-      ./scripts/build-signed-apk.sh
-      --env production
-      --data-source api
-      --api-url "${MOBILE_PROD_API_BASE_URL}"
-    - test -f dist/CrimeaTrip-production-api.apk
-    - bash scripts/ci-publish-apk.sh dist/CrimeaTrip-production-api.apk "${APK_VERSION}"
-  # after_script, not the end of script: a failed build would otherwise leave
-  # the signing key on the runner.
-  after_script:
-    - rm -f android/key.properties android/ci-upload.jks
-  artifacts:
-    name: "crimeatrip-apk-$CI_COMMIT_SHORT_SHA"
-    paths:
-      - dist/CrimeaTrip-production-api.apk
-    expire_in: 30 days
-    when: on_success
-  # Manual: it overwrites the link everyone installs from, so a human decides
-  # which commit becomes "latest".
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
-      when: manual
-      allow_failure: true
 
 github-mirror:
   stage: mirror
