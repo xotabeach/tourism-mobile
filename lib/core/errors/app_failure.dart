@@ -1,6 +1,6 @@
 /// Typed failure for UI / providers. Never put tokens or passwords in [message].
 sealed class AppFailure implements Exception {
-  const AppFailure(this.message, [this.code]);
+  const AppFailure(this.message, [this.code, this.details]);
 
   final String message;
 
@@ -8,6 +8,10 @@ sealed class AppFailure implements Exception {
   /// caller react to a specific refusal (a chat that filled up, say) without
   /// matching on human-readable text that translation would break.
   final String? code;
+
+  /// The envelope's `error.details`, when it carried a map. Optional extras
+  /// only (a `blocked_until` timestamp, say); never rely on it being present.
+  final Map<String, Object?>? details;
 
   @override
   String toString() => message;
@@ -31,6 +35,18 @@ final class AuthFailure extends AppFailure {
 /// forever, for example when the run was already finished on another device.
 final class RejectedFailure extends AppFailure {
   const RejectedFailure([super.message = 'Request rejected', super.code]);
+}
+
+/// The server refuses to start new routes for this account for a while
+/// (anti-fraud). Not an [AuthFailure]: the session is fine and must stay.
+final class RouteStartBlockedFailure extends AppFailure {
+  const RouteStartBlockedFailure(
+    this.blockedUntil, [
+    super.message = 'Route start is temporarily unavailable',
+    super.code = 'route_start_blocked',
+  ]);
+
+  final DateTime? blockedUntil;
 }
 
 final class UnexpectedFailure extends AppFailure {

@@ -18,6 +18,12 @@ AppFailure _mapDioFailure(DioException error) {
   final status = error.response?.statusCode;
   final apiMessage = _apiErrorMessage(error);
   final apiCode = _apiErrorCode(error);
+  if (status == 403 && apiCode == 'route_start_blocked') {
+    return RouteStartBlockedFailure(
+      _blockedUntil(error),
+      apiMessage ?? 'Route start is temporarily unavailable',
+    );
+  }
   if (status == 401 || status == 403) {
     return AuthFailure(apiMessage ?? 'Authentication failed', apiCode);
   }
@@ -43,6 +49,17 @@ AppFailure _mapDioFailure(DioException error) {
       apiMessage ?? 'Unexpected error',
     ),
   };
+}
+
+DateTime? _blockedUntil(DioException error) {
+  final data = error.response?.data;
+  if (data is! Map) {
+    return null;
+  }
+  final envelope = data['error'];
+  final details = envelope is Map ? envelope['details'] : null;
+  final raw = details is Map ? details['blocked_until'] : null;
+  return raw is String ? DateTime.tryParse(raw) : null;
 }
 
 /// True when the API states that repeating this request cannot help.

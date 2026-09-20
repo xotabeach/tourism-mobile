@@ -20,6 +20,11 @@ class RouteExecutionStop {
     this.lat,
     this.lng,
     this.completedAt,
+    this.legDistanceMeters,
+    this.legEstimateSeconds,
+    this.legEstimateSource,
+    this.paceWarnBelowSeconds,
+    this.undelivered = false,
   });
 
   final String id;
@@ -32,9 +37,32 @@ class RouteExecutionStop {
   final double? lng;
   final DateTime? completedAt;
 
+  /// Length of the leg that ends at this stop (from the previous one).
+  final int? legDistanceMeters;
+
+  /// The server's expected time for that leg; null when it has no estimate.
+  final int? legEstimateSeconds;
+  final String? legEstimateSource;
+
+  /// Warn before a mark that arrives sooner than this after the previous one.
+  /// Only present while the server enforces; a hint, the server stays the judge.
+  final int? paceWarnBelowSeconds;
+
+  /// A queued mark for this stop was dropped without reaching the server.
+  /// Local only: set by the offline coordinator, cleared by a new mark.
+  final bool undelivered;
+
   bool get isCompleted => completedAt != null;
 
-  RouteExecutionStop copyWith({DateTime? completedAt}) => RouteExecutionStop(
+  RouteExecutionStop copyWith({
+    DateTime? completedAt,
+    int? legDistanceMeters,
+    int? legEstimateSeconds,
+    String? legEstimateSource,
+    int? paceWarnBelowSeconds,
+    bool clearPaceWarn = false,
+    bool? undelivered,
+  }) => RouteExecutionStop(
     id: id,
     position: position,
     placeName: placeName,
@@ -44,6 +72,13 @@ class RouteExecutionStop {
     lat: lat,
     lng: lng,
     completedAt: completedAt ?? this.completedAt,
+    legDistanceMeters: legDistanceMeters ?? this.legDistanceMeters,
+    legEstimateSeconds: legEstimateSeconds ?? this.legEstimateSeconds,
+    legEstimateSource: legEstimateSource ?? this.legEstimateSource,
+    paceWarnBelowSeconds: clearPaceWarn
+        ? null
+        : paceWarnBelowSeconds ?? this.paceWarnBelowSeconds,
+    undelivered: undelivered ?? this.undelivered,
   );
 
   Map<String, dynamic> toJson() => {
@@ -56,6 +91,11 @@ class RouteExecutionStop {
     'lng': lng,
     'is_optional': isOptional,
     'completed_at': completedAt?.toUtc().toIso8601String(),
+    'leg_distance_meters': legDistanceMeters,
+    'leg_estimate_seconds': legEstimateSeconds,
+    'leg_estimate_source': legEstimateSource,
+    'pace_warn_below_seconds': paceWarnBelowSeconds,
+    'undelivered': undelivered,
   };
 
   factory RouteExecutionStop.fromJson(Map<String, dynamic> json) {
@@ -69,8 +109,51 @@ class RouteExecutionStop {
       lng: (json['lng'] as num?)?.toDouble(),
       isOptional: json['is_optional'] as bool? ?? false,
       completedAt: _date(json['completed_at']),
+      legDistanceMeters: (json['leg_distance_meters'] as num?)?.toInt(),
+      legEstimateSeconds: (json['leg_estimate_seconds'] as num?)?.toInt(),
+      legEstimateSource: json['leg_estimate_source'] as String?,
+      paceWarnBelowSeconds: (json['pace_warn_below_seconds'] as num?)?.toInt(),
+      undelivered: json['undelivered'] as bool? ?? false,
     );
   }
+}
+
+/// Server-provided switch for client hints; present only while enforcing.
+class RouteExecutionAntiFraud {
+  const RouteExecutionAntiFraud({
+    required this.gpsToleranceMeters,
+    required this.gpsMinAccuracyMeters,
+  });
+
+  final int gpsToleranceMeters;
+  final int gpsMinAccuracyMeters;
+
+  Map<String, dynamic> toJson() => {
+    'mode': 'enforce',
+    'gps_tolerance_m': gpsToleranceMeters,
+    'gps_min_accuracy_m': gpsMinAccuracyMeters,
+  };
+
+  factory RouteExecutionAntiFraud.fromJson(Map<String, dynamic> json) {
+    return RouteExecutionAntiFraud(
+      gpsToleranceMeters: (json['gps_tolerance_m'] as num?)?.toInt() ?? 150,
+      gpsMinAccuracyMeters:
+          (json['gps_min_accuracy_m'] as num?)?.toInt() ?? 100,
+    );
+  }
+}
+
+/// How the points of a finished run were settled. `awarded` is the ordinary
+/// case and needs no extra UI; the rest explain why a run earned less.
+enum RoutePointsStatus { none, awarded, held, rejected }
+
+RoutePointsStatus routePointsStatusFromJson(Object? value) {
+  return switch (value) {
+    'awarded' => RoutePointsStatus.awarded,
+    'held' => RoutePointsStatus.held,
+    'rejected' => RoutePointsStatus.rejected,
+    _ => RoutePointsStatus.none,
+  };
 }
 
 class RouteExecutionRouting {
@@ -145,6 +228,11 @@ class RouteExecution {
     this.routing,
     this.awardedPoints = 0,
     this.pausedDurationSeconds = 0,
+    this.pointsStatus = RoutePointsStatus.none,
+    this.pointsReason,
+    this.heldPoints = 0,
+    this.antifraud,
+    this.pausedAtLastMarkSeconds,
   });
 
   final String id;
@@ -163,6 +251,20 @@ class RouteExecution {
 
   /// Total time spent paused so far, so elapsed-time displays can net it out.
   final int pausedDurationSeconds;
+
+  final RoutePointsStatus pointsStatus;
+
+  /// Why a run earned less than the route is worth (`route_cooldown`,
+  /// `daily_cap`); null for an ordinary completion.
+  final String? pointsReason;
+  final int heldPoints;
+
+  /// Present only while the server enforces; gates every client-side hint.
+  final RouteExecutionAntiFraud? antifraud;
+
+  /// `pausedDurationSeconds` at the time of the last mark on this device, so
+  /// the pace hint can net out pauses. Local only; null means unknown.
+  final int? pausedAtLastMarkSeconds;
   final int totalStops;
   final int completedStops;
   final int requiredStops;
@@ -178,6 +280,14 @@ class RouteExecution {
     List<RouteExecutionStop>? stops,
     int? completedStops,
     int? completedRequiredStops,
+    int? awardedPoints,
+    int? pausedDurationSeconds,
+    RoutePointsStatus? pointsStatus,
+    String? pointsReason,
+    int? heldPoints,
+    RouteExecutionAntiFraud? antifraud,
+    bool clearAntifraud = false,
+    int? pausedAtLastMarkSeconds,
   }) => RouteExecution(
     id: id,
     routeId: routeId,
@@ -194,8 +304,14 @@ class RouteExecution {
     completedRequiredStops:
         completedRequiredStops ?? this.completedRequiredStops,
     stops: stops ?? this.stops,
-    awardedPoints: awardedPoints,
-    pausedDurationSeconds: pausedDurationSeconds,
+    awardedPoints: awardedPoints ?? this.awardedPoints,
+    pausedDurationSeconds: pausedDurationSeconds ?? this.pausedDurationSeconds,
+    pointsStatus: pointsStatus ?? this.pointsStatus,
+    pointsReason: pointsReason ?? this.pointsReason,
+    heldPoints: heldPoints ?? this.heldPoints,
+    antifraud: clearAntifraud ? null : antifraud ?? this.antifraud,
+    pausedAtLastMarkSeconds:
+        pausedAtLastMarkSeconds ?? this.pausedAtLastMarkSeconds,
   );
 
   Map<String, dynamic> toJson() => {
@@ -204,6 +320,11 @@ class RouteExecution {
     'route_name': routeName,
     'awarded_points': awardedPoints,
     'paused_duration_seconds': pausedDurationSeconds,
+    'points_status': pointsStatus.name,
+    'points_reason': pointsReason,
+    'held_points': heldPoints,
+    'antifraud': antifraud?.toJson(),
+    'paused_at_last_mark_seconds': pausedAtLastMarkSeconds,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -244,6 +365,16 @@ class RouteExecution {
       awardedPoints: (json['awarded_points'] as num?)?.toInt() ?? 0,
       pausedDurationSeconds:
           (json['paused_duration_seconds'] as num?)?.toInt() ?? 0,
+      pointsStatus: routePointsStatusFromJson(json['points_status']),
+      pointsReason: json['points_reason'] as String?,
+      heldPoints: (json['held_points'] as num?)?.toInt() ?? 0,
+      antifraud: json['antifraud'] is Map
+          ? RouteExecutionAntiFraud.fromJson(
+              Map<String, dynamic>.from(json['antifraud'] as Map),
+            )
+          : null,
+      pausedAtLastMarkSeconds: (json['paused_at_last_mark_seconds'] as num?)
+          ?.toInt(),
       stops: rawStops is List
           ? rawStops
                 .whereType<Map<dynamic, dynamic>>()

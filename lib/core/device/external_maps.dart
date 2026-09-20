@@ -32,7 +32,9 @@ abstract final class ExternalMaps {
         Uri.parse('geo:$point?q=$point($query)'),
         Uri.parse('https://www.google.com/maps/search/?api=1&query=$point'),
       ],
-      _ => [Uri.parse('https://www.google.com/maps/search/?api=1&query=$point')],
+      _ => [
+        Uri.parse('https://www.google.com/maps/search/?api=1&query=$point'),
+      ],
     };
   }
 

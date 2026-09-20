@@ -10,7 +10,10 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 /// its retry/outbox affordance — this one is for screens that simply switch
 /// to a cached data source rather than queue mutations.
 class OfflineBanner extends StatelessWidget {
-  const OfflineBanner({this.message = 'Офлайн. Показано сохранённое на устройстве.', super.key});
+  const OfflineBanner({
+    this.message = 'Офлайн. Показано сохранённое на устройстве.',
+    super.key,
+  });
 
   final String message;
 
@@ -22,7 +25,9 @@ class OfflineBanner extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.accentBlue.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(AppRadii.card),
-          border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.2)),
+          border: Border.all(
+            color: AppColors.accentBlue.withValues(alpha: 0.2),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),

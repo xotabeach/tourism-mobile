@@ -19,7 +19,8 @@ abstract final class AppPerf {
   /// Opt-in per surface ([glassBlur] and friends take `plain`): chrome the
   /// setting does not cover — the nav bar, banners, filter chips — keeps its
   /// own look on iOS either way.
-  static bool get plainControls => preferCheapEffects || !AppGlassSettings.enabled;
+  static bool get plainControls =>
+      preferCheapEffects || !AppGlassSettings.enabled;
 
   /// Soften glass blur on Android; keep the requested sigma elsewhere.
   static double glassBlur(double desired, {bool plain = false}) {

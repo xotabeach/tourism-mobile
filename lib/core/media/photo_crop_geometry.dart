@@ -191,9 +191,7 @@ Future<Uint8List> renderCroppedPhoto({
   try {
     // Raw RGBA rather than PNG: the PNG encoder's work would be thrown away
     // by the JPEG re-encode below.
-    final data = await rendered.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
-    );
+    final data = await rendered.toByteData(format: ui.ImageByteFormat.rawRgba);
     if (data == null) {
       throw StateError('Пустой результат кадрирования');
     }
