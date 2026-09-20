@@ -2,12 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/network/app_version_headers.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 
 /// Dio without auth interceptors (used by auth repository itself).
 final rawDioProvider = Provider<Dio>((ref) {
   final config = ref.watch(appConfigProvider);
-  return Dio(
+  final dio = Dio(
     BaseOptions(
       baseUrl: config.apiBaseUrl,
       connectTimeout: const Duration(seconds: 10),
@@ -15,6 +16,10 @@ final rawDioProvider = Provider<Dio>((ref) {
       headers: const {'Accept': 'application/json'},
     ),
   );
+  dio.interceptors.add(
+    appVersionInterceptor(ref.read(appVersionHeadersLoaderProvider)),
+  );
+  return dio;
 });
 
 final dioProvider = Provider<Dio>((ref) {
@@ -28,6 +33,9 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
+  dio.interceptors.add(
+    appVersionInterceptor(ref.read(appVersionHeadersLoaderProvider)),
+  );
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) {
