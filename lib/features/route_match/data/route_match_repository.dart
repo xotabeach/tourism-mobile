@@ -359,20 +359,43 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       transportMode: 'car',
       authorLabel: 'КрымТрип',
     );
-    final hit = RouteMatchHit(
+    final ideal = RouteMatchHit(
       route: sample,
       score: 0.72,
       band: 'ideal',
       reasons: const ['демо mock'],
+      matchPercent: 70,
+      mismatches: const ['дольше, чем вы планировали'],
+    );
+    final close = RouteMatchHit(
+      route: RouteSummary(
+        id: 'mock-match-2',
+        name: '${params.locationLabel} · другой вариант',
+        slug: 'mock-match-2',
+        shortDescription: 'Демо: подходит по части параметров',
+        stopsCount: 3,
+        estimatedDurationMinutes: 600,
+        difficulty: 'moderate',
+        transportMode: 'walk',
+        authorLabel: 'КрымТрип',
+      ),
+      score: 0.45,
+      band: 'close',
+      reasons: const [],
+      matchPercent: 45,
+      mismatches: const ['старт не совпал'],
+      partialData: true,
     );
     return RouteMatchResult(
       strategy: 'algorithmic',
-      ideal: [hit],
-      close: const [],
+      ideal: [ideal],
+      close: [close],
+      hits: [ideal, close],
+      formulaVersion: 2,
       offerGenerate: false,
       aiRerankEligible: false,
       aiRerankApplied: false,
-      scoredTotal: 1,
+      scoredTotal: 2,
     );
   }
 
@@ -531,11 +554,13 @@ class MockRouteMatchRepository implements RouteMatchRepository {
           blocks: [
             CatalogMatchBlock(
               routes: [
-                for (final hit in [...matched.ideal, ...matched.close])
+                for (final hit in matched.orderedHits)
                   CatalogRouteItem(
                     routeId: hit.route.id,
                     title: hit.route.name,
                     coverUrl: hit.route.coverImageUrl,
+                    matchPercent: hit.matchPercent,
+                    mainMismatch: hit.mainMismatch,
                   ),
               ],
             ),

@@ -62,8 +62,14 @@ class RouteMatchParams {
     this.withChildren,
     this.withPets,
     this.avoidCrowds,
+    this.explicitFields,
     this.regionSlug = 'crimea',
   });
+
+  /// Which defaulted fields (`duration`, `pace`) the person really chose, so the
+  /// server does not count untouched defaults as wishes. Null = not sent
+  /// (older behaviour: everything counts).
+  final List<String>? explicitFields;
 
   /// Legacy compatibility with already stored sessions. New screens use the
   /// typed start fields and never turn every settlement into a “city”.
@@ -119,6 +125,7 @@ class RouteMatchParams {
     if (withChildren != null) 'with_children': withChildren,
     if (withPets != null) 'with_pets': withPets,
     if (avoidCrowds != null) 'avoid_crowds': avoidCrowds,
+    if (explicitFields != null) 'explicit_fields': explicitFields,
     'region_slug': regionSlug,
   };
 
@@ -147,6 +154,7 @@ class RouteMatchParams {
     bool? withChildren,
     bool? withPets,
     bool? avoidCrowds,
+    List<String>? explicitFields,
     String? regionSlug,
   }) {
     return RouteMatchParams(
@@ -175,6 +183,7 @@ class RouteMatchParams {
       withChildren: withChildren ?? this.withChildren,
       withPets: withPets ?? this.withPets,
       avoidCrowds: avoidCrowds ?? this.avoidCrowds,
+      explicitFields: explicitFields ?? this.explicitFields,
       regionSlug: regionSlug ?? this.regionSlug,
     );
   }
@@ -186,12 +195,25 @@ class RouteMatchHit {
     required this.score,
     required this.band,
     required this.reasons,
+    this.matchPercent,
+    this.mismatches = const [],
+    this.partialData = false,
   });
 
   final RouteSummary route;
   final double score;
   final String band;
   final List<String> reasons;
+
+  /// «Подходит на N%», rounded down to 5; null from a backend that predates it.
+  final int? matchPercent;
+
+  /// Most important first; a card shows only the first.
+  final List<String> mismatches;
+  final bool partialData;
+
+  bool get isIdeal => band == 'ideal';
+  String? get mainMismatch => mismatches.isEmpty ? null : mismatches.first;
 
   factory RouteMatchHit.fromJson(Map<String, dynamic> json) {
     return RouteMatchHit(
@@ -201,6 +223,11 @@ class RouteMatchHit {
       reasons: (json['reasons'] as List<dynamic>? ?? const [])
           .map((item) => item as String)
           .toList(),
+      matchPercent: (json['match_percent'] as num?)?.toInt(),
+      mismatches: (json['mismatches'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(),
+      partialData: json['partial_data'] as bool? ?? false,
     );
   }
 }
@@ -214,11 +241,23 @@ class RouteMatchResult {
     required this.aiRerankEligible,
     required this.aiRerankApplied,
     required this.scoredTotal,
+    this.hits = const [],
+    this.formulaVersion = 1,
   });
 
   final String strategy;
   final List<RouteMatchHit> ideal;
   final List<RouteMatchHit> close;
+
+  /// Everything the backend found, best first (up to 8). Empty from an older
+  /// backend, which only sends [ideal] and [close].
+  final List<RouteMatchHit> hits;
+  final int formulaVersion;
+
+  /// The list to show: [hits] when the backend sends it, else the two bands.
+  List<RouteMatchHit> get orderedHits =>
+      hits.isNotEmpty ? hits : [...ideal, ...close];
+
   final bool offerGenerate;
   final bool aiRerankEligible;
   final bool aiRerankApplied;
@@ -243,6 +282,10 @@ class RouteMatchResult {
       aiRerankEligible: json['ai_rerank_eligible'] as bool? ?? false,
       aiRerankApplied: json['ai_rerank_applied'] as bool? ?? false,
       scoredTotal: json['scored_total'] as int? ?? 0,
+      hits: (json['hits'] as List<dynamic>? ?? const [])
+          .map((item) => RouteMatchHit.fromJson(item as Map<String, dynamic>))
+          .toList(),
+      formulaVersion: (json['formula_version'] as num?)?.toInt() ?? 1,
     );
   }
 }
@@ -405,10 +448,17 @@ class CatalogRouteItem {
     this.difficultyLabel,
     this.stopsCount = 0,
     this.durationMinutes = 0,
+    this.matchPercent,
+    this.mainMismatch,
   });
 
   final String routeId;
   final String title;
+
+  /// Snapshot taken when the chat showed the card; null on older messages and
+  /// while too little was confirmed to promise a percent.
+  final int? matchPercent;
+  final String? mainMismatch;
   final String? coverUrl;
   final double? rating;
   final double? distanceKm;
@@ -434,6 +484,8 @@ class CatalogRouteItem {
       difficultyLabel: json['difficulty_label'] as String?,
       stopsCount: json['stops_count'] as int? ?? 0,
       durationMinutes: json['duration_minutes'] as int? ?? 0,
+      matchPercent: (json['match_percent'] as num?)?.toInt(),
+      mainMismatch: json['main_mismatch'] as String?,
     );
   }
 }

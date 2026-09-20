@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
@@ -157,7 +158,8 @@ class _CatalogRoutePage extends StatelessWidget {
               onOpen: onOpen,
             ),
           ),
-          if (route.tags.isNotEmpty ||
+          if (route.matchPercent != null ||
+              route.tags.isNotEmpty ||
               route.budgetLabel != null ||
               route.difficultyLabel != null ||
               route.localityLabel != null ||
@@ -170,6 +172,13 @@ class _CatalogRoutePage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    if (route.matchPercent != null) ...[
+                      _MatchLine(
+                        percent: route.matchPercent!,
+                        note: route.mainMismatch,
+                      ),
+                      const SizedBox(height: 10),
+                    ],
                     if (route.tags.isNotEmpty) ...[
                       Wrap(
                         spacing: 8,
@@ -200,6 +209,32 @@ class _CatalogRoutePage extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+/// «Подходит на 75%» plus the one main reason it is not a full match. Shown
+/// only when the message carried a percent; older messages have none.
+class _MatchLine extends StatelessWidget {
+  const _MatchLine({required this.percent, this.note});
+
+  final int percent;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = note == null
+        ? 'Подходит на $percent%'
+        : 'Подходит на $percent% · $note';
+    return Text(
+      text,
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      style: AppTypography.routeMetadata.copyWith(
+        fontSize: 14,
+        color: AppColors.accentBlue,
+        fontWeight: FontWeight.w600,
       ),
     );
   }

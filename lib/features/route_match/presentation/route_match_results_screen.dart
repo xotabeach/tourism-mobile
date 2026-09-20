@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/connectivity_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
+import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -244,8 +245,27 @@ class _RouteMatchResultsScreenState
       );
     }
 
-    final ideal = filterRouteCatalog(match.idealRoutes, _selectedChip);
-    final close = filterRouteCatalog(match.closeRoutes, _selectedChip);
+    // Keep the whole hit (score, percent, mismatch), not just the route.
+    final allowedIds = {
+      for (final route in filterRouteCatalog([
+        for (final hit in match.orderedHits) hit.route,
+      ], _selectedChip))
+        route.id,
+    };
+    final shown = [
+      for (final hit in match.orderedHits)
+        if (allowedIds.contains(hit.route.id)) hit,
+    ];
+    final idealHits = [
+      for (final hit in shown)
+        if (hit.isIdeal) hit,
+    ];
+    final closeHits = [
+      for (final hit in shown)
+        if (!hit.isIdeal) hit,
+    ];
+    final ideal = [for (final hit in idealHits) hit.route];
+    final close = [for (final hit in closeHits) hit.route];
     final filtered = [...ideal, ...close];
     final totalLabel = filtered.length;
 
@@ -367,10 +387,9 @@ class _RouteMatchResultsScreenState
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               sliver: SliverList.separated(
-                itemCount: ideal.length,
+                itemCount: idealHits.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 16),
-                itemBuilder: (context, index) =>
-                    RouteHeroCard(route: ideal[index], height: 295),
+                itemBuilder: (context, index) => _matchCard(idealHits[index]),
               ),
             ),
             if (close.isNotEmpty) ...[
@@ -386,10 +405,9 @@ class _RouteMatchResultsScreenState
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                 sliver: SliverList.separated(
-                  itemCount: close.length,
+                  itemCount: closeHits.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 16),
-                  itemBuilder: (context, index) =>
-                      RouteHeroCard(route: close[index], height: 295),
+                  itemBuilder: (context, index) => _matchCard(closeHits[index]),
                 ),
               ),
             ] else
@@ -400,6 +418,14 @@ class _RouteMatchResultsScreenState
     );
   }
 }
+
+Widget _matchCard(RouteMatchHit hit) => RouteHeroCard(
+  route: hit.route,
+  height: 295,
+  matchPercent: hit.matchPercent,
+  matchPartial: hit.partialData,
+  matchNote: hit.mainMismatch,
+);
 
 class _GenerateOfferCard extends StatelessWidget {
   const _GenerateOfferCard({required this.onPressed, this.generating = false});

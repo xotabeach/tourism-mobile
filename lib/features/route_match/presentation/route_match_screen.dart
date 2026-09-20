@@ -60,6 +60,9 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   bool _locationSearchLoading = false;
   RouteTripType? _tripType = RouteTripType.romance;
   RouteDurationOption _duration = RouteDurationOption.d3_5;
+  // Untouched defaults must not count as wishes (spec 06, D13).
+  var _durationChosen = false;
+  var _paceChosen = false;
   int _people = 2;
   final Set<String> _interests = {'Природа'};
   RoutePace _pace = RoutePace.calm;
@@ -430,6 +433,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
       withPets: advanced && _withPets ? true : null,
       avoidCrowds: advanced && _avoidCrowds ? true : null,
       paidOk: advanced && _paidOk ? true : null,
+      explicitFields: [
+        if (_durationChosen) 'duration',
+        if (_paceChosen) 'pace',
+      ],
     );
   }
 
@@ -858,7 +865,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           child: DurationSelector(
             px: px,
             value: _duration,
-            onChanged: (value) => setState(() => _duration = value),
+            onChanged: (value) => setState(() {
+              _duration = value;
+              _durationChosen = true;
+            }),
           ),
         ),
         SizedBox(height: px(22)),
@@ -892,7 +902,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           child: TravelPaceSelector(
             px: px,
             value: _pace,
-            onChanged: (value) => setState(() => _pace = value),
+            onChanged: (value) => setState(() {
+              _pace = value;
+              _paceChosen = true;
+            }),
           ),
         ),
         SizedBox(height: px(21)),

@@ -50,4 +50,39 @@ void main() {
     await tester.pump();
     expect(openedId, 'route-1');
   });
+
+  testWidgets(
+    'a card shows the percent snapshot with the main mismatch, old ones do not',
+    (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [appConfigProvider.overrideWithValue(testAppConfig)],
+          child: MaterialApp(
+            home: Scaffold(
+              body: ChatCatalogMatchCarousel(
+                routes: const [
+                  CatalogRouteItem(
+                    routeId: 'route-1',
+                    title: 'Ялта · море',
+                    tags: ['Пляж'],
+                    matchPercent: 75,
+                    mainMismatch: 'старт не совпал',
+                  ),
+                  CatalogRouteItem(
+                    routeId: 'route-2',
+                    title: 'Алушта · горы',
+                    tags: ['Горы'],
+                  ),
+                ],
+                onOpenRoute: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Подходит на 75% · старт не совпал'), findsOneWidget);
+      expect(find.textContaining('Подходит на'), findsOneWidget);
+    },
+  );
 }

@@ -162,6 +162,9 @@ class RouteHeroCard extends ConsumerWidget {
     this.authorAvatarUrl,
     this.authorIsExpert,
     this.recommendationReason,
+    this.matchPercent,
+    this.matchPartial = false,
+    this.matchNote,
     this.onFavoriteToggle,
     this.onEdit,
     super.key,
@@ -186,6 +189,14 @@ class RouteHeroCard extends ConsumerWidget {
 
   /// Optional transparent explanation shown on recommendation cards.
   final String? recommendationReason;
+
+  /// «Подходит на N%» for a route-match result, plus the one main reason it is
+  /// not 100% ([matchNote]). Null on every other card, which stay unchanged.
+  final int? matchPercent;
+
+  /// The percent rests on part of the data («по части данных»).
+  final bool matchPartial;
+  final String? matchNote;
 
   /// Lets list owners coordinate a favorite change with their own removal
   /// animation. Other cards keep using [favoritesProvider] directly.
@@ -253,6 +264,9 @@ class RouteHeroCard extends ConsumerWidget {
         authorAvatar: avatar,
         authorIsExpert: resolvedAuthorIsExpert,
         recommendationReason: recommendationReason,
+        matchPercent: matchPercent,
+        matchPartial: matchPartial,
+        matchNote: matchNote,
         onAuthorTap: canOpenAuthor ? () => _openAuthor(context, ref) : null,
         onFavoriteToggle: onFavoriteToggle,
         onEdit: onEdit,
@@ -287,6 +301,9 @@ class _RouteCardContent extends StatefulWidget {
     required this.authorAvatar,
     required this.authorIsExpert,
     this.recommendationReason,
+    this.matchPercent,
+    this.matchPartial = false,
+    this.matchNote,
     this.onAuthorTap,
     this.onFavoriteToggle,
     this.onEdit,
@@ -301,6 +318,9 @@ class _RouteCardContent extends StatefulWidget {
   final ImageProvider authorAvatar;
   final bool authorIsExpert;
   final String? recommendationReason;
+  final int? matchPercent;
+  final bool matchPartial;
+  final String? matchNote;
   final VoidCallback? onAuthorTap;
   final Future<void> Function()? onFavoriteToggle;
   final VoidCallback? onEdit;
@@ -322,6 +342,9 @@ class _RouteCardContentState extends State<_RouteCardContent> {
   ImageProvider get authorAvatar => widget.authorAvatar;
   bool get authorIsExpert => widget.authorIsExpert;
   String? get recommendationReason => widget.recommendationReason;
+  int? get matchPercent => widget.matchPercent;
+  bool get matchPartial => widget.matchPartial;
+  String? get matchNote => widget.matchNote;
   VoidCallback? get onAuthorTap => widget.onAuthorTap;
   Future<void> Function()? get onFavoriteToggle => widget.onFavoriteToggle;
   VoidCallback? get onEdit => widget.onEdit;
@@ -403,7 +426,14 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (recommendationReason != null) ...[
+                    if (matchPercent != null) ...[
+                      _MatchBadge(
+                        percent: matchPercent!,
+                        partial: matchPartial,
+                        note: matchNote,
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ] else if (recommendationReason != null) ...[
                       _RecommendationReason(label: recommendationReason!),
                       const SizedBox(height: AppSpacing.sm),
                     ],
@@ -570,6 +600,66 @@ class _RouteCardContentState extends State<_RouteCardContent> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// «Подходит на 75%» in the style of the rating pill, with the main reason it
+/// is not a full match underneath. Temporary look until the design lands.
+class _MatchBadge extends StatelessWidget {
+  const _MatchBadge({required this.percent, required this.partial, this.note});
+
+  final int percent;
+  final bool partial;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = partial
+        ? 'Подходит на $percent% · по части данных'
+        : 'Подходит на $percent%';
+    return Semantics(
+      label: note == null ? label : '$label. $note',
+      excludeSemantics: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.46),
+              borderRadius: BorderRadius.circular(AppRadii.capsule),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AppTypography.routeMetadata.copyWith(
+                  fontSize: 14,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          if (note != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              note!,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.routeMetadata.copyWith(
+                fontSize: 13,
+                color: Colors.white.withValues(alpha: 0.92),
+                shadows: const [
+                  Shadow(blurRadius: 4, color: Color(0x99000000)),
+                ],
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }
