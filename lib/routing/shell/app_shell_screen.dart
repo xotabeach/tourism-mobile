@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -21,6 +20,7 @@ import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
@@ -240,6 +240,12 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     }
   }
 
+  static String _clock(DateTime moment) {
+    final local = moment.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
   void _startRoute(BuildContext context) {
     final segments = GoRouterState.of(context).uri.pathSegments;
     if (segments.length < 2 || segments.first != 'routes') {
@@ -277,7 +283,14 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     final onTravelPlus = path.contains('/travel-plus');
     final onSettings =
         path == '/profile/settings' || path.startsWith('/profile/settings/');
-    const detailActionLabel = 'Пройти маршрут';
+    final blockedUntil = ref.watch(routeStartBlockedUntilProvider).valueOrNull;
+    final startBlocked = blockedUntil != null;
+    final detailActionLabel = startBlocked
+        ? 'Доступно ${describeBlockedUntil(blockedUntil, DateTime.now())}'
+        : 'Пройти маршрут';
+    final detailActionSemantics = startBlocked
+        ? 'Недоступно до ${_clock(blockedUntil)}, нажмите для проверки'
+        : null;
     final VoidCallback? detailAction = showRouteAction
         ? () => _startRoute(context)
         : null;
@@ -345,6 +358,8 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
                 },
                 onStartRoute: detailAction,
                 startRouteLabel: detailActionLabel,
+                startRouteUnavailable: startBlocked,
+                startRouteSemanticsLabel: detailActionSemantics,
                 onPublishRoute: () {
                   unawaited(context.push('/publish'));
                 },
@@ -373,6 +388,8 @@ class AppFloatingNavBar extends StatefulWidget {
     this.onHistoryBack,
     this.onStartRoute,
     this.startRouteLabel = 'Пройти маршрут',
+    this.startRouteUnavailable = false,
+    this.startRouteSemanticsLabel,
     this.onPublishRoute,
     this.onMatchRoute,
     super.key,
@@ -395,6 +412,8 @@ class AppFloatingNavBar extends StatefulWidget {
   final VoidCallback? onHistoryBack;
   final VoidCallback? onStartRoute;
   final String startRouteLabel;
+  final bool startRouteUnavailable;
+  final String? startRouteSemanticsLabel;
   final VoidCallback? onPublishRoute;
   final VoidCallback? onMatchRoute;
 
@@ -1014,6 +1033,8 @@ class _AppFloatingNavBarState extends State<AppFloatingNavBar>
                 morphProgress: 1 - widenT,
                 onPressed: widget.onStartRoute!,
                 label: widget.startRouteLabel,
+                unavailable: widget.startRouteUnavailable,
+                semanticsLabel: widget.startRouteSemanticsLabel,
                 compactAlignedRight: compactOnRight,
               ),
             ),

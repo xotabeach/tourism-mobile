@@ -20,6 +20,7 @@ import 'package:tourism_mobile/features/route_execution/application/route_execut
 import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/mark_confirm_dialog.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/route_execution_summary_screen.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -89,35 +90,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         DateTime.now().difference(recent) < const Duration(seconds: 60)) {
       return true;
     }
-    final notThere = advice.isAhead;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(
-          notThere
-              ? 'Кажется, вы ещё не дошли до этой точки'
-              : 'Быстрее, чем обычно',
-        ),
-        content: Text(
-          notThere
-              ? 'Точно отметить?'
-              : 'Этот участок пройден заметно быстрее расчётного времени. '
-                    'Вы точно дошли до точки?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(notThere ? 'Отмена' : 'Отменить отметку'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(notThere ? 'Всё равно отметить' : 'Да, дошёл(ла)'),
-          ),
-        ],
-      ),
+    final confirmed = await showMarkConfirmDialog(
+      context,
+      notThereYet: advice.isAhead,
     );
-    if (confirmed == true) _promptConfirmedAt = DateTime.now();
-    return confirmed == true;
+    if (confirmed) _promptConfirmedAt = DateTime.now();
+    return confirmed;
   }
 
   Future<void> _loadOrStart() async {
@@ -160,7 +138,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       );
       if (!mounted) return;
       // Starting worked, so any remembered block is over.
-      unawaited(ref.read(routeStartBlockStoreProvider).clear());
+      unawaited(
+        ref
+            .read(routeStartBlockStoreProvider)
+            .clear()
+            .then((_) => ref.invalidate(routeStartBlockedUntilProvider)),
+      );
       if (newlyDropped.isNotEmpty) {
         final names = [
           for (final stop in execution.stops)
@@ -186,6 +169,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       final until = blocked.blockedUntil;
       if (until != null) {
         await ref.read(routeStartBlockStoreProvider).write(until);
+        ref.invalidate(routeStartBlockedUntilProvider);
       }
       if (!mounted) return;
       setState(() {

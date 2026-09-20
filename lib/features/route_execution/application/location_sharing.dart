@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:tourism_mobile/features/route_execution/presentation/mark_confirm_dialog.dart';
+
 /// Whether the person lets the app send their position with a stop mark.
 ///
 /// The map, the "you are here" dot and the distance chip only need the OS
@@ -94,28 +96,9 @@ Future<void> explainLocationOnce(BuildContext context, WidgetRef ref) async {
     return;
   }
   if (!context.mounted) return;
-  final allow = await showDialog<bool>(
-    context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Разрешить геолокацию?'),
-      content: const Text(
-        'Покажем расстояние до точки и поможем точнее засчитывать '
-        'прохождение. Это необязательно.',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: const Text('Не сейчас'),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          child: const Text('Разрешить'),
-        ),
-      ],
-    ),
-  );
+  final allow = await showLocationExplanationDialog(context);
   await controller.markAsked();
-  if (allow == true) {
+  if (allow) {
     await Geolocator.requestPermission();
   }
 }

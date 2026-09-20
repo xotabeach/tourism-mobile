@@ -15,8 +15,18 @@ class RouteStartButton extends StatelessWidget {
     this.morphProgress = 0,
     this.label = 'Пройти маршрут',
     this.compactAlignedRight = false,
+    this.unavailable = false,
+    this.semanticsLabel,
     super.key,
   });
+
+  /// Looks inactive but stays tappable: the press re-checks with the server,
+  /// which may have lifted the restriction in the meantime.
+  final bool unavailable;
+
+  /// Spoken instead of [label] when set (a screen reader hears that the
+  /// button can still be pressed to re-check).
+  final String? semanticsLabel;
 
   final VoidCallback onPressed;
   final double visibility;
@@ -42,9 +52,11 @@ class RouteStartButton extends StatelessWidget {
         child: AppGlassSurface(
           borderRadius: AppRadii.capsule,
           blur: 20 * progress,
-          fillColor: AppColors.activeNavigationFill.withValues(
-            alpha: 0.96 * progress,
-          ),
+          fillColor:
+              (unavailable
+                      ? AppColors.secondaryInk
+                      : AppColors.activeNavigationFill)
+                  .withValues(alpha: 0.96 * progress),
           borderColor: Colors.white.withValues(alpha: 0.28 * progress),
           boxShadow: [
             BoxShadow(
@@ -55,17 +67,26 @@ class RouteStartButton extends StatelessWidget {
           ],
           child: IgnorePointer(
             ignoring: progress < 0.99,
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(AppRadii.capsule),
-                onTap: onPressed,
-                child: Center(
-                  child: Text(
-                    label,
-                    style: AppTypography.button.copyWith(
-                      fontSize: 17,
-                      color: Colors.white.withValues(alpha: progress),
+            child: Semantics(
+              button: true,
+              enabled: true,
+              label: semanticsLabel ?? label,
+              excludeSemantics: true,
+              onTap: onPressed,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(AppRadii.capsule),
+                  onTap: onPressed,
+                  child: Center(
+                    child: Text(
+                      label,
+                      style: AppTypography.button.copyWith(
+                        fontSize: 17,
+                        color: Colors.white.withValues(
+                          alpha: (unavailable ? 0.85 : 1) * progress,
+                        ),
+                      ),
                     ),
                   ),
                 ),

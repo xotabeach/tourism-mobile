@@ -33,23 +33,42 @@ PointsNotice? pointsNotice(RouteExecution execution) {
     case RoutePointsStatus.none:
       break;
   }
+  final limits = execution.antifraud;
   switch (execution.pointsReason) {
     case 'route_cooldown':
-      return const PointsNotice(
+      final days = limits?.routeCooldownDays;
+      return PointsNotice(
         badge: 'Очки не начислены',
-        note: 'Этот маршрут уже засчитывался недавно.',
+        note: days == null
+            ? 'Этот маршрут уже засчитывался недавно.'
+            : 'Повтор маршрута раньше чем через ${_days(days)} очков не даёт.',
       );
     case 'daily_cap':
+      final cap = limits?.dailyPointsCap;
+      final limit = cap == null
+          ? 'Достигнут дневной лимит очков'
+          : 'Достигнут дневной лимит очков ($cap)';
       return execution.awardedPoints > 0
-          ? const PointsNotice(
+          ? PointsNotice(
               badge: '',
-              note: 'Достигнут дневной лимит очков: начислена только часть.',
+              note: '$limit: начислена только часть.',
               replacesBadge: false,
             )
-          : const PointsNotice(
-              badge: 'Очки не начислены',
-              note: 'Достигнут дневной лимит очков.',
-            );
+          : PointsNotice(badge: 'Очки не начислены', note: '$limit.');
   }
   return null;
+}
+
+/// "14 дней", "21 день", "2 дня".
+String _days(int n) {
+  final mod100 = n % 100;
+  final mod10 = n % 10;
+  final word = (mod100 >= 11 && mod100 <= 14)
+      ? 'дней'
+      : mod10 == 1
+      ? 'день'
+      : (mod10 >= 2 && mod10 <= 4)
+      ? 'дня'
+      : 'дней';
+  return '$n $word';
 }

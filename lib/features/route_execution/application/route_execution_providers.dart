@@ -53,7 +53,12 @@ final routeExecutionOfflineCoordinatorProvider =
         ref.watch(routeExecutionOfflineStoreProvider),
         ref.watch(routeExecutionRepositoryProvider),
         onStartBlocked: (until) {
-          if (until != null) unawaited(blockStore.write(until));
+          if (until == null) return;
+          unawaited(
+            blockStore
+                .write(until)
+                .then((_) => ref.invalidate(routeStartBlockedUntilProvider)),
+          );
         },
       );
     });

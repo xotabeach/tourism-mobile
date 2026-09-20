@@ -102,6 +102,20 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
   int? _uncontrolledSelected;
   var _imageFailed = false;
 
+  /// The zoomed-in frame could not be loaded (typically offline, where only
+  /// the whole-route raster was downloaded): fall back to that frame and keep
+  /// the leg highlight instead of dropping to the schematic preview.
+  var _focusFailed = false;
+
+  bool get _focusActive =>
+      widget.focusOnLeg && widget.activeLeg != null && !_focusFailed;
+
+  @override
+  void didUpdateWidget(covariant RouteStaticMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusOnLeg != widget.focusOnLeg) _focusFailed = false;
+  }
+
   /// Selected index within [RouteStaticMap.stops], parent-owned when the
   /// screen passes [RouteStaticMap.onStopTap].
   int? get _selectedStopIndex =>
@@ -140,7 +154,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
 
   List<({double lat, double lng})> _fitPoints() {
     final leg = widget.activeLeg;
-    if (widget.focusOnLeg && leg != null) {
+    if (_focusActive && leg != null) {
       return [leg.from, leg.to];
     }
     return [
@@ -200,7 +214,10 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                               // One rebuild into the stylized fallback; the
                               // raster is unavailable for this session.
                               WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (mounted && !_imageFailed) {
+                                if (!mounted) return;
+                                if (_focusActive) {
+                                  setState(() => _focusFailed = true);
+                                } else if (!_imageFailed) {
                                   setState(() => _imageFailed = true);
                                 }
                               });

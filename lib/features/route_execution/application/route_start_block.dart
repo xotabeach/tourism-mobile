@@ -43,6 +43,15 @@ final routeStartBlockStoreProvider = Provider<RouteStartBlockStore>(
   (ref) => RouteStartBlockStore(ref.watch(secureStorageProvider)),
 );
 
+/// Until when starting is refused, while that is still in the future.
+/// Invalidate after the stored value changes.
+final routeStartBlockedUntilProvider = FutureProvider.autoDispose<DateTime?>((
+  ref,
+) async {
+  final until = await ref.watch(routeStartBlockStoreProvider).read();
+  return until != null && until.isAfter(DateTime.now()) ? until : null;
+});
+
 /// "через 40 мин (14:30)" in the device's time zone.
 String describeBlockedUntil(DateTime until, DateTime now) {
   final local = until.toLocal();

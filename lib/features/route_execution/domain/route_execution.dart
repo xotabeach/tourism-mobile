@@ -153,15 +153,24 @@ class RouteExecutionAntiFraud {
   const RouteExecutionAntiFraud({
     required this.gpsToleranceMeters,
     required this.gpsMinAccuracyMeters,
+    this.routeCooldownDays,
+    this.dailyPointsCap,
   });
 
   final int gpsToleranceMeters;
   final int gpsMinAccuracyMeters;
 
+  /// Limits the server applies to points, for explaining a withheld award.
+  /// Null when the server did not say (an older backend).
+  final int? routeCooldownDays;
+  final int? dailyPointsCap;
+
   Map<String, dynamic> toJson() => {
     'mode': 'enforce',
     'gps_tolerance_m': gpsToleranceMeters,
     'gps_min_accuracy_m': gpsMinAccuracyMeters,
+    'route_cooldown_days': routeCooldownDays,
+    'daily_points_cap': dailyPointsCap,
   };
 
   factory RouteExecutionAntiFraud.fromJson(Map<String, dynamic> json) {
@@ -169,6 +178,8 @@ class RouteExecutionAntiFraud {
       gpsToleranceMeters: (json['gps_tolerance_m'] as num?)?.toInt() ?? 150,
       gpsMinAccuracyMeters:
           (json['gps_min_accuracy_m'] as num?)?.toInt() ?? 100,
+      routeCooldownDays: _positiveInt(json['route_cooldown_days']),
+      dailyPointsCap: _positiveInt(json['daily_points_cap']),
     );
   }
 }
@@ -421,4 +432,9 @@ class RouteExecution {
 
 DateTime? _date(Object? value) {
   return value is String ? DateTime.tryParse(value) : null;
+}
+
+int? _positiveInt(Object? value) {
+  final parsed = (value as num?)?.toInt();
+  return parsed != null && parsed > 0 ? parsed : null;
 }
