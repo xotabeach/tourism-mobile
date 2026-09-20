@@ -19,8 +19,13 @@ abstract interface class RouteDraftMediaStore {
   /// path is still better than losing the photo the author just picked.
   Future<String> keep(String path);
 
-  /// Deletes copies older than the retention window.
-  Future<void> purgeExpired();
+  /// Deletes copies older than the retention window, except the files in
+  /// [inUse]: those belong to a draft that is still being edited or has not
+  /// reached the server yet, however old the copy is.
+  Future<void> purgeExpired({Set<String> inUse = const {}});
+
+  /// Deletes every copy. Used when the account signs out.
+  Future<void> clearAll();
 
   /// Where [path] lives now, or null if the photo is gone.
   ///
@@ -74,12 +79,18 @@ final class AppDirRouteDraftMediaStore implements RouteDraftMediaStore {
   }
 
   @override
-  Future<void> purgeExpired() async {
+  Future<void> purgeExpired({Set<String> inUse = const {}}) async {
     try {
       final directory = await _directory();
       final cutoff = DateTime.now().subtract(retention);
+      // Compared by file name: after a reinstall the container path in a
+      // stored draft differs from the one on disk, the name does not.
+      final protectedNames = {for (final path in inUse) path.split('/').last};
       await for (final entity in directory.list()) {
         if (entity is! File) {
+          continue;
+        }
+        if (protectedNames.contains(entity.path.split('/').last)) {
           continue;
         }
         final stat = await entity.stat();
@@ -89,6 +100,20 @@ final class AppDirRouteDraftMediaStore implements RouteDraftMediaStore {
       }
     } on Object {
       // Housekeeping only — never block opening a draft on it.
+    }
+  }
+
+  @override
+  Future<void> clearAll() async {
+    try {
+      final directory = await _directory();
+      await for (final entity in directory.list()) {
+        if (entity is File) {
+          await entity.delete();
+        }
+      }
+    } on Object {
+      // Best effort: the files are copies the person picked themselves.
     }
   }
 

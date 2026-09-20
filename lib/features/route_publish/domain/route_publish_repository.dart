@@ -17,7 +17,15 @@ abstract interface class RoutePublicationRepository {
   /// as much and stopped there (reported 2026-09-04).
   Future<RouteDraft> loadForEdit(String routeId);
 
-  Future<RoutePublicationReceipt> saveDraft(RouteDraft draft);
+  /// Saves the draft and its photos on the server.
+  ///
+  /// [onMediaUploaded] is called right after each photo lands, with the local
+  /// item id and the id the server gave it, so a sync cut short by the OS
+  /// keeps what it already sent instead of sending it all again.
+  Future<RoutePublicationReceipt> saveDraft(
+    RouteDraft draft, {
+    void Function(String localMediaId, String serverMediaId)? onMediaUploaded,
+  });
 
   Future<RoutePublicationReceipt> submit(RouteDraft draft);
 

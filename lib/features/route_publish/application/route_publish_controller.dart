@@ -2,21 +2,43 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
-import 'package:tourism_mobile/core/network/api_client.dart';
-import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
-import 'package:tourism_mobile/features/route_publish/data/api_route_publication_repository.dart';
+import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_sync.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_draft_media_store.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
-import 'package:tourism_mobile/features/route_publish/data/secure_route_draft_repository.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/domain/routes_repository.dart';
 
+export 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
+
 enum RoutePublishMode { production, golden }
+
+/// What the status line under the buttons says about the draft.
+enum DraftSaveStatus {
+  /// Nothing worth saving yet.
+  idle,
+
+  /// On the device, not (yet) on the server.
+  savedLocal,
+
+  /// Being sent to the server.
+  syncing,
+
+  /// Saved on the device and on the server.
+  synced,
+
+  /// On the device; the server could not be reached.
+  offline,
+
+  /// The device write itself failed.
+  localFailed,
+}
 
 class RoutePublishState {
   const RoutePublishState({
@@ -39,7 +61,22 @@ class RoutePublishState {
     this.routeError,
     this.message,
     this.messageSerial = 0,
+    this.saveStatus = DraftSaveStatus.idle,
+    this.restoredNotice = false,
+    this.conflict = false,
+    this.replaceConfirmFor,
   });
+
+  final DraftSaveStatus saveStatus;
+
+  /// The draft was picked up from a previous session: shown once as a note.
+  final bool restoredNotice;
+
+  /// The server copy changed on another device after this one was based on it.
+  final bool conflict;
+
+  /// Opening this server draft would replace edits that could not be sent.
+  final String? replaceConfirmFor;
 
   final RouteDraft draft;
   final RouteDraft? availableDraft;
@@ -98,8 +135,19 @@ class RoutePublishState {
     String? message,
     bool clearMessage = false,
     int? messageSerial,
+    DraftSaveStatus? saveStatus,
+    bool? restoredNotice,
+    bool? conflict,
+    String? replaceConfirmFor,
+    bool clearReplaceConfirm = false,
   }) {
     return RoutePublishState(
+      saveStatus: saveStatus ?? this.saveStatus,
+      restoredNotice: restoredNotice ?? this.restoredNotice,
+      conflict: conflict ?? this.conflict,
+      replaceConfirmFor: clearReplaceConfirm
+          ? null
+          : replaceConfirmFor ?? this.replaceConfirmFor,
       draft: draft ?? this.draft,
       serverDrafts: serverDrafts ?? this.serverDrafts,
       isOpeningDraft: isOpeningDraft ?? this.isOpeningDraft,
@@ -133,22 +181,9 @@ final routeMediaPickerProvider = Provider<RouteMediaPicker>((ref) {
   return ImagePickerRouteMediaPicker(ImagePicker());
 });
 
-final routeDraftMediaStoreProvider = Provider<RouteDraftMediaStore>((ref) {
-  return AppDirRouteDraftMediaStore();
-});
-
-final routeDraftRepositoryProvider = Provider<RouteDraftRepository>((ref) {
-  return SecureRouteDraftRepository(ref.watch(secureStorageProvider));
-});
-
-final routePublicationRepositoryProvider = Provider<RoutePublicationRepository>(
-  (ref) {
-    if (ref.watch(appConfigProvider).useMockData) {
-      return const InMemoryRoutePublicationRepository();
-    }
-    return ApiRoutePublicationRepository(ref.watch(dioProvider));
-  },
-);
+/// Set while the form is opened to edit an existing route (from its card), so
+/// a live route's local copy is resumed there and nowhere else.
+final routePublishEditingExistingProvider = StateProvider<bool>((ref) => false);
 
 final routePublishControllerProvider = StateNotifierProvider.autoDispose
     .family<RoutePublishController, RoutePublishState, RoutePublishMode>((
@@ -162,6 +197,12 @@ final routePublishControllerProvider = StateNotifierProvider.autoDispose
         mediaStore: ref.watch(routeDraftMediaStoreProvider),
         publication: ref.watch(routePublicationRepositoryProvider),
         routes: ref.watch(routesRepositoryProvider),
+        sync: ref.watch(routeDraftSyncServiceProvider),
+        // The golden fixture has no account (and must not start a session).
+        userId: mode == RoutePublishMode.production
+            ? ref.watch(sessionProvider.select((session) => session.userId))
+            : null,
+        editingExisting: ref.read(routePublishEditingExistingProvider),
       );
     });
 
@@ -173,6 +214,10 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     required this._mediaStore,
     required this._publication,
     required this._routes,
+    required this._sync,
+    this._userId,
+    this._editingExisting = false,
+    this._autosaveDelay = const Duration(seconds: 2),
   }) : _mode = mode,
        super(
          RoutePublishState(
@@ -183,6 +228,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
          ),
        ) {
     if (mode == RoutePublishMode.production) {
+      _syncSubscription = _sync.events.listen(_onSyncEvent);
       unawaited(_hydrate());
     }
   }
@@ -195,33 +241,339 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   final RouteDraftMediaStore _mediaStore;
   final RoutePublicationRepository _publication;
   final RoutesRepository _routes;
+  final RouteDraftSyncService _sync;
+  final String? _userId;
+  final bool _editingExisting;
+  final Duration _autosaveDelay;
+
+  StreamSubscription<RouteDraftSyncEvent>? _syncSubscription;
+  Timer? _autosave;
+  Timer? _localRetry;
+  Future<void>? _persistFuture;
+
+  /// Edits not yet written to the device.
+  bool _dirty = false;
+
+  /// Another edit landed while a write was running.
+  bool _dirtyAgain = false;
+  int _localFailures = 0;
+  bool _localFailing = false;
+  bool _syncing = false;
+  RouteDraftSyncOutcome? _lastOutcome;
+
+  // Programmatic replacements of the draft (loading, adopting a send's
+  // result) are not edits and must not start an autosave.
+  int _quietDepth = 0;
 
   Timer? _previewDebounce;
   int _previewGeneration = 0;
 
-  Future<void> _hydrate() async {
+  /// An edit is any change of the form content while the screen is live.
+  /// Hooking the setter covers every mutator (title, places, photos, filters)
+  /// without each one having to remember to save.
+  @override
+  set state(RoutePublishState value) {
+    final previous = super.state;
+    if (_mode == RoutePublishMode.production &&
+        _quietDepth == 0 &&
+        !value.isHydrating &&
+        !previous.draft.sameContentAs(value.draft)) {
+      super.state = value.copyWith(draft: value.draft.copyWith(unsynced: true));
+      _onEdited();
+      return;
+    }
+    super.state = value;
+  }
+
+  void _quiet(void Function() change) {
+    _quietDepth++;
     try {
-      final draft = await _drafts.load();
+      change();
+    } finally {
+      _quietDepth--;
+    }
+  }
+
+  void _onEdited() {
+    _dirty = true;
+    if (_persistFuture != null) {
+      _dirtyAgain = true;
+    }
+    _autosave?.cancel();
+    _autosave = Timer(_autosaveDelay, () => unawaited(_persistLocal()));
+    _refreshStatus();
+  }
+
+  RouteDraft _stamped(RouteDraft draft) {
+    return draft.copyWith(
+      ownerUserId: draft.ownerUserId ?? _userId,
+      clientDraftId: draft.clientDraftId ?? newClientEventId(),
+      updatedAt: DateTime.now().toUtc(),
+    );
+  }
+
+  /// Writes the draft to the device. Saves never overlap: one requested while
+  /// another runs is remembered and repeated, not dropped.
+  Future<void> _persistLocal() {
+    final running = _persistFuture;
+    if (running != null) {
+      _dirtyAgain = true;
+      return running;
+    }
+    final future = _persistLoop().whenComplete(() => _persistFuture = null);
+    _persistFuture = future;
+    return future;
+  }
+
+  Future<void> _persistLoop() async {
+    do {
+      _dirtyAgain = false;
       if (!mounted) {
         return;
       }
-      if (draft == null || !draft.hasMeaningfulContent) {
-        state = state.copyWith(isHydrating: false);
+      final stamped = _stamped(state.draft);
+      if (!stamped.hasMeaningfulContent) {
+        _dirty = false;
         return;
       }
-      if (draft.publicationStatus != RoutePublicationStatus.draft &&
-          draft.publicationStatus != RoutePublicationStatus.rejected) {
-        await _drafts.delete();
+      try {
+        await _drafts.save(stamped);
+        _localFailures = 0;
+        _localFailing = false;
+        _dirty = _dirtyAgain;
         if (mounted) {
-          state = state.copyWith(isHydrating: false, clearAvailableDraft: true);
+          _quiet(() {
+            state = state.copyWith(
+              draft: state.draft.copyWith(
+                ownerUserId: stamped.ownerUserId,
+                clientDraftId: stamped.clientDraftId,
+                updatedAt: stamped.updatedAt,
+              ),
+            );
+          });
+        }
+      } on Object {
+        // A failed write must never read as "saved": say so, and try again
+        // with growing pauses instead of spinning.
+        _dirty = true;
+        _localFailing = true;
+        _localFailures++;
+        _scheduleLocalRetry();
+        _refreshStatus();
+        return;
+      }
+    } while (_dirtyAgain && mounted);
+    _refreshStatus();
+  }
+
+  void _scheduleLocalRetry() {
+    const pauses = [2, 5, 15];
+    final seconds = pauses[math.min(_localFailures - 1, pauses.length - 1)];
+    _localRetry?.cancel();
+    _localRetry = Timer(
+      Duration(seconds: seconds),
+      () => unawaited(_persistLocal()),
+    );
+  }
+
+  void _refreshStatus() {
+    if (!mounted) {
+      return;
+    }
+    final draft = state.draft;
+    final status = !draft.hasMeaningfulContent
+        ? DraftSaveStatus.idle
+        : _localFailing
+        ? DraftSaveStatus.localFailed
+        : _syncing
+        ? DraftSaveStatus.syncing
+        : draft.unsynced
+        ? (_lastOutcome == RouteDraftSyncOutcome.offline
+              ? DraftSaveStatus.offline
+              : DraftSaveStatus.savedLocal)
+        : draft.serverId != null
+        ? DraftSaveStatus.synced
+        : DraftSaveStatus.savedLocal;
+    if (status != state.saveStatus) {
+      _quiet(() => state = state.copyWith(saveStatus: status));
+    }
+  }
+
+  /// Leaving the screen or the app: write what is pending, then let the sync
+  /// service send it. The service outlives this controller, so the send
+  /// continues after the screen is gone.
+  Future<void> flush() async {
+    if (_mode != RoutePublishMode.production || state.isHydrating) {
+      return;
+    }
+    _autosave?.cancel();
+    _localRetry?.cancel();
+    if (_dirty || _persistFuture != null) {
+      await _persistLocal();
+    }
+    unawaited(_sendInBackground());
+  }
+
+  Future<void> _sendInBackground() async {
+    final userId = _userId;
+    if (userId == null || !state.draft.hasMeaningfulContent) {
+      return;
+    }
+    await _send(userId, explicit: false);
+  }
+
+  Future<RouteDraftSyncOutcome> _send(
+    String userId, {
+    required bool explicit,
+  }) async {
+    _syncing = true;
+    _refreshStatus();
+    final outcome = await _sync.sync(userId, state.draft, explicit: explicit);
+    _syncing = false;
+    _lastOutcome = outcome;
+    if (mounted) {
+      _reportOutcome(outcome, explicit: explicit);
+      _refreshStatus();
+    }
+    return outcome;
+  }
+
+  void _reportOutcome(RouteDraftSyncOutcome outcome, {required bool explicit}) {
+    switch (outcome) {
+      case RouteDraftSyncOutcome.synced || RouteDraftSyncOutcome.upToDate:
+        if (explicit) {
+          _message('Черновик сохранён');
+        }
+      case RouteDraftSyncOutcome.notReady ||
+          RouteDraftSyncOutcome.offline ||
+          RouteDraftSyncOutcome.failed:
+        if (explicit) {
+          _message('Черновик сохранён на устройстве');
+        }
+      case RouteDraftSyncOutcome.blockedPlaces:
+        _message('Некоторые точки больше недоступны — замените их');
+      case RouteDraftSyncOutcome.blockedMedia:
+        _message(
+          'Не удалось отправить фото: их должно быть не больше '
+          '${RoutePublishController.maxMedia}, а файлы — на месте',
+        );
+      case RouteDraftSyncOutcome.conflict:
+        _quiet(() => state = state.copyWith(conflict: true));
+      case RouteDraftSyncOutcome.heldBack ||
+          RouteDraftSyncOutcome.blocked ||
+          RouteDraftSyncOutcome.notOwner:
+        break;
+    }
+  }
+
+  /// A send that ran without this editor (after leaving, or from the sync
+  /// service at launch) reports back what the editor should adopt.
+  void _onSyncEvent(RouteDraftSyncEvent event) {
+    if (!mounted) {
+      return;
+    }
+    switch (event) {
+      case MediaUploadedEvent():
+        _quiet(() {
+          state = state.copyWith(
+            draft: state.draft.copyWith(
+              media: [
+                for (final item in state.draft.media)
+                  item.id == event.localMediaId
+                      ? item.copyWith(serverMediaId: event.serverMediaId)
+                      : item,
+              ],
+            ),
+          );
+        });
+      case DraftSyncedEvent(:final draft):
+        if (draft.clientDraftId != state.draft.clientDraftId) {
+          return;
+        }
+        _quiet(() {
+          state = state.copyWith(
+            draft: state.draft.copyWith(
+              serverId: draft.serverId,
+              publicationStatus: draft.publicationStatus,
+              serverUpdatedAt: draft.serverUpdatedAt,
+              lastSyncedAt: draft.lastSyncedAt,
+              unsynced: draft.unsynced || _dirty,
+              blockedReason: draft.blockedReason,
+              blockedFingerprint: draft.blockedFingerprint,
+              clearBlocked: draft.blockedReason == null,
+            ),
+          );
+        });
+        _refreshStatus();
+    }
+  }
+
+  Future<void> _hydrate() async {
+    try {
+      final loaded = await _drafts.load();
+      if (!mounted) {
+        return;
+      }
+      if (loaded == null || !loaded.hasMeaningfulContent) {
+        state = state.copyWith(isHydrating: false);
+        unawaited(_loadServerDrafts());
+        return;
+      }
+      final userId = _userId;
+      // Somebody else's draft (an earlier account on this phone) is neither
+      // shown nor sent: it is erased with its photo copies.
+      if (userId != null &&
+          loaded.ownerUserId != null &&
+          loaded.ownerUserId != userId) {
+        await _sync.discardLocal();
+        if (mounted) {
+          state = state.copyWith(isHydrating: false);
+          unawaited(_loadServerDrafts());
         }
         return;
       }
-      unawaited(_mediaStore.purgeExpired());
-      state = state.copyWith(
-        availableDraft: await _withExistingMedia(draft),
-        isHydrating: false,
+      // Drafts written before drafts had an owner belong to whoever is here.
+      final draft = loaded.ownerUserId == null && userId != null
+          ? loaded.copyWith(
+              ownerUserId: userId,
+              clientDraftId: loaded.clientDraftId ?? newClientEventId(),
+            )
+          : loaded;
+      final existing = await _withExistingMedia(draft);
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        _mediaStore.purgeExpired(inUse: {for (final m in draft.media) m.path}),
       );
+      // A route already through review is edited from its own card. From the
+      // compose button it is not resumed as if it were a new draft; unsent
+      // edits are asked about, anything else is simply gone.
+      if (draft.isLiveRoute && !_editingExisting) {
+        if (draft.unsynced) {
+          state = state.copyWith(availableDraft: existing, isHydrating: false);
+        } else {
+          await _drafts.delete();
+          state = state.copyWith(isHydrating: false);
+        }
+        unawaited(_loadServerDrafts());
+        return;
+      }
+      if (_dirty) {
+        // The author started typing before the draft loaded: ask, do not overwrite.
+        state = state.copyWith(availableDraft: existing, isHydrating: false);
+      } else {
+        _quiet(() {
+          state = state.copyWith(
+            draft: existing,
+            isHydrating: false,
+            restoredNotice: true,
+          );
+        });
+        _refreshRoutePreview();
+        _refreshStatus();
+        unawaited(_sendPending());
+      }
       unawaited(_loadServerDrafts());
     } catch (_) {
       if (mounted) {
@@ -232,6 +584,15 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         );
       }
     }
+  }
+
+  /// What a previous session left unsent goes out now that the form is open.
+  Future<void> _sendPending() async {
+    final userId = _userId;
+    if (userId == null) {
+      return;
+    }
+    await _send(userId, explicit: false);
   }
 
   /// Drops photos whose file no longer exists.
@@ -276,30 +637,59 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       final drafts = page.items
           .where((route) => route.publicationStatus == 'draft')
           .toList(growable: false);
-      state = state.copyWith(serverDrafts: drafts);
+      _quiet(() => state = state.copyWith(serverDrafts: drafts));
     } on Object {
       // Offline or a failed call: the local draft is still offered.
     }
   }
 
-  /// Opens one of the server drafts in the editor, replacing whatever the
-  /// prompt was offering.
-  Future<void> openServerDraft(String routeId) async {
+  /// Opens one of the server drafts in the editor.
+  ///
+  /// Unsent edits are sent first, so they become one of the server drafts
+  /// instead of being replaced. If they cannot be sent, the person is asked
+  /// (see [RoutePublishState.replaceConfirmFor]) before anything is lost.
+  Future<void> openServerDraft(
+    String routeId, {
+    bool confirmedReplace = false,
+  }) async {
     if (state.isOpeningDraft) {
       return;
     }
-    state = state.copyWith(isOpeningDraft: true);
+    state = state.copyWith(isOpeningDraft: true, clearReplaceConfirm: true);
     try {
-      final draft = await _publication.loadForEdit(routeId);
+      if (!confirmedReplace && await _hasUnsentEdits()) {
+        final handled = await _trySendBeforeReplace();
+        if (!handled) {
+          if (mounted) {
+            state = state.copyWith(
+              isOpeningDraft: false,
+              replaceConfirmFor: routeId,
+            );
+          }
+          return;
+        }
+      }
+      final loaded = await _publication.loadForEdit(routeId);
       if (!mounted) {
         return;
       }
-      state = state.copyWith(
-        draft: draft,
-        isOpeningDraft: false,
-        clearAvailableDraft: true,
+      final draft = loaded.copyWith(
+        ownerUserId: _userId,
+        clientDraftId: newClientEventId(),
+        unsynced: false,
+        updatedAt: DateTime.now().toUtc(),
       );
+      _quiet(() {
+        state = state.copyWith(
+          draft: draft,
+          isOpeningDraft: false,
+          clearAvailableDraft: true,
+          restoredNotice: false,
+        );
+      });
+      _dirty = false;
       _refreshRoutePreview();
+      _refreshStatus();
       await _drafts.save(draft);
     } on Object {
       if (mounted) {
@@ -309,24 +699,59 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     }
   }
 
+  Future<bool> _hasUnsentEdits() async {
+    final draft = state.draft;
+    return draft.hasMeaningfulContent && (draft.unsynced || _dirty);
+  }
+
+  /// True when the current draft is safe on the server (or there is nothing to
+  /// lose); false when opening another one would replace unsent edits.
+  Future<bool> _trySendBeforeReplace() async {
+    final userId = _userId;
+    if (userId == null) {
+      return false;
+    }
+    await _persistLocal();
+    final outcome = await _send(userId, explicit: !state.draft.isLiveRoute);
+    return outcome == RouteDraftSyncOutcome.synced ||
+        outcome == RouteDraftSyncOutcome.upToDate;
+  }
+
   void continueDraft() {
     final draft = state.availableDraft;
     if (draft == null) {
       return;
     }
-    state = state.copyWith(draft: draft, clearAvailableDraft: true);
+    _quiet(() {
+      state = state.copyWith(draft: draft, clearAvailableDraft: true);
+    });
     // Opening a draft has to draw its map too. Previously the preview was
     // only computed from the point-editing path, so a restored draft showed
     // the placeholder until the author happened to move a point.
     _refreshRoutePreview();
+    _refreshStatus();
   }
 
+  void dismissRestoredNotice() {
+    if (state.restoredNotice) {
+      _quiet(() => state = state.copyWith(restoredNotice: false));
+    }
+  }
+
+  /// Starts an empty form. Only the copy on this device goes: the draft already
+  /// saved on the server stays in the list of drafts.
   Future<void> startNewDraft() async {
-    final saved = state.availableDraft;
-    state = state.copyWith(
-      draft: const RouteDraft(),
-      clearAvailableDraft: true,
-    );
+    _autosave?.cancel();
+    _localRetry?.cancel();
+    _dirty = false;
+    _quiet(() {
+      state = state.copyWith(
+        draft: const RouteDraft(),
+        clearAvailableDraft: true,
+        restoredNotice: false,
+        saveStatus: DraftSaveStatus.idle,
+      );
+    });
     try {
       await _drafts.delete();
     } catch (_) {
@@ -334,13 +759,25 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         'Новый маршрут начат, но локальный черновик удалить не удалось.',
       );
     }
-    final serverId = saved?.serverId;
-    if (serverId != null && serverId.isNotEmpty) {
-      try {
-        await _publication.discardDraft(serverId);
-      } on AppFailure {
-        _message('Новый маршрут начат. Серверный черновик удалить не удалось.');
+    unawaited(_loadServerDrafts());
+  }
+
+  /// Deletes a draft that lives on the server (from the list of drafts).
+  Future<void> discardServerDraft(String routeId) async {
+    try {
+      await _publication.discardDraft(routeId);
+      if (mounted) {
+        _quiet(() {
+          state = state.copyWith(
+            serverDrafts: [
+              for (final route in state.serverDrafts)
+                if (route.id != routeId) route,
+            ],
+          );
+        });
       }
+    } on AppFailure {
+      _message('Не удалось удалить черновик');
     }
   }
 
@@ -552,6 +989,9 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     );
   }
 
+  /// The explicit "Сохранить черновик": writes to the device and sends to the
+  /// server now, also for a route already through review (the screen has
+  /// warned that this puts it back on moderation).
   Future<void> saveDraft() async {
     if (state.isSaving) {
       return;
@@ -562,36 +1002,14 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     }
     state = state.copyWith(isSaving: true);
     try {
-      var draft = state.draft.copyWith(
-        updatedAt: DateTime.now().toUtc(),
-        publicationStatus: RoutePublicationStatus.draft,
-      );
-      await _drafts.save(draft);
-      final canSync =
-          draft.title.trim().isNotEmpty &&
-          draft.start != null &&
-          draft.finish != null;
-      if (canSync) {
-        try {
-          final receipt = await _publication.saveDraft(draft);
-          draft = draft.copyWith(
-            serverId: receipt.id,
-            publicationStatus: receipt.status,
-            updatedAt: receipt.updatedAt,
-          );
-          await _drafts.save(draft);
-        } on AppFailure {
-          if (mounted) {
-            state = state.copyWith(draft: draft);
-            _message('Черновик сохранён на устройстве');
-          }
-          return;
-        }
+      _autosave?.cancel();
+      await _persistLocal();
+      final userId = _userId;
+      if (userId == null) {
+        _message('Черновик сохранён на устройстве');
+        return;
       }
-      if (mounted) {
-        state = state.copyWith(draft: draft);
-        _message('Черновик сохранён');
-      }
+      await _send(userId, explicit: true);
     } catch (_) {
       _message('Не удалось сохранить черновик. Попробуйте ещё раз.');
     } finally {
@@ -607,40 +1025,99 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     }
     state = state.copyWith(isPublishing: true);
     try {
-      final preparedReceipt = await _publication.saveDraft(state.draft);
-      var prepared = state.draft.copyWith(
-        serverId: preparedReceipt.id,
-        publicationStatus: preparedReceipt.status,
-        updatedAt: preparedReceipt.updatedAt,
-      );
-      await _drafts.save(prepared);
-      if (mounted) {
-        state = state.copyWith(draft: prepared);
+      _autosave?.cancel();
+      await _persistLocal();
+      final userId = _userId;
+      if (userId == null) {
+        _message('Войдите в аккаунт, чтобы опубликовать маршрут');
+        return null;
       }
+      final outcome = await _send(userId, explicit: true);
+      if (outcome != RouteDraftSyncOutcome.synced) {
+        if (outcome != RouteDraftSyncOutcome.conflict) {
+          _message('Не удалось опубликовать маршрут. Черновик сохранён.');
+        }
+        return null;
+      }
+      // The send brought the stored draft up to date (server id, photo ids).
+      final prepared = await _drafts.load() ?? state.draft;
       final submittedReceipt = await _publication.submit(prepared);
-      prepared = prepared.copyWith(
-        serverId: submittedReceipt.id,
-        publicationStatus: submittedReceipt.status,
-        updatedAt: submittedReceipt.updatedAt,
-      );
       await _drafts.delete();
+      _dirty = false;
       if (mounted) {
-        state = state.copyWith(draft: prepared, clearAvailableDraft: true);
+        _quiet(() {
+          state = state.copyWith(
+            draft: prepared.copyWith(
+              serverId: submittedReceipt.id,
+              publicationStatus: submittedReceipt.status,
+              serverUpdatedAt: submittedReceipt.updatedAt,
+              unsynced: false,
+            ),
+            clearAvailableDraft: true,
+          );
+        });
         _message('Маршрут отправлен на модерацию');
       }
       return submittedReceipt.id;
     } on AppFailure catch (error) {
-      await saveDraft();
       _message(error.message);
       return null;
     } catch (_) {
-      await saveDraft();
       _message('Не удалось опубликовать маршрут. Черновик сохранён.');
       return null;
     } finally {
       if (mounted) {
         state = state.copyWith(isPublishing: false);
       }
+    }
+  }
+
+  /// The server copy changed elsewhere: keep this version as a new draft.
+  Future<void> resolveConflictKeepMine() async {
+    final mine = state.draft;
+    final fresh = mine.copyWith(
+      clearServer: true,
+      clientDraftId: newClientEventId(),
+      publicationStatus: RoutePublicationStatus.draft,
+      unsynced: true,
+      clearBlocked: true,
+      // Photos already on the server belong to the other draft; the ones the
+      // device holds are uploaded again into the new one.
+      media: [
+        for (final item in mine.media)
+          if (!item.isRemote) item.withoutServerId(),
+      ],
+    );
+    _quiet(() => state = state.copyWith(draft: fresh, conflict: false));
+    _dirty = true;
+    await saveDraft();
+  }
+
+  /// The server copy changed elsewhere: take that version.
+  Future<void> resolveConflictTakeServer() async {
+    final serverId = state.draft.serverId;
+    if (serverId == null) {
+      _quiet(() => state = state.copyWith(conflict: false));
+      return;
+    }
+    try {
+      final loaded = await _publication.loadForEdit(serverId);
+      if (!mounted) {
+        return;
+      }
+      final draft = loaded.copyWith(
+        ownerUserId: _userId,
+        clientDraftId: state.draft.clientDraftId ?? newClientEventId(),
+        unsynced: false,
+        updatedAt: DateTime.now().toUtc(),
+      );
+      _quiet(() => state = state.copyWith(draft: draft, conflict: false));
+      _dirty = false;
+      _refreshRoutePreview();
+      _refreshStatus();
+      await _drafts.save(draft);
+    } on Object {
+      _message('Не удалось загрузить версию с сервера');
     }
   }
 
@@ -678,7 +1155,32 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   @override
   void dispose() {
     _previewDebounce?.cancel();
+    _autosave?.cancel();
+    _localRetry?.cancel();
+    unawaited(_syncSubscription?.cancel());
+    // Leaving with edits that were not written or sent yet: hand them over
+    // before the state goes away. Nothing here waits for the screen.
+    if (_mode == RoutePublishMode.production &&
+        !state.isHydrating &&
+        state.draft.hasMeaningfulContent &&
+        (_dirty || state.draft.unsynced)) {
+      unawaited(_handOff(_stamped(state.draft), write: _dirty));
+    }
     super.dispose();
+  }
+
+  Future<void> _handOff(RouteDraft draft, {required bool write}) async {
+    if (write) {
+      try {
+        await _drafts.save(draft);
+      } on Object {
+        return;
+      }
+    }
+    final userId = _userId;
+    if (userId != null) {
+      unawaited(_sync.sync(userId, draft));
+    }
   }
 
   /// Ordered place ids currently on the form: start, stops, finish.

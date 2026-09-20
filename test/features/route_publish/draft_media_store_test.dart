@@ -116,4 +116,40 @@ void main() {
       expect(await store.keep(missing), missing);
     },
   );
+
+  test(
+    'a photo of a draft still being edited survives the weekly purge',
+    () async {
+      final store = AppDirRouteDraftMediaStore();
+      final inUse = await store.keep((await sourcePhoto('mine.jpg')).path);
+      final orphan = await store.keep((await sourcePhoto('orphan.jpg')).path);
+      final old = DateTime.now().subtract(const Duration(days: 30));
+      await File(inUse).setLastModified(old);
+      await File(orphan).setLastModified(old);
+
+      // The stored path may point into an old container after a reinstall: the
+      // file is recognised by its name.
+      await store.purgeExpired(
+        inUse: {'/old/container/${inUse.split('/').last}'},
+      );
+
+      expect(
+        await File(inUse).exists(),
+        isTrue,
+        reason: 'referenced by a draft',
+      );
+      expect(await File(orphan).exists(), isFalse, reason: 'nobody needs it');
+    },
+  );
+
+  test('clearing removes every copy (sign-out)', () async {
+    final store = AppDirRouteDraftMediaStore();
+    final one = await store.keep((await sourcePhoto('one.jpg')).path);
+    final two = await store.keep((await sourcePhoto('two.jpg')).path);
+
+    await store.clearAll();
+
+    expect(await File(one).exists(), isFalse);
+    expect(await File(two).exists(), isFalse);
+  });
 }

@@ -33,7 +33,10 @@ final class UnavailableRoutePublicationRepository
   }
 
   @override
-  Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
+  Future<RoutePublicationReceipt> saveDraft(
+    RouteDraft draft, {
+    void Function(String localMediaId, String serverMediaId)? onMediaUploaded,
+  }) {
     return _unavailable();
   }
 

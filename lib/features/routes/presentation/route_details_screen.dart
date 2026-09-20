@@ -482,8 +482,18 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     // читает редактор — правка перестаёт быть привязанной к устройству
     // (жалоба 2026-09-04).
     if (local != null && local.hasMeaningfulContent) {
-      final replace = await _confirmReplaceLocalDraft(local);
-      if (replace != true || !mounted) return;
+      // Unsent edits go to the server first, so replacing the device copy does
+      // not lose them; only if that fails is the person asked.
+      final userId = ref.read(sessionProvider).userId;
+      final saved =
+          userId != null &&
+          !local.isLiveRoute &&
+          await ref.read(routeDraftSyncServiceProvider).trySendUnsent(userId);
+      if (!mounted) return;
+      if (!saved) {
+        final replace = await _confirmReplaceLocalDraft(local);
+        if (replace != true || !mounted) return;
+      }
     }
     try {
       final remote = await ref
@@ -500,10 +510,16 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   }
 
   void _openPublishScreen() {
+    // Tells the editor this is an edit of an existing route, so a live route's
+    // copy is resumed here (and only here), never from the compose button.
+    final editing = ref.read(routePublishEditingExistingProvider.notifier);
+    editing.state = true;
     unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen()),
-      ),
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<void>(builder: (_) => const RoutePublishScreen()),
+          )
+          .whenComplete(() => editing.state = false),
     );
   }
 

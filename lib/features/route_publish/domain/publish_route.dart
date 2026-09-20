@@ -27,6 +27,7 @@ class RouteMediaItem {
     required this.kind,
     this.isAsset = false,
     this.isRemote = false,
+    this.serverMediaId,
   });
 
   final String id;
@@ -46,13 +47,30 @@ class RouteMediaItem {
   /// its photos (reported 2026-09-08).
   final bool isRemote;
 
-  RouteMediaItem copyWith({String? path}) {
+  /// This device's file was uploaded to the server draft and got this id
+  /// there. Unlike [isRemote] the local file is still what the tile shows;
+  /// the id only stops the next sync from sending the same photo again.
+  final String? serverMediaId;
+
+  /// Already on the server, one way or the other.
+  bool get isOnServer => isRemote || serverMediaId != null;
+
+  /// The id the server knows this item by (only meaningful when [isOnServer]).
+  String get keepId => isRemote ? id : serverMediaId!;
+
+  /// The same file without the id it had in another server draft, so it is
+  /// uploaded again into a new one.
+  RouteMediaItem withoutServerId() =>
+      RouteMediaItem(id: id, path: path, kind: kind, isAsset: isAsset);
+
+  RouteMediaItem copyWith({String? path, String? serverMediaId}) {
     return RouteMediaItem(
       id: id,
       path: path ?? this.path,
       kind: kind,
       isAsset: isAsset,
       isRemote: isRemote,
+      serverMediaId: serverMediaId ?? this.serverMediaId,
     );
   }
 
@@ -62,6 +80,7 @@ class RouteMediaItem {
     'kind': kind.name,
     'is_asset': isAsset,
     'is_remote': isRemote,
+    'server_media_id': serverMediaId,
   };
 
   factory RouteMediaItem.fromJson(Map<String, Object?> json) {
@@ -71,6 +90,7 @@ class RouteMediaItem {
       kind: RouteMediaKind.values.byName(json['kind']! as String),
       isAsset: json['is_asset'] as bool? ?? false,
       isRemote: json['is_remote'] as bool? ?? false,
+      serverMediaId: json['server_media_id'] as String?,
     );
   }
 }
@@ -151,7 +171,35 @@ class RouteDraft {
     this.pace = TravelPace.calm,
     this.difficulty = 3,
     this.updatedAt,
+    this.ownerUserId,
+    this.clientDraftId,
+    this.unsynced = false,
+    this.lastSyncedAt,
+    this.blockedReason,
+    this.blockedFingerprint,
+    this.serverUpdatedAt,
   });
+
+  /// The server's `updated_at` from the last save or load: what this copy was
+  /// based on. Sent back so a newer change from another device is not
+  /// overwritten unseen. Not the same as [updatedAt], which is the last local edit.
+  final DateTime? serverUpdatedAt;
+
+  /// Whose draft this is. A draft with another owner (or none) is never shown
+  /// or sent: it belongs to somebody who used this device before.
+  final String? ownerUserId;
+
+  /// Generated on the device; the server uses it to recognise a retried save.
+  final String? clientDraftId;
+
+  /// Edits made since the last successful send to the server.
+  final bool unsynced;
+  final DateTime? lastSyncedAt;
+
+  /// Why a send keeps failing for good (`places`, `media`) and what the
+  /// offending part looked like, so it is not retried until that part changes.
+  final String? blockedReason;
+  final String? blockedFingerprint;
 
   final String? serverId;
   final RoutePublicationStatus publicationStatus;
@@ -165,6 +213,62 @@ class RouteDraft {
   final TravelPace pace;
   final int difficulty;
   final DateTime? updatedAt;
+
+  /// Whether [other] holds the same form content (ignoring the bookkeeping:
+  /// owner, keys, sync marks). Decides if an edit happened at all.
+  bool sameContentAs(RouteDraft other) {
+    if (title != other.title ||
+        description != other.description ||
+        pace != other.pace ||
+        difficulty != other.difficulty ||
+        start?.id != other.start?.id ||
+        finish?.id != other.finish?.id ||
+        media.length != other.media.length ||
+        stops.length != other.stops.length ||
+        filters.length != other.filters.length) {
+      return false;
+    }
+    for (var i = 0; i < media.length; i++) {
+      if (media[i].id != other.media[i].id ||
+          media[i].path != other.media[i].path) {
+        return false;
+      }
+    }
+    for (var i = 0; i < stops.length; i++) {
+      if (stops[i].location.id != other.stops[i].location.id) return false;
+    }
+    for (var i = 0; i < filters.length; i++) {
+      if (filters[i] != other.filters[i]) return false;
+    }
+    return true;
+  }
+
+  /// Already through review: saving it on the server puts it back in the queue.
+  bool get isLiveRoute =>
+      publicationStatus == RoutePublicationStatus.pendingReview ||
+      publicationStatus == RoutePublicationStatus.published;
+
+  /// The parts the server refuses when they are unusable.
+  String get placesFingerprint => [
+    ?start?.id,
+    for (final stop in stops) stop.location.id,
+    ?finish?.id,
+  ].join(',');
+
+  String get mediaFingerprint => [
+    for (final item in media)
+      if (!item.isAsset) item.id,
+  ].join(',');
+
+  bool get isBlocked {
+    final reason = blockedReason;
+    if (reason == null) return false;
+    return switch (reason) {
+      'places' => blockedFingerprint == placesFingerprint,
+      'media' => blockedFingerprint == mediaFingerprint,
+      _ => false,
+    };
+  }
 
   bool get hasMeaningfulContent =>
       title.trim().isNotEmpty ||
@@ -278,9 +382,29 @@ class RouteDraft {
     TravelPace? pace,
     int? difficulty,
     DateTime? updatedAt,
+    String? ownerUserId,
+    String? clientDraftId,
+    bool? unsynced,
+    DateTime? lastSyncedAt,
+    String? blockedReason,
+    String? blockedFingerprint,
+    DateTime? serverUpdatedAt,
+    bool clearBlocked = false,
+    bool clearServer = false,
   }) {
     return RouteDraft(
-      serverId: serverId ?? this.serverId,
+      serverUpdatedAt: clearServer
+          ? null
+          : serverUpdatedAt ?? this.serverUpdatedAt,
+      ownerUserId: ownerUserId ?? this.ownerUserId,
+      clientDraftId: clientDraftId ?? this.clientDraftId,
+      unsynced: unsynced ?? this.unsynced,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      blockedReason: clearBlocked ? null : blockedReason ?? this.blockedReason,
+      blockedFingerprint: clearBlocked
+          ? null
+          : blockedFingerprint ?? this.blockedFingerprint,
+      serverId: clearServer ? null : serverId ?? this.serverId,
       publicationStatus: publicationStatus ?? this.publicationStatus,
       title: title ?? this.title,
       description: description ?? this.description,
@@ -296,6 +420,13 @@ class RouteDraft {
   }
 
   Map<String, Object?> toJson() => {
+    'owner_user_id': ownerUserId,
+    'client_draft_id': clientDraftId,
+    'unsynced': unsynced,
+    'last_synced_at': lastSyncedAt?.toIso8601String(),
+    'blocked_reason': blockedReason,
+    'blocked_fingerprint': blockedFingerprint,
+    'server_updated_at': serverUpdatedAt?.toIso8601String(),
     'server_id': serverId,
     'publication_status': publicationStatus.apiValue,
     'title': title,
@@ -314,6 +445,15 @@ class RouteDraft {
     final start = json['start'];
     final finish = json['finish'];
     return RouteDraft(
+      ownerUserId: json['owner_user_id'] as String?,
+      clientDraftId: json['client_draft_id'] as String?,
+      unsynced: json['unsynced'] as bool? ?? false,
+      lastSyncedAt: DateTime.tryParse(json['last_synced_at'] as String? ?? ''),
+      blockedReason: json['blocked_reason'] as String?,
+      blockedFingerprint: json['blocked_fingerprint'] as String?,
+      serverUpdatedAt: DateTime.tryParse(
+        json['server_updated_at'] as String? ?? '',
+      ),
       serverId: json['server_id'] as String?,
       publicationStatus: RoutePublicationStatus.fromApi(
         json['publication_status'] as String?,

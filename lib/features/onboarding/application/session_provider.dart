@@ -13,6 +13,7 @@ import 'package:tourism_mobile/features/auth/domain/auth_repository.dart';
 import 'package:tourism_mobile/features/onboarding/data/session_identity_cache.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 
 class SessionState {
@@ -591,6 +592,16 @@ final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
         );
       } on Object {
         // Token deletion and session reset still win if local cleanup fails.
+      }
+      // The route draft belongs to the account that left: stop any send in
+      // flight (it must not run under the next account) and erase the copy.
+      try {
+        final drafts = ref.read(routeDraftSyncServiceProvider);
+        drafts.cancel();
+        await drafts.discardLocal();
+        await drafts.clearSignOutFlag();
+      } on Object {
+        // finishInterruptedSignOut() retries at the next start.
       }
     },
   );

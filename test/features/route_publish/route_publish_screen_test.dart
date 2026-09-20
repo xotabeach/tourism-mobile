@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tourism_mobile/core/storage/memory_secure_storage.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_sync.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_draft_media_store.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
@@ -144,12 +146,21 @@ void main() {
     'controller prevents duplicate locations and persists a draft',
     () async {
       final drafts = _MemoryDraftRepository();
+      final syncStore = _MemoryMediaStore();
+      final syncPublication = _NoopPublicationRepository();
       final controller = RoutePublishController(
         mode: RoutePublishMode.production,
+        userId: 'test-user',
         drafts: drafts,
         mediaPicker: _NoopMediaPicker(),
-        mediaStore: _MemoryMediaStore(),
-        publication: _NoopPublicationRepository(),
+        mediaStore: syncStore,
+        publication: syncPublication,
+        sync: RouteDraftSyncService(
+          drafts: drafts,
+          publication: syncPublication,
+          mediaStore: syncStore,
+          storage: MemorySecureStorage(),
+        ),
         routes: MockRoutesRepository(),
       );
       addTearDown(controller.dispose);
@@ -169,7 +180,8 @@ void main() {
       controller.setTitle('Тестовый маршрут');
       await controller.saveDraft();
       expect(drafts.value?.title, 'Тестовый маршрут');
-      expect(controller.state.message, 'Черновик сохранён');
+      // No finish yet, so nothing can go to the server: the message says so.
+      expect(controller.state.message, 'Черновик сохранён на устройстве');
     },
   );
 
@@ -202,12 +214,20 @@ void main() {
         finish: finish,
       );
     final publication = _NoopPublicationRepository();
+    final syncStore = _MemoryMediaStore();
     final controller = RoutePublishController(
       mode: RoutePublishMode.production,
+      userId: 'test-user',
       drafts: drafts,
       mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
+      mediaStore: syncStore,
       publication: publication,
+      sync: RouteDraftSyncService(
+        drafts: drafts,
+        publication: publication,
+        mediaStore: syncStore,
+        storage: MemorySecureStorage(),
+      ),
       routes: MockRoutesRepository(),
     );
     addTearDown(controller.dispose);
@@ -223,33 +243,47 @@ void main() {
     expect(controller.state.message, 'Маршрут отправлен на модерацию');
   });
 
-  test('controller asks before restoring and can start over', () async {
-    final drafts = _MemoryDraftRepository()
-      ..value = const RouteDraft(
-        serverId: 'saved-route',
-        title: 'Сохранённый маршрут',
+  test(
+    'controller restores at once and starting over keeps the server draft',
+    () async {
+      final drafts = _MemoryDraftRepository()
+        ..value = const RouteDraft(
+          serverId: 'saved-route',
+          title: 'Сохранённый маршрут',
+        );
+      final publication = _NoopPublicationRepository();
+      final syncStore = _MemoryMediaStore();
+      final controller = RoutePublishController(
+        mode: RoutePublishMode.production,
+        userId: 'test-user',
+        drafts: drafts,
+        mediaPicker: _NoopMediaPicker(),
+        mediaStore: syncStore,
+        publication: publication,
+        sync: RouteDraftSyncService(
+          drafts: drafts,
+          publication: publication,
+          mediaStore: syncStore,
+          storage: MemorySecureStorage(),
+        ),
+        routes: MockRoutesRepository(),
       );
-    final publication = _NoopPublicationRepository();
-    final controller = RoutePublishController(
-      mode: RoutePublishMode.production,
-      drafts: drafts,
-      mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
-      publication: publication,
-      routes: MockRoutesRepository(),
-    );
-    addTearDown(controller.dispose);
-    await Future<void>.delayed(Duration.zero);
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(controller.state.draft.title, isEmpty);
-    expect(controller.state.availableDraft?.title, 'Сохранённый маршрут');
+      // The draft is picked up at once, with a note, instead of asking.
+      expect(controller.state.availableDraft, isNull);
+      expect(controller.state.draft.title, 'Сохранённый маршрут');
+      expect(controller.state.restoredNotice, isTrue);
 
-    await controller.startNewDraft();
+      await controller.startNewDraft();
 
-    expect(controller.state.availableDraft, isNull);
-    expect(drafts.value, isNull);
-    expect(publication.discarded, ['saved-route']);
-  });
+      expect(controller.state.draft.title, isEmpty);
+      expect(drafts.value, isNull);
+      // Starting over clears this device only; the server draft stays listed.
+      expect(publication.discarded, isEmpty);
+    },
+  );
 }
 
 Future<void> _pumpPublish(
@@ -394,7 +428,10 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
       RouteDraft(serverId: routeId);
 
   @override
-  Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async {
+  Future<RoutePublicationReceipt> saveDraft(
+    RouteDraft draft, {
+    void Function(String localMediaId, String serverMediaId)? onMediaUploaded,
+  }) async {
     saved++;
     return RoutePublicationReceipt(
       id: 'route-id',
@@ -459,12 +496,21 @@ void _serverDraftsTests() {
           serverId: 'saved-route',
           title: 'Сохранённый маршрут',
         );
+      final syncStore = _MemoryMediaStore();
+      final syncPublication = _NoopPublicationRepository();
       final controller = RoutePublishController(
         mode: RoutePublishMode.production,
+        userId: 'test-user',
         drafts: drafts,
         mediaPicker: _NoopMediaPicker(),
-        mediaStore: _MemoryMediaStore(),
-        publication: _NoopPublicationRepository(),
+        mediaStore: syncStore,
+        publication: syncPublication,
+        sync: RouteDraftSyncService(
+          drafts: drafts,
+          publication: syncPublication,
+          mediaStore: syncStore,
+          storage: MemorySecureStorage(),
+        ),
         routes: _DraftsRoutesRepository(),
       );
       addTearDown(controller.dispose);
@@ -485,12 +531,21 @@ void _routePreviewTests() {
     'start and finish alone already ask for the road between them',
     () async {
       final publication = _NoopPublicationRepository();
+      final syncDrafts = _MemoryDraftRepository();
+      final syncStore = _MemoryMediaStore();
       final controller = RoutePublishController(
         mode: RoutePublishMode.production,
-        drafts: _MemoryDraftRepository(),
+        userId: 'test-user',
+        drafts: syncDrafts,
         mediaPicker: _NoopMediaPicker(),
-        mediaStore: _MemoryMediaStore(),
+        mediaStore: syncStore,
         publication: publication,
+        sync: RouteDraftSyncService(
+          drafts: syncDrafts,
+          publication: publication,
+          mediaStore: syncStore,
+          storage: MemorySecureStorage(),
+        ),
         routes: MockRoutesRepository(),
       );
       addTearDown(controller.dispose);
@@ -549,12 +604,20 @@ void _routePreviewTests() {
             lng: 34.04,
           ),
         );
+      final syncStore = _MemoryMediaStore();
       final controller = RoutePublishController(
         mode: RoutePublishMode.production,
+        userId: 'test-user',
         drafts: drafts,
         mediaPicker: _NoopMediaPicker(),
-        mediaStore: _MemoryMediaStore(),
+        mediaStore: syncStore,
         publication: publication,
+        sync: RouteDraftSyncService(
+          drafts: drafts,
+          publication: publication,
+          mediaStore: syncStore,
+          storage: MemorySecureStorage(),
+        ),
         routes: MockRoutesRepository(),
       );
       addTearDown(controller.dispose);
@@ -574,12 +637,21 @@ void _routePreviewTests() {
     'a burst of edits costs one routing call, and the last one wins',
     () async {
       final publication = _NoopPublicationRepository();
+      final syncDrafts = _MemoryDraftRepository();
+      final syncStore = _MemoryMediaStore();
       final controller = RoutePublishController(
         mode: RoutePublishMode.production,
-        drafts: _MemoryDraftRepository(),
+        userId: 'test-user',
+        drafts: syncDrafts,
         mediaPicker: _NoopMediaPicker(),
-        mediaStore: _MemoryMediaStore(),
+        mediaStore: syncStore,
         publication: publication,
+        sync: RouteDraftSyncService(
+          drafts: syncDrafts,
+          publication: publication,
+          mediaStore: syncStore,
+          storage: MemorySecureStorage(),
+        ),
         routes: MockRoutesRepository(),
       );
       addTearDown(controller.dispose);
@@ -628,7 +700,10 @@ final class _MemoryMediaStore implements RouteDraftMediaStore {
   Future<String> keep(String path) async => path;
 
   @override
-  Future<void> purgeExpired() async => purges++;
+  Future<void> purgeExpired({Set<String> inUse = const {}}) async => purges++;
+
+  @override
+  Future<void> clearAll() async {}
 
   @override
   Future<String?> resolve(String path) async => path;

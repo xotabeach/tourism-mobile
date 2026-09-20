@@ -71,6 +71,9 @@ final class ApiRoutePublicationRepository
       // the editor look empty even though the route card in the profile
       // showed them, and — because an empty media list means "delete
       // everything" on save — resuming a draft and saving it erased them.
+      serverUpdatedAt: DateTime.tryParse(
+        json['updated_at'] as String? ?? '',
+      )?.toUtc(),
       media: [
         for (final item
             in (json['media'] as List<dynamic>? ?? const [])
@@ -105,7 +108,10 @@ final class ApiRoutePublicationRepository
   }
 
   @override
-  Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) {
+  Future<RoutePublicationReceipt> saveDraft(
+    RouteDraft draft, {
+    void Function(String localMediaId, String serverMediaId)? onMediaUploaded,
+  }) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/routes/drafts',
@@ -116,7 +122,7 @@ final class ApiRoutePublicationRepository
       // picked them. Uploading them at submit time meant a draft resumed on
       // another device — or after reinstalling this one — came back without
       // them (reported 2026-09-08).
-      await _uploadDraftMedia(receipt.id, draft);
+      await _uploadDraftMedia(receipt.id, draft, onMediaUploaded);
       return receipt;
     });
   }
@@ -129,7 +135,11 @@ final class ApiRoutePublicationRepository
   /// photo just to upload it back), and only genuinely new files are posted.
   /// The list index is the position in both steps, so removing, reordering
   /// and adding all land in one order.
-  Future<void> _uploadDraftMedia(String routeId, RouteDraft draft) async {
+  Future<void> _uploadDraftMedia(
+    String routeId,
+    RouteDraft draft,
+    void Function(String localMediaId, String serverMediaId)? onUploaded,
+  ) async {
     final uploadable = [
       for (final item in draft.media)
         if (!item.isAsset && item.path.isNotEmpty) item,
@@ -139,22 +149,26 @@ final class ApiRoutePublicationRepository
       data: {
         'keep': [
           for (final item in uploadable)
-            if (item.isRemote) item.id,
+            if (item.isOnServer) item.keepId,
         ],
       },
     );
     for (var index = 0; index < uploadable.length; index++) {
       final media = uploadable[index];
-      if (media.isRemote || !await File(media.path).exists()) {
+      if (media.isOnServer || !await File(media.path).exists()) {
         continue;
       }
-      await _dio.post<Map<String, dynamic>>(
+      final uploaded = await _dio.post<Map<String, dynamic>>(
         '/api/v1/routes/drafts/$routeId/media',
         data: FormData.fromMap({
           'file': await MultipartFile.fromFile(media.path),
           'position': index,
         }),
       );
+      final serverId = uploaded.data?['id'];
+      if (serverId is String && serverId.isNotEmpty) {
+        onUploaded?.call(media.id, serverId);
+      }
     }
   }
 
@@ -187,8 +201,17 @@ final class ApiRoutePublicationRepository
   }
 
   Map<String, Object?> _payload(RouteDraft draft) {
+    final knownOnServer = draft.serverId != null;
     return {
       'route_id': draft.serverId,
+      // The key of the first save; lets the server recognise a retry whose
+      // response was lost instead of creating a second draft.
+      if (!knownOnServer && draft.clientDraftId != null)
+        'client_draft_id': draft.clientDraftId,
+      // What this copy was based on, so a newer change from another device is
+      // refused rather than overwritten.
+      if (knownOnServer && draft.serverUpdatedAt != null)
+        'expected_updated_at': draft.serverUpdatedAt!.toUtc().toIso8601String(),
       'name': draft.title.trim(),
       'description': draft.description.trim(),
       'place_ids': [
@@ -242,7 +265,10 @@ final class InMemoryRoutePublicationRepository
   }
 
   @override
-  Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async {
+  Future<RoutePublicationReceipt> saveDraft(
+    RouteDraft draft, {
+    void Function(String localMediaId, String serverMediaId)? onMediaUploaded,
+  }) async {
     return RoutePublicationReceipt(
       id:
           draft.serverId ??

@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tourism_mobile/core/storage/memory_secure_storage.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_sync.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_publish_controller.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_draft_media_store.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
@@ -48,7 +50,10 @@ final class _PassThroughStore implements RouteDraftMediaStore {
   Future<String> keep(String path) async => '$path.kept';
 
   @override
-  Future<void> purgeExpired() async {}
+  Future<void> purgeExpired({Set<String> inUse = const {}}) async {}
+
+  @override
+  Future<void> clearAll() async {}
 
   @override
   Future<String?> resolve(String path) async => path;
@@ -62,8 +67,10 @@ final class _StubPublication implements RoutePublicationRepository {
   }) async => throw UnimplementedError();
 
   @override
-  Future<RoutePublicationReceipt> saveDraft(RouteDraft draft) async =>
-      throw UnimplementedError();
+  Future<RoutePublicationReceipt> saveDraft(
+    RouteDraft draft, {
+    void Function(String localMediaId, String serverMediaId)? onMediaUploaded,
+  }) async => throw UnimplementedError();
 
   @override
   Future<RoutePublicationReceipt> submit(RouteDraft draft) async =>
@@ -82,12 +89,22 @@ final class _StubPublication implements RoutePublicationRepository {
 }
 
 RoutePublishController _controller(_BatchPicker picker) {
+  final syncDrafts = _MemoryDrafts();
+  final syncStore = _PassThroughStore();
+  final syncPublication = _StubPublication();
   return RoutePublishController(
     mode: RoutePublishMode.production,
-    drafts: _MemoryDrafts(),
+    userId: 'test-user',
+    drafts: syncDrafts,
     mediaPicker: picker,
-    mediaStore: _PassThroughStore(),
-    publication: _StubPublication(),
+    mediaStore: syncStore,
+    publication: syncPublication,
+    sync: RouteDraftSyncService(
+      drafts: syncDrafts,
+      publication: syncPublication,
+      mediaStore: syncStore,
+      storage: MemorySecureStorage(),
+    ),
     routes: MockRoutesRepository(),
   );
 }

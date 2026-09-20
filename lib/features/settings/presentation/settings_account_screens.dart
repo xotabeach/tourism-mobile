@@ -16,6 +16,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/validation/display_name.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -93,9 +94,37 @@ class SettingsAccountScreen extends ConsumerWidget {
         ],
       ),
     );
-    if (confirmed == true) {
-      await ref.read(sessionProvider.notifier).clearSession();
+    if (confirmed != true || !context.mounted) return;
+    // An unsent route draft is saved to the server first, so erasing the
+    // device copy loses nothing. If that is not possible, ask.
+    final userId = ref.read(sessionProvider).userId;
+    final drafts = ref.read(routeDraftSyncServiceProvider);
+    if (userId != null && !await drafts.trySendUnsent(userId)) {
+      if (!context.mounted) return;
+      final leave = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Выйти и потерять черновик?'),
+          content: const Text(
+            'Черновик маршрута не удалось сохранить на сервере. После выхода '
+            'он будет удалён с этого устройства.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Остаться'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Выйти'),
+            ),
+          ],
+        ),
+      );
+      if (leave != true) return;
     }
+    await drafts.markSignOutPending();
+    await ref.read(sessionProvider.notifier).clearSession();
   }
 }
 

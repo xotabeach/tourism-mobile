@@ -40,7 +40,8 @@ class RoutePublishScreen extends ConsumerStatefulWidget {
   ConsumerState<RoutePublishScreen> createState() => _RoutePublishScreenState();
 }
 
-class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
+class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
+    with WidgetsBindingObserver {
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   final _titleFocus = FocusNode();
@@ -60,10 +61,27 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
     _titleController = TextEditingController(text: initial.title);
     _descriptionController = TextEditingController(text: initial.description);
     _scrollController.addListener(_syncAppBarFromScroll);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Backgrounding is a moment the app may be killed: write what is pending
+  /// and hand it to the sync service now.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_mode != RoutePublishMode.production) {
+      return;
+    }
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden) {
+      unawaited(
+        ref.read(routePublishControllerProvider(_mode).notifier).flush(),
+      );
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _titleController.dispose();
     _descriptionController.dispose();
     _titleFocus.dispose();
@@ -87,6 +105,13 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
   }
 
   void _goBack() {
+    // The controller's own dispose also hands edits over; flushing here first
+    // gets the send started before the navigation tears the screen down.
+    if (_mode == RoutePublishMode.production) {
+      unawaited(
+        ref.read(routePublishControllerProvider(_mode).notifier).flush(),
+      );
+    }
     context.go('/');
   }
 
@@ -104,6 +129,13 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
       if (next.message != null &&
           next.messageSerial != previous?.messageSerial) {
         showAppNotice(context, next.message!);
+      }
+      if (next.conflict && previous?.conflict != true) {
+        unawaited(_askConflict());
+      }
+      final replaceFor = next.replaceConfirmFor;
+      if (replaceFor != null && replaceFor != previous?.replaceConfirmFor) {
+        unawaited(_askReplace(replaceFor));
       }
     });
     final state = ref.watch(provider);
@@ -310,8 +342,19 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
                                         publishing: state.isPublishing,
                                         saving: state.isSaving,
                                         onPublish: () => _publish(controller),
-                                        onSave: controller.saveDraft,
+                                        onSave: () => _save(controller, state),
                                       ),
+                                      if (_mode ==
+                                          RoutePublishMode.production) ...[
+                                        SizedBox(height: u(10)),
+                                        _DraftStatusBar(
+                                          state: state,
+                                          onStartNew: () =>
+                                              _confirmStartNew(controller),
+                                          onOpenDrafts: () =>
+                                              _openDraftList(controller, state),
+                                        ),
+                                      ],
                                       SizedBox(height: u(26)),
                                     ],
                                   ),
@@ -354,8 +397,154 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
       ),
     );
     return _mode == RoutePublishMode.production
-        ? AppEdgeBackGesture(onBack: _goBack, child: content)
+        ? PopScope(
+            // System back or a plain pop: nothing blocks it, but the pending
+            // edits are handed over on the way out.
+            onPopInvokedWithResult: (didPop, _) {
+              if (didPop) {
+                unawaited(controller.flush());
+              }
+            },
+            child: AppEdgeBackGesture(onBack: _goBack, child: content),
+          )
         : content;
+  }
+
+  /// A route already through review goes back on moderation when saved.
+  Future<void> _save(
+    RoutePublishController controller,
+    RoutePublishState state,
+  ) async {
+    if (state.draft.isLiveRoute) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Сохранить изменения?'),
+          content: const Text(
+            'Маршрут уже опубликован или на проверке. После сохранения он '
+            'вернётся на модерацию.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Сохранить'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+    }
+    await controller.saveDraft();
+  }
+
+  Future<void> _confirmStartNew(RoutePublishController controller) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Начать заново?'),
+        content: const Text(
+          'Черновик на этом устройстве будет очищен. Если он уже сохранён на '
+          'сервере, он останется в списке ваших черновиков.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Начать заново'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.startNewDraft();
+    }
+  }
+
+  Future<void> _openDraftList(
+    RoutePublishController controller,
+    RoutePublishState state,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: _DraftList(
+            drafts: state.serverDrafts,
+            busy: state.isOpeningDraft,
+            onOpen: (id) {
+              Navigator.of(sheetContext).pop();
+              unawaited(controller.openServerDraft(id));
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _askConflict() async {
+    final controller = ref.read(routePublishControllerProvider(_mode).notifier);
+    final keepMine = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Черновик изменился на другом устройстве'),
+        content: const Text(
+          'Эта копия основана на более старой версии. Ничего не потеряется: '
+          'выберите, какую версию оставить.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Взять версию с сервера'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Сохранить мою как новый'),
+          ),
+        ],
+      ),
+    );
+    if (keepMine == true) {
+      await controller.resolveConflictKeepMine();
+    } else {
+      await controller.resolveConflictTakeServer();
+    }
+  }
+
+  Future<void> _askReplace(String routeId) async {
+    final controller = ref.read(routePublishControllerProvider(_mode).notifier);
+    final replace = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Заменить текущий черновик?'),
+        content: const Text(
+          'Текущие правки не удалось отправить на сервер. Если открыть другой '
+          'черновик, они будут потеряны.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Оставить текущий'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Заменить'),
+          ),
+        ],
+      ),
+    );
+    if (replace == true) {
+      await controller.openServerDraft(routeId, confirmedReplace: true);
+    }
   }
 
   Future<void> _publish(RoutePublishController controller) async {
@@ -488,6 +677,77 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// One line about where the draft is, plus the two small actions that used to
+/// live only in the old recovery dialog. Plain text on purpose: the meaning
+/// must not depend on colour, and a screen reader announces every change.
+class _DraftStatusBar extends StatelessWidget {
+  const _DraftStatusBar({
+    required this.state,
+    required this.onStartNew,
+    required this.onOpenDrafts,
+  });
+
+  final RoutePublishState state;
+  final VoidCallback onStartNew;
+  final VoidCallback onOpenDrafts;
+
+  static String label(DraftSaveStatus status) => switch (status) {
+    DraftSaveStatus.idle => '',
+    DraftSaveStatus.savedLocal => 'Сохранено на устройстве',
+    DraftSaveStatus.syncing => 'Сохраняем…',
+    DraftSaveStatus.synced => 'Сохранено · синхронизировано',
+    DraftSaveStatus.offline => 'Не отправлено на сервер — нет сети',
+    DraftSaveStatus.localFailed => 'Не удалось сохранить на устройстве',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final text = label(state.saveStatus);
+    final restored = state.restoredNotice;
+    final style = PublishRouteDesignTokens.rubik(
+      fontSize: 13,
+      weight: FontWeight.w400,
+      color: PublishRouteDesignTokens.secondaryText,
+      height: 1.25,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Semantics(
+          liveRegion: true,
+          container: true,
+          label: text.isEmpty ? null : text,
+          child: Text(
+            restored && text.isNotEmpty
+                ? 'Черновик восстановлен · $text'
+                : text,
+            key: const ValueKey('route-draft-status'),
+            style: style,
+          ),
+        ),
+        if (state.draft.hasMeaningfulContent || state.serverDrafts.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            children: [
+              if (state.draft.hasMeaningfulContent)
+                TextButton(
+                  key: const ValueKey('route-draft-start-over'),
+                  onPressed: onStartNew,
+                  child: const Text('Начать заново'),
+                ),
+              if (state.serverDrafts.isNotEmpty)
+                TextButton(
+                  key: const ValueKey('route-draft-my-drafts'),
+                  onPressed: onOpenDrafts,
+                  child: Text('Мои черновики (${state.serverDrafts.length})'),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }

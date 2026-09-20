@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/settings/application/liquid_glass_preference.dart';
 import 'package:tourism_mobile/features/settings/application/motion_preference.dart';
@@ -40,6 +41,15 @@ class _TourismAppState extends ConsumerState<TourismApp> {
     }
   }
 
+  Future<void> _resumeRouteDrafts(SessionState session) async {
+    final drafts = ref.read(routeDraftSyncServiceProvider);
+    await drafts.finishInterruptedSignOut();
+    final userId = session.userId;
+    if (session.isAuthenticated && userId != null && userId.isNotEmpty) {
+      await drafts.syncPending(userId);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
@@ -60,6 +70,14 @@ class _TourismAppState extends ConsumerState<TourismApp> {
     // Register FCM token whenever an authenticated session has push enabled
     // (cold start / login), not only when the settings toggle flips.
     ref.listen<SessionState>(sessionProvider, (previous, next) {
+      // A route draft left unsent by the last run (killed, or no network) is
+      // sent now; an interrupted sign-out is finished first.
+      if (next.isHydrated &&
+          (previous == null ||
+              !previous.isHydrated ||
+              previous.userId != next.userId)) {
+        unawaited(_resumeRouteDrafts(next));
+      }
       final becameReady =
           next.isAuthenticated &&
           next.notifyPushEnabled &&
