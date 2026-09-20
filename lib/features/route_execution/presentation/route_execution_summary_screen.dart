@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/features/route_execution/application/points_status_text.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 
 /// Shown once, right after a run is marked complete — a small recap instead
@@ -29,6 +30,7 @@ class RouteExecutionSummaryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final routing = execution.routing;
     final elapsed = _elapsed;
+    final notice = pointsNotice(execution);
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
       body: SafeArea(
@@ -60,7 +62,23 @@ class RouteExecutionSummaryScreen extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      if (execution.awardedPoints > 0) ...[
+                      if (notice != null) ...[
+                        if (notice.replacesBadge)
+                          _PointsBadge.text(notice.badge)
+                        else if (execution.awardedPoints > 0)
+                          _PointsBadge(points: execution.awardedPoints),
+                        if (notice.note != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            notice.note!,
+                            textAlign: TextAlign.center,
+                            style: AppTypography.routeMetadata.copyWith(
+                              color: AppColors.secondaryInk,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 24),
+                      ] else if (execution.awardedPoints > 0) ...[
                         _PointsBadge(points: execution.awardedPoints),
                         const SizedBox(height: 24),
                       ],
@@ -91,9 +109,13 @@ class RouteExecutionSummaryScreen extends StatelessWidget {
 }
 
 class _PointsBadge extends StatelessWidget {
-  const _PointsBadge({required this.points});
+  const _PointsBadge({required int this.points}) : label = null;
 
-  final int points;
+  /// A badge with custom wording, for the exceptional points outcomes.
+  const _PointsBadge.text(String this.label) : points = null;
+
+  final int? points;
+  final String? label;
 
   @override
   Widget build(BuildContext context) {
@@ -105,7 +127,7 @@ class _PointsBadge extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Text(
-          '+$points путевых очков',
+          label ?? '+$points путевых очков',
           style: AppTypography.button.copyWith(color: AppColors.accentBlue),
         ),
       ),

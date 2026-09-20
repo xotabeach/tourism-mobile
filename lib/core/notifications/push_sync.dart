@@ -97,6 +97,11 @@ void handlePushOpened(GoRouter router, RemoteMessage message) {
     );
     return;
   }
+  if (targetType == 'inbox') {
+    // Anti-fraud notices: the message lives in the inbox.
+    unawaited(router.pushNamed(AppRouteNames.settingsNotificationsInbox));
+    return;
+  }
   if (targetType == 'achievement') {
     unawaited(router.pushNamed(AppRouteNames.achievements));
     return;

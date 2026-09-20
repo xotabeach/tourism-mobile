@@ -144,6 +144,26 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
       );
       return;
     }
+    if (item.kind == InboxNotificationKind.antifraudFlagged ||
+        item.kind == InboxNotificationKind.antifraudBlocked ||
+        item.kind == InboxNotificationKind.antifraudPointsDecision) {
+      // Nothing to open: the notice itself is the whole message.
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(item.title),
+          content: Text(item.body),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Понятно'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     if (item.kind == InboxNotificationKind.achievementUnlocked ||
         item.targetType == 'achievement') {
       await context.pushNamed(AppRouteNames.achievements);

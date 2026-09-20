@@ -18,6 +18,9 @@ enum InboxNotificationKind {
   reviewReply,
   expertGranted,
   expertRevoked,
+  antifraudFlagged,
+  antifraudBlocked,
+  antifraudPointsDecision,
   unknown,
 }
 
@@ -34,6 +37,10 @@ InboxNotificationKind inboxNotificationKindFromApi(String raw) {
     'review_reply' => InboxNotificationKind.reviewReply,
     'expert_granted' => InboxNotificationKind.expertGranted,
     'expert_revoked' => InboxNotificationKind.expertRevoked,
+    'antifraud_flagged' => InboxNotificationKind.antifraudFlagged,
+    'antifraud_blocked' => InboxNotificationKind.antifraudBlocked,
+    'antifraud_points_decision' =>
+      InboxNotificationKind.antifraudPointsDecision,
     _ => InboxNotificationKind.unknown,
   };
 }
