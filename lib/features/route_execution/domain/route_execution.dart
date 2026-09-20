@@ -118,6 +118,36 @@ class RouteExecutionStop {
   }
 }
 
+/// A position sent with a stop mark so the server can compare it with the
+/// stop. Judged once and never stored server-side; kept on the device only
+/// inside the encrypted outbox until delivered or dropped.
+class MarkPosition {
+  const MarkPosition({
+    required this.lat,
+    required this.lng,
+    required this.accuracyMeters,
+  });
+
+  final double lat;
+  final double lng;
+  final double accuracyMeters;
+
+  Map<String, dynamic> toJson() => {
+    'lat': lat,
+    'lng': lng,
+    'accuracy_m': accuracyMeters,
+  };
+
+  static MarkPosition? tryParse(Object? value) {
+    if (value is! Map) return null;
+    final lat = (value['lat'] as num?)?.toDouble();
+    final lng = (value['lng'] as num?)?.toDouble();
+    final accuracy = (value['accuracy_m'] as num?)?.toDouble();
+    if (lat == null || lng == null || accuracy == null) return null;
+    return MarkPosition(lat: lat, lng: lng, accuracyMeters: accuracy);
+  }
+}
+
 /// Server-provided switch for client hints; present only while enforcing.
 class RouteExecutionAntiFraud {
   const RouteExecutionAntiFraud({

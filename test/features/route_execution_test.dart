@@ -339,6 +339,7 @@ class _StubExecutionRepository implements RouteExecutionRepository {
     String stopId, {
     String? clientEventId,
     DateTime? occurredAt,
+    MarkPosition? position,
   }) async {
     delivered.add(stopId);
     final failure = failures[stopId];
@@ -431,6 +432,7 @@ class _StartReconcileRepository implements RouteExecutionRepository {
     String stopId, {
     String? clientEventId,
     DateTime? occurredAt,
+    MarkPosition? position,
   }) async {
     completedStopServerIds.add(stopId);
     return RouteExecution(

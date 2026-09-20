@@ -6,7 +6,9 @@ import 'package:geolocator/geolocator.dart';
 /// simulator/desktop with no provider). Every consumer must treat `null` as
 /// "hide the live-position UI, fall back to the static view" — never as an
 /// error to surface, since GPS is a soft hint everywhere it's used here.
-final liveLocationProvider = StreamProvider.autoDispose<Position?>((ref) async* {
+final liveLocationProvider = StreamProvider.autoDispose<Position?>((
+  ref,
+) async* {
   final serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) {
     yield null;

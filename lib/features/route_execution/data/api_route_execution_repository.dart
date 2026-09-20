@@ -54,11 +54,12 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
     String stopId, {
     String? clientEventId,
     DateTime? occurredAt,
+    MarkPosition? position,
   }) {
     return _mutate(
       () => _dio.put<Map<String, dynamic>>(
         '/api/v1/route-executions/$executionId/stops/$stopId/complete',
-        data: _eventBody(clientEventId, occurredAt),
+        data: _eventBody(clientEventId, occurredAt, position),
       ),
     );
   }
@@ -122,12 +123,16 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
   /// The API rejects unknown fields, so send only what the caller provided.
   static Map<String, dynamic>? _eventBody(
     String? clientEventId,
-    DateTime? occurredAt,
-  ) {
-    if (clientEventId == null && occurredAt == null) return null;
+    DateTime? occurredAt, [
+    MarkPosition? position,
+  ]) {
+    if (clientEventId == null && occurredAt == null && position == null) {
+      return null;
+    }
     return {
       'client_event_id': ?clientEventId,
       'occurred_at': ?occurredAt?.toUtc().toIso8601String(),
+      'position': ?position?.toJson(),
     };
   }
 

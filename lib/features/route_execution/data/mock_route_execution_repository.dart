@@ -41,6 +41,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
     String stopId, {
     String? clientEventId,
     DateTime? occurredAt,
+    MarkPosition? position,
   }) => _requireActive();
 
   @override
@@ -131,9 +132,7 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       throw StateError('Маршрут не на паузе');
     }
     // A mock stand-in for the server's paused-time accounting.
-    _active = current.copyWith(
-      status: RouteExecutionStatus.active,
-    );
+    _active = current.copyWith(status: RouteExecutionStatus.active);
     return _active!;
   }
 

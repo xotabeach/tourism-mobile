@@ -5,7 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_port.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 
-enum RouteExecutionAction { start, completeStop, complete, cancel, pause, resume }
+enum RouteExecutionAction {
+  start,
+  completeStop,
+  complete,
+  cancel,
+  pause,
+  resume,
+}
 
 class RouteExecutionOutboxEntry {
   const RouteExecutionOutboxEntry({
@@ -17,6 +24,7 @@ class RouteExecutionOutboxEntry {
     this.stopId,
     this.routeId,
     this.attempts = 0,
+    this.position,
   });
 
   final String id;
@@ -39,6 +47,13 @@ class RouteExecutionOutboxEntry {
   final DateTime createdAt;
   final int attempts;
 
+  /// Where the person was when they tapped, for a stop mark made offline.
+  /// Lives only until delivery or drop, is never logged, and is not sent if
+  /// older than [maxPositionAge].
+  final MarkPosition? position;
+
+  static const maxPositionAge = Duration(hours: 24);
+
   RouteExecutionOutboxEntry incrementAttempt() => RouteExecutionOutboxEntry(
     id: id,
     executionId: executionId,
@@ -48,6 +63,7 @@ class RouteExecutionOutboxEntry {
     action: action,
     createdAt: createdAt,
     attempts: attempts + 1,
+    position: position,
   );
 
   Map<String, dynamic> toJson() => {
@@ -59,6 +75,7 @@ class RouteExecutionOutboxEntry {
     'action': action.name,
     'created_at': createdAt.toUtc().toIso8601String(),
     'attempts': attempts,
+    'position': position?.toJson(),
   };
 
   factory RouteExecutionOutboxEntry.fromJson(Map<String, dynamic> json) {
@@ -77,6 +94,7 @@ class RouteExecutionOutboxEntry {
           DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.now(),
       attempts: (json['attempts'] as num?)?.toInt() ?? 0,
+      position: MarkPosition.tryParse(json['position']),
     );
   }
 }
