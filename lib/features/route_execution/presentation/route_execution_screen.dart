@@ -237,6 +237,39 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     }
   }
 
+  /// Between the last marked stop and the next unmarked one; none before the
+  /// first mark or after the last, and none once the run is no longer active.
+  static ActiveLeg? _activeLeg(RouteExecution execution, RouteDetail? route) {
+    if (!execution.isActive) return null;
+    final located = [
+      for (final stop in execution.stops)
+        if (stop.lat != null && stop.lng != null) stop,
+    ]..sort((a, b) => a.position.compareTo(b.position));
+    final nextIndex = located.indexWhere((stop) => !stop.isCompleted);
+    if (nextIndex <= 0) return null;
+    final to = located[nextIndex];
+    final from = located[nextIndex - 1];
+    if (!from.isCompleted) return null;
+    final line = sliceLegPolyline(
+      [
+        for (final point
+            in route?.geometry?.coordinates ?? const <RouteCoordinate>[])
+          (lat: point.lat, lng: point.lng),
+      ],
+      stops: located,
+      from: from,
+      to: to,
+    );
+    final fromPoint = (lat: from.lat!, lng: from.lng!);
+    final toPoint = (lat: to.lat!, lng: to.lng!);
+    return ActiveLeg(
+      // Without route geometry the leg is drawn as a straight line.
+      line: line.length >= 2 ? line : [fromPoint, toPoint],
+      from: fromPoint,
+      to: toPoint,
+    );
+  }
+
   static Set<String> _undeliveredKeys(RouteExecution? execution) => {
     for (final stop in execution?.stops ?? const <RouteExecutionStop>[])
       if (stop.undelivered && !stop.isCompleted) stop.routeStopId ?? stop.id,
@@ -775,6 +808,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             livePosition: mapLivePosition,
             completedFraction: completedFraction,
             completedStopPositions: completedStopPositions,
+            activeLeg: _activeLeg(execution, route),
           ),
         ],
         if (nextStopDistanceMeters != null) ...[

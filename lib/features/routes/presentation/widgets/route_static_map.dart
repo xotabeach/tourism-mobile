@@ -11,6 +11,17 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 
+/// The stretch between the last marked stop and the next one, highlighted on
+/// the map while a route is being walked.
+class ActiveLeg {
+  const ActiveLeg({required this.line, required this.from, required this.to});
+
+  /// The part of the route line between the two stops.
+  final List<({double lat, double lng})> line;
+  final ({double lat, double lng}) from;
+  final ({double lat, double lng}) to;
+}
+
 /// Real 2GIS map raster with the app's own tappable stops drawn on top.
 ///
 /// The backend renders only the basemap and the route line and is told the
@@ -32,9 +43,19 @@ class RouteStaticMap extends StatefulWidget {
     this.livePosition,
     this.completedFraction,
     this.completedStopPositions = const {},
+    this.activeLeg,
+    this.focusOnLeg = false,
     this.imageHeaders = const {},
     super.key,
   });
+
+  /// Highlighted with an accent line when given.
+  final ActiveLeg? activeLeg;
+
+  /// Frame the map on [activeLeg] instead of the whole route. The raster is
+  /// requested again for the new frame, so callers switch this only on a
+  /// deliberate user action, never on every mark.
+  final bool focusOnLeg;
 
   /// Backend preview endpoint for this route, or null when the server does
   /// not offer one — then the stylized fallback is used instead of a raster.
@@ -118,6 +139,10 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
   ];
 
   List<({double lat, double lng})> _fitPoints() {
+    final leg = widget.activeLeg;
+    if (widget.focusOnLeg && leg != null) {
+      return [leg.from, leg.to];
+    }
     return [
       for (final stop in _locatedStops) (lat: stop.lat!, lng: stop.lng!),
       for (final point
@@ -192,6 +217,17 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                     child: IgnorePointer(
                       child: CustomPaint(
                         painter: _RouteProgressPainter(points),
+                      ),
+                    ),
+                  ),
+                if (widget.activeLeg case final leg? when leg.line.length >= 2)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ActiveLegPainter([
+                          for (final point in leg.line)
+                            projection.toPixel(point.lat, point.lng),
+                        ]),
                       ),
                     ),
                   ),
@@ -351,12 +387,50 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             livePosition: widget.livePosition,
             completedFraction: widget.completedFraction,
             completedStopPositions: widget.completedStopPositions,
+            activeLeg: widget.activeLeg,
             imageHeaders: widget.imageHeaders,
           ),
         ),
       ),
     );
   }
+}
+
+/// Accent line over the active stretch, drawn above the walked-so-far line.
+class _ActiveLegPainter extends CustomPainter {
+  const _ActiveLegPainter(this.points);
+
+  final List<Offset> points;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.9)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 9
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = AppColors.accentBlue
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 5.5
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ActiveLegPainter oldDelegate) =>
+      !listEquals(points, oldDelegate.points);
 }
 
 /// Overlays the walked portion of the route on top of the vendor's own
@@ -583,7 +657,7 @@ class _StopCallout extends StatelessWidget {
   }
 }
 
-class _FullScreenRouteMap extends StatelessWidget {
+class _FullScreenRouteMap extends StatefulWidget {
   const _FullScreenRouteMap({
     required this.staticMapUrl,
     required this.stops,
@@ -592,6 +666,7 @@ class _FullScreenRouteMap extends StatelessWidget {
     this.livePosition,
     this.completedFraction,
     this.completedStopPositions = const {},
+    this.activeLeg,
     this.imageHeaders = const {},
   });
 
@@ -612,10 +687,19 @@ class _FullScreenRouteMap extends StatelessWidget {
   /// Carried over from the inline map — see
   /// [RouteStaticMap.completedStopPositions].
   final Set<int> completedStopPositions;
+  final ActiveLeg? activeLeg;
   final Map<String, String> imageHeaders;
 
   @override
+  State<_FullScreenRouteMap> createState() => _FullScreenRouteMapState();
+}
+
+class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
+  var _focusLeg = false;
+
+  @override
   Widget build(BuildContext context) {
+    final hasLeg = widget.activeLeg != null;
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
       appBar: AppBar(
@@ -625,24 +709,45 @@ class _FullScreenRouteMap extends StatelessWidget {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: InteractiveViewer(
-            minScale: 1,
-            maxScale: 6,
-            child: LayoutBuilder(
-              builder: (context, constraints) => RouteStaticMap(
-                staticMapUrl: staticMapUrl,
-                stops: stops,
-                geometry: geometry,
-                config: config,
-                height: constraints.maxHeight,
-                livePosition: livePosition,
-                completedFraction: completedFraction,
-                completedStopPositions: completedStopPositions,
-                imageHeaders: imageHeaders,
-                // Already full screen: tapping should not stack another one.
-                interactive: false,
+          child: Column(
+            children: [
+              if (hasLeg) ...[
+                SegmentedButton<bool>(
+                  showSelectedIcon: false,
+                  segments: const [
+                    ButtonSegment(value: true, label: Text('Участок')),
+                    ButtonSegment(value: false, label: Text('Весь маршрут')),
+                  ],
+                  selected: {_focusLeg},
+                  onSelectionChanged: (value) =>
+                      setState(() => _focusLeg = value.first),
+                ),
+                const SizedBox(height: 8),
+              ],
+              Expanded(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 6,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => RouteStaticMap(
+                      staticMapUrl: widget.staticMapUrl,
+                      stops: widget.stops,
+                      geometry: widget.geometry,
+                      config: widget.config,
+                      height: constraints.maxHeight,
+                      livePosition: widget.livePosition,
+                      completedFraction: widget.completedFraction,
+                      completedStopPositions: widget.completedStopPositions,
+                      activeLeg: widget.activeLeg,
+                      focusOnLeg: _focusLeg,
+                      imageHeaders: widget.imageHeaders,
+                      // Already full screen: tapping should not stack another one.
+                      interactive: false,
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),
