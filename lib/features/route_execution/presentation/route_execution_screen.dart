@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -18,6 +17,7 @@ import 'package:tourism_mobile/features/route_execution/application/location_sha
 import 'package:tourism_mobile/features/route_execution/application/mark_advice.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_offline_coordinator.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/route_execution_summary_screen.dart';
@@ -159,6 +159,8 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ],
       );
       if (!mounted) return;
+      // Starting worked, so any remembered block is over.
+      unawaited(ref.read(routeStartBlockStoreProvider).clear());
       if (newlyDropped.isNotEmpty) {
         final names = [
           for (final stop in execution.stops)
@@ -179,6 +181,16 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         _execution = execution;
         _loading = false;
         _offline = false;
+      });
+    } on RouteStartBlockedFailure catch (blocked) {
+      final until = blocked.blockedUntil;
+      if (until != null) {
+        await ref.read(routeStartBlockStoreProvider).write(until);
+      }
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = blockedStartMessage(until, DateTime.now());
       });
     } on Object catch (error) {
       final cached = await ref

@@ -12,6 +12,7 @@ import 'package:tourism_mobile/features/auth/data/auth_repository_impl.dart';
 import 'package:tourism_mobile/features/auth/domain/auth_repository.dart';
 import 'package:tourism_mobile/features/onboarding/data/session_identity_cache.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
+import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 
 class SessionState {
@@ -579,6 +580,8 @@ final sessionProvider = StateNotifierProvider<SessionController, SessionState>((
     identityCache: ref.watch(sessionIdentityCacheProvider),
     onSessionCleared: () async {
       cacheRegistry.invalidateAll();
+      // The start block belongs to the account that just left.
+      unawaited(ref.read(routeStartBlockStoreProvider).clear());
       // Offline snapshots may contain private/user-created route data. Do
       // not leave the previous account's content available after logout.
       try {
