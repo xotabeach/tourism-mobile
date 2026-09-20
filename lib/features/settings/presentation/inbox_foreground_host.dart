@@ -65,6 +65,10 @@ class _InboxForegroundHostState extends ConsumerState<InboxForegroundHost>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _lifecycle = state;
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      unawaited(ref.read(notificationsInboxProvider.notifier).flushPending());
+    }
     _syncPollTimer();
     if (state == AppLifecycleState.resumed &&
         ref.read(sessionProvider).isAuthenticated) {

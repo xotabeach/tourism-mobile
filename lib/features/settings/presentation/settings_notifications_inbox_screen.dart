@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -8,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
@@ -33,6 +35,11 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
       },
       spaceChildren: false,
       children: [
+        const _InboxLifecycleGuard(),
+        if (async.valueOrNull?.isNotEmpty ?? false) ...[
+          _ClearActions(items: async.valueOrNull!),
+          const SizedBox(height: 12),
+        ],
         async.when(
           skipLoadingOnReload: true,
           skipLoadingOnRefresh: true,
@@ -83,6 +90,7 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
                     _InboxTile(
                       item: unread[i],
                       onTap: () => _openNotification(context, ref, unread[i]),
+                      onDelete: () => _deleteOne(context, ref, unread[i]),
                     ),
                   ],
                   const SizedBox(height: 18),
@@ -105,6 +113,7 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
                     _InboxTile(
                       item: read[i],
                       onTap: () => _openNotification(context, ref, read[i]),
+                      onDelete: () => _deleteOne(context, ref, read[i]),
                     ),
                   ],
                 const SizedBox(height: 120),
@@ -114,6 +123,31 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
         ),
       ],
     );
+  }
+
+  static void _deleteOne(
+    BuildContext context,
+    WidgetRef ref,
+    InboxNotification item,
+  ) {
+    unawaited(AppHaptics.selectionClick());
+    final notifier = ref.read(notificationsInboxProvider.notifier)
+      ..queueDelete([item]);
+    final messenger = ScaffoldMessenger.of(context);
+    final count = notifier.pendingCount;
+    final label = count == 1 ? 'Уведомление удалено' : 'Удалено: $count';
+    messenger
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: notificationsUndoWindow,
+          content: Semantics(liveRegion: true, child: Text(label)),
+          action: SnackBarAction(
+            label: 'Отменить',
+            onPressed: notifier.undoPending,
+          ),
+        ),
+      );
   }
 
   static Future<void> _openNotification(
@@ -185,10 +219,11 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
 }
 
 class _InboxTile extends StatelessWidget {
-  const _InboxTile({required this.item, this.onTap});
+  const _InboxTile({required this.item, this.onTap, this.onDelete});
 
   final InboxNotification item;
   final VoidCallback? onTap;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -203,7 +238,7 @@ class _InboxTile extends StatelessWidget {
     final initial = name.isEmpty ? '?' : String.fromCharCode(name.runes.first);
 
     final radius = BorderRadius.circular(AppRadii.settingsTile);
-    return DecoratedBox(
+    final tile = DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: radius,
         boxShadow: AppShadows.settingsTile,
@@ -257,7 +292,19 @@ class _InboxTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_rounded, size: 20),
+                  if (onDelete != null)
+                    IconButton(
+                      key: ValueKey('inbox-delete-${item.id}'),
+                      tooltip: 'Удалить уведомление',
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
+                      onPressed: onDelete,
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                    )
+                  else
+                    const Icon(Icons.chevron_right_rounded, size: 20),
                 ],
               ),
             ),
@@ -265,5 +312,161 @@ class _InboxTile extends StatelessWidget {
         ),
       ),
     );
+    if (onDelete == null) {
+      return tile;
+    }
+    return Dismissible(
+      key: ValueKey('inbox-${item.id}'),
+      direction: DismissDirection.endToStart,
+      onDismissed: (_) => onDelete!(),
+      background: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE5484D),
+          borderRadius: radius,
+        ),
+        child: const Align(
+          alignment: Alignment.centerRight,
+          child: Padding(
+            padding: EdgeInsets.only(right: 20),
+            child: Icon(Icons.delete_outline_rounded, color: Colors.white),
+          ),
+        ),
+      ),
+      child: Semantics(
+        customSemanticsActions: {
+          const CustomSemanticsAction(label: 'Удалить уведомление'): onDelete!,
+        },
+        child: tile,
+      ),
+    );
+  }
+}
+
+/// Flushes pending deletes when the screen is left and reports failures.
+class _InboxLifecycleGuard extends ConsumerStatefulWidget {
+  const _InboxLifecycleGuard();
+
+  @override
+  ConsumerState<_InboxLifecycleGuard> createState() =>
+      _InboxLifecycleGuardState();
+}
+
+class _InboxLifecycleGuardState extends ConsumerState<_InboxLifecycleGuard> {
+  late final NotificationsInboxController _notifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _notifier = ref.read(notificationsInboxProvider.notifier);
+  }
+
+  @override
+  void dispose() {
+    unawaited(_notifier.flushPending());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<int>(notificationsDeleteFailedProvider, (prev, next) {
+      ScaffoldMessenger.of(context)
+        ..clearSnackBars()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Не удалось удалить, уведомления возвращены'),
+          ),
+        );
+    });
+    return const SizedBox.shrink();
+  }
+}
+
+class _ClearActions extends ConsumerWidget {
+  const _ClearActions({required this.items});
+
+  final List<InboxNotification> items;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasRead = items.any((n) => !n.isUnread);
+    return Wrap(
+      spacing: 8,
+      children: [
+        if (hasRead)
+          TextButton(
+            onPressed: () =>
+                _confirm(context, ref, NotificationsClearScope.read),
+            child: const Text('Очистить прочитанные'),
+          ),
+        TextButton(
+          onPressed: () => _confirm(context, ref, NotificationsClearScope.all),
+          child: const Text('Очистить все'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _confirm(
+    BuildContext context,
+    WidgetRef ref,
+    NotificationsClearScope scope,
+  ) async {
+    final notifier = ref.read(notificationsInboxProvider.notifier);
+    final messenger = ScaffoldMessenger.of(context);
+    final int count;
+    try {
+      await notifier.flushPending();
+      count = await notifier.previewClear(scope);
+    } on NotFoundFailure {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Обновите приложение, чтобы очищать')),
+      );
+      return;
+    } on Object {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Не удалось выполнить, попробуйте позже')),
+      );
+      return;
+    }
+    if (count == 0 || !context.mounted) {
+      if (count == 0) {
+        messenger.showSnackBar(const SnackBar(content: Text('Нечего очищать')));
+      }
+      return;
+    }
+    final what = scope == NotificationsClearScope.read
+        ? 'прочитанные уведомления'
+        : 'все уведомления';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Удалить $what?'),
+        content: Text(
+          'Будет удалено: $count. Восстановить их не получится. '
+          'Уведомления, пришедшие позже, останутся.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) {
+      return;
+    }
+    try {
+      final deleted = await notifier.clearBulk(scope);
+      messenger.showSnackBar(SnackBar(content: Text('Удалено: $deleted')));
+    } on Object {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Не удалось удалить, попробуйте позже')),
+      );
+    }
   }
 }

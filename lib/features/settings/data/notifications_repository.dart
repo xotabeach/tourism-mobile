@@ -129,7 +129,20 @@ abstract interface class NotificationsRepository {
   Future<NotificationsPage> list();
   Future<InboxNotification> markRead(String id);
   Future<void> markAllRead();
+
+  /// Deletes [ids] (≤100 per call). Already-missing rows count as deleted.
+  Future<void> deleteMany(List<String> ids);
+
+  /// Bulk clear of everything created at or before [before]. With [dryRun]
+  /// nothing is deleted and the matching count is returned.
+  Future<int> clear({
+    required NotificationsClearScope scope,
+    required DateTime before,
+    bool dryRun = false,
+  });
 }
+
+enum NotificationsClearScope { read, all }
 
 final class ApiNotificationsRepository implements NotificationsRepository {
   ApiNotificationsRepository(this._dio);
@@ -181,6 +194,43 @@ final class ApiNotificationsRepository implements NotificationsRepository {
       await _dio.post<Map<String, dynamic>>(
         '/api/v1/me/notifications/read-all',
       );
+    });
+  }
+
+  @override
+  Future<void> deleteMany(List<String> ids) {
+    return guardApiCall(() async {
+      if (ids.length == 1) {
+        try {
+          await _dio.delete<void>('/api/v1/me/notifications/${ids.single}');
+        } on DioException catch (e) {
+          if (e.response?.statusCode != 404) rethrow;
+        }
+        return;
+      }
+      await _dio.post<Map<String, dynamic>>(
+        '/api/v1/me/notifications/delete',
+        data: {'ids': ids},
+      );
+    });
+  }
+
+  @override
+  Future<int> clear({
+    required NotificationsClearScope scope,
+    required DateTime before,
+    bool dryRun = false,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.delete<Map<String, dynamic>>(
+        '/api/v1/me/notifications',
+        queryParameters: {
+          'scope': scope.name,
+          'before': before.toUtc().toIso8601String(),
+          if (dryRun) 'dry_run': true,
+        },
+      );
+      return (response.data?['deleted'] as num?)?.toInt() ?? 0;
     });
   }
 }
@@ -286,6 +336,33 @@ final class MockNotificationsRepository implements NotificationsRepository {
   @override
   Future<void> markAllRead() async {
     _items = [for (final item in _items) item.copyWith(isUnread: false)];
+  }
+
+  @override
+  Future<void> deleteMany(List<String> ids) async {
+    _items = [
+      for (final item in _items)
+        if (!ids.contains(item.id)) item,
+    ];
+  }
+
+  @override
+  Future<int> clear({
+    required NotificationsClearScope scope,
+    required DateTime before,
+    bool dryRun = false,
+  }) async {
+    bool hit(InboxNotification n) =>
+        !n.createdAt.isAfter(before) &&
+        (scope == NotificationsClearScope.all || !n.isUnread);
+    final count = _items.where(hit).length;
+    if (!dryRun) {
+      _items = [
+        for (final item in _items)
+          if (!hit(item)) item,
+      ];
+    }
+    return count;
   }
 }
 
