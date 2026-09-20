@@ -39,57 +39,58 @@ RouteDetail _route(String id, String name) => RouteDetail(
 );
 
 void main() {
-  testWidgets('the downloaded-routes sheet lists routes the way the mockup does', (
-    tester,
-  ) async {
-    tester.view
-      ..devicePixelRatio = 1
-      ..physicalSize = const Size(393, 900);
-    addTearDown(() {
+  testWidgets(
+    'the downloaded-routes sheet lists routes the way the mockup does',
+    (tester) async {
       tester.view
-        ..resetDevicePixelRatio()
-        ..resetPhysicalSize();
-    });
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 900);
+      addTearDown(() {
+        tester.view
+          ..resetDevicePixelRatio()
+          ..resetPhysicalSize();
+      });
 
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          ...testSessionOverrides(onboardingCompleted: true),
-          offlineRoutesProvider.overrideWith(
-            (ref) async => [
-              OfflineRouteRecord(
-                route: _route('r1', 'Алушта: от гор к набережной'),
-                downloadedAt: DateTime(2026, 9),
-              ),
-              OfflineRouteRecord(
-                route: _route('r2', 'Ялта: набережная и канатка'),
-                downloadedAt: DateTime(2026, 9, 2),
-              ),
-            ],
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...testSessionOverrides(onboardingCompleted: true),
+            offlineRoutesProvider.overrideWith(
+              (ref) async => [
+                OfflineRouteRecord(
+                  route: _route('r1', 'Алушта: от гор к набережной'),
+                  downloadedAt: DateTime(2026, 9),
+                ),
+                OfflineRouteRecord(
+                  route: _route('r2', 'Ялта: набережная и канатка'),
+                  downloadedAt: DateTime(2026, 9, 2),
+                ),
+              ],
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const SettingsOfflineScreen(),
           ),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.light,
-          home: const SettingsOfflineScreen(),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Скачанные маршруты'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Скачанные маршруты'));
+      await tester.pumpAndSettle();
 
-    // Заголовок шторки и счётчик.
-    expect(find.text('Скачанные маршруты'), findsWidgets);
-    expect(find.text('2'), findsOneWidget);
-    expect(find.text('Алушта: от гор к набережной'), findsOneWidget);
-    expect(
-      find.textContaining('2 остановки • скачан 01.09.2026'),
-      findsOneWidget,
-    );
-    // Синяя галочка у каждой строки и крестик вместо корзины.
-    expect(find.byIcon(Icons.check_circle_outline_rounded), findsNWidgets(2));
-    // Крестик у каждой строки — на макете именно он, а не корзина.
-    expect(find.byIcon(Icons.close_rounded), findsNWidgets(2));
-  });
+      // Заголовок шторки и счётчик.
+      expect(find.text('Скачанные маршруты'), findsWidgets);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('Алушта: от гор к набережной'), findsOneWidget);
+      expect(
+        find.textContaining('2 остановки • скачан 01.09.2026'),
+        findsOneWidget,
+      );
+      // Синяя галочка у каждой строки и крестик вместо корзины.
+      expect(find.byIcon(Icons.check_circle_outline_rounded), findsNWidgets(2));
+      // Крестик у каждой строки — на макете именно он, а не корзина.
+      expect(find.byIcon(Icons.close_rounded), findsNWidgets(2));
+    },
+  );
 }

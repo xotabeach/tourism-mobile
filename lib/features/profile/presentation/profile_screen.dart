@@ -239,8 +239,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         0,
                       ),
                       child: OfflineBanner(
-                        message:
-                            'Офлайн. Показаны сохранённые данные профиля.',
+                        message: 'Офлайн. Показаны сохранённые данные профиля.',
                       ),
                     ),
                   Padding(

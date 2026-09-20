@@ -25,9 +25,7 @@ Future<void> _pump(WidgetTester tester, String query) async {
       child: MaterialApp(
         theme: AppTheme.light,
         home: Scaffold(
-          body: SingleChildScrollView(
-            child: InPlaceSearchBody(query: query),
-          ),
+          body: SingleChildScrollView(child: InPlaceSearchBody(query: query)),
         ),
       ),
     ),
@@ -53,9 +51,7 @@ void main() {
         .map((text) => text.data)
         .where(
           (value) =>
-              value == 'Локация' ||
-              value == 'Маршрут' ||
-              value == 'Блог',
+              value == 'Локация' || value == 'Маршрут' || value == 'Блог',
         );
     expect(kinds, isNotEmpty);
   });

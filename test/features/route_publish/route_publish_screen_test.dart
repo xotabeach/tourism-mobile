@@ -1,4 +1,3 @@
-
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -149,7 +148,7 @@ void main() {
         mode: RoutePublishMode.production,
         drafts: drafts,
         mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
+        mediaStore: _MemoryMediaStore(),
         publication: _NoopPublicationRepository(),
         routes: MockRoutesRepository(),
       );
@@ -383,6 +382,7 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
       synthetic: false,
     );
   }
+
   int submitted = 0;
   final discarded = <String>[];
 
@@ -451,161 +451,173 @@ final class _DraftsRoutesRepository extends MockRoutesRepository {
 }
 
 void _serverDraftsTests() {
-  test('the prompt offers the other saved drafts, not published routes', () async {
-    final drafts = _MemoryDraftRepository()
-      ..value = const RouteDraft(
-        serverId: 'saved-route',
-        title: 'Сохранённый маршрут',
+  test(
+    'the prompt offers the other saved drafts, not published routes',
+    () async {
+      final drafts = _MemoryDraftRepository()
+        ..value = const RouteDraft(
+          serverId: 'saved-route',
+          title: 'Сохранённый маршрут',
+        );
+      final controller = RoutePublishController(
+        mode: RoutePublishMode.production,
+        drafts: drafts,
+        mediaPicker: _NoopMediaPicker(),
+        mediaStore: _MemoryMediaStore(),
+        publication: _NoopPublicationRepository(),
+        routes: _DraftsRoutesRepository(),
       );
-    final controller = RoutePublishController(
-      mode: RoutePublishMode.production,
-      drafts: drafts,
-      mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
-      publication: _NoopPublicationRepository(),
-      routes: _DraftsRoutesRepository(),
-    );
-    addTearDown(controller.dispose);
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
 
-    expect(
-      controller.state.serverDrafts.map((route) => route.id),
-      ['draft-1'],
-      reason: 'only routes still in draft can be reopened for editing',
-    );
-  });
+      expect(
+        controller.state.serverDrafts.map((route) => route.id),
+        ['draft-1'],
+        reason: 'only routes still in draft can be reopened for editing',
+      );
+    },
+  );
 }
 
 void _routePreviewTests() {
-  test('start and finish alone already ask for the road between them', () async {
-    final publication = _NoopPublicationRepository();
-    final controller = RoutePublishController(
-      mode: RoutePublishMode.production,
-      drafts: _MemoryDraftRepository(),
-      mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
-      publication: publication,
-      routes: MockRoutesRepository(),
-    );
-    addTearDown(controller.dispose);
-    await Future<void>.delayed(Duration.zero);
+  test(
+    'start and finish alone already ask for the road between them',
+    () async {
+      final publication = _NoopPublicationRepository();
+      final controller = RoutePublishController(
+        mode: RoutePublishMode.production,
+        drafts: _MemoryDraftRepository(),
+        mediaPicker: _NoopMediaPicker(),
+        mediaStore: _MemoryMediaStore(),
+        publication: publication,
+        routes: MockRoutesRepository(),
+      );
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
 
-    const start = RouteLocation(
-      id: 'place-start',
-      name: 'Ласточкино гнездо',
-      subtitle: 'Крым',
-      lat: 44.3927,
-      lng: 34.1131,
-    );
-    const finish = RouteLocation(
-      id: 'place-finish',
-      name: 'Ай-Петри',
-      subtitle: 'Крым',
-      lat: 44.4517,
-      lng: 34.0453,
-    );
+      const start = RouteLocation(
+        id: 'place-start',
+        name: 'Ласточкино гнездо',
+        subtitle: 'Крым',
+        lat: 44.3927,
+        lng: 34.1131,
+      );
+      const finish = RouteLocation(
+        id: 'place-finish',
+        name: 'Ай-Петри',
+        subtitle: 'Крым',
+        lat: 44.4517,
+        lng: 34.0453,
+      );
 
-    controller.setStart(start);
-    // One point is not a route: nothing to ask the router about yet.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    expect(publication.previewCalls, 0);
+      controller.setStart(start);
+      // One point is not a route: nothing to ask the router about yet.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(publication.previewCalls, 0);
 
-    controller.setFinish(finish);
-    // The distance pass bails out without stops — the preview must not, or
-    // the author sees a placeholder until they add a third point.
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    expect(publication.previewCalls, 1);
-    expect(publication.lastPreviewPlaceIds, ['place-start', 'place-finish']);
-    expect(controller.state.routePreview?.previewId, 'preview-1');
-    expect(controller.state.isPreviewLoading, isFalse);
-  });
+      controller.setFinish(finish);
+      // The distance pass bails out without stops — the preview must not, or
+      // the author sees a placeholder until they add a third point.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(publication.previewCalls, 1);
+      expect(publication.lastPreviewPlaceIds, ['place-start', 'place-finish']);
+      expect(controller.state.routePreview?.previewId, 'preview-1');
+      expect(controller.state.isPreviewLoading, isFalse);
+    },
+  );
 
-  test('opening a saved draft draws its map without touching a point', () async {
-    final publication = _NoopPublicationRepository();
-    final drafts = _MemoryDraftRepository()
-      ..value = const RouteDraft(
-        title: 'Сохранённый маршрут',
-        start: RouteLocation(
-          id: 'place-start',
-          name: 'Старт',
+  test(
+    'opening a saved draft draws its map without touching a point',
+    () async {
+      final publication = _NoopPublicationRepository();
+      final drafts = _MemoryDraftRepository()
+        ..value = const RouteDraft(
+          title: 'Сохранённый маршрут',
+          start: RouteLocation(
+            id: 'place-start',
+            name: 'Старт',
+            subtitle: 'Крым',
+            lat: 44.39,
+            lng: 34.11,
+          ),
+          finish: RouteLocation(
+            id: 'place-finish',
+            name: 'Финиш',
+            subtitle: 'Крым',
+            lat: 44.45,
+            lng: 34.04,
+          ),
+        );
+      final controller = RoutePublishController(
+        mode: RoutePublishMode.production,
+        drafts: drafts,
+        mediaPicker: _NoopMediaPicker(),
+        mediaStore: _MemoryMediaStore(),
+        publication: publication,
+        routes: MockRoutesRepository(),
+      );
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+
+      controller.continueDraft();
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+
+      // The preview used to be computed only while editing points, so a
+      // restored draft kept the placeholder until the author moved something.
+      expect(publication.previewCalls, 1);
+      expect(controller.state.routePreview?.previewId, 'preview-1');
+    },
+  );
+
+  test(
+    'a burst of edits costs one routing call, and the last one wins',
+    () async {
+      final publication = _NoopPublicationRepository();
+      final controller = RoutePublishController(
+        mode: RoutePublishMode.production,
+        drafts: _MemoryDraftRepository(),
+        mediaPicker: _NoopMediaPicker(),
+        mediaStore: _MemoryMediaStore(),
+        publication: publication,
+        routes: MockRoutesRepository(),
+      );
+      addTearDown(controller.dispose);
+      await Future<void>.delayed(Duration.zero);
+
+      controller.setStart(
+        const RouteLocation(
+          id: 'a',
+          name: 'A',
           subtitle: 'Крым',
-          lat: 44.39,
-          lng: 34.11,
-        ),
-        finish: RouteLocation(
-          id: 'place-finish',
-          name: 'Финиш',
-          subtitle: 'Крым',
-          lat: 44.45,
-          lng: 34.04,
+          lat: 44.30,
+          lng: 34.10,
         ),
       );
-    final controller = RoutePublishController(
-      mode: RoutePublishMode.production,
-      drafts: drafts,
-      mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
-      publication: publication,
-      routes: MockRoutesRepository(),
-    );
-    addTearDown(controller.dispose);
-    await Future<void>.delayed(Duration.zero);
+      controller.setFinish(
+        const RouteLocation(
+          id: 'b',
+          name: 'B',
+          subtitle: 'Крым',
+          lat: 44.40,
+          lng: 34.20,
+        ),
+      );
+      controller.addStop(
+        const RouteLocation(
+          id: 'c',
+          name: 'C',
+          subtitle: 'Крым',
+          lat: 44.35,
+          lng: 34.15,
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
 
-    controller.continueDraft();
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    // The preview used to be computed only while editing points, so a
-    // restored draft kept the placeholder until the author moved something.
-    expect(publication.previewCalls, 1);
-    expect(controller.state.routePreview?.previewId, 'preview-1');
-  });
-
-  test('a burst of edits costs one routing call, and the last one wins', () async {
-    final publication = _NoopPublicationRepository();
-    final controller = RoutePublishController(
-      mode: RoutePublishMode.production,
-      drafts: _MemoryDraftRepository(),
-      mediaPicker: _NoopMediaPicker(),
-      mediaStore: _MemoryMediaStore(),
-      publication: publication,
-      routes: MockRoutesRepository(),
-    );
-    addTearDown(controller.dispose);
-    await Future<void>.delayed(Duration.zero);
-
-    controller.setStart(
-      const RouteLocation(
-        id: 'a',
-        name: 'A',
-        subtitle: 'Крым',
-        lat: 44.30,
-        lng: 34.10,
-      ),
-    );
-    controller.setFinish(
-      const RouteLocation(
-        id: 'b',
-        name: 'B',
-        subtitle: 'Крым',
-        lat: 44.40,
-        lng: 34.20,
-      ),
-    );
-    controller.addStop(
-      const RouteLocation(
-        id: 'c',
-        name: 'C',
-        subtitle: 'Крым',
-        lat: 44.35,
-        lng: 34.15,
-      ),
-    );
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    expect(publication.previewCalls, 1, reason: 'debounced into one request');
-    expect(publication.lastPreviewPlaceIds, ['a', 'c', 'b']);
-  });
+      expect(publication.previewCalls, 1, reason: 'debounced into one request');
+      expect(publication.lastPreviewPlaceIds, ['a', 'c', 'b']);
+    },
+  );
 }
 
 /// Keeps paths as they are: the durable-copy behaviour has its own tests.

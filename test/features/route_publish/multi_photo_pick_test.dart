@@ -25,11 +25,7 @@ final class _BatchPicker implements RouteMediaPicker {
     lastLimit = limit;
     return [
       for (final path in available.take(limit))
-        RouteMediaItem(
-          id: path,
-          path: path,
-          kind: RouteMediaKind.image,
-        ),
+        RouteMediaItem(id: path, path: path, kind: RouteMediaKind.image),
     ];
   }
 }

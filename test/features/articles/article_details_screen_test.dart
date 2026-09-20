@@ -213,7 +213,10 @@ void main() {
       );
       await _pump(tester, article: article);
 
-      expect(find.byKey(const ValueKey('article-owner-status')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('article-owner-status')),
+        findsOneWidget,
+      );
       expect(find.textContaining('повторную проверку'), findsOneWidget);
       expect(find.text('Редактировать'), findsOneWidget);
     });
@@ -598,9 +601,7 @@ void _designPassTests() {
     expect(find.text(article.title), findsOneWidget);
   });
 
-  testWidgets('the author and reactions come before the title', (
-    tester,
-  ) async {
+  testWidgets('the author and reactions come before the title', (tester) async {
     // Порядок с макета: сначала «кто и когда», потом реакции, затем «о чём».
     final article = _articleWith(status: ArticleStatus.published);
     await _pump(tester, article: article);

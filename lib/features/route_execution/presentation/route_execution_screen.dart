@@ -12,7 +12,10 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
 import 'package:tourism_mobile/features/route_execution/application/live_location_provider.dart';
+import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
+import 'package:tourism_mobile/features/route_execution/application/mark_advice.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_offline_coordinator.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
@@ -48,16 +51,82 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   var _finishing = false;
   var _offline = false;
   var _pendingActions = 0;
+  // After a confirmed prompt, further marks within a minute are not asked again.
+  DateTime? _promptConfirmedAt;
 
   @override
   void initState() {
     super.initState();
     unawaited(_loadOrStart());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_explainLocation());
+    });
+  }
+
+  Future<void> _explainLocation() async {
+    if (!mounted) return;
+    await explainLocationOnce(context, ref);
+    // The live-position stream read the permission before it was granted.
+    if (mounted) ref.invalidate(liveLocationProvider);
+  }
+
+  PositionFix? _currentFix() {
+    final position = ref.read(liveLocationProvider).valueOrNull;
+    if (position == null) return null;
+    return PositionFix(
+      lat: position.latitude,
+      lng: position.longitude,
+      accuracyMeters: position.accuracy,
+      takenAt: position.timestamp,
+    );
+  }
+
+  /// Asks before sending a mark that looks early. Cancelling sends nothing,
+  /// so it costs the person nothing; the server stays the judge either way.
+  Future<bool> _confirmMark(MarkAdvice advice) async {
+    final recent = _promptConfirmedAt;
+    if (recent != null &&
+        DateTime.now().difference(recent) < const Duration(seconds: 60)) {
+      return true;
+    }
+    final notThere = advice.isAhead;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          notThere
+              ? 'Кажется, вы ещё не дошли до этой точки'
+              : 'Быстрее, чем обычно',
+        ),
+        content: Text(
+          notThere
+              ? 'Точно отметить?'
+              : 'Этот участок пройден заметно быстрее расчётного времени. '
+                    'Вы точно дошли до точки?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(notThere ? 'Отмена' : 'Отменить отметку'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(notThere ? 'Всё равно отметить' : 'Да, дошёл(ла)'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) _promptConfirmedAt = DateTime.now();
+    return confirmed == true;
   }
 
   Future<void> _loadOrStart() async {
     final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
+    final store = ref.read(routeExecutionOfflineStoreProvider);
+    final flaggedBefore = _undeliveredKeys(await store.getSnapshot());
     await coordinator.replayPending();
+    final flagged = _undeliveredKeys(await store.getSnapshot());
+    final newlyDropped = flagged.difference(flaggedBefore);
     try {
       final repository = ref.read(routeExecutionRepositoryProvider);
       final active = await repository.getActive();
@@ -76,10 +145,34 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted && _blockingExecution != null) {
         setState(() => _blockingExecution = null);
       }
-      final execution = active?.routeId == widget.routeId
+      final fetched = active?.routeId == widget.routeId
           ? active!
           : await repository.start(widget.routeId);
+      // The server does not know about marks that never arrived, so the note
+      // travels with the local snapshot and is re-applied to fresh data.
+      final execution = fetched.copyWith(
+        stops: [
+          for (final stop in fetched.stops)
+            flagged.contains(stop.routeStopId ?? stop.id) && !stop.isCompleted
+                ? stop.copyWith(undelivered: true)
+                : stop,
+        ],
+      );
       if (!mounted) return;
+      if (newlyDropped.isNotEmpty) {
+        final names = [
+          for (final stop in execution.stops)
+            if (newlyDropped.contains(stop.routeStopId ?? stop.id))
+              '«${stop.placeName}»',
+        ];
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && names.isNotEmpty) {
+            _showError(
+              'Отметка ${names.join(', ')} не доставлена — отметьте её заново',
+            );
+          }
+        });
+      }
       await coordinator.save(execution);
       await _refreshPendingActions();
       setState(() {
@@ -132,6 +225,11 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     }
   }
 
+  static Set<String> _undeliveredKeys(RouteExecution? execution) => {
+    for (final stop in execution?.stops ?? const <RouteExecutionStop>[])
+      if (stop.undelivered && !stop.isCompleted) stop.routeStopId ?? stop.id,
+  };
+
   bool get _isLocalPendingStart =>
       _execution?.id.startsWith(
         RouteExecutionOfflineCoordinator.localExecutionPrefix,
@@ -141,11 +239,26 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   Future<void> _completeStop(RouteExecutionStop stop) async {
     final execution = _execution;
     if (execution == null || !execution.isActive || _busyStopId != null) return;
+    final fix = _currentFix();
+    final advice = adviseMark(
+      execution: execution,
+      stop: stop,
+      fix: fix,
+      now: DateTime.now(),
+    );
+    if (advice.needsConfirmation && !await _confirmMark(advice)) return;
+    if (!mounted) return;
     setState(() => _busyStopId = stop.id);
     // One key for the attempt and its queued retry: if the request reached the
     // server before the connection dropped, the replay is deduped.
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
+    final position = positionToSend(
+      execution: execution,
+      fix: fix,
+      sharingEnabled: ref.read(locationSharingProvider).shareEnabled,
+      now: occurredAt,
+    );
     if (_isLocalPendingStart) {
       final updated = _completeStopLocally(execution, stop.id, occurredAt);
       await _queueOfflineAction(
@@ -154,6 +267,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         stopId: stop.id,
         clientEventId: clientEventId,
         occurredAt: occurredAt,
+        position: position,
         updated: updated,
       );
       if (mounted) setState(() => _busyStopId = null);
@@ -167,9 +281,15 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             stop.id,
             clientEventId: clientEventId,
             occurredAt: occurredAt,
+            position: position,
           );
-      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
-      if (mounted) setState(() => _execution = updated);
+      // The response carries fresh thresholds; remember the pause total this
+      // mark was made at so the next pace hint can net out pauses.
+      final saved = updated.copyWith(
+        pausedAtLastMarkSeconds: updated.pausedDurationSeconds,
+      );
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(saved);
+      if (mounted) setState(() => _execution = saved);
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
@@ -183,6 +303,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         stopId: stop.id,
         clientEventId: clientEventId,
         occurredAt: occurredAt,
+        position: position,
         updated: updated,
       );
       if (mounted) _showError(_friendlyError(error));
@@ -452,22 +573,26 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     required String clientEventId,
     required DateTime occurredAt,
     String? stopId,
+    MarkPosition? position,
   }) async {
     final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
     await coordinator.save(updated);
     // A run that hasn't synced its own "start" yet has no server-side target
-    // for this mutation — replayPending() catches the real execution up to
-    // this local snapshot's state once "start" itself succeeds, so queueing
-    // a separate entry here would just be replayed against the wrong id.
-    if (!executionId.startsWith(
+    // for these mutations - replayPending() catches the real execution up to
+    // this local snapshot's state once "start" itself succeeds. Stop marks are
+    // still queued, though: the start replay reads their event id and position
+    // from those entries and consumes them, so they are never sent twice.
+    final isLocal = executionId.startsWith(
       RouteExecutionOfflineCoordinator.localExecutionPrefix,
-    )) {
+    );
+    if (!isLocal || action == RouteExecutionAction.completeStop) {
       await coordinator.enqueue(
         executionId: executionId,
         action: action,
         stopId: stopId,
         clientEventId: clientEventId,
         occurredAt: occurredAt,
+        position: position,
       );
     }
     await _refreshPendingActions();
@@ -975,6 +1100,17 @@ class _StopCard extends StatelessWidget {
   final bool enabled;
   final VoidCallback onComplete;
 
+  String get _subtitle {
+    final parts = [
+      stop.isOptional ? 'Можно пропустить' : 'Обязательная остановка',
+      // Leg length and expected time; absent for the first stop and short legs.
+      ?formatLegLabel(stop.legDistanceMeters, stop.legEstimateSeconds),
+      if (stop.undelivered && !stop.isCompleted)
+        'Отметка не доставлена — отметьте заново',
+    ];
+    return parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     final done = stop.isCompleted;
@@ -997,9 +1133,7 @@ class _StopCard extends StatelessWidget {
               : Text('${stop.position}'),
         ),
         title: Text(stop.placeName, style: AppTypography.button),
-        subtitle: Text(
-          stop.isOptional ? 'Можно пропустить' : 'Обязательная остановка',
-        ),
+        subtitle: Text(_subtitle),
         trailing: done
             ? const Icon(
                 Icons.check_circle_rounded,

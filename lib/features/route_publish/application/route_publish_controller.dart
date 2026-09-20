@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -421,9 +420,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         return;
       }
       state = state.copyWith(
-        draft: state.draft.copyWith(
-          media: [...state.draft.media, ...added],
-        ),
+        draft: state.draft.copyWith(media: [...state.draft.media, ...added]),
         clearMediaError: true,
       );
       if (picked.length == room && room < maxMedia) {

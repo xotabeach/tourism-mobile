@@ -24,7 +24,10 @@ void main() {
   });
 
   test('only one release is marked as still being built', () {
-    expect(appChangelog.where((r) => r.inProgress).length, lessThanOrEqualTo(1));
+    expect(
+      appChangelog.where((r) => r.inProgress).length,
+      lessThanOrEqualTo(1),
+    );
     // A shipped release carries its date; the one in progress does not.
     for (final release in appChangelog) {
       if (release.inProgress) {

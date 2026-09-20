@@ -82,7 +82,10 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('section-dropdown-header')));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('section-dropdown-panel')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('section-dropdown-panel')),
+      findsOneWidget,
+    );
 
     await tester.tap(find.text('Статьи'));
     await tester.pumpAndSettle();

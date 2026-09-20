@@ -108,7 +108,10 @@ void main() {
       );
       // The default cap still applies — this is resolution recovered up to
       // the upload ceiling, not an uncapped one.
-      expect(croppedPixelSize(window, resolution: resolution), const Size(2048, 2048));
+      expect(
+        croppedPixelSize(window, resolution: resolution),
+        const Size(2048, 2048),
+      );
     });
 
     test('a photo smaller than the window is not invented into one', () {

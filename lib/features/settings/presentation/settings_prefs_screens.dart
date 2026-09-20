@@ -5,7 +5,6 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -16,6 +15,7 @@ import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_permission.dart';
 import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/data/offline_route_store.dart';
 import 'package:tourism_mobile/features/settings/application/liquid_glass_preference.dart';
@@ -44,6 +44,7 @@ class _SettingsNotificationsScreenState
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_refreshOsStatus());
+    unawaited(_refreshLocationPermission());
   }
 
   @override
@@ -69,6 +70,7 @@ class _SettingsNotificationsScreenState
 
   Future<void> _onResumed() async {
     await _refreshOsStatus();
+    await _refreshLocationPermission();
     if (!mounted) {
       return;
     }
@@ -110,6 +112,18 @@ class _SettingsNotificationsScreenState
     if (open == true) {
       await AppPush.openSystemNotificationSettings();
     }
+  }
+
+  bool? _osLocationGranted;
+
+  Future<void> _refreshLocationPermission() async {
+    final granted = await osLocationGranted();
+    if (mounted) setState(() => _osLocationGranted = granted);
+  }
+
+  Future<void> _onLocationSharingChanged(bool value) async {
+    await setPositionSharing(ref, value);
+    await _refreshLocationPermission();
   }
 
   Future<void> _onPushChanged(bool value) async {
@@ -220,6 +234,15 @@ class _SettingsNotificationsScreenState
               sessionCtl.updateNotificationPrefs(notifyHapticsEnabled: value),
             );
           },
+        ),
+        SettingsToggleTile(
+          title: 'Положение при отметке точек',
+          subtitle: 'Помогает точнее засчитывать прохождение',
+          icon: Icons.my_location_rounded,
+          value:
+              ref.watch(locationSharingProvider).shareEnabled &&
+              (_osLocationGranted ?? false),
+          onChanged: (value) => unawaited(_onLocationSharingChanged(value)),
         ),
       ],
     );

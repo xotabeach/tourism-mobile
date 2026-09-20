@@ -65,11 +65,7 @@ void main() {
   ) async {
     var shown = false;
     await tester.pumpWidget(
-      _chat(
-        sessionFull: true,
-        dismissed: true,
-        onShow: () => shown = true,
-      ),
+      _chat(sessionFull: true, dismissed: true, onShow: () => shown = true),
     );
     await tester.pumpAndSettle();
 

@@ -50,10 +50,8 @@ void main() {
             builder: (context) => Scaffold(
               body: Center(
                 child: ElevatedButton(
-                  onPressed: () => showRoutePlacePicker(
-                    context,
-                    title: 'Куда идём?',
-                  ),
+                  onPressed: () =>
+                      showRoutePlacePicker(context, title: 'Куда идём?'),
                   child: const Text('открыть'),
                 ),
               ),

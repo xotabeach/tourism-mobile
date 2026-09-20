@@ -19,7 +19,10 @@ Future<GoRouter> _pumpMatch(WidgetTester tester) async {
   final router = GoRouter(
     initialLocation: RouteMatchScreen.routePath,
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Text('HOME'))),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Text('HOME')),
+      ),
       GoRoute(
         path: RouteMatchScreen.routePath,
         builder: (_, _) => const RouteMatchScreen(),
@@ -46,47 +49,48 @@ double _widthOf(WidgetTester tester, String key) =>
     tester.getSize(find.byKey(ValueKey(key))).width;
 
 void main() {
-  testWidgets('switching to chat morphs the selector instead of pushing a page', (
-    tester,
-  ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    try {
-      final router = await _pumpMatch(tester);
-      final paramsWide = _widthOf(tester, 'route-mode-params');
-      final aiNarrow = _widthOf(tester, 'route-mode-ai');
-      expect(paramsWide, greaterThan(aiNarrow));
+  testWidgets(
+    'switching to chat morphs the selector instead of pushing a page',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        final router = await _pumpMatch(tester);
+        final paramsWide = _widthOf(tester, 'route-mode-params');
+        final aiNarrow = _widthOf(tester, 'route-mode-ai');
+        expect(paramsWide, greaterThan(aiNarrow));
 
-      await tester.tap(find.byKey(const ValueKey('route-mode-ai')));
-      // Mid-flight: the two halves are still trading width. A pushed page
-      // would instead slide a second copy of the screen over this one.
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 120));
-      expect(
-        _widthOf(tester, 'route-mode-ai'),
-        greaterThan(aiNarrow + 1),
-        reason: 'the selector must animate, not cut to the chat',
-      );
-      expect(find.byType(RouteMatchScreen), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('route-mode-ai')));
+        // Mid-flight: the two halves are still trading width. A pushed page
+        // would instead slide a second copy of the screen over this one.
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 120));
+        expect(
+          _widthOf(tester, 'route-mode-ai'),
+          greaterThan(aiNarrow + 1),
+          reason: 'the selector must animate, not cut to the chat',
+        );
+        expect(find.byType(RouteMatchScreen), findsOneWidget);
 
-      await tester.pumpAndSettle();
-      expect(_widthOf(tester, 'route-mode-ai'), greaterThan(aiNarrow));
-      expect(_widthOf(tester, 'route-mode-params'), lessThan(paramsWide));
-      expect(find.text('Тревел Агент'), findsWidgets);
-      // Chat is a mode of this screen, so the location never moved and no
-      // second screen was stacked underneath.
-      expect(router.routeInformationProvider.value.uri.path, '/match');
-      expect(find.byType(RouteMatchScreen), findsOneWidget);
+        await tester.pumpAndSettle();
+        expect(_widthOf(tester, 'route-mode-ai'), greaterThan(aiNarrow));
+        expect(_widthOf(tester, 'route-mode-params'), lessThan(paramsWide));
+        expect(find.text('Тревел Агент'), findsWidgets);
+        // Chat is a mode of this screen, so the location never moved and no
+        // second screen was stacked underneath.
+        expect(router.routeInformationProvider.value.uri.path, '/match');
+        expect(find.byType(RouteMatchScreen), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('route-mode-params')));
-      await tester.pumpAndSettle();
-      expect(find.text('Тревел Агент'), findsNothing);
-      expect(router.routeInformationProvider.value.uri.path, '/match');
-      await tester.pumpWidget(const SizedBox.shrink());
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-      await tester.binding.setSurfaceSize(null);
-    }
-  });
+        await tester.tap(find.byKey(const ValueKey('route-mode-params')));
+        await tester.pumpAndSettle();
+        expect(find.text('Тревел Агент'), findsNothing);
+        expect(router.routeInformationProvider.value.uri.path, '/match');
+        await tester.pumpWidget(const SizedBox.shrink());
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+        await tester.binding.setSurfaceSize(null);
+      }
+    },
+  );
 
   testWidgets('the edge swipe leaves for Home from either mode', (
     tester,

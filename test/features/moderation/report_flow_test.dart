@@ -171,7 +171,10 @@ void main() {
   });
 
   testWidgets('there is no shield on your own comment', (tester) async {
-    await _pump(tester, comments: [_comment(id: 'c1', authorId: 'mock-user')]);
+    await _pump(
+      tester,
+      comments: [_comment(id: 'c1', authorId: 'mock-user')],
+    );
 
     expect(
       find.byKey(const ValueKey('article-comment-report-c1')),

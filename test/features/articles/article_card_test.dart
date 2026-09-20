@@ -164,7 +164,6 @@ void main() {
   });
 }
 
-
 /// The loading silhouette has to be a card, not a bare shimmer block: the
 /// sections that show it sit inside lists whose layout would otherwise jump
 /// when the real cards arrive.
@@ -208,9 +207,13 @@ void _footerTests() {
     await _pumpCard(tester, _summary());
     // AppExpertFrame returns its child untouched, so the widgets are still in
     // the tree — what must not appear is the gradient decoration they add.
-    final decorated = tester.widgetList<DecoratedBox>(find.byType(DecoratedBox));
+    final decorated = tester.widgetList<DecoratedBox>(
+      find.byType(DecoratedBox),
+    );
     expect(
-      decorated.any((box) => (box.decoration as BoxDecoration).gradient != null),
+      decorated.any(
+        (box) => (box.decoration as BoxDecoration).gradient != null,
+      ),
       isFalse,
     );
   });

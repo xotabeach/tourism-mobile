@@ -818,7 +818,9 @@ class _FavoriteButtonState extends ConsumerState<_FavoriteButton>
       key: ValueKey('favorite-toggle-${widget.routeId}'),
       toggled: selected,
       child: AppGlassIconButton(
-        semanticLabel: selected ? 'Удалить из избранного' : 'Добавить в избранное',
+        semanticLabel: selected
+            ? 'Удалить из избранного'
+            : 'Добавить в избранное',
         onPressed: _toggle,
         iconWidget: ScaleTransition(
           scale: _scale,

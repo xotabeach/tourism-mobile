@@ -29,22 +29,25 @@ void main() {
     }
   });
 
-  test('a platform failure comes back as a message, not an exception', () async {
-    const channel = MethodChannel('test/icons');
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          throw PlatformException(code: 'unsupported', message: 'Нельзя тут');
-        });
-    addTearDown(
-      () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-          .setMockMethodCallHandler(channel, null),
-    );
+  test(
+    'a platform failure comes back as a message, not an exception',
+    () async {
+      const channel = MethodChannel('test/icons');
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(channel, (call) async {
+            throw PlatformException(code: 'unsupported', message: 'Нельзя тут');
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(channel, null),
+      );
 
-    const service = AppIconService(channel);
-    expect(await service.apply(AppIconVariant.sea), 'Нельзя тут');
-    // Reading falls back rather than propagating — the screen still renders.
-    expect(await service.current(), AppIconVariant.standard);
-  });
+      const service = AppIconService(channel);
+      expect(await service.apply(AppIconVariant.sea), 'Нельзя тут');
+      // Reading falls back rather than propagating — the screen still renders.
+      expect(await service.current(), AppIconVariant.standard);
+    },
+  );
 
   test('the Android manifest keeps exactly one launcher alias enabled', () {
     // With every alias disabled the app would vanish from the launcher and
@@ -70,7 +73,9 @@ void main() {
             ? 'ic_launcher'
             : 'ic_launcher_${variant.id}';
         expect(
-          File('android/app/src/main/res/mipmap-$density/$name.png').existsSync(),
+          File(
+            'android/app/src/main/res/mipmap-$density/$name.png',
+          ).existsSync(),
           isTrue,
           reason: '$density/$name',
         );
@@ -102,7 +107,9 @@ void main() {
     for (final variant in AppIconVariant.values) {
       if (variant == AppIconVariant.standard) continue;
       // The set is named exactly as the id passed to setAlternateIconName.
-      final set = Directory('ios/Runner/Assets.xcassets/${variant.id}.appiconset');
+      final set = Directory(
+        'ios/Runner/Assets.xcassets/${variant.id}.appiconset',
+      );
       expect(set.existsSync(), isTrue, reason: variant.id);
       final contents = File('${set.path}/Contents.json');
       expect(contents.existsSync(), isTrue, reason: variant.id);

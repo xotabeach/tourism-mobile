@@ -31,7 +31,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     final nameField = find.byKey(const ValueKey('auth-name-field'));
-    expect(nameField, findsOneWidget, reason: 'registration step should appear');
+    expect(
+      nameField,
+      findsOneWidget,
+      reason: 'registration step should appear',
+    );
 
     // The regression: the name field used to reuse the phone field's element
     // (same type, same index, no keys), inheriting its live text input

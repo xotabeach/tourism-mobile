@@ -182,7 +182,9 @@ class _PlaceFavoriteButton extends ConsumerWidget {
       key: ValueKey('favorite-toggle-$placeId'),
       toggled: selected,
       child: AppGlassIconButton(
-        semanticLabel: selected ? 'Удалить из избранного' : 'Добавить в избранное',
+        semanticLabel: selected
+            ? 'Удалить из избранного'
+            : 'Добавить в избранное',
         onPressed: () => unawaited(_toggle(ref, context)),
         iconWidget: AppFavoriteIcon(selected: selected, size: 22),
         dimension: 44,

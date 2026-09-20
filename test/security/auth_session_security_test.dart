@@ -261,103 +261,91 @@ void main() {
     expect(controller.state.isAuthenticated, isFalse);
   });
 
-  test(
-    'hydrate under NetworkFailure restores the cached identity instead of '
-    'logging out',
-    () async {
-      final storage = MemorySecureStorage();
-      await storage.write(
-        key: SecureStorageKeys.refreshToken,
-        value: 'refresh-1',
-      );
-      final identityCache = MemorySessionIdentityCache();
-      await identityCache.save(
-        const CachedIdentity(
-          userId: 'user-1',
-          displayName: 'Никита',
-          phone: '+79001234567',
-        ),
-      );
-      final controller = SessionController(
-        authRepository: _NetworkFailingAuth(),
-        secureStorage: storage,
-        identityCache: identityCache,
-        useMockData: false,
-      );
+  test('hydrate under NetworkFailure restores the cached identity instead of '
+      'logging out', () async {
+    final storage = MemorySecureStorage();
+    await storage.write(
+      key: SecureStorageKeys.refreshToken,
+      value: 'refresh-1',
+    );
+    final identityCache = MemorySessionIdentityCache();
+    await identityCache.save(
+      const CachedIdentity(
+        userId: 'user-1',
+        displayName: 'Никита',
+        phone: '+79001234567',
+      ),
+    );
+    final controller = SessionController(
+      authRepository: _NetworkFailingAuth(),
+      secureStorage: storage,
+      identityCache: identityCache,
+      useMockData: false,
+    );
 
-      await controller.hydrate();
+    await controller.hydrate();
 
-      expect(controller.state.isHydrated, isTrue);
-      expect(controller.state.onboardingCompleted, isTrue);
-      expect(controller.state.isOffline, isTrue);
-      expect(controller.state.userId, 'user-1');
-      expect(controller.state.displayName, 'Никита');
-      expect(controller.state.isAuthenticated, isTrue);
-      // The refresh token must survive — this is the whole point of the fix.
-      expect(
-        await storage.read(key: SecureStorageKeys.refreshToken),
-        'refresh-1',
-      );
-    },
-  );
+    expect(controller.state.isHydrated, isTrue);
+    expect(controller.state.onboardingCompleted, isTrue);
+    expect(controller.state.isOffline, isTrue);
+    expect(controller.state.userId, 'user-1');
+    expect(controller.state.displayName, 'Никита');
+    expect(controller.state.isAuthenticated, isTrue);
+    // The refresh token must survive — this is the whole point of the fix.
+    expect(
+      await storage.read(key: SecureStorageKeys.refreshToken),
+      'refresh-1',
+    );
+  });
 
-  test(
-    'hydrate under NetworkFailure with no cached identity falls back to '
-    'logged out (cannot claim a session it cannot describe)',
-    () async {
-      final storage = MemorySecureStorage();
-      await storage.write(
-        key: SecureStorageKeys.refreshToken,
-        value: 'refresh-1',
-      );
-      final controller = SessionController(
-        authRepository: _NetworkFailingAuth(),
-        secureStorage: storage,
-        useMockData: false,
-      );
+  test('hydrate under NetworkFailure with no cached identity falls back to '
+      'logged out (cannot claim a session it cannot describe)', () async {
+    final storage = MemorySecureStorage();
+    await storage.write(
+      key: SecureStorageKeys.refreshToken,
+      value: 'refresh-1',
+    );
+    final controller = SessionController(
+      authRepository: _NetworkFailingAuth(),
+      secureStorage: storage,
+      useMockData: false,
+    );
 
-      await controller.hydrate();
+    await controller.hydrate();
 
-      expect(controller.state.isHydrated, isTrue);
-      expect(controller.state.isAuthenticated, isFalse);
-      expect(
-        await storage.read(key: SecureStorageKeys.refreshToken),
-        isNull,
-      );
-    },
-  );
+    expect(controller.state.isHydrated, isTrue);
+    expect(controller.state.isAuthenticated, isFalse);
+    expect(await storage.read(key: SecureStorageKeys.refreshToken), isNull);
+  });
 
-  test(
-    'a mid-session refresh under NetworkFailure keeps the session instead '
-    'of clearing it',
-    () async {
-      final storage = MemorySecureStorage();
-      await storage.write(
-        key: SecureStorageKeys.refreshToken,
-        value: 'refresh-1',
-      );
-      final controller = SessionController(
-        authRepository: _NetworkFailingAuth(),
-        secureStorage: storage,
-        useMockData: false,
-        initial: const SessionState(
-          isHydrated: true,
-          onboardingCompleted: true,
-          userId: 'user-1',
-          accessToken: 'access-1',
-        ),
-      );
+  test('a mid-session refresh under NetworkFailure keeps the session instead '
+      'of clearing it', () async {
+    final storage = MemorySecureStorage();
+    await storage.write(
+      key: SecureStorageKeys.refreshToken,
+      value: 'refresh-1',
+    );
+    final controller = SessionController(
+      authRepository: _NetworkFailingAuth(),
+      secureStorage: storage,
+      useMockData: false,
+      initial: const SessionState(
+        isHydrated: true,
+        onboardingCompleted: true,
+        userId: 'user-1',
+        accessToken: 'access-1',
+      ),
+    );
 
-      final result = await controller.refreshAccessToken();
+    final result = await controller.refreshAccessToken();
 
-      expect(result, isNull);
-      expect(controller.state.isOffline, isTrue);
-      expect(controller.state.isAuthenticated, isTrue);
-      expect(controller.state.accessToken, 'access-1');
-      expect(
-        await storage.read(key: SecureStorageKeys.refreshToken),
-        'refresh-1',
-      );
-    },
-  );
+    expect(result, isNull);
+    expect(controller.state.isOffline, isTrue);
+    expect(controller.state.isAuthenticated, isTrue);
+    expect(controller.state.accessToken, 'access-1');
+    expect(
+      await storage.read(key: SecureStorageKeys.refreshToken),
+      'refresh-1',
+    );
+  });
 }

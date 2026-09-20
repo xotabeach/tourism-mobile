@@ -197,74 +197,74 @@ void main() {
     expect((await store.listOutbox()).single.attempts, 1);
   });
 
-  test(
-    'starting fully offline reconciles local stop completions and the '
-    'final status against the real execution once online',
-    () async {
-      const route = RouteDetail(
-        id: 'route-offline-start',
-        name: 'Оффлайн маршрут',
-        slug: 'offline-route',
-        shortDescription: 'Описание',
-        stopsCount: 2,
-        description: 'Подробное описание',
-        stops: [
-          RouteStop(
-            id: 'stop-a',
-            position: 1,
-            placeId: 'place-a',
-            placeName: 'Точка A',
-            placeSlug: 'point-a',
-          ),
-          RouteStop(
-            id: 'stop-b',
-            position: 2,
-            placeId: 'place-b',
-            placeName: 'Точка B',
-            placeSlug: 'point-b',
-            isOptional: true,
-          ),
-        ],
-      );
-      final repository = _StartReconcileRepository();
-      final store = MemoryRouteExecutionOfflineStore();
-      final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+  test('starting fully offline reconciles local stop completions and the '
+      'final status against the real execution once online', () async {
+    const route = RouteDetail(
+      id: 'route-offline-start',
+      name: 'Оффлайн маршрут',
+      slug: 'offline-route',
+      shortDescription: 'Описание',
+      stopsCount: 2,
+      description: 'Подробное описание',
+      stops: [
+        RouteStop(
+          id: 'stop-a',
+          position: 1,
+          placeId: 'place-a',
+          placeName: 'Точка A',
+          placeSlug: 'point-a',
+        ),
+        RouteStop(
+          id: 'stop-b',
+          position: 2,
+          placeId: 'place-b',
+          placeName: 'Точка B',
+          placeSlug: 'point-b',
+          isOptional: true,
+        ),
+      ],
+    );
+    final repository = _StartReconcileRepository();
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
 
-      final local = await coordinator.startOffline(route);
-      expect(
-        local.id,
-        startsWith(RouteExecutionOfflineCoordinator.localExecutionPrefix),
-      );
-      expect((await store.listOutbox()).single.action, RouteExecutionAction.start);
+    final local = await coordinator.startOffline(route);
+    expect(
+      local.id,
+      startsWith(RouteExecutionOfflineCoordinator.localExecutionPrefix),
+    );
+    expect(
+      (await store.listOutbox()).single.action,
+      RouteExecutionAction.start,
+    );
 
-      // The user completes the one required stop and finishes the route —
-      // all of this only ever touches the local snapshot (no separate
-      // outbox entries), matching what the screen does.
-      final completed = local.copyWith(
-        status: RouteExecutionStatus.completed,
-        completedAt: DateTime.utc(2026, 9, 6, 12),
-        completedStops: 1,
-        completedRequiredStops: 1,
-        stops: [
-          for (final stop in local.stops)
-            stop.id == 'stop-a'
-                ? stop.copyWith(completedAt: DateTime.utc(2026, 9, 6, 11, 55))
-                : stop,
-        ],
-      );
-      await store.saveSnapshot(completed);
+    // The user completes the one required stop and finishes the route —
+    // all of this only ever touches the local snapshot (no separate
+    // outbox entries), matching what the screen does.
+    final completed = local.copyWith(
+      status: RouteExecutionStatus.completed,
+      completedAt: DateTime.utc(2026, 9, 6, 12),
+      completedStops: 1,
+      completedRequiredStops: 1,
+      stops: [
+        for (final stop in local.stops)
+          stop.id == 'stop-a'
+              ? stop.copyWith(completedAt: DateTime.utc(2026, 9, 6, 11, 55))
+              : stop,
+      ],
+    );
+    await store.saveSnapshot(completed);
 
-      final result = await coordinator.replayPending();
+    final result = await coordinator.replayPending();
 
-      expect(await store.listOutbox(), isEmpty);
-      expect(repository.startedRouteIds, ['route-offline-start']);
-      expect(repository.completedStopServerIds, ['srv-stop-a']);
-      expect(repository.completedExecutionIds, ['srv-execution']);
-      expect(result?.id, 'srv-execution');
-      expect(result?.status, RouteExecutionStatus.completed);
-      expect((await store.getSnapshot())?.id, 'srv-execution');
-    },
-  );
+    expect(await store.listOutbox(), isEmpty);
+    expect(repository.startedRouteIds, ['route-offline-start']);
+    expect(repository.completedStopServerIds, ['srv-stop-a']);
+    expect(repository.completedExecutionIds, ['srv-execution']);
+    expect(result?.id, 'srv-execution');
+    expect(result?.status, RouteExecutionStatus.completed);
+    expect((await store.getSnapshot())?.id, 'srv-execution');
+  });
 
   test('pause and resume replay through the same offline outbox', () async {
     final repository = MockRouteExecutionRepository();

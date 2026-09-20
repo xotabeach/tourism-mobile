@@ -46,7 +46,8 @@ ArticleSummary _summary({
     readingTimeMinutes: 4,
     viewCount: 1240,
     authorRankTitle: 'Продвинутый пешеход',
-    excerpt: 'Маршрут занял три полных дня, электричек и автобусов было больше.',
+    excerpt:
+        'Маршрут занял три полных дня, электричек и автобусов было больше.',
   );
 }
 
@@ -93,11 +94,7 @@ final _article = Article(
           'Возврат автобусом №5 — последний рейс в 19:40',
       listStyle: ListStyle.bullet,
     ),
-    ArticleBlock(
-      id: 'b4',
-      position: 3,
-      blockType: ArticleBlockType.divider,
-    ),
+    ArticleBlock(id: 'b4', position: 3, blockType: ArticleBlockType.divider),
     ArticleBlock(
       id: 'b5',
       position: 4,

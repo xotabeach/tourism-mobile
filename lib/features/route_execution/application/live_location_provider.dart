@@ -14,10 +14,9 @@ final liveLocationProvider = StreamProvider.autoDispose<Position?>((
     yield null;
     return;
   }
-  var permission = await Geolocator.checkPermission();
-  if (permission == LocationPermission.denied) {
-    permission = await Geolocator.requestPermission();
-  }
+  // Asking is done explicitly, with an explanation, when the first route is
+  // started (see location_sharing.dart) - never as a side effect of watching.
+  final permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied ||
       permission == LocationPermission.deniedForever) {
     yield null;

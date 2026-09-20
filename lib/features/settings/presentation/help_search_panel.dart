@@ -27,6 +27,7 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
   HelpSearchResult? _result;
   bool _busy = false;
   bool _failed = false;
+
   /// Set once a search has been running long enough to look stuck.
   ///
   /// Questions asked at the same moment queue for the same model on the

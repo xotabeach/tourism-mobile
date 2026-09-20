@@ -410,7 +410,9 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
   List<Widget> _offlineFavoritesSlivers() {
     final offlineAsync = ref.watch(offlineRoutesProvider);
     final records = offlineAsync.valueOrNull ?? const [];
-    final activeExecution = ref.watch(activeOrCachedExecutionProvider).valueOrNull;
+    final activeExecution = ref
+        .watch(activeOrCachedExecutionProvider)
+        .valueOrNull;
     final showActiveCard =
         activeExecution != null &&
         activeExecution.status == RouteExecutionStatus.active;
@@ -1191,16 +1193,13 @@ class _ExecutionHistoryTile extends ConsumerWidget {
                 child: SizedBox(
                   width: 52,
                   height: 52,
-                  child: Icon(
-                    switch (execution.status) {
-                      RouteExecutionStatus.completed => Icons.check_rounded,
-                      RouteExecutionStatus.active =>
-                        Icons.directions_walk_rounded,
-                      RouteExecutionStatus.paused => Icons.pause_rounded,
-                      RouteExecutionStatus.cancelled => Icons.stop_rounded,
-                    },
-                    color: statusColor,
-                  ),
+                  child: Icon(switch (execution.status) {
+                    RouteExecutionStatus.completed => Icons.check_rounded,
+                    RouteExecutionStatus.active =>
+                      Icons.directions_walk_rounded,
+                    RouteExecutionStatus.paused => Icons.pause_rounded,
+                    RouteExecutionStatus.cancelled => Icons.stop_rounded,
+                  }, color: statusColor),
                 ),
               ),
               const SizedBox(width: 12),
