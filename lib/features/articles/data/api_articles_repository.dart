@@ -16,6 +16,7 @@ final class ApiArticlesRepository implements ArticlesRepository {
     String? relatedPlaceId,
     String? authorUserId,
     String? query,
+    ArticleFeedSort sort = ArticleFeedSort.newest,
     int limit = 20,
     int offset = 0,
   }) {
@@ -27,6 +28,8 @@ final class ApiArticlesRepository implements ArticlesRepository {
           'related_place_id': ?relatedPlaceId,
           'author_user_id': ?authorUserId,
           'q': ?query,
+          // The default order is the API's own; old servers ignore it.
+          if (sort != ArticleFeedSort.newest) 'sort': sort.apiValue,
           'limit': limit,
           'offset': offset,
         },

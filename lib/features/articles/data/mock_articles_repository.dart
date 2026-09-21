@@ -109,6 +109,7 @@ final class MockArticlesRepository implements ArticlesRepository {
     String? relatedPlaceId,
     String? authorUserId,
     String? query,
+    ArticleFeedSort sort = ArticleFeedSort.newest,
     int limit = 20,
     int offset = 0,
   }) async {
@@ -138,6 +139,19 @@ final class MockArticlesRepository implements ArticlesRepository {
         )
         .map(_asSummary)
         .toList();
+    final epoch = DateTime.fromMillisecondsSinceEpoch(0);
+    int byDate(ArticleSummary a, ArticleSummary b) =>
+        (a.publishedAt ?? epoch).compareTo(b.publishedAt ?? epoch);
+    items.sort(switch (sort) {
+      ArticleFeedSort.newest => (a, b) => byDate(b, a),
+      ArticleFeedSort.oldest => byDate,
+      ArticleFeedSort.popular => (a, b) {
+        final likes = b.likeCount.compareTo(a.likeCount);
+        if (likes != 0) return likes;
+        final views = b.viewCount.compareTo(a.viewCount);
+        return views != 0 ? views : byDate(b, a);
+      },
+    });
     return ArticleListPage(items: items, total: items.length);
   }
 

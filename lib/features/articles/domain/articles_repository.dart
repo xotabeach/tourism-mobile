@@ -26,6 +26,7 @@ abstract interface class ArticlesRepository {
     String? relatedPlaceId,
     String? authorUserId,
     String? query,
+    ArticleFeedSort sort = ArticleFeedSort.newest,
     int limit = 20,
     int offset = 0,
   });
@@ -85,4 +86,15 @@ abstract interface class ArticlesRepository {
   Future<bool> setSaved(String articleId, {required bool saved});
 
   Future<ArticleListPage> listSaved({int limit = 20, int offset = 0});
+}
+
+/// Order of the public article feed.
+enum ArticleFeedSort {
+  newest('newest'),
+  oldest('oldest'),
+  popular('popular');
+
+  const ArticleFeedSort(this.apiValue);
+
+  final String apiValue;
 }

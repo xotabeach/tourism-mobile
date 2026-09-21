@@ -8,6 +8,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
+import 'package:tourism_mobile/features/articles/domain/articles_repository.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
@@ -31,6 +32,7 @@ const _pageSize = 10;
 enum _SortOption {
   dateNewest('Сначала новые', Icons.arrow_downward_rounded),
   dateOldest('Сначала старые', Icons.arrow_upward_rounded),
+  popular('По популярности', Icons.local_fire_department_outlined),
   nameAsc('По названию (А–Я)', Icons.sort_by_alpha_rounded),
   nameDesc('По названию (Я–А)', Icons.sort_by_alpha_rounded);
 
@@ -39,8 +41,22 @@ enum _SortOption {
   final String label;
   final IconData icon;
 
+  /// Options offered for each list: blogs sort by date and popularity (their
+  /// titles are not a meaningful order), routes and places by date and name.
+  static List<_SortOption> forMode(HomeListMode mode) => switch (mode) {
+    HomeListMode.articles => const [dateNewest, dateOldest, popular],
+    _ => const [dateNewest, dateOldest, nameAsc, nameDesc],
+  };
+
+  ArticleFeedSort get articleSort => switch (this) {
+    _SortOption.dateOldest => ArticleFeedSort.oldest,
+    _SortOption.popular => ArticleFeedSort.popular,
+    _ => ArticleFeedSort.newest,
+  };
+
   RouteCatalogSort get routeSort => switch (this) {
     _SortOption.dateNewest => RouteCatalogSort.dateNewest,
+    _SortOption.popular => RouteCatalogSort.popular,
     _SortOption.dateOldest => RouteCatalogSort.dateOldest,
     _SortOption.nameAsc => RouteCatalogSort.nameAsc,
     _SortOption.nameDesc => RouteCatalogSort.nameDesc,
@@ -48,6 +64,7 @@ enum _SortOption {
 
   PlaceCatalogSort get placeSort => switch (this) {
     _SortOption.dateNewest => PlaceCatalogSort.dateNewest,
+    _SortOption.popular => PlaceCatalogSort.defaultOrder,
     _SortOption.dateOldest => PlaceCatalogSort.dateOldest,
     _SortOption.nameAsc => PlaceCatalogSort.nameAsc,
     _SortOption.nameDesc => PlaceCatalogSort.nameDesc,
@@ -181,7 +198,11 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
       } else if (mode == HomeListMode.articles) {
         final page = await ref
             .read(articlesRepositoryProvider)
-            .listArticles(limit: _pageSize, offset: offset);
+            .listArticles(
+              limit: _pageSize,
+              offset: offset,
+              sort: _sort?.articleSort ?? ArticleFeedSort.newest,
+            );
         if (!mounted || generation != _loadGeneration || mode != _mode) return;
         setState(() {
           _articleItems.addAll(page.items);
@@ -222,8 +243,11 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     _loadGeneration++;
     setState(() {
       _mode = mode;
+      // Sort choices differ per list (blogs have no name order).
+      _sort = null;
       _routeItems.clear();
       _placeItems.clear();
+      _articleItems.clear();
       _offset = 0;
       _total = 0;
       _error = false;
@@ -238,6 +262,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
     setState(() {
       _routeItems.clear();
       _placeItems.clear();
+      _articleItems.clear();
       _offset = 0;
       _total = 0;
       _error = false;
@@ -252,6 +277,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
       _sort = option;
       _routeItems.clear();
       _placeItems.clear();
+      _articleItems.clear();
       _offset = 0;
       _total = 0;
       _error = false;
@@ -265,7 +291,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
         context: context,
         anchorKey: _sortAnchorKey,
         actions: [
-          for (final option in _SortOption.values)
+          for (final option in _SortOption.forMode(_mode))
             RouteMenuAction(
               icon: option.icon,
               label: option.label,
@@ -322,8 +348,7 @@ class _AllListScreenState extends ConsumerState<AllListScreen> {
                 ),
                 const SizedBox(height: 14),
                 AppSearchFilterRow(
-                  showFilterButton:
-                      !_searchActive && _mode != HomeListMode.articles,
+                  showFilterButton: !_searchActive,
                   filterButtonKey: _sortAnchorKey,
                   filterSemanticLabel: 'Сортировка',
                   filterApplied: _sort != null,
