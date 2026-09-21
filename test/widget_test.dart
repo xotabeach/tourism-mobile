@@ -261,7 +261,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(RoutePublishScreen), findsOneWidget);
-    expect(find.text('КРЫМТРИП'), findsOneWidget);
+    // Publish draws its own top bar (design, task #23) above the heading; the
+    // shell's scroll bar stays hidden until the content scrolls under it.
+    expect(
+      find.byKey(const ValueKey('route-publish-top-bar')),
+      findsOneWidget,
+    );
+    expect(find.text('КРЫМТРИП'), findsNWidgets(2));
     expect(find.byKey(const ValueKey('app-shell-bottom-scrim')), findsNothing);
     expect(_scrollBrandBarOpacity(tester), 0);
 
