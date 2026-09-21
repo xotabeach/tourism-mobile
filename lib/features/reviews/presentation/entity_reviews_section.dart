@@ -19,6 +19,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/place_reviews_providers.dart';
 import 'package:tourism_mobile/features/places/data/place_reviews_repository.dart';
+import 'package:tourism_mobile/features/reviews/presentation/reply_quote.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/routes/data/route_reviews_repository.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
@@ -940,66 +941,11 @@ class _ReplyComposerContext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ReplyQuote(
       key: const ValueKey('review-reply-composer-context'),
-      decoration: BoxDecoration(
-        color: AppColors.controlSurface,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          children: [
-            Container(
-              width: 3,
-              decoration: const BoxDecoration(
-                color: AppColors.primaryInk,
-                borderRadius: BorderRadius.horizontal(
-                  left: Radius.circular(10),
-                ),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 9),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Ответ для ${review.authorDisplayName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryInk,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      review.body,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 12,
-                        height: 1.25,
-                        color: AppColors.secondaryInk,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            IconButton(
-              tooltip: 'Отменить ответ',
-              onPressed: onCancel,
-              icon: const Icon(Icons.close_rounded, size: 20),
-            ),
-          ],
-        ),
-      ),
+      title: 'Ответ для ${review.authorDisplayName}',
+      body: review.body,
+      onCancel: onCancel,
     );
   }
 }
@@ -1079,45 +1025,10 @@ class _PublishedReplyContext extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return ReplyQuote(
       key: ValueKey('published-review-reply-${reply.reviewId}'),
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-      decoration: BoxDecoration(
-        color: AppColors.controlSurface,
-        borderRadius: BorderRadius.circular(10),
-        border: const Border(
-          left: BorderSide(color: AppColors.primaryInk, width: 3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            reply.authorDisplayName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.primaryInk,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            reply.body,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 12,
-              height: 1.3,
-              color: AppColors.secondaryInk,
-            ),
-          ),
-        ],
-      ),
+      title: reply.authorDisplayName,
+      body: reply.body,
     );
   }
 }

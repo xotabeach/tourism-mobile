@@ -18,6 +18,7 @@ import 'package:tourism_mobile/features/articles/domain/articles_repository.dart
 import 'package:tourism_mobile/features/moderation/domain/content_report.dart';
 import 'package:tourism_mobile/features/moderation/presentation/report_sheet.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/reviews/presentation/reply_quote.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Comments thread for one article (G.8b). Deliberately hand-rolled rather
@@ -108,40 +109,23 @@ class _ArticleCommentsSectionState
                 ),
               );
             }
-            final roots = [
-              for (final comment in page.items)
-                if (comment.replyToCommentId == null) comment,
-            ];
-            final repliesByParent = <String, List<ArticleComment>>{};
-            for (final comment in page.items) {
-              final parentId = comment.replyToCommentId;
-              if (parentId != null) {
-                repliesByParent.putIfAbsent(parentId, () => []).add(comment);
-              }
-            }
+            // One flat list, as in route reviews: a reply is a card of its
+            // own that quotes what it answers.
+            final byId = {
+              for (final comment in page.items) comment.id: comment,
+            };
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final root in roots) ...[
+                for (final comment in page.items) ...[
                   _ArticleCommentTile(
-                    comment: root,
-                    isOwn: root.authorUserId == selfUserId,
-                    canDelete: _canDelete(root, selfUserId),
-                    onReply: () => _startReply(root),
+                    comment: comment,
+                    repliesTo: byId[comment.replyToCommentId],
+                    isOwn: comment.authorUserId == selfUserId,
+                    canDelete: _canDelete(comment, selfUserId),
+                    onReply: () => _startReply(comment),
                     onDeleted: _invalidate,
                   ),
-                  for (final reply
-                      in repliesByParent[root.id] ?? const <ArticleComment>[])
-                    Padding(
-                      padding: const EdgeInsets.only(left: 28, top: 8),
-                      child: _ArticleCommentTile(
-                        comment: reply,
-                        isOwn: reply.authorUserId == selfUserId,
-                        canDelete: _canDelete(reply, selfUserId),
-                        onReply: () => _startReply(root),
-                        onDeleted: _invalidate,
-                      ),
-                    ),
                   const SizedBox(height: 12),
                 ],
               ],
@@ -184,6 +168,7 @@ class _CommentsLoadingSkeleton extends StatelessWidget {
 class _ArticleCommentTile extends ConsumerStatefulWidget {
   const _ArticleCommentTile({
     required this.comment,
+    required this.repliesTo,
     required this.isOwn,
     required this.canDelete,
     required this.onReply,
@@ -191,6 +176,9 @@ class _ArticleCommentTile extends ConsumerStatefulWidget {
   });
 
   final ArticleComment comment;
+
+  /// The comment this one answers, when it is on the loaded page.
+  final ArticleComment? repliesTo;
 
   /// На свой комментарий жаловаться незачем — щит показывается только на
   /// чужих (сервер такую жалобу и не примет).
@@ -211,7 +199,8 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
   static const _bodyStyle = TextStyle(
     fontFamily: AppFonts.rubik,
     fontSize: 13,
-    height: 1.4,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
     color: AppColors.secondaryInk,
   );
 
@@ -232,24 +221,32 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
       opacity: _pending ? 0.72 : 1,
       child: Container(
         key: ValueKey('article-comment-${comment.id}'),
+        // The route review card's look (see _ReviewCard in reviews).
         decoration: BoxDecoration(
           color: AppColors.elevatedSurface,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFEDEDEE)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (_pending)
               const Padding(
-                padding: EdgeInsets.only(bottom: 6),
+                padding: EdgeInsets.only(bottom: 8),
                 child: Text(
                   'На проверке',
                   key: ValueKey('article-comment-pending-badge'),
                   style: TextStyle(
                     fontFamily: AppFonts.rubik,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppColors.secondaryInk,
                   ),
@@ -258,7 +255,7 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
             Row(
               children: [
                 CircleAvatar(
-                  radius: 14,
+                  radius: 17,
                   backgroundImage: AppImages.imageProvider(
                     resolvedUrl: AppImages.resolveMediaUrl(
                       config,
@@ -267,7 +264,7 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                     assetFallback: AppImages.travelerPortrait,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,8 +276,9 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: AppFonts.rubik,
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.w600,
+                          height: 1.2,
                           color: AppColors.primaryInk,
                         ),
                       ),
@@ -294,6 +292,7 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                           style: const TextStyle(
                             fontFamily: AppFonts.rubik,
                             fontSize: 11,
+                            height: 1.3,
                             color: AppColors.secondaryInk,
                           ),
                         ),
@@ -328,7 +327,15 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                   ),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
+            if (widget.repliesTo case final parent?) ...[
+              ReplyQuote(
+                key: ValueKey('article-comment-reply-${comment.id}'),
+                title: parent.authorDisplayName,
+                body: parent.body,
+              ),
+              const SizedBox(height: 10),
+            ],
             // Замер и текст, и строка действий — в одном LayoutBuilder:
             // builder выполняется на этапе layout, и признак переполнения,
             // выставленный «наружу», отставал бы на один кадр.
@@ -351,41 +358,43 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                           : TextOverflow.ellipsis,
                       style: _bodyStyle,
                     ),
-                    const SizedBox(height: 6),
+                    if (overflows) ...[
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        key: const ValueKey('article-comment-expand'),
+                        onTap: () => setState(() => _expanded = !_expanded),
+                        child: Text(
+                          _expanded ? 'Свернуть' : 'Читать полностью',
+                          style: AppTypography.button.copyWith(
+                            fontSize: 13,
+                            color: AppColors.primaryInk,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
                     Row(
                       children: [
-                        if (overflows)
-                          GestureDetector(
-                            key: const ValueKey('article-comment-expand'),
-                            onTap: () => setState(() => _expanded = !_expanded),
-                            child: Text(
-                              _expanded ? 'Свернуть' : 'Читать полностью',
-                              style: AppTypography.button.copyWith(
-                                fontSize: 12,
-                                color: AppColors.primaryInk,
-                              ),
-                            ),
-                          ),
                         const Spacer(),
                         GestureDetector(
                           onTap: onReply,
                           child: Text(
                             'Ответить',
                             style: AppTypography.button.copyWith(
-                              fontSize: 12,
+                              fontSize: 13,
                               color: AppColors.primaryInk,
                             ),
                           ),
                         ),
                         if (canDelete) ...[
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           GestureDetector(
                             onTap: () =>
                                 unawaited(_confirmDelete(context, ref)),
                             child: Text(
                               'Удалить',
                               style: AppTypography.button.copyWith(
-                                fontSize: 12,
+                                fontSize: 13,
                                 color: AppColors.secondaryInk,
                               ),
                             ),
@@ -530,33 +539,15 @@ class _ArticleCommentComposerState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (widget.replyTo != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Ответ для ${widget.replyTo!.authorDisplayName}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryInk,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Отменить ответ',
-                    visualDensity: VisualDensity.compact,
-                    onPressed: widget.onCancelReply,
-                    icon: const Icon(Icons.close_rounded, size: 18),
-                  ),
-                ],
-              ),
+          if (widget.replyTo case final target?) ...[
+            ReplyQuote(
+              key: const ValueKey('article-comment-reply-composer-context'),
+              title: 'Ответ для ${target.authorDisplayName}',
+              body: target.body,
+              onCancel: widget.onCancelReply,
             ),
+            const SizedBox(height: 8),
+          ],
           Stack(
             children: [
               TextField(

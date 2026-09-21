@@ -311,7 +311,9 @@ void main() {
       expect(find.text('Читать полностью'), findsNothing);
     });
 
-    testWidgets('indents a reply under its parent comment', (tester) async {
+    testWidgets('a reply quotes its parent, as route reviews do', (
+      tester,
+    ) async {
       final article = _articleWith();
       final now = DateTime.now().toUtc();
       final comments = [
@@ -337,11 +339,25 @@ void main() {
       ];
       await _pump(tester, article: article, comments: comments);
 
-      final replyTile = find.byKey(const ValueKey('article-comment-reply'));
-      final padding = tester.widget<Padding>(
-        find.ancestor(of: replyTile, matching: find.byType(Padding)).first,
+      // One flat list: the reply is a card of its own, not indented, and
+      // quotes the comment it answers.
+      final quote = find.byKey(const ValueKey('article-comment-reply-reply'));
+      expect(quote, findsOneWidget);
+      expect(
+        find.descendant(of: quote, matching: find.text('Автор корня')),
+        findsOneWidget,
       );
-      expect((padding.padding as EdgeInsets).left, 28);
+      expect(
+        find.descendant(of: quote, matching: find.text('Корневой комментарий')),
+        findsOneWidget,
+      );
+      final root = tester.getTopLeft(
+        find.byKey(const ValueKey('article-comment-root')),
+      );
+      final reply = tester.getTopLeft(
+        find.byKey(const ValueKey('article-comment-reply')),
+      );
+      expect(reply.dx, root.dx);
     });
 
     testWidgets('lets the author delete their own comment within 6 hours', (
