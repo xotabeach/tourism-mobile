@@ -1249,6 +1249,9 @@ class _ActivityStatsRow extends StatelessWidget {
   final int publishedArticlesCount;
   final int articleLikesCount;
 
+  /// Between the cards, both ways: the design packs them at about 5 pt.
+  static const _statGap = 5.0;
+
   @override
   Widget build(BuildContext context) {
     // Order, icons and labels follow the design (2026-09-21): what you did,
@@ -1266,7 +1269,7 @@ class _ActivityStatsRow extends StatelessWidget {
                 label: 'Пройдено м-в',
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: _statGap),
             Expanded(
               child: _FollowStatBox(
                 compact: true,
@@ -1276,7 +1279,7 @@ class _ActivityStatsRow extends StatelessWidget {
                 label: 'Пройдено км.',
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: _statGap),
             Expanded(
               child: _FollowStatBox(
                 compact: true,
@@ -1288,7 +1291,7 @@ class _ActivityStatsRow extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: _statGap),
         Row(
           children: [
             Expanded(
@@ -1300,7 +1303,7 @@ class _ActivityStatsRow extends StatelessWidget {
                 label: 'Всего статей',
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: _statGap),
             Expanded(
               child: _FollowStatBox(
                 compact: true,
@@ -1310,7 +1313,7 @@ class _ActivityStatsRow extends StatelessWidget {
                 label: 'Всего лайков',
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: _statGap),
             Expanded(
               child: _FollowStatBox(
                 compact: true,
@@ -1380,25 +1383,29 @@ class _FollowStatBox extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                Text(
-                  value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.greeting.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    height: 1,
+                // On a narrow phone the text shrinks a little rather than
+                // cutting «Пройдено м-в» down to «Пройден…».
+                _FitRight(
+                  child: Text(
+                    value,
+                    maxLines: 1,
+                    style: AppTypography.greeting.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AppTypography.greetingSubtitle.copyWith(
-                    fontSize: compact ? 10 : 11,
-                    height: 1,
-                    color: AppColors.secondaryInk,
+                _FitRight(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    style: AppTypography.greetingSubtitle.copyWith(
+                      fontSize: compact ? 10 : 11,
+                      height: 1,
+                      color: AppColors.secondaryInk,
+                    ),
                   ),
                 ),
               ],
@@ -1406,6 +1413,23 @@ class _FollowStatBox extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// One line of a stat card, right-aligned, scaled down only when it does
+/// not fit.
+class _FitRight extends StatelessWidget {
+  const _FitRight({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      alignment: Alignment.centerRight,
+      child: child,
     );
   }
 }
