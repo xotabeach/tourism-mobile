@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/painting.dart';
+import 'package:flutter/widgets.dart';
 
 import 'package:tourism_mobile/core/startup/splash_scene_layout.dart';
 
@@ -11,6 +11,8 @@ import 'package:tourism_mobile/core/startup/splash_scene_layout.dart';
 abstract final class SplashFrames {
   /// The finished day scene without the logo.
   static const day = AssetImage('assets/splash/scene_day.jpg');
+
+  static const daySkyColor = Color(0xFF1F6CCC);
 
   /// The day sky: a smooth gradient, shipped as a thin strip.
   static const skyDay = AssetImage('assets/splash/scene/sky_day.png');
@@ -46,6 +48,24 @@ abstract final class SplashFrames {
     _dayStream = null;
     _dayListener = null;
   }
+}
+
+/// Preserve the whole coastline on tall phones; extend the clear sky above
+/// it instead of cropping out the sun or the people at either edge.
+class SplashDayBackdrop extends StatelessWidget {
+  const SplashDayBackdrop({super.key});
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: SplashFrames.daySkyColor,
+    child: Image(
+      image: SplashFrames.day,
+      fit: BoxFit.fitWidth,
+      alignment: Alignment.bottomCenter,
+      errorBuilder: (_, _, _) =>
+          const ColoredBox(color: SplashFrames.daySkyColor),
+    ),
+  );
 }
 
 /// A decoded frame plus the listener that keeps it alive until [dispose].
