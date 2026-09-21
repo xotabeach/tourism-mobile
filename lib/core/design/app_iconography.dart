@@ -41,6 +41,12 @@ abstract final class AppIconography {
     statReviews,
   ];
 
+  // Profile carousel end cards (Solar bold, drawn as-is in their own blue)
+  static const String stubNewArticle = '$_root/stub_new_article.png';
+  static const String stubNewRoute = '$_root/stub_new_route.png';
+  static const String stubAllArticles = '$_root/stub_all_articles.png';
+  static const String stubAllRoutes = '$_root/stub_all_routes.png';
+
   // Settings — section roots
   static const String settingsProfile = '$_root/settings_profile.png';
   static const String settingsNotifications =

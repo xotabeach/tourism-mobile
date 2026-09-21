@@ -92,6 +92,9 @@ class PublicProfileBundle {
 abstract class PublicProfileRepository {
   Future<PublicUserProfile> getUser(String userId);
   Future<PublicProfileBundle> fetch(String userId);
+
+  /// Every published route of [userId] (the profile itself loads 20).
+  Future<List<RouteSummary>> userRoutes(String userId, {int limit = 100});
   Future<List<PublicUserProfile>> search(String query, {int limit = 8});
   Future<List<PublicUserProfile>> subscriptions({int limit = 50});
   Future<List<PublicUserProfile>> leaderboard({int limit = 50, int offset = 0});
@@ -112,6 +115,17 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
         '/api/v1/users/$userId',
       );
       return PublicUserProfile.fromJson(response.data!);
+    });
+  }
+
+  @override
+  Future<List<RouteSummary>> userRoutes(String userId, {int limit = 100}) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/users/$userId/routes',
+        queryParameters: {'limit': limit, 'offset': 0},
+      );
+      return RouteListPage.fromJson(response.data!).items;
     });
   }
 

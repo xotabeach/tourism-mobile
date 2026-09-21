@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -29,6 +30,8 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/achievement_card_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/profile_carousel_stub.dart';
+import 'package:tourism_mobile/features/profile/presentation/user_content_list_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_icons.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -355,6 +358,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   if (profile.publishedRoutes.isNotEmpty)
                     _PublishedRoutesCarousel(
+                      userId: isOwn ? null : widget.userId,
                       routes: profile.publishedRoutes,
                       authorIsExpert: profile.isExpert,
                       showStatuses: isOwn,
@@ -474,6 +478,38 @@ class _ProfileArticlesSection extends ConsumerWidget {
           _ProfileCardsCarousel(
             itemCount: articles.length,
             height: _articleCardHeight,
+            trailingBuilder: (context, width) => isOwn
+                ? ProfileCarouselStub(
+                    key: const ValueKey('profile-articles-stub'),
+                    iconAsset: AppIconography.stubNewArticle,
+                    title: 'Новая статья',
+                    description:
+                        'Напишите новую интересную статью и получайте ТП за '
+                        'лайки и подписки',
+                    actionLabel: 'Написать статью',
+                    onTap: () => context.pushNamed(AppRouteNames.articleEditor),
+                    width: width,
+                    height: _articleCardHeight,
+                  )
+                : ProfileCarouselStub(
+                    key: const ValueKey('profile-articles-stub'),
+                    iconAsset: AppIconography.stubAllArticles,
+                    title: 'Все статьи',
+                    description:
+                        'Читайте статьи данного пользователя, чтобы узнать '
+                        'больше интересного о путешествиях',
+                    actionLabel: 'Читать все',
+                    onTap: () => Navigator.of(context).push<void>(
+                      CupertinoPageRoute<void>(
+                        builder: (_) => UserContentListScreen(
+                          userId: authorUserId!,
+                          kind: UserContentKind.articles,
+                        ),
+                      ),
+                    ),
+                    width: width,
+                    height: _articleCardHeight,
+                  ),
             itemBuilder: (context, index, width) => ArticleCard(
               article: articles[index],
               width: width,
@@ -1526,6 +1562,7 @@ class _ProfileCardsCarousel extends StatefulWidget {
     required this.itemCount,
     required this.itemBuilder,
     required this.height,
+    this.trailingBuilder,
   });
 
   final int itemCount;
@@ -1533,12 +1570,20 @@ class _ProfileCardsCarousel extends StatefulWidget {
   itemBuilder;
   final double height;
 
+  /// One more card after the items (the «Все…» / «Новая…» stub). Only shown
+  /// when there is at least one item.
+  final Widget Function(BuildContext context, double width)? trailingBuilder;
+
   @override
   State<_ProfileCardsCarousel> createState() => _ProfileCardsCarouselState();
 }
 
 class _ProfileCardsCarouselState extends State<_ProfileCardsCarousel> {
   PageController? _controller;
+
+  int get _count =>
+      widget.itemCount +
+      (widget.itemCount > 0 && widget.trailingBuilder != null ? 1 : 0);
   double _fraction = 1;
   int _page = 0;
 
@@ -1569,19 +1614,21 @@ class _ProfileCardsCarouselState extends State<_ProfileCardsCarousel> {
           height: widget.height,
           child: PageView.builder(
             controller: _controller,
-            itemCount: widget.itemCount,
+            itemCount: _count,
             padEnds: false,
             onPageChanged: (index) => setState(() => _page = index),
             itemBuilder: (context, index) => Padding(
               // Отступ слева у каждой страницы: у первой это поле экрана,
               // у остальных — промежуток между карточками.
               padding: const EdgeInsets.only(left: AppSpacing.page),
-              child: widget.itemBuilder(context, index, cardWidth),
+              child: index < widget.itemCount
+                  ? widget.itemBuilder(context, index, cardWidth)
+                  : widget.trailingBuilder!(context, cardWidth),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        _PageDots(count: widget.itemCount, index: _page),
+        _PageDots(count: _count, index: _page),
       ],
     );
   }
@@ -1593,7 +1640,11 @@ class _PublishedRoutesCarousel extends StatelessWidget {
     required this.showStatuses,
     required this.authorIsExpert,
     this.authorAvatarUrl,
+    this.userId,
   });
+
+  /// Someone else's profile; null on one's own.
+  final String? userId;
 
   static const cardHeight = 296.0;
 
@@ -1607,6 +1658,39 @@ class _PublishedRoutesCarousel extends StatelessWidget {
     return _ProfileCardsCarousel(
       itemCount: routes.length,
       height: cardHeight,
+      trailingBuilder: (context, width) => showStatuses || userId == null
+          ? ProfileCarouselStub(
+              key: const ValueKey('profile-routes-stub'),
+              iconAsset: AppIconography.stubNewRoute,
+              title: 'Новый маршрут',
+              description:
+                  'Опубликуйте новый маршрут для привлечения новой аудитории '
+                  'для своего блога',
+              actionLabel: 'Опубликовать маршрут',
+              onTap: () => context.pushNamed(AppRouteNames.routePublish),
+              width: width,
+              height: cardHeight,
+            )
+          : ProfileCarouselStub(
+              key: const ValueKey('profile-routes-stub'),
+              iconAsset: AppIconography.stubAllRoutes,
+              title: 'Все маршруты',
+              description:
+                  'Посмотрите все маршруты пользователя и найдите более '
+                  'подходящий для вас',
+              actionLabel: 'Смотреть все',
+              onTap: () => Navigator.of(context).push<void>(
+                CupertinoPageRoute<void>(
+                  builder: (_) => UserContentListScreen(
+                    userId: userId!,
+                    kind: UserContentKind.routes,
+                    initialRoutes: routes,
+                  ),
+                ),
+              ),
+              width: width,
+              height: cardHeight,
+            ),
       itemBuilder: (context, index, width) => SizedBox(
         width: width,
         child: RouteHeroCard(
