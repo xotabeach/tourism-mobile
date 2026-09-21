@@ -58,6 +58,11 @@ const appChangelog = <AppRelease>[
     inProgress: true,
     entries: [
       ChangelogEntry(
+        ChangeKind.changed,
+        'Окно с предложением настроить предпочтения на главном экране оформлено '
+        'по новому дизайну.',
+      ),
+      ChangelogEntry(
         ChangeKind.added,
         'На экране «Опубликовать маршрут» появилась верхняя панель с кнопкой '
         '«Назад».',

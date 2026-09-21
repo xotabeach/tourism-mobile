@@ -47,6 +47,13 @@ abstract final class AppIconography {
   static const String stubAllArticles = '$_root/stub_all_articles.png';
   static const String stubAllRoutes = '$_root/stub_all_routes.png';
 
+  // Home «preferences» pop-up (Solar, drawn as-is in their own blue)
+  static const String promptStar = '$_root/prompt_star.png';
+  static const String promptInterests = '$_root/prompt_interests.png';
+  static const String promptDifficulty = '$_root/prompt_difficulty.png';
+  static const String promptFamily = '$_root/prompt_family.png';
+  static const String promptCheck = '$_root/prompt_check.png';
+
   // Settings — section roots
   static const String settingsProfile = '$_root/settings_profile.png';
   static const String settingsNotifications =

@@ -31,10 +31,7 @@ void main() {
 
     // The top bar from the design (back + brand) sits above the heading and
     // moves everything below it down by 47 px.
-    expect(
-      find.byKey(const ValueKey('route-publish-top-bar')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('route-publish-top-bar')), findsOneWidget);
     _expectRect(tester, 'route-media-carousel', 18, 177, 399, 214);
     final firstPhoto = tester.getRect(find.byType(Image).first);
     expect(firstPhoto.left, moreOrLessEquals(18, epsilon: 1));

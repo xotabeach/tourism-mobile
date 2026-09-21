@@ -71,12 +71,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Соберём маршруты под вас'), findsOneWidget);
+    expect(
+      find.text('Соберём маршруты\nпод ваши предпочтения'),
+      findsOneWidget,
+    );
     expect(find.text('Настроить предпочтения'), findsOneWidget);
 
     await tester.tap(find.text('Позже'));
     await tester.pumpAndSettle();
-    expect(find.text('Соберём маршруты под вас'), findsNothing);
+    expect(find.text('Соберём маршруты\nпод ваши предпочтения'), findsNothing);
     expect(find.text('Домой'), findsOneWidget);
   });
 }
