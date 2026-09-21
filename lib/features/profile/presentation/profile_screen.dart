@@ -40,7 +40,7 @@ String compactCount(int value) {
     final thousands = value / 1000;
     final text = thousands == thousands.roundToDouble()
         ? thousands.toStringAsFixed(0)
-        : thousands.toStringAsFixed(1);
+        : thousands.toStringAsFixed(1).replaceAll('.', ',');
     return '$text тыс.';
   }
   return '$value';
@@ -249,13 +249,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       AppSpacing.page,
                       0,
                     ),
-                    child: _ActivityStatsRow(
-                      completedRoutesCount: profile.completedRoutesCount,
-                      publishedRoutesCount: profile.publishedRoutesCount,
-                      reviewsWrittenCount: profile.reviewsWrittenCount,
-                      totalDistanceMeters: profile.totalDistanceMeters,
-                      publishedArticlesCount: profile.publishedArticlesCount,
-                      articleLikesCount: profile.articleLikesCount,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Статистика:',
+                          style: AppTypography.sectionTitle.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _ActivityStatsRow(
+                          completedRoutesCount: profile.completedRoutesCount,
+                          publishedRoutesCount: profile.publishedRoutesCount,
+                          reviewsWrittenCount: profile.reviewsWrittenCount,
+                          totalDistanceMeters: profile.totalDistanceMeters,
+                          publishedArticlesCount:
+                              profile.publishedArticlesCount,
+                          articleLikesCount: profile.articleLikesCount,
+                        ),
+                      ],
                     ),
                   ),
                   Padding(
@@ -1149,34 +1162,39 @@ class _ActivityStatsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Order, icons and labels follow the design (2026-09-21): what you did,
+    // then what you wrote.
     return Column(
       children: [
         Row(
           children: [
             Expanded(
               child: _FollowStatBox(
+                compact: true,
                 key: const ValueKey('profile-completed-routes-stat'),
-                iconAsset: AppIconography.routes,
+                iconAsset: AppIconography.statRoutesCompleted,
                 value: compactCount(completedRoutesCount),
-                label: 'Пройдено',
+                label: 'Пройдено м-в',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _FollowStatBox(
-                key: const ValueKey('profile-published-routes-stat'),
-                iconAsset: AppIconography.map,
-                value: compactCount(publishedRoutesCount),
-                label: 'Маршрутов',
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _FollowStatBox(
+                compact: true,
                 key: const ValueKey('profile-distance-stat'),
-                iconAsset: AppIconography.map,
+                iconAsset: AppIconography.statDistance,
                 value: formatDistanceKm(totalDistanceMeters),
-                label: 'Километров',
+                label: 'Пройдено км.',
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _FollowStatBox(
+                compact: true,
+                key: const ValueKey('profile-published-routes-stat'),
+                iconAsset: AppIconography.statRoutesCreated,
+                value: compactCount(publishedRoutesCount),
+                label: 'Создано м-в',
               ),
             ),
           ],
@@ -1186,28 +1204,31 @@ class _ActivityStatsRow extends StatelessWidget {
           children: [
             Expanded(
               child: _FollowStatBox(
+                compact: true,
                 key: const ValueKey('profile-articles-stat'),
-                iconAsset: AppIconography.settingsRate,
+                iconAsset: AppIconography.statArticles,
                 value: compactCount(publishedArticlesCount),
-                label: 'Статей',
+                label: 'Всего статей',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _FollowStatBox(
+                compact: true,
                 key: const ValueKey('profile-article-likes-stat'),
-                iconAsset: AppIconography.settingsRate,
+                iconAsset: AppIconography.statLikes,
                 value: compactCount(articleLikesCount),
-                label: 'Лайков',
+                label: 'Всего лайков',
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _FollowStatBox(
+                compact: true,
                 key: const ValueKey('profile-reviews-stat'),
-                iconAsset: AppIconography.settingsRate,
+                iconAsset: AppIconography.statReviews,
                 value: compactCount(reviewsWrittenCount),
-                label: 'Отзывов',
+                label: 'Всего отзывов',
               ),
             ),
           ],
@@ -1223,6 +1244,7 @@ class _FollowStatBox extends StatelessWidget {
     required this.value,
     required this.label,
     this.useFollowersIcon = false,
+    this.compact = false,
     super.key,
   });
 
@@ -1231,6 +1253,10 @@ class _FollowStatBox extends StatelessWidget {
   final String label;
   final bool useFollowersIcon;
 
+  /// Three to a row (the «Статистика» grid): the design uses a smaller icon
+  /// and tighter insets so two-word labels fit.
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     // Geometry/colors measured from the 393 px design export (Frame 146/147),
@@ -1238,7 +1264,9 @@ class _FollowStatBox extends StatelessWidget {
     // a soft drop shadow instead of a hairline outline.
     return Container(
       height: 45,
-      padding: const EdgeInsets.fromLTRB(14, 7, 14, 7),
+      padding: compact
+          ? const EdgeInsets.fromLTRB(8, 7, 8, 7)
+          : const EdgeInsets.fromLTRB(14, 7, 14, 7),
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
         borderRadius: BorderRadius.circular(10),
@@ -1252,8 +1280,12 @@ class _FollowStatBox extends StatelessWidget {
               size: 28,
             )
           else
-            AppAssetIcon(iconAsset, size: 28, color: AppColors.profileStatIcon),
-          const SizedBox(width: 6),
+            AppAssetIcon(
+              iconAsset,
+              size: compact ? 22 : 28,
+              color: AppColors.profileStatIcon,
+            ),
+          SizedBox(width: compact ? 4 : 6),
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1275,7 +1307,7 @@ class _FollowStatBox extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AppTypography.greetingSubtitle.copyWith(
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     height: 1,
                     color: AppColors.secondaryInk,
                   ),

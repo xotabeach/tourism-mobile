@@ -74,12 +74,12 @@ void main() {
     ]) {
       expect(find.byKey(ValueKey(key)), findsOneWidget, reason: key);
     }
-    expect(find.text('Пройдено'), findsOneWidget);
-    expect(find.text('Маршрутов'), findsOneWidget);
-    expect(find.text('Километров'), findsOneWidget);
-    expect(find.text('Статей'), findsOneWidget);
-    expect(find.text('Лайков'), findsOneWidget);
-    expect(find.text('Отзывов'), findsOneWidget);
+    expect(find.text('Пройдено м-в'), findsOneWidget);
+    expect(find.text('Создано м-в'), findsOneWidget);
+    expect(find.text('Пройдено км.'), findsOneWidget);
+    expect(find.text('Всего статей'), findsOneWidget);
+    expect(find.text('Всего лайков'), findsOneWidget);
+    expect(find.text('Всего отзывов'), findsOneWidget);
     expect(find.text('143 км'), findsOneWidget);
     final coverRect = tester.getRect(
       find.byKey(const ValueKey('profile-cover')),

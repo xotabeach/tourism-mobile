@@ -24,6 +24,23 @@ abstract final class AppIconography {
   static const String variant17 = '$_root/variant_17.png';
   static const String click = '$_root/click.png';
 
+  // Profile «Статистика» (solar icons from the design, 2026-09-21)
+  static const String statRoutesCompleted = '$_root/stat_routes_completed.png';
+  static const String statDistance = '$_root/stat_distance.png';
+  static const String statRoutesCreated = '$_root/stat_routes_created.png';
+  static const String statArticles = '$_root/stat_articles.png';
+  static const String statLikes = '$_root/stat_likes.png';
+  static const String statReviews = '$_root/stat_reviews.png';
+
+  static const List<String> profileStatAssets = [
+    statRoutesCompleted,
+    statDistance,
+    statRoutesCreated,
+    statArticles,
+    statLikes,
+    statReviews,
+  ];
+
   // Settings — section roots
   static const String settingsProfile = '$_root/settings_profile.png';
   static const String settingsNotifications =
@@ -150,6 +167,7 @@ abstract final class AppIconography {
     variant17,
     click,
     ...settingsAssets,
+    ...profileStatAssets,
   ];
 
   static String inkAsset(String asset) {

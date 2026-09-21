@@ -59,6 +59,11 @@ const appChangelog = <AppRelease>[
     entries: [
       ChangelogEntry(
         ChangeKind.changed,
+        'Блок «Статистика» в профиле оформлен по новому дизайну: заголовок, '
+        'новые иконки и понятные подписи («Пройдено м-в», «Всего лайков»…).',
+      ),
+      ChangelogEntry(
+        ChangeKind.changed,
         'Помощник по справке в разделе поддержки оформлен по новому дизайну.',
       ),
       ChangelogEntry(
