@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -712,18 +713,27 @@ class _DraftStatusBar extends StatelessWidget {
   final VoidCallback onStartNew;
   final VoidCallback onOpenDrafts;
 
-  static String label(DraftSaveStatus status) => switch (status) {
+  static String label(RoutePublishState state) => switch (state.saveStatus) {
     DraftSaveStatus.idle => '',
     DraftSaveStatus.savedLocal => 'Сохранено на устройстве',
-    DraftSaveStatus.syncing => 'Сохраняем…',
+    // Photos are what makes a send long: say which one is going.
+    DraftSaveStatus.syncing when state.uploadsTotal > 0 =>
+      'Отправляем фото ${math.min(state.uploadsDone + 1, state.uploadsTotal)}'
+          ' из ${state.uploadsTotal}…',
+    DraftSaveStatus.syncing => 'Отправляем на сервер…',
     DraftSaveStatus.synced => 'Сохранено · синхронизировано',
-    DraftSaveStatus.offline => 'Не отправлено на сервер — нет сети',
+    DraftSaveStatus.offline =>
+      'Нет соединения. Черновик на устройстве, отправим, когда появится сеть',
+    DraftSaveStatus.timedOut =>
+      'Сервер не ответил вовремя. Черновик на устройстве, повторим отправку',
+    DraftSaveStatus.sendFailed =>
+      'Не удалось отправить на сервер. Черновик на устройстве, повторим отправку',
     DraftSaveStatus.localFailed => 'Не удалось сохранить на устройстве',
   };
 
   @override
   Widget build(BuildContext context) {
-    final text = label(state.saveStatus);
+    final text = label(state);
     final restored = state.restoredNotice;
     final style = PublishRouteDesignTokens.rubik(
       fontSize: 13,
@@ -2615,6 +2625,7 @@ class PublishRouteActions extends StatelessWidget {
           u: u,
           height: 62,
           label: 'Опубликовать маршрут',
+          busyLabel: 'Публикуем…',
           semanticsLabel: 'Опубликовать маршрут',
           loading: publishing,
           background: PublishRouteDesignTokens.dark,
@@ -2626,6 +2637,7 @@ class PublishRouteActions extends StatelessWidget {
           u: u,
           height: 63,
           label: 'Сохранить черновик',
+          busyLabel: 'Сохраняем…',
           semanticsLabel: 'Сохранить черновик',
           loading: saving,
           background: PublishRouteDesignTokens.surface,
@@ -2643,6 +2655,7 @@ class _RouteActionButton extends StatelessWidget {
     required this.u,
     required this.height,
     required this.label,
+    required this.busyLabel,
     required this.semanticsLabel,
     required this.loading,
     required this.background,
@@ -2654,6 +2667,7 @@ class _RouteActionButton extends StatelessWidget {
   final double Function(double) u;
   final double height;
   final String label;
+  final String busyLabel;
   final String semanticsLabel;
   final bool loading;
   final Color background;
@@ -2687,13 +2701,26 @@ class _RouteActionButton extends StatelessWidget {
                   : Border.all(color: border!, width: u(1)),
             ),
             child: Center(
+              // While busy the button keeps words next to the spinner: a
+              // lone spinner on the white button read as an empty button
+              // with a dot in it.
               child: loading
-                  ? SizedBox.square(
-                      dimension: u(20),
-                      child: CircularProgressIndicator(
-                        strokeWidth: u(2),
-                        color: foreground,
-                      ),
+                  ? Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox.square(
+                          dimension: u(18),
+                          child: CircularProgressIndicator(
+                            strokeWidth: u(2),
+                            color: foreground,
+                          ),
+                        ),
+                        SizedBox(width: u(10)),
+                        Text(
+                          busyLabel,
+                          style: _style(u, 18, FontWeight.w400, foreground, 1),
+                        ),
+                      ],
                     )
                   : Text(
                       label,

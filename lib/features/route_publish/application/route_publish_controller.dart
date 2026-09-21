@@ -33,8 +33,14 @@ enum DraftSaveStatus {
   /// Saved on the device and on the server.
   synced,
 
-  /// On the device; the server could not be reached.
+  /// On the device; the phone has no connection.
   offline,
+
+  /// On the device; the server did not answer in time. Sent again shortly.
+  timedOut,
+
+  /// On the device; the server refused or failed. Sent again shortly.
+  sendFailed,
 
   /// The device write itself failed.
   localFailed,
@@ -65,9 +71,16 @@ class RoutePublishState {
     this.restoredNotice = false,
     this.conflict = false,
     this.replaceConfirmFor,
+    this.uploadsDone = 0,
+    this.uploadsTotal = 0,
   });
 
   final DraftSaveStatus saveStatus;
+
+  /// Photos sent so far out of those the running send has to upload; both 0
+  /// when it has none.
+  final int uploadsDone;
+  final int uploadsTotal;
 
   /// The draft was picked up from a previous session: shown once as a note.
   final bool restoredNotice;
@@ -140,8 +153,12 @@ class RoutePublishState {
     bool? conflict,
     String? replaceConfirmFor,
     bool clearReplaceConfirm = false,
+    int? uploadsDone,
+    int? uploadsTotal,
   }) {
     return RoutePublishState(
+      uploadsDone: uploadsDone ?? this.uploadsDone,
+      uploadsTotal: uploadsTotal ?? this.uploadsTotal,
       saveStatus: saveStatus ?? this.saveStatus,
       restoredNotice: restoredNotice ?? this.restoredNotice,
       conflict: conflict ?? this.conflict,
@@ -218,6 +235,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     this._userId,
     this._editingExisting = false,
     this._autosaveDelay = const Duration(seconds: 2),
+    this._sendRetryDelay = const Duration(seconds: 15),
   }) : _mode = mode,
        super(
          RoutePublishState(
@@ -246,8 +264,13 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   final bool _editingExisting;
   final Duration _autosaveDelay;
 
+  /// The first pause before a failed send is tried again; later ones double.
+  final Duration _sendRetryDelay;
+
   StreamSubscription<RouteDraftSyncEvent>? _syncSubscription;
   Timer? _autosave;
+  Timer? _sendRetry;
+  int _sendRetries = 0;
   Timer? _localRetry;
   Future<void>? _persistFuture;
 
@@ -388,9 +411,12 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         : _syncing
         ? DraftSaveStatus.syncing
         : draft.unsynced
-        ? (_lastOutcome == RouteDraftSyncOutcome.offline
-              ? DraftSaveStatus.offline
-              : DraftSaveStatus.savedLocal)
+        ? switch (_lastOutcome) {
+            RouteDraftSyncOutcome.offline => DraftSaveStatus.offline,
+            RouteDraftSyncOutcome.timedOut => DraftSaveStatus.timedOut,
+            RouteDraftSyncOutcome.failed => DraftSaveStatus.sendFailed,
+            _ => DraftSaveStatus.savedLocal,
+          }
         : draft.serverId != null
         ? DraftSaveStatus.synced
         : DraftSaveStatus.savedLocal;
@@ -426,16 +452,43 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     String userId, {
     required bool explicit,
   }) async {
+    _sendRetry?.cancel();
     _syncing = true;
+    final uploads = state.draft.media
+        .where((item) => !item.isAsset && !item.isOnServer)
+        .length;
+    _quiet(() {
+      state = state.copyWith(uploadsDone: 0, uploadsTotal: uploads);
+    });
     _refreshStatus();
     final outcome = await _sync.sync(userId, state.draft, explicit: explicit);
     _syncing = false;
     _lastOutcome = outcome;
     if (mounted) {
+      _quiet(() {
+        state = state.copyWith(uploadsDone: 0, uploadsTotal: 0);
+      });
       _reportOutcome(outcome, explicit: explicit);
       _refreshStatus();
+      _scheduleSendRetry(outcome);
     }
     return outcome;
+  }
+
+  /// A send that failed for a passing reason is tried again while the form
+  /// stays open, with growing pauses; leaving or the next launch also send.
+  void _scheduleSendRetry(RouteDraftSyncOutcome outcome) {
+    final passing =
+        outcome == RouteDraftSyncOutcome.offline ||
+        outcome == RouteDraftSyncOutcome.timedOut ||
+        outcome == RouteDraftSyncOutcome.failed;
+    if (!passing) {
+      _sendRetries = 0;
+      return;
+    }
+    final pause = _sendRetryDelay * (1 << math.min(_sendRetries, 3));
+    _sendRetries++;
+    _sendRetry = Timer(pause, () => unawaited(_sendInBackground()));
   }
 
   void _reportOutcome(RouteDraftSyncOutcome outcome, {required bool explicit}) {
@@ -446,6 +499,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         }
       case RouteDraftSyncOutcome.notReady ||
           RouteDraftSyncOutcome.offline ||
+          RouteDraftSyncOutcome.timedOut ||
           RouteDraftSyncOutcome.failed:
         if (explicit) {
           _message('Черновик сохранён на устройстве');
@@ -476,6 +530,9 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       case MediaUploadedEvent():
         _quiet(() {
           state = state.copyWith(
+            uploadsDone: _syncing
+                ? math.min(state.uploadsDone + 1, state.uploadsTotal)
+                : null,
             draft: state.draft.copyWith(
               media: [
                 for (final item in state.draft.media)
@@ -1156,6 +1213,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   void dispose() {
     _previewDebounce?.cancel();
     _autosave?.cancel();
+    _sendRetry?.cancel();
     _localRetry?.cancel();
     unawaited(_syncSubscription?.cancel());
     // Leaving with edits that were not written or sent yet: hand them over

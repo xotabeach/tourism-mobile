@@ -164,6 +164,12 @@ final class ApiRoutePublicationRepository
           'file': await MultipartFile.fromFile(media.path),
           'position': index,
         }),
+        // A photo or a video over a weak mobile uplink takes far longer than
+        // the client's usual 20 s, and the server then re-encodes it.
+        options: Options(
+          sendTimeout: const Duration(minutes: 3),
+          receiveTimeout: const Duration(minutes: 1),
+        ),
       );
       final serverId = uploaded.data?['id'];
       if (serverId is String && serverId.isNotEmpty) {

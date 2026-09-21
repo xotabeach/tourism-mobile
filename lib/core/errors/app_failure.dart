@@ -19,6 +19,10 @@ sealed class AppFailure implements Exception {
 
 final class NetworkFailure extends AppFailure {
   const NetworkFailure([super.message = 'Network request failed', super.code]);
+
+  /// [code] of a request that reached no answer in time, as opposed to one
+  /// that found no connection at all.
+  static const timeoutCode = 'timeout';
 }
 
 final class NotFoundFailure extends AppFailure {

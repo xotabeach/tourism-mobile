@@ -37,10 +37,13 @@ AppFailure _mapDioFailure(DioException error) {
     return UnexpectedFailure(apiMessage, apiCode);
   }
   return switch (error.type) {
-    DioExceptionType.connectionTimeout ||
     DioExceptionType.sendTimeout ||
     DioExceptionType.receiveTimeout ||
-    DioExceptionType.transformTimeout ||
+    DioExceptionType.transformTimeout => const NetworkFailure(
+      'Request timed out',
+      NetworkFailure.timeoutCode,
+    ),
+    DioExceptionType.connectionTimeout ||
     DioExceptionType.connectionError ||
     DioExceptionType.cancel => const NetworkFailure(),
     DioExceptionType.badCertificate ||
