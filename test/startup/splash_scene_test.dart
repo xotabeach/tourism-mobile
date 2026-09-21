@@ -23,7 +23,7 @@ Future<ui.Image> _capture(WidgetTester tester, Widget child) async {
   );
   await tester.pump();
   final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
-  return (await tester.runAsync(() => boundary.toImage()))!;
+  return (await tester.runAsync(boundary.toImage))!;
 }
 
 Future<List<int>> _pixels(WidgetTester tester, ui.Image image) async {
