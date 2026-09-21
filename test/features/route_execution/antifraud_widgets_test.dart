@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/mark_confirm_dialog.dart';
@@ -166,20 +167,32 @@ void main() {
       tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: RouteExecutionSummaryScreen(execution: _finished(awarded: 50)),
+        ProviderScope(
+          child: MaterialApp(
+            home: RouteExecutionSummaryScreen(
+              execution: _finished(awarded: 50),
+            ),
+          ),
         ),
       );
-      expect(find.text('+50 путевых очков'), findsOneWidget);
+      expect(find.text('+50 ТП'), findsOneWidget);
+      // The design's layout: title, three stat tiles, the way back.
+      expect(find.text('Маршрут пройден!'), findsOneWidget);
+      expect(find.text('Статистика:'), findsOneWidget);
+      expect(find.bySemanticsLabel('Посещено: 3 места'), findsOneWidget);
+      expect(find.bySemanticsLabel('Время в пути: 180 мин.'), findsOneWidget);
+      expect(find.bySemanticsLabel('На страницу маршрута'), findsOneWidget);
       expect(find.textContaining('проверк'), findsNothing);
       expect(find.textContaining('лимит'), findsNothing);
     });
 
     testWidgets('held points show the review wording', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: RouteExecutionSummaryScreen(
-            execution: _finished(status: RoutePointsStatus.held, held: 40),
+        ProviderScope(
+          child: MaterialApp(
+            home: RouteExecutionSummaryScreen(
+              execution: _finished(status: RoutePointsStatus.held, held: 40),
+            ),
           ),
         ),
       );
@@ -189,14 +202,16 @@ void main() {
 
     testWidgets('cooldown quotes the server limit', (tester) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: RouteExecutionSummaryScreen(
-            execution: _finished(
-              reason: 'route_cooldown',
-              antifraud: const RouteExecutionAntiFraud(
-                gpsToleranceMeters: 150,
-                gpsMinAccuracyMeters: 100,
-                routeCooldownDays: 14,
+        ProviderScope(
+          child: MaterialApp(
+            home: RouteExecutionSummaryScreen(
+              execution: _finished(
+                reason: 'route_cooldown',
+                antifraud: const RouteExecutionAntiFraud(
+                  gpsToleranceMeters: 150,
+                  gpsMinAccuracyMeters: 100,
+                  routeCooldownDays: 14,
+                ),
               ),
             ),
           ),
@@ -210,21 +225,23 @@ void main() {
       'a partial daily-cap award keeps the +N badge and adds the note',
       (tester) async {
         await tester.pumpWidget(
-          MaterialApp(
-            home: RouteExecutionSummaryScreen(
-              execution: _finished(
-                reason: 'daily_cap',
-                awarded: 20,
-                antifraud: const RouteExecutionAntiFraud(
-                  gpsToleranceMeters: 150,
-                  gpsMinAccuracyMeters: 100,
-                  dailyPointsCap: 600,
+          ProviderScope(
+            child: MaterialApp(
+              home: RouteExecutionSummaryScreen(
+                execution: _finished(
+                  reason: 'daily_cap',
+                  awarded: 20,
+                  antifraud: const RouteExecutionAntiFraud(
+                    gpsToleranceMeters: 150,
+                    gpsMinAccuracyMeters: 100,
+                    dailyPointsCap: 600,
+                  ),
                 ),
               ),
             ),
           ),
         );
-        expect(find.text('+20 путевых очков'), findsOneWidget);
+        expect(find.text('+20 ТП'), findsOneWidget);
         expect(find.textContaining('лимит очков (600)'), findsOneWidget);
       },
     );

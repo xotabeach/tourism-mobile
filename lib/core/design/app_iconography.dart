@@ -8,6 +8,9 @@ abstract final class AppIconography {
   static const String arrow = '$_root/arrow.png';
   static const String bell = '$_root/bell.png';
   static const String download = '$_root/download.png';
+
+  /// Solar «cup-star», the route finished screen.
+  static const String finishCup = '$_root/finish_cup.png';
   static const String filter = '$_root/filter.png';
   static const String heart = '$_root/heart.png';
   static const String home = '$_root/home.png';
@@ -27,6 +30,9 @@ abstract final class AppIconography {
   // Profile «Статистика» (solar icons from the design, 2026-09-21)
   static const String statRoutesCompleted = '$_root/stat_routes_completed.png';
   static const String statDistance = '$_root/stat_distance.png';
+
+  /// Solar «alarm», the «Всего в пути» row of the route run screen.
+  static const String execAlarm = '$_root/exec_alarm.png';
   static const String statRoutesCreated = '$_root/stat_routes_created.png';
   static const String statArticles = '$_root/stat_articles.png';
   static const String statLikes = '$_root/stat_likes.png';
