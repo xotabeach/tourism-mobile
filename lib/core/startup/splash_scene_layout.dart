@@ -6,12 +6,8 @@ const splashSceneHeight = 1672.0;
 
 /// Scene layers back to front: asset name and top-left offset.
 const splashSceneLayers = <({String name, double left, double top})>[
-  (name: 'clouds', left: 0.0, top: 681.0),
-  (name: 'sun', left: 0.0, top: 577.0),
-  (name: 'sea', left: 0.0, top: 967.0),
-  (name: 'mountains', left: 83.0, top: 818.0),
-  (name: 'coast', left: 54.0, top: 759.0),
-  (name: 'foreground', left: 0.0, top: 977.0),
-  (name: 'tourists', left: 543.0, top: 1078.0),
-  (name: 'gull', left: 617.0, top: 606.0),
+  (name: 'clouds', left: 0.0, top: 871.0),
+  (name: 'sun', left: 146.0, top: 1126.0),
+  (name: 'landscape', left: 0.0, top: 960.0),
+  (name: 'tourists', left: 811.0, top: 1312.0),
 ];

@@ -1,21 +1,12 @@
 #!/usr/bin/env python3
-"""Build the preloader scene from the designer's layers.
+"""Prepare the fixed sunrise composition from preloader/layers2.
 
-  python3 scripts/build_splash_scene.py /path/to/preloader/layers
+Usage: python3 scripts/build_splash_scene.py /path/to/preloader/layers2
 
-The layers are one consistent scene (unlike the four day-part pictures, whose
-mountains and coast sit in different places, which made the old cross-fade
-jump). This script:
-
-* crops every layer to its content and writes it to assets/splash/scene/;
-* shrinks the sky (a plain gradient) to a thin strip, scaled back up at run
-  time;
-* composites the finished day scene (without the logo) into
-  assets/splash/scene_day.jpg for the welcome screen and reduce-motion;
-* writes lib/core/startup/splash_scene_layout.dart with each layer's offset.
-
-Layer 9 (the raster logo) is skipped: the app draws the vector logo.
-Needs Pillow.
+The day landscape supplies the geometry for every phase. Earlier exports
+have different shorelines; blending those would double the coast. Clouds are
+isolated from the combined logo/cloud exports, and the sun is separate.
+The original sources are never modified. Requires Pillow.
 """
 
 from __future__ import annotations
@@ -23,62 +14,95 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets/splash/scene"
-NAMES = {
-    2: "clouds",
-    3: "sun",
-    4: "sea",
-    5: "mountains",
-    6: "coast",
-    7: "foreground",
-    8: "tourists",
-    10: "gull",
-}
+SIZE = (941, 1672)
 
 
 def number(path: Path) -> int:
-    return int(path.name.split("(")[1].split(")")[0])
+    return int(path.stem.rsplit("(", 1)[1].split(")")[0])
 
 
 def main() -> None:
-    layers_dir = Path(sys.argv[1])
-    files = {number(p): p for p in layers_dir.glob("*.png")}
+    sources = {number(p): p for p in Path(sys.argv[1]).glob("*.png")}
+    layers = {i: Image.open(sources[i]).convert("RGBA") for i in (5, 6, 7, 8)}
+    assert all(im.size == SIZE for im in layers.values())
     OUT.mkdir(parents=True, exist_ok=True)
 
-    sky = Image.open(files[1]).convert("RGB")
-    size = sky.size
-    sky.resize((16, 418), Image.LANCZOS).save(OUT / "sky_day.png")
-
-    composite = sky.convert("RGBA")
+    # Colours from clear areas of the fourth reference; the warm horizon
+    # stays below the logo. A thin gradient strip avoids a full-size sky.
+    stops = [(0, (31, 108, 204)), (450, (57, 139, 230)),
+             (800, (115, 166, 228)), (970, (237, 177, 158)),
+             (1080, (255, 200, 132)), (1155, (255, 230, 144)),
+             (1672, (255, 230, 144))]
+    sky = Image.new("RGB", (16, SIZE[1]))
+    draw = ImageDraw.Draw(sky)
+    for (y0, c0), (y1, c1) in zip(stops, stops[1:]):
+        for y in range(y0, y1):
+            t = (y - y0) / (y1 - y0)
+            draw.line((0, y, 16, y), fill=tuple(
+                round(a + (b - a) * t) for a, b in zip(c0, c1)))
+    sky = sky.resize((16, 418), Image.Resampling.LANCZOS)
+    sky.save(OUT / "sky_day.png")
+    composite = sky.resize(SIZE, Image.Resampling.BILINEAR).convert("RGBA")
     entries = []
-    for index, name in NAMES.items():
-        layer = Image.open(files[index]).convert("RGBA")
-        assert layer.size == size, (index, layer.size)
-        bbox = layer.getchannel("A").point(lambda a: 255 if a > 2 else 0).getbbox()
-        cropped = layer.crop(bbox)
-        cropped.save(OUT / f"{name}.png", optimize=True)
-        composite.alpha_composite(layer)
+
+    def emit(name: str, image: Image.Image) -> None:
+        bbox = image.getchannel("A").getbbox()
+        assert bbox is not None
+        image.crop(bbox).save(OUT / f"{name}.png", optimize=True)
         entries.append((name, bbox[0], bbox[1]))
+        composite.alpha_composite(image)
 
-    composite.convert("RGB").save(ROOT / "assets/splash/scene_day.jpg", quality=88)
+    # Logo pixels lie between x=275 and x=685. Retain just cloud islands.
+    clouds = Image.new("RGBA", SIZE)
+    for box in ((0, 870, 275, 1120), (685, 850, 941, 990)):
+        clouds.paste(layers[6].crop(box), box[:2])
+    emit("clouds", clouds)
 
+    # Clean disk behind the landscape horizon, without the export fringe.
+    sun = Image.new("RGBA", SIZE)
+    ImageDraw.Draw(sun).ellipse((146, 1126, 210, 1190),
+                               fill=(255, 251, 180, 255))
+    emit("sun", sun)
+
+    # Recover a continuous silhouette from the cleanest landscape export.
+    # Fill interior alpha holes and discard the broken glow above the sea.
+    alpha = layers[5].getchannel("A")
+    silhouette = []
+    for x in range(SIZE[0]):
+        start = 1155 if x < 211 else 950
+        top = next(y for y in range(start, SIZE[1] - 12)
+                   if all(alpha.getpixel((x, y + d)) > 240 for d in range(12)))
+        silhouette.append((x, top + 1))
+    mask = Image.new("L", SIZE)
+    ImageDraw.Draw(mask).polygon(silhouette + [(940, 1671), (0, 1671)], fill=255)
+    landscape = layers[8].copy()
+    landscape.putalpha(mask.filter(ImageFilter.GaussianBlur(0.45)))
+    emit("landscape", landscape)
+
+    # Fit the smaller people export to the ledge in the reference.
+    people = layers[7].crop((800, 1340, 895, 1490))
+    people = people.crop(people.getchannel("A").getbbox())
+    people = people.resize((65, 110), Image.Resampling.LANCZOS)
+    tourists = Image.new("RGBA", SIZE)
+    tourists.paste(people, (811, 1312))
+    emit("tourists", tourists)
+
+    composite.convert("RGB").save(ROOT / "assets/splash/scene_day.jpg", quality=94)
     lines = [
         "// GENERATED by scripts/build_splash_scene.py. Do not edit by hand.",
-        "",
-        "/// Size of the designer's canvas every offset below refers to.",
-        f"const splashSceneWidth = {size[0]}.0;",
-        f"const splashSceneHeight = {size[1]}.0;",
-        "",
+        "", "/// Size of the designer's canvas every offset below refers to.",
+        f"const splashSceneWidth = {SIZE[0]}.0;",
+        f"const splashSceneHeight = {SIZE[1]}.0;", "",
         "/// Scene layers back to front: asset name and top-left offset.",
         "const splashSceneLayers = <({String name, double left, double top})>[",
+        *(f"  (name: '{name}', left: {x}.0, top: {y}.0)," for name, x, y in entries),
+        "];", "",
     ]
-    for name, left, top in entries:
-        lines.append(f"  (name: '{name}', left: {left}.0, top: {top}.0),")
-    lines.append("];")
-    (ROOT / "lib/core/startup/splash_scene_layout.dart").write_text("\n".join(lines) + "\n")
+    (ROOT / "lib/core/startup/splash_scene_layout.dart").write_text("\n".join(lines))
 
 
 if __name__ == "__main__":

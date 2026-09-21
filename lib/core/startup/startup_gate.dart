@@ -327,7 +327,6 @@ class _StartupGateState extends ConsumerState<StartupGate>
                   hint: _hint,
                   scene: () => _scene,
                   dayFrame: () => _dayFrame,
-                  zoom: !AppPerf.preferCheapEffects && !_reduceMotion,
                 ),
               ),
             ),
@@ -344,7 +343,6 @@ class _GateView extends StatelessWidget {
     required this.hint,
     required this.scene,
     required this.dayFrame,
-    required this.zoom,
   });
 
   final ValueNotifier<double> progress;
@@ -352,7 +350,6 @@ class _GateView extends StatelessWidget {
   final ValueNotifier<bool> hint;
   final LoadedScene? Function() scene;
   final LoadedFrame? Function() dayFrame;
-  final bool zoom;
 
   @override
   Widget build(BuildContext context) {
@@ -375,7 +372,6 @@ class _GateView extends StatelessWidget {
                       frameTick: frameTick,
                       scene: scene,
                       dayFrame: dayFrame,
-                      zoom: zoom,
                     ),
                   ),
                 ),
@@ -403,10 +399,8 @@ class _GateView extends StatelessWidget {
 }
 
 /// Draws the preloader scene: one picture built from the designer's layers,
-/// lit from night to day. Nothing is cross-faded between different pictures
-/// (that is what made the first version jump): the geometry stays put, only
-/// the colour of the light changes, the sun rises from behind the horizon
-/// and the near layers settle by a few pixels for depth.
+/// lit from night to day. The layers2 landscape stays still; clouds catch
+/// the first light, the sun clears the horizon, then the foreground warms.
 ///
 /// Everything is drawn straight to the canvas with per-image paint (colour
 /// matrix and alpha): no widget rebuilds and no full-screen `saveLayer`.
@@ -416,22 +410,16 @@ class _ScenePainter extends CustomPainter {
     required this.frameTick,
     required this.scene,
     required this.dayFrame,
-    required this.zoom,
   }) : super(repaint: Listenable.merge([progress, frameTick]));
 
   final ValueNotifier<double> progress;
   final ValueNotifier<int> frameTick;
   final LoadedScene? Function() scene;
   final LoadedFrame? Function() dayFrame;
-  final bool zoom;
-
-  /// Same alignment as the welcome screen's backdrop, so the hand-over is
-  /// pixel for pixel.
-  static const _alignment = Alignment(-0.12, 0);
 
   // Sky colours sampled from the designer's night and dusk pictures, at the
   // same heights (fractions of the 1672 px canvas) down to the horizon.
-  static const _skyStops = [0.0, 0.18, 0.36, 0.48, 0.57, 0.63, 0.67, 1.0];
+  static const _skyStops = [0.0, 0.18, 0.36, 0.48, 0.57, 0.65, 0.70, 1.0];
   static const _nightSky = [
     Color(0xFF0B1A31),
     Color(0xFF09182F),
@@ -439,18 +427,18 @@ class _ScenePainter extends CustomPainter {
     Color(0xFF0D213C),
     Color(0xFF1F304C),
     Color(0xFF494858),
-    Color(0xFF8C6868),
-    Color(0xFF8C6868),
+    Color(0xFFB47E68),
+    Color(0xFFB47E68),
   ];
   static const _duskSky = [
     Color(0xFF0E264A),
     Color(0xFF0F2650),
     Color(0xFF193867),
     Color(0xFF46587E),
-    Color(0xFF917A84),
-    Color(0xFFE69F81),
-    Color(0xFFFDB784),
-    Color(0xFFFDB784),
+    Color(0xFFAD8998),
+    Color(0xFFFFAF7D),
+    Color(0xFFFFDA90),
+    Color(0xFFFFDA90),
   ];
 
   static const _identity = <double>[
@@ -462,16 +450,16 @@ class _ScenePainter extends CustomPainter {
 
   /// Darkened, bluish and partly desaturated: moonlight.
   static final _night = _lightMatrix(
-    scale: const [0.18, 0.22, 0.40],
-    add: const [0, 4, 16],
-    desaturate: 0.55,
+    scale: const [0.18, 0.24, 0.37],
+    add: const [2, 7, 17],
+    desaturate: 0.65,
   );
 
   /// Warm and still dim: the first light before sunrise.
   static final _dusk = _lightMatrix(
-    scale: const [0.80, 0.60, 0.72],
-    add: const [14, 2, 6],
-    desaturate: 0.2,
+    scale: const [0.66, 0.52, 0.68],
+    add: const [8, 3, 10],
+    desaturate: 0.28,
   );
 
   static List<double> _lightMatrix({
@@ -509,29 +497,25 @@ class _ScenePainter extends CustomPainter {
     final loaded = scene();
     final day = dayFrame();
 
-    // Cover-fit the 941 x 1672 canvas exactly like BoxFit.cover would.
-    final scale = math.max(
-      size.width / splashSceneWidth,
-      size.height / splashSceneHeight,
-    );
-    final dw = splashSceneWidth * scale;
+    // Match SplashDayBackdrop: fit width, anchor the coast to the bottom.
+    // Extra height is sky, so both the sun and tourists stay inside the frame.
+    final scale = size.width / splashSceneWidth;
     final dh = splashSceneHeight * scale;
-    final dx = (size.width - dw) * (_alignment.x + 1) / 2;
-    final dy = (size.height - dh) * (_alignment.y + 1) / 2;
+    final dy = size.height - dh;
+    final firstLight = _smooth((t - 0.06) / 0.42);
+    final daylight = _smooth((t - 0.48) / 0.52);
+    final topColor = Color.lerp(
+      Color.lerp(_nightSky.first, _duskSky.first, firstLight),
+      SplashFrames.daySkyColor,
+      daylight,
+    )!;
 
     canvas
       ..save()
       ..clipRect(Offset.zero & size)
-      ..drawRect(Offset.zero & size, Paint()..color = startupNavy);
-    if (zoom && loaded != null) {
-      final z = 1 + 0.05 * (1 - Curves.easeOutCubic.transform(t));
-      canvas
-        ..translate(size.width / 2, size.height / 2)
-        ..scale(z)
-        ..translate(-size.width / 2, -size.height / 2);
-    }
+      ..drawRect(Offset.zero & size, Paint()..color = topColor);
     canvas
-      ..translate(dx, dy)
+      ..translate(0, dy)
       ..scale(scale);
     const sceneRect = Rect.fromLTWH(0, 0, splashSceneWidth, splashSceneHeight);
 
@@ -553,9 +537,6 @@ class _ScenePainter extends CustomPainter {
       return;
     }
 
-    final firstLight = _smooth(t / 0.45);
-    final daylight = _smooth((t - 0.4) / 0.55);
-    final settle = 1 - Curves.easeOutCubic.transform(t);
     final light = ColorFilter.matrix(
       _lerp(_lerp(_night, _dusk, firstLight), _identity, daylight),
     );
@@ -574,7 +555,7 @@ class _ScenePainter extends CustomPainter {
     for (var i = 0; i < splashSceneLayers.length; i++) {
       final layer = splashSceneLayers[i];
       final image = loaded.layers[i].image;
-      var x = layer.left;
+      final x = layer.left;
       var y = layer.top;
       var opacity = 1.0;
       ColorFilter? filter = light;
@@ -582,21 +563,16 @@ class _ScenePainter extends CustomPainter {
         case 'sun':
           // Rises from behind the sea and the mountains, which are drawn
           // after it; it is light, so it keeps its own colour.
-          y += 110 * (1 - _smooth((t - 0.2) / 0.65));
-          opacity = _smooth((t - 0.15) / 0.5);
+          y += 42 * (1 - _smooth((t - 0.35) / 0.55));
+          opacity = _smooth((t - 0.32) / 0.30);
           filter = null;
         case 'clouds':
-          x -= 24 * settle;
-        case 'sea':
-          y += 12 * settle;
-        case 'mountains':
-          y += 6 * settle;
-        case 'coast':
-          y += 14 * settle;
-        case 'foreground' || 'tourists':
-          y += 26 * settle;
-        case 'gull':
-          opacity = _smooth((t - 0.75) / 0.25);
+          // The thin clouds light up ahead of the ground.
+          filter = ColorFilter.matrix(
+            _lerp(_night, _identity, _smooth((t - 0.08) / 0.68)),
+          );
+        case 'tourists':
+          opacity = _smooth((t - 0.48) / 0.38);
       }
       if (opacity <= 0) {
         continue;
@@ -623,7 +599,9 @@ class _ScenePainter extends CustomPainter {
       return;
     }
     canvas.drawRect(
-      rect,
+      // Cover the fractional image edge too: otherwise its bright day sky
+      // can leave a one-pixel line against the extended night sky.
+      rect.inflate(2),
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
@@ -700,7 +678,6 @@ class _SplashScenePreviewState extends State<SplashScenePreview> {
       frameTick: _tick,
       scene: () => _scene,
       dayFrame: () => _day,
-      zoom: false,
     ),
   );
 }

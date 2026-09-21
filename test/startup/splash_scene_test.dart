@@ -5,18 +5,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:tourism_mobile/core/startup/krymtrip_logo.dart';
 import 'package:tourism_mobile/core/startup/splash_frames.dart';
 import 'package:tourism_mobile/core/startup/splash_scene_layout.dart';
 import 'package:tourism_mobile/core/startup/startup_gate.dart';
 
-Future<ui.Image> _capture(WidgetTester tester, Widget child) async {
+Future<ui.Image> _capture(
+  WidgetTester tester,
+  Widget child, {
+  Size size = const Size(196, 426),
+}) async {
   const key = ValueKey('capture');
   await tester.pumpWidget(
     MaterialApp(
       home: Center(
         child: RepaintBoundary(
           key: key,
-          child: SizedBox(width: 196, height: 426, child: child),
+          child: SizedBox(width: size.width, height: size.height, child: child),
         ),
       ),
     ),
@@ -34,6 +39,87 @@ Future<List<int>> _pixels(WidgetTester tester, ui.Image image) async {
 }
 
 void main() {
+  testWidgets('sunrise phases stay continuous and brighten progressively', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(392, 852);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(SplashFrames.day, context);
+      await precacheImage(SplashFrames.skyDay, context);
+      for (final layer in splashSceneLayers) {
+        await precacheImage(SplashFrames.layer(layer.name), context);
+      }
+    });
+
+    // Optional review frames come from the actual Flutter painter, including
+    // the production logo, rather than a second implementation of the scene.
+    final output = Platform.environment['SPLASH_PREVIEW_DIR'];
+    final steps = output == null ? 20 : 90;
+    List<int>? previous;
+    var previousBrightness = 0.0;
+    for (var i = 0; i <= steps; i++) {
+      final progress = i / steps;
+      final frame = await _capture(
+        tester,
+        Stack(
+          fit: StackFit.expand,
+          children: [
+            SplashScenePreview(progress: progress),
+            Center(
+              child: KrymtripLogo(
+                width: output == null ? startupLogoWidth / 2 : startupLogoWidth,
+              ),
+            ),
+          ],
+        ),
+        size: output == null ? const Size(196, 426) : const Size(392, 852),
+      );
+      final pixels = await _pixels(tester, frame);
+      var brightness = 0.0;
+      var delta = 0;
+      for (var p = 0; p < pixels.length; p += 4) {
+        brightness +=
+            pixels[p] * 0.2126 +
+            pixels[p + 1] * 0.7152 +
+            pixels[p + 2] * 0.0722;
+        if (previous != null) {
+          for (var c = 0; c < 3; c++) {
+            delta += (pixels[p + c] - previous[p + c]).abs();
+          }
+        }
+      }
+      brightness /= pixels.length / 4;
+      expect(
+        brightness,
+        greaterThanOrEqualTo(previousBrightness - 0.1),
+        reason: 'light must not flash darker at $progress',
+      );
+      expect(
+        delta / pixels.length,
+        lessThan(12),
+        reason: 'abrupt phase transition at $progress',
+      );
+      previousBrightness = brightness;
+      previous = pixels;
+      if (output != null) {
+        await tester.runAsync(() async {
+          final png = await frame.toByteData(format: ui.ImageByteFormat.png);
+          final file = File(
+            '$output/frame_${i.toString().padLeft(3, '0')}.png',
+          );
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(png!.buffer.asUint8List());
+        });
+      }
+      frame.dispose();
+    }
+  });
+
   test('every scene layer is bundled', () {
     expect(File('assets/splash/scene/sky_day.png').existsSync(), isTrue);
     expect(File('assets/splash/scene_day.jpg').existsSync(), isTrue);
@@ -66,17 +152,10 @@ void main() {
       tester,
       await _capture(tester, const SplashScenePreview(progress: 1)),
     );
-    // The welcome screen draws the flattened picture with this fit.
+    // Use the same widget as Welcome so fitting and sky extension are checked.
     final welcome = await _pixels(
       tester,
-      await _capture(
-        tester,
-        const Image(
-          image: SplashFrames.day,
-          fit: BoxFit.cover,
-          alignment: Alignment(-0.12, 0),
-        ),
-      ),
+      await _capture(tester, const SplashDayBackdrop()),
     );
 
     var diff = 0;

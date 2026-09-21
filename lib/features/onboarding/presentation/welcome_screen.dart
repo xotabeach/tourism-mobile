@@ -235,13 +235,7 @@ class _WelcomeBackdrop extends StatelessWidget {
       children: [
         // The same «day» frame the preloader ends on, so the hand-over from
         // the preloader is seamless.
-        Image(
-          image: SplashFrames.day,
-          fit: BoxFit.cover,
-          alignment: const Alignment(-0.12, 0),
-          errorBuilder: (_, _, _) =>
-              const ColoredBox(color: AppColors.sunsetMid),
-        ),
+        const SplashDayBackdrop(),
         DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
