@@ -34,8 +34,16 @@ final class _Drafts implements RouteDraftRepository {
   int failNext = 0;
   Duration slow = Duration.zero;
 
+  /// A slow storage read (the Keychain on a cold start).
+  Duration slowLoad = Duration.zero;
+
   @override
-  Future<RouteDraft?> load() async => value;
+  Future<RouteDraft?> load() async {
+    if (slowLoad > Duration.zero) {
+      await Future<void>.delayed(slowLoad);
+    }
+    return value;
+  }
 
   @override
   Future<void> save(RouteDraft draft) async {
@@ -206,6 +214,43 @@ void main() {
       expect(rig.drafts.value?.unsynced, isTrue);
       expect(rig.publication.sent, isEmpty);
       expect(rig.controller.state.saveStatus, DraftSaveStatus.savedLocal);
+    },
+  );
+
+  test('typing while the stored draft is still read is saved', () async {
+    final rig = _Rig();
+    rig.drafts.slowLoad = const Duration(milliseconds: 60);
+    addTearDown(rig.controller.dispose);
+
+    // The form is already on screen while the storage read runs.
+    rig.controller.setTitle('Маршрут');
+    expect(rig.drafts.writes, 0, reason: 'nothing written before the read');
+    await Future<void>.delayed(_wait * 2);
+
+    expect(rig.controller.state.isHydrating, isFalse);
+    expect(rig.drafts.value?.title, 'Маршрут');
+    expect(rig.controller.state.saveStatus, DraftSaveStatus.savedLocal);
+  });
+
+  test(
+    'typing over a stored draft that is still read asks, and keeps both',
+    () async {
+      final rig = _Rig(
+        stored: const RouteDraft(
+          ownerUserId: 'user-1',
+          clientDraftId: 'old',
+          title: 'Старый',
+        ),
+      );
+      rig.drafts.slowLoad = const Duration(milliseconds: 60);
+      addTearDown(rig.controller.dispose);
+
+      rig.controller.setTitle('Новый');
+      await Future<void>.delayed(_wait);
+
+      expect(rig.controller.state.draft.title, 'Новый');
+      expect(rig.controller.state.availableDraft?.title, 'Старый');
+      expect(rig.drafts.value?.title, 'Старый', reason: 'not replaced unseen');
     },
   );
 

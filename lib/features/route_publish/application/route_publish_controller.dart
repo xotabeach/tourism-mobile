@@ -274,9 +274,10 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   @override
   set state(RoutePublishState value) {
     final previous = super.state;
+    // Typing while the stored draft is still being read counts too: the
+    // Keychain read can take a moment, and those edits used to be dropped.
     if (_mode == RoutePublishMode.production &&
         _quietDepth == 0 &&
-        !value.isHydrating &&
         !previous.draft.sameContentAs(value.draft)) {
       super.state = value.copyWith(draft: value.draft.copyWith(unsynced: true));
       _onEdited();
@@ -298,6 +299,11 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     _dirty = true;
     if (_persistFuture != null) {
       _dirtyAgain = true;
+    }
+    if (state.isHydrating) {
+      // Nothing is written before the stored draft has been read: the write
+      // would replace it unseen. [_hydrate] schedules the save afterwards.
+      return;
     }
     _autosave?.cancel();
     _autosave = Timer(_autosaveDelay, () => unawaited(_persistLocal()));
@@ -509,6 +515,19 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   }
 
   Future<void> _hydrate() async {
+    await _restore();
+    // Edits made while reading, with nothing stored to ask about, are saved
+    // now like any other edit.
+    if (mounted &&
+        _dirty &&
+        !state.isHydrating &&
+        state.availableDraft == null &&
+        state.draft.hasMeaningfulContent) {
+      _onEdited();
+    }
+  }
+
+  Future<void> _restore() async {
     try {
       final loaded = await _drafts.load();
       if (!mounted) {
