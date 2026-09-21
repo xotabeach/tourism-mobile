@@ -2,9 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
@@ -12,24 +13,17 @@ import 'package:tourism_mobile/features/settings/application/preferences_provide
 import 'package:tourism_mobile/features/settings/data/preferences_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 
-const _difficultyOptions = [
-  ('easy', 'Лёгкий'),
-  ('moderate', 'Средний'),
-  ('hard', 'Сложный'),
+/// Single choice of the «Предпочитаемая сложность» card. «На транспорте» is a
+/// way to travel, stored apart from the difficulty, but chosen here instead
+/// of one (design, FRONTEND-21).
+const _paceOptions = [
+  (_PaceChoice.transport, 'На транспорте'),
+  (_PaceChoice.easy, 'Лёгкий'),
+  (_PaceChoice.moderate, 'Средний'),
+  (_PaceChoice.hard, 'Сложный'),
 ];
 
-const _categoryIcons = <String, IconData>{
-  'Море': Icons.waves_rounded,
-  'Горы': Icons.terrain_rounded,
-  'Еда': Icons.restaurant_rounded,
-  'Лес': Icons.forest_rounded,
-};
-
-const _difficultyIcons = <String, IconData>{
-  'easy': Icons.directions_walk_rounded,
-  'moderate': Icons.hiking_rounded,
-  'hard': Icons.trending_up_rounded,
-};
+enum _PaceChoice { transport, easy, moderate, hard }
 
 /// "Сменить предпочтения" — a short quiz (interest categories, difficulty,
 /// travel companions) that used to be a pure stub with nowhere for an
@@ -44,7 +38,7 @@ class SettingsPreferencesQuizScreen extends ConsumerWidget {
     final prefsAsync = ref.watch(travelPreferencesProvider);
     return prefsAsync.when(
       loading: () => const SettingsScaffold(
-        title: 'Предпочтения:',
+        barTitle: 'Настройка предпочтений',
         children: [
           Center(
             child: Padding(
@@ -55,7 +49,7 @@ class SettingsPreferencesQuizScreen extends ConsumerWidget {
         ],
       ),
       error: (_, _) => SettingsScaffold(
-        title: 'Предпочтения:',
+        barTitle: 'Настройка предпочтений',
         children: [
           const SizedBox(height: 24),
           const Center(child: Text('Не удалось загрузить предпочтения')),
@@ -83,8 +77,21 @@ class _QuizBody extends ConsumerStatefulWidget {
 }
 
 class _QuizBodyState extends ConsumerState<_QuizBody> {
-  late final Set<String> _categories = {...widget.initial.categories};
-  late String? _difficulty = widget.initial.difficulty;
+  // Older words (Море, Горы…) are folded by the backend; anything the quiz no
+  // longer offers is simply not preselected.
+  late final Set<String> _categories = {
+    for (final c in widget.initial.categories)
+      if (preferenceCategories.contains(c)) c,
+  };
+  late _PaceChoice? _pace = widget.initial.transport == preferenceTransportCar
+      ? _PaceChoice.transport
+      : switch (widget.initial.difficulty) {
+          'easy' => _PaceChoice.easy,
+          'moderate' => _PaceChoice.moderate,
+          'hard' => _PaceChoice.hard,
+          _ => null,
+        };
+  late String? _duration = widget.initial.duration;
   late bool _kids = widget.initial.travelsWithKids;
   late bool _pets = widget.initial.travelsWithPets;
   var _busy = false;
@@ -98,8 +105,20 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
       await ref
           .read(preferencesRepositoryProvider)
           .updatePreferences(
-            categories: _categories.toList(),
-            difficulty: _difficulty,
+            categories: [
+              for (final c in preferenceCategories)
+                if (_categories.contains(c)) c,
+            ],
+            difficulty: switch (_pace) {
+              _PaceChoice.easy => 'easy',
+              _PaceChoice.moderate => 'moderate',
+              _PaceChoice.hard => 'hard',
+              _ => null,
+            },
+            transport: _pace == _PaceChoice.transport
+                ? preferenceTransportCar
+                : null,
+            duration: _duration,
             travelsWithKids: _kids,
             travelsWithPets: _pets,
           );
@@ -124,142 +143,89 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
   void _reset() {
     setState(() {
       _categories.clear();
-      _difficulty = null;
+      _pace = null;
+      _duration = null;
       _kids = false;
       _pets = false;
     });
   }
 
   bool get _hasSelections =>
-      _categories.isNotEmpty || _difficulty != null || _kids || _pets;
+      _categories.isNotEmpty ||
+      _pace != null ||
+      _duration != null ||
+      _kids ||
+      _pets;
 
   @override
   Widget build(BuildContext context) {
     return SettingsScaffold(
-      title: 'Предпочтения:',
-      subtitle: 'Поможет точнее подбирать маршруты и места',
+      barTitle: 'Настройка предпочтений',
       showSave: true,
       onSave: _busy ? null : _submit,
       children: [
         const _PreferencesIntroCard(),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Что вам интересно:',
-                          style: AppTypography.settingsRowTitle.copyWith(
-                            fontSize: 12,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          _categories.isEmpty
-                              ? 'Выберите хотя бы один интерес'
-                              : '${_categories.length} ${_interestWord(_categories.length)} выбрано',
-                          style: AppTypography.settingsRowSubtitle.copyWith(
-                            fontSize: 11,
-                            color: _categories.isEmpty
-                                ? AppColors.settingsSecondaryInk
-                                : AppColors.accentBlueIcon,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_categories.isNotEmpty)
-                    TextButton(
-                      onPressed: _busy
-                          ? null
-                          : () => setState(_categories.clear),
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                        minimumSize: const Size(0, 32),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                      child: const Text('Очистить'),
-                    ),
-                ],
+        _ChoiceCard(
+          iconAsset: AppIconography.settingsPrefInterests,
+          title: 'Ваши интересы:',
+          subtitle: 'Выберите хотя бы один интерес',
+          options: [
+            for (final category in preferenceCategories)
+              _ChoiceOption(
+                label: category,
+                selected: _categories.contains(category),
+                onTap: () => setState(() {
+                  if (!_categories.remove(category)) {
+                    _categories.add(category);
+                  }
+                }),
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final category in preferenceCategories)
-                    _QuizChip(
-                      label: category,
-                      icon: _categoryIcons[category],
-                      selected: _categories.contains(category),
-                      onTap: () => setState(() {
-                        if (!_categories.remove(category)) {
-                          _categories.add(category);
-                        }
-                      }),
-                    ),
-                ],
-              ),
-            ],
-          ),
+          ],
         ),
-        const SizedBox(height: 12),
-        SettingsFormCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Предпочитаемая сложность:',
-                style: AppTypography.settingsRowTitle.copyWith(fontSize: 12),
+        _ChoiceCard(
+          iconAsset: AppIconography.settingsPrefDifficulty,
+          title: 'Предпочитаемая сложность:',
+          subtitle: 'Подстроим темп и длину под вас',
+          options: [
+            for (final (value, label) in _paceOptions)
+              _ChoiceOption(
+                label: label,
+                selected: _pace == value,
+                onTap: () =>
+                    setState(() => _pace = _pace == value ? null : value),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Подстроим темп и длину подсказок под вас',
-                style: AppTypography.settingsRowSubtitle.copyWith(fontSize: 11),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final (value, label) in _difficultyOptions)
-                    _QuizChip(
-                      label: label,
-                      icon: _difficultyIcons[value],
-                      selected: _difficulty == value,
-                      onTap: () => setState(
-                        () => _difficulty = _difficulty == value ? null : value,
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ),
+          ],
         ),
-        const SizedBox(height: 12),
+        _ChoiceCard(
+          iconAsset: AppIconography.settingsPrefDuration,
+          title: 'Длительность маршрута:',
+          subtitle: 'На сколько вы обычно уезжаете отдыхать',
+          options: [
+            for (final (value, label) in preferenceDurations)
+              _ChoiceOption(
+                label: label,
+                selected: _duration == value,
+                onTap: () => setState(
+                  () => _duration = _duration == value ? null : value,
+                ),
+              ),
+          ],
+        ),
         SettingsToggleTile(
-          title: 'Путешествую с детьми',
-          subtitle: 'Будем чаще предлагать маршруты, подходящие для детей',
-          icon: Icons.child_care_rounded,
+          title: 'Путешествие с детьми',
+          subtitle: 'Больше спокойных и безопасных мест',
+          iconAsset: AppIconography.settingsPrefKids,
           value: _kids,
           onChanged: (value) => setState(() => _kids = value),
         ),
-        const SizedBox(height: 12),
         SettingsToggleTile(
-          title: 'Путешествую с питомцем',
-          subtitle: 'Будем чаще предлагать маршруты, где разрешены животные',
-          icon: Icons.pets_rounded,
+          title: 'Путешествие с питомцем',
+          subtitle: 'Больше равнин и природы',
+          iconAsset: AppIconography.settingsPrefPets,
           value: _pets,
           onChanged: (value) => setState(() => _pets = value),
         ),
-        if (_hasSelections) ...[
-          const SizedBox(height: 4),
+        if (_hasSelections)
           Center(
             child: TextButton.icon(
               onPressed: _busy ? null : _reset,
@@ -267,18 +233,8 @@ class _QuizBodyState extends ConsumerState<_QuizBody> {
               label: const Text('Сбросить все ответы'),
             ),
           ),
-        ],
       ],
     );
-  }
-
-  static String _interestWord(int count) {
-    final mod100 = count % 100;
-    final mod10 = count % 10;
-    if (mod100 >= 11 && mod100 <= 14) return 'интересов';
-    if (mod10 == 1) return 'интерес';
-    if (mod10 >= 2 && mod10 <= 4) return 'интереса';
-    return 'интересов';
   }
 }
 
@@ -287,45 +243,148 @@ class _PreferencesIntroCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            AppColors.accentBlue.withValues(alpha: 0.14),
-            AppColors.accentBlue.withValues(alpha: 0.04),
-          ],
-        ),
         borderRadius: BorderRadius.circular(AppRadii.settingsTile),
-        border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.16)),
+        gradient: const LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [Color(0xFF4FA3E3), Color(0xFF3B74D9)],
+        ),
+        border: Border.all(color: const Color(0xFF3B74D9), width: 1.5),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.elevatedSurface.withValues(alpha: 0.85),
-                shape: BoxShape.circle,
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.22),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.5)),
+            ),
+            alignment: Alignment.center,
+            child: Image.asset(
+              AppIconography.promptStar,
+              width: 24,
+              height: 24,
+              color: Colors.white,
+              excludeFromSemantics: true,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Всего несколько ответов',
+                  style: AppTypography.settingsRowTitle.copyWith(
+                    fontSize: 15,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'И ваши рекомендации станут более точнее, а лента не станет '
+                  'однообразным фильтром.',
+                  style: AppTypography.settingsRowSubtitle.copyWith(
+                    color: Colors.white.withValues(alpha: 0.92),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChoiceOption {
+  const _ChoiceOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+}
+
+/// A quiz question: icon, title and hint, a hairline, then a two-column grid
+/// of equal buttons (design).
+class _ChoiceCard extends StatelessWidget {
+  const _ChoiceCard({
+    required this.iconAsset,
+    required this.title,
+    required this.subtitle,
+    required this.options,
+  });
+
+  final String iconAsset;
+  final String title;
+  final String subtitle;
+  final List<_ChoiceOption> options;
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsFormCard(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              AppAssetIcon(
+                iconAsset,
+                size: AppIconography.settings,
+                color: SettingsColors.accentIcon,
               ),
-              child: const Padding(
-                padding: EdgeInsets.all(11),
-                child: Icon(
-                  Icons.auto_awesome_rounded,
-                  color: AppColors.accentBlue,
-                  size: 23,
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTypography.settingsRowTitle),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: AppTypography.settingsRowSubtitle.copyWith(
+                        color: AppColors.settingsSecondaryInk,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'Ответьте на несколько вопросов — рекомендации станут точнее, '
-                'а лента не превратится в однообразный фильтр.',
-                style: AppTypography.settingsRowSubtitle,
-              ),
-            ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          const SettingsHairline(),
+          const SizedBox(height: AppSpacing.sm),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = (constraints.maxWidth - AppSpacing.xs) / 2;
+              return Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  for (final option in options)
+                    SizedBox(
+                      width: width,
+                      child: _QuizChip(
+                        label: option.label,
+                        selected: option.selected,
+                        onTap: option.onTap,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -334,56 +393,46 @@ class _PreferencesIntroCard extends StatelessWidget {
 class _QuizChip extends StatelessWidget {
   const _QuizChip({
     required this.label,
-    this.icon,
     required this.selected,
     required this.onTap,
   });
 
   final String label;
-  final IconData? icon;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(10);
     return Semantics(
       button: true,
       selected: selected,
       label: '$label${selected ? ', выбрано' : ''}',
+      excludeSemantics: true,
       child: Material(
         color: selected ? AppColors.accentBlue : AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.capsule),
+        borderRadius: radius,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadii.capsule),
+          borderRadius: radius,
           child: Container(
-            height: 40,
-            padding: const EdgeInsets.symmetric(horizontal: 13),
+            height: 32,
             alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(AppRadii.capsule),
-              border: selected ? null : Border.all(color: AppColors.hairline),
+              borderRadius: radius,
+              border: selected
+                  ? null
+                  : Border.all(color: const Color(0xFFD9D9DB)),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(
-                    icon,
-                    size: 17,
-                    color: selected ? Colors.white : AppColors.accentBlueIcon,
-                  ),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  label,
-                  style: AppTypography.settingsRowTitle.copyWith(
-                    fontSize: 14,
-                    color: selected ? Colors.white : AppColors.primaryInk,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppTypography.settingsRowSubtitle.copyWith(
+                fontSize: 13,
+                color: selected ? Colors.white : AppColors.primaryInk,
+              ),
             ),
           ),
         ),

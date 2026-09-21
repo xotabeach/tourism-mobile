@@ -21,6 +21,8 @@ final class _IncompletePreferencesRepository implements PreferencesRepository {
     required String? difficulty,
     required bool travelsWithKids,
     required bool travelsWithPets,
+    String? duration,
+    String? transport,
   }) async => TravelPreferences(
     categories: categories,
     difficulty: difficulty,
