@@ -315,29 +315,99 @@ class _InboxTile extends StatelessWidget {
     if (onDelete == null) {
       return tile;
     }
-    return Dismissible(
+    return _SwipeToDelete(
       key: ValueKey('inbox-${item.id}'),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete!(),
-      background: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFE5484D),
-          borderRadius: radius,
-        ),
-        child: const Align(
-          alignment: Alignment.centerRight,
-          child: Padding(
-            padding: EdgeInsets.only(right: 20),
-            child: Icon(Icons.delete_outline_rounded, color: Colors.white),
-          ),
-        ),
-      ),
+      radius: radius,
+      onDelete: onDelete!,
       child: Semantics(
         customSemanticsActions: {
           const CustomSemanticsAction(label: 'Удалить уведомление'): onDelete!,
         },
         child: tile,
       ),
+    );
+  }
+}
+
+/// Swipe left to delete. The red plate is not a full-size background under
+/// the card (its corners showed around the card's rounded corners and read
+/// as «sticking out»): it grows from the right edge exactly as far as the
+/// card has moved, with a small gap and its own rounding, and is invisible
+/// until the swipe starts.
+class _SwipeToDelete extends StatefulWidget {
+  const _SwipeToDelete({
+    required this.radius,
+    required this.onDelete,
+    required this.child,
+    super.key,
+  });
+
+  final BorderRadius radius;
+  final VoidCallback onDelete;
+  final Widget child;
+
+  static const deleteRed = Color(0xFFE5484D);
+  static const gap = 8.0;
+
+  @override
+  State<_SwipeToDelete> createState() => _SwipeToDeleteState();
+}
+
+class _SwipeToDeleteState extends State<_SwipeToDelete> {
+  final _progress = ValueNotifier<double>(0);
+
+  @override
+  void dispose() {
+    _progress.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: ValueKey('dismiss-${widget.key}'),
+      direction: DismissDirection.endToStart,
+      onUpdate: (details) => _progress.value = details.progress,
+      onDismissed: (_) => widget.onDelete(),
+      background: LayoutBuilder(
+        builder: (context, constraints) => ValueListenableBuilder<double>(
+          valueListenable: _progress,
+          builder: (context, progress, _) {
+            final width = progress * constraints.maxWidth - _SwipeToDelete.gap;
+            if (width <= 0) {
+              return const SizedBox.shrink();
+            }
+            return Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                key: const ValueKey('inbox-delete-plate'),
+                width: width,
+                height: constraints.maxHeight,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: _SwipeToDelete.deleteRed,
+                    borderRadius: widget.radius,
+                  ),
+                  child: const ClipRect(
+                    child: OverflowBox(
+                      alignment: Alignment.centerRight,
+                      maxWidth: double.infinity,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+      child: widget.child,
     );
   }
 }
