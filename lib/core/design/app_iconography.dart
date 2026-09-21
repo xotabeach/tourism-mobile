@@ -8,6 +8,9 @@ abstract final class AppIconography {
   static const String arrow = '$_root/arrow.png';
   static const String bell = '$_root/bell.png';
   static const String download = '$_root/download.png';
+
+  /// Solar «cup-star», the route finished screen.
+  static const String finishCup = '$_root/finish_cup.png';
   static const String filter = '$_root/filter.png';
   static const String heart = '$_root/heart.png';
   static const String home = '$_root/home.png';
