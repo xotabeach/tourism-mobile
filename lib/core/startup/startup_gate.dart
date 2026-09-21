@@ -60,6 +60,9 @@ class _StartupGateState extends ConsumerState<StartupGate>
 
   Ticker? _ticker;
   double _milestone = 0;
+
+  /// How far loading lets the sunrise go; see [sunriseAllowance].
+  double _allowance = 0;
   Duration _lastElapsed = Duration.zero;
   late final bool _reduceMotion;
   late final StartupTiming _timing;
@@ -105,11 +108,16 @@ class _StartupGateState extends ConsumerState<StartupGate>
 
   void _onTick(Duration elapsed) {
     final dt = (elapsed - _lastElapsed).inMicroseconds / 1e6;
-    _lastElapsed = elapsed;
     final minimum = _timing.minimum.inMicroseconds / 1e6;
-    // Never ahead of the clock (a fast start must not skip the sunrise) and
-    // never ahead of what has actually been loaded.
-    final target = math.min(_milestone, elapsed.inMicroseconds / 1e6 / minimum);
+    // Never ahead of the clock (a fast start must not skip the sunrise); on
+    // a slow one it creeps on rather than stopping on one frame.
+    _allowance = sunriseAllowance(
+      previous: _allowance,
+      milestone: _milestone,
+      step: elapsed - _lastElapsed,
+    );
+    _lastElapsed = elapsed;
+    final target = math.min(_allowance, elapsed.inMicroseconds / 1e6 / minimum);
     final next =
         _progress.value + (target - _progress.value) * (1 - math.exp(-dt * 7));
     _progress.value = next.clamp(0.0, 1.0);

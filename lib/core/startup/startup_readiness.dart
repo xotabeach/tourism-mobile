@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:tourism_mobile/core/startup/startup_config.dart';
 
@@ -108,4 +109,32 @@ Future<StartupResult> runStartup({
       timer.cancel();
     }
   }
+}
+
+/// How far the sunrise (0 night, 1 day) may be drawn after one more frame
+/// step of [step], given the [previous] allowance and how far loading got
+/// ([milestone]).
+///
+/// While loading is stuck the allowance keeps creeping on towards
+/// [waitingLimit] instead of stopping: a frozen frame on a slow start looked
+/// like the app had hung (FRONTEND-28). It only grows, so a new milestone
+/// below what is already drawn never stops or rewinds the picture. The last
+/// stretch to full day waits for loading to finish. The caller still caps it
+/// by the clock, so a fast start does not skip the sunrise.
+double sunriseAllowance({
+  required double previous,
+  required double milestone,
+  required Duration step,
+  double waitingLimit = 0.9,
+  Duration creep = const Duration(milliseconds: 1600),
+}) {
+  if (milestone >= 1) {
+    return 1;
+  }
+  final base = math.max(previous, milestone.clamp(0.0, 1.0));
+  if (base >= waitingLimit) {
+    return base;
+  }
+  final share = 1 - math.exp(-step.inMicroseconds / creep.inMicroseconds);
+  return base + (waitingLimit - base) * share;
 }
