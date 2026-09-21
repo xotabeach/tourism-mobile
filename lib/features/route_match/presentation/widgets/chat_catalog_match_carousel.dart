@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
-import 'package:tourism_mobile/features/route_match/presentation/route_builder_design_tokens.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 /// Horizontal carousel of catalog route previews (design-spec screen 2).
@@ -26,14 +25,16 @@ class _ChatCatalogMatchCarouselState extends State<ChatCatalogMatchCarousel> {
   late final PageController _pageController;
   int _page = 0;
 
-  static const double _peekGap = 10;
+  /// Photo proportion of the design (card width to photo height).
+  static const double _photoAspect = 3.1;
 
   @override
   void initState() {
     super.initState();
-    // Slight peek of the neighboring card (instead of a full-bleed page) so
-    // there's visible spacing between routes while swiping, not a hard cut.
-    _pageController = PageController(viewportFraction: 0.94);
+    // Full width of the bubble's content: the card lines up with the text
+    // and the buttons around it (design, FRONTEND-12). The old 94% page with
+    // a peek of the next card sat off the bubble's grid.
+    _pageController = PageController();
   }
 
   @override
@@ -63,23 +64,18 @@ class _ChatCatalogMatchCarouselState extends State<ChatCatalogMatchCarousel> {
               // overflow at any bubble width.
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final photoHeight = constraints.maxWidth * 0.94 * 7 / 16;
+                  final photoHeight = constraints.maxWidth / _photoAspect;
                   return SizedBox(
-                    height: photoHeight + 226,
+                    height: photoHeight + 206,
                     child: PageView.builder(
                       controller: _pageController,
                       itemCount: routes.length,
                       onPageChanged: (index) => setState(() => _page = index),
                       itemBuilder: (context, index) {
                         final route = routes[index];
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: _peekGap / 2,
-                          ),
-                          child: _CatalogRoutePage(
-                            route: route,
-                            onOpen: () => widget.onOpenRoute(route.routeId),
-                          ),
+                        return _CatalogRoutePage(
+                          route: route,
+                          onOpen: () => widget.onOpenRoute(route.routeId),
                         );
                       },
                     ),
@@ -94,17 +90,7 @@ class _ChatCatalogMatchCarouselState extends State<ChatCatalogMatchCarousel> {
                     children: [
                       for (var i = 0; i < routes.length; i++) ...[
                         if (i > 0) const SizedBox(width: 6),
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: i == _page ? 8 : 6,
-                          height: i == _page ? 8 : 6,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i == _page
-                                ? RouteBuilderDesignTokens.primaryBlue
-                                : RouteBuilderDesignTokens.borderGray,
-                          ),
-                        ),
+                        ChatPageDot(index: i, current: _page),
                       ],
                     ],
                   ),
@@ -129,12 +115,12 @@ class _CatalogRoutePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final distanceLabel = route.distanceKm != null
-        ? '${route.distanceKm!.toStringAsFixed(1)} км'
+        ? '${route.distanceKm!.toStringAsFixed(1).replaceAll('.', ',')} км'
         : null;
-    final durationLabel = route.durationMinutes > 0
-        ? formatRouteDuration(route.durationMinutes)
-        : null;
-    final stopsLabel = route.stopsCount > 0 ? '${route.stopsCount}' : null;
+    // The chat card shows the design's four rows (budget, difficulty, route,
+    // distance); time and stops are on the route's own screen.
+    const String? durationLabel = null;
+    const String? stopsLabel = null;
     // Design export wraps the whole preview (photo + tags + params) in a
     // hairline-bordered rounded card inside the bubble.
     return Container(
@@ -148,7 +134,7 @@ class _CatalogRoutePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           AspectRatio(
-            aspectRatio: 16 / 7,
+            aspectRatio: _ChatCatalogMatchCarouselState._photoAspect,
             child: CatalogRoutePreviewHeader(
               title: route.title,
               coverUrl: route.coverUrl,

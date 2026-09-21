@@ -72,8 +72,8 @@ void main() {
       ),
     );
 
-    expect(find.text('4.9'), findsOneWidget);
-    expect(find.textContaining('8.6 км'), findsWidgets);
+    expect(find.text('4,9'), findsOneWidget);
+    expect(find.textContaining('8,6 км'), findsWidgets);
     expect(find.textContaining('Бахчисарай'), findsWidgets);
     expect(find.text('Горы'), findsOneWidget);
     expect(find.text('С детьми'), findsOneWidget);

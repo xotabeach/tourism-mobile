@@ -110,44 +110,21 @@ class ChatActionChips extends StatelessWidget {
       );
     }
 
-    if (layout == ChatActionsLayout.stack) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < visible.length; i++) ...[
-            // 34 px pitch measured off the design export: 28 px pill + 6 gap.
-            if (i > 0) SizedBox(height: px(6)),
-            _StackActionButton(
-              px: px,
-              label: visible[i]['label']!,
-              onPressed: () =>
-                  onAction(visible[i]['id']!, visible[i]['label']!),
-            ),
-          ],
-        ],
-      );
-    }
-
-    return Wrap(
-      spacing: px(8),
-      runSpacing: px(8),
+    // One look for every button in an agent reply (design, FRONTEND-12):
+    // full-width outlined buttons one under another. The old «wrap» chips
+    // were a second style; that layout now renders the same stack.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final action in visible)
-          ActionChip(
-            label: Text(
-              action['label']!,
-              style: RouteBuilderDesignTokens.rubik(
-                fontSize: px(12),
-                color: RouteBuilderDesignTokens.deepBlue,
-                height: 1.1,
-              ),
-            ),
-            backgroundColor: RouteBuilderDesignTokens.surface,
-            side: BorderSide(
-              color: RouteBuilderDesignTokens.deepBlue.withValues(alpha: 0.35),
-            ),
-            onPressed: () => onAction(action['id']!, action['label']!),
+        for (var i = 0; i < visible.length; i++) ...[
+          // 34 px pitch measured off the design export: 28 px pill + 6 gap.
+          if (i > 0) SizedBox(height: px(6)),
+          _StackActionButton(
+            px: px,
+            label: visible[i]['label']!,
+            onPressed: () => onAction(visible[i]['id']!, visible[i]['label']!),
           ),
+        ],
       ],
     );
   }

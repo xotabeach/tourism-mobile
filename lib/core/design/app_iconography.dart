@@ -54,6 +54,12 @@ abstract final class AppIconography {
   static const String promptFamily = '$_root/prompt_family.png';
   static const String promptCheck = '$_root/prompt_check.png';
 
+  // Route parameter rows in AI chat cards (Solar bold, FRONTEND-12)
+  static const String paramBudget = '$_root/param_budget.png';
+  static const String paramDifficulty = '$_root/param_difficulty.png';
+  static const String paramLocality = '$_root/param_locality.png';
+  static const String paramDistance = '$_root/param_distance.png';
+
   // Settings — section roots
   static const String settingsProfile = '$_root/settings_profile.png';
   static const String settingsNotifications =
@@ -196,6 +202,10 @@ abstract final class AppIconography {
     click,
     ...settingsAssets,
     ...profileStatAssets,
+    paramBudget,
+    paramDifficulty,
+    paramLocality,
+    paramDistance,
   ];
 
   static String inkAsset(String asset) {
