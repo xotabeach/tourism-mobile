@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/device/device_info.dart';
@@ -85,13 +86,11 @@ class SettingsSupportScreen extends StatelessWidget {
           onContactSupport: (question) =>
               context.pushNamed(AppRouteNames.settingsChat, extra: question),
         ),
-        // The design separates the assistant from the help sections.
-        const SizedBox(height: 4),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: SettingsHairline(),
-        ),
-        const SizedBox(height: 16),
+        // The design separates the assistant from the help sections; the line
+        // spans the cards' own width.
+        const SizedBox(height: AppSpacing.xxs),
+        const SettingsHairline(),
+        const SizedBox(height: AppSpacing.md),
         SettingsNavTile(
           title: 'Маршруты и навигация',
           iconAsset: AppIconography.settingsFaqRoutes,

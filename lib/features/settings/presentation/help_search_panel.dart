@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
+import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/settings/data/help_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -82,6 +82,9 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
     }
   }
 
+  static const _iconSize = 34.0;
+  static const _buttonHeight = 48.0;
+
   // Same field look as the blog comment box in the design.
   static const _fieldFill = Color(0xFFE8E8E8);
   static const _fieldEdge = Color(0xFFD9D9DB);
@@ -108,7 +111,7 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
           borderRadius: radius,
           clipBehavior: Clip.antiAlias,
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(AppSpacing.md),
             child: DefaultTextStyle(
               style: AppTypography.settingsRowSubtitle.copyWith(
                 color: AppColors.settingsInk,
@@ -119,13 +122,19 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                 children: [
                   Row(
                     children: [
-                      Image.asset(
-                        AppIconography.settingsHelpAssistant,
-                        width: 34,
-                        height: 34,
-                        filterQuality: FilterQuality.high,
+                      // The SVG draws its square 3/36 inside its own box: pull
+                      // it left by that much so the square, not the box,
+                      // lines up with the field and buttons below.
+                      Transform.translate(
+                        offset: const Offset(-_iconSize * 3 / 36, 0),
+                        child: Image.asset(
+                          AppIconography.settingsHelpAssistant,
+                          width: _iconSize,
+                          height: _iconSize,
+                          filterQuality: FilterQuality.high,
+                        ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: AppSpacing.xs),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,12 +155,10 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: SettingsHairline(),
-                  ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
+                  // Same width as the field and the buttons.
+                  const SettingsHairline(),
+                  const SizedBox(height: AppSpacing.sm),
                   Stack(
                     children: [
                       TextField(
@@ -200,7 +207,7 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: AppSpacing.sm),
                   FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.primaryInk,
@@ -208,10 +215,12 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       // The design keeps it black even before anything is typed.
                       disabledBackgroundColor: AppColors.primaryInk,
                       disabledForegroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(44),
+                      // No invisible tap-target margin: it added itself to the
+                      // gaps and made them uneven. 48 dp is the target anyway.
+                      minimumSize: const Size.fromHeight(_buttonHeight),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                        horizontal: AppSpacing.sm,
                       ),
                       shape: const StadiumBorder(),
                       textStyle: AppTypography.settingsRowTitle.copyWith(
@@ -249,7 +258,8 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       style: AppTypography.settingsRowSubtitle,
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  if (_failed || result != null || (_busy && _slow))
+                    const SizedBox(height: AppSpacing.xs),
                   if (_failed)
                     const Text(
                       'Поиск сейчас недоступен. Можно повторить, открыть разделы '
@@ -305,7 +315,7 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       child: const Text('Уточнить вопрос'),
                     ),
                   ],
-                  const SizedBox(height: 4),
+                  const SizedBox(height: AppSpacing.sm),
                   OutlinedButton(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.accentBlue,
@@ -313,7 +323,8 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                         color: AppColors.accentBlue,
                         width: 1.5,
                       ),
-                      minimumSize: const Size.fromHeight(44),
+                      minimumSize: const Size.fromHeight(_buttonHeight),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: const StadiumBorder(),
                       textStyle: AppTypography.settingsRowTitle.copyWith(
                         fontSize: 14,
