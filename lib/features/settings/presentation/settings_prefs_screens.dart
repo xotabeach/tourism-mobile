@@ -265,37 +265,30 @@ class SettingsAppearanceScreen extends ConsumerWidget {
     final liquidGlassEnabled = ref.watch(liquidGlassEnabledProvider);
     final appHapticsEnabled = ref.watch(appHapticsEnabledProvider);
     return SettingsScaffold(
-      title: 'Внешний вид:',
-      subtitle: 'Иконка, анимации и стиль кнопок',
+      barTitle: 'Настройка приложения',
       children: [
         SettingsNavTile(
           title: 'Иконка приложения',
           subtitle: 'Оформление на домашнем экране',
-          iconAsset: AppIconography.settingsChangePhoto,
+          iconAsset: AppIconography.settingsAppIcon,
           onTap: () => context.pushNamed(AppRouteNames.settingsAppIcon),
         ),
-        const SizedBox(height: SettingsMetrics.rowGap),
         SettingsToggleTile(
           title: 'Меньше анимаций',
-          subtitle: 'Переходы и мерцание загрузки — мгновенно',
-          icon: Icons.animation_rounded,
+          subtitle: 'Переходы, мерцание загрузки и т.д.',
+          iconAsset: AppIconography.settingsReduceMotion,
           value: reduceMotion,
           onChanged: (value) =>
               unawaited(ref.read(reduceMotionProvider.notifier).set(value)),
+          note:
+              'Экраны, карточки и панель навигации перестают анимироваться, '
+              'а скелетоны загрузки замирают вместо бесконечного мерцания. '
+              'Данные и вёрстка при этом остаются без изменений',
         ),
-        SettingsFormCard(
-          child: Text(
-            'Экраны, карточки и панель навигации перестают анимироваться, а '
-            'скелетоны загрузки замирают вместо бесконечного мерцания. Данные '
-            'и вёрстка не меняются — только движение.',
-            style: AppTypography.settingsRowSubtitle.copyWith(height: 1.45),
-          ),
-        ),
-        const SizedBox(height: SettingsMetrics.rowGap),
         SettingsToggleTile(
           title: 'Вибрация в приложении',
-          subtitle: 'При нажатиях и жестах',
-          iconAsset: AppIconography.settingsVibro,
+          subtitle: 'При нажатии и жестах',
+          iconAsset: AppIconography.settingsAppHaptics,
           value: appHapticsEnabled,
           onChanged: (value) {
             unawaited(
@@ -303,8 +296,8 @@ class SettingsAppearanceScreen extends ConsumerWidget {
             );
           },
         ),
-        if (Platform.isIOS) ...[
-          const SizedBox(height: SettingsMetrics.rowGap),
+        // Not in the (Android) design: an iOS-only setting, drawn the same way.
+        if (Platform.isIOS)
           SettingsToggleTile(
             title: 'Жидкое стекло',
             subtitle: 'Прозрачные кнопки с эффектом стекла',
@@ -313,15 +306,10 @@ class SettingsAppearanceScreen extends ConsumerWidget {
             onChanged: (value) => unawaited(
               ref.read(liquidGlassEnabledProvider.notifier).set(value),
             ),
+            note:
+                'Выключите, если стекло выглядит тяжеловесно или садит '
+                'батарею — кнопки станут обычными, как на Android.',
           ),
-          SettingsFormCard(
-            child: Text(
-              'Выключите, если стекло выглядит тяжеловесно или садит батарею —'
-              ' кнопки станут обычными, как сейчас на Android.',
-              style: AppTypography.settingsRowSubtitle.copyWith(height: 1.45),
-            ),
-          ),
-        ],
       ],
     );
   }

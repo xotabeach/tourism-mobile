@@ -50,6 +50,13 @@ abstract final class AppIconography {
       '$_root/settings_company_details.png';
   static const String settingsContacts = '$_root/settings_contacts.png';
 
+  // Settings — «Настройки приложения» (solar icons, 2026-09-21)
+  static const String settingsAppPrefs = '$_root/settings_app_prefs.png';
+  static const String settingsAppIcon = '$_root/settings_app_icon.png';
+  static const String settingsReduceMotion =
+      '$_root/settings_reduce_motion.png';
+  static const String settingsAppHaptics = '$_root/settings_app_haptics.png';
+
   // Settings — profile
   static const String settingsChangeName = '$_root/settings_change_name.png';
   static const String settingsChangePhoto = '$_root/settings_change_photo.png';
@@ -96,6 +103,10 @@ abstract final class AppIconography {
     settingsLegalRefunds,
     settingsCompanyDetails,
     settingsContacts,
+    settingsAppPrefs,
+    settingsAppIcon,
+    settingsReduceMotion,
+    settingsAppHaptics,
     settingsChangeName,
     settingsChangePhoto,
     settingsChangePhone,

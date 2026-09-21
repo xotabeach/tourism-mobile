@@ -452,7 +452,12 @@ class SettingsNavTile extends StatelessWidget {
     this.trailing,
     this.emphasized = false,
     this.dense = false,
+    this.footer,
   }) : assert(icon == null || iconAsset == null);
+
+  /// Extra text inside the same card, under a hairline (the design's
+  /// explanation below «Меньше анимаций»).
+  final Widget? footer;
 
   final String title;
   final String? subtitle;
@@ -494,81 +499,111 @@ class SettingsNavTile extends StatelessWidget {
         color: bg,
         borderRadius: radius,
         clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onTap == null
-              ? null
-              : () {
-                  unawaited(AppHaptics.selectionClick());
-                  onTap!();
-                },
-          borderRadius: radius,
-          child: SizedBox(
-            height: height,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Row(
-                children: [
-                  if (iconAsset != null ||
-                      icon != null ||
-                      coloredIconAsset != null) ...[
-                    SizedBox.square(
-                      dimension: SettingsMetrics.iconBox,
-                      child: coloredIconAsset != null
-                          ? Image.asset(
-                              coloredIconAsset!,
-                              width: AppIconography.settings,
-                              height: AppIconography.settings,
-                              filterQuality: FilterQuality.high,
-                            )
-                          : iconAsset != null
-                          ? AppAssetIcon(
-                              iconAsset!,
-                              size: AppIconography.settings,
-                              color: iconColor,
-                            )
-                          : Icon(icon, size: 28, color: iconColor),
-                    ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.settingsRowTitle.copyWith(
-                            color: titleColor,
-                          ),
-                        ),
-                        if (hasSubtitle) ...[
-                          const SizedBox(height: 2),
+        child: _withFooter(
+          InkWell(
+            onTap: onTap == null
+                ? null
+                : () {
+                    unawaited(AppHaptics.selectionClick());
+                    onTap!();
+                  },
+            borderRadius: radius,
+            child: SizedBox(
+              height: height,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    if (iconAsset != null ||
+                        icon != null ||
+                        coloredIconAsset != null) ...[
+                      SizedBox.square(
+                        dimension: SettingsMetrics.iconBox,
+                        child: coloredIconAsset != null
+                            ? Image.asset(
+                                coloredIconAsset!,
+                                width: AppIconography.settings,
+                                height: AppIconography.settings,
+                                filterQuality: FilterQuality.high,
+                              )
+                            : iconAsset != null
+                            ? AppAssetIcon(
+                                iconAsset!,
+                                size: AppIconography.settings,
+                                color: iconColor,
+                              )
+                            : Icon(icon, size: 28, color: iconColor),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            subtitle!,
+                            title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: AppTypography.settingsRowSubtitle.copyWith(
-                              color: subColor,
+                            style: AppTypography.settingsRowTitle.copyWith(
+                              color: titleColor,
                             ),
                           ),
+                          if (hasSubtitle) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              subtitle!,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AppTypography.settingsRowSubtitle.copyWith(
+                                color: subColor,
+                              ),
+                            ),
+                          ],
                         ],
-                      ],
-                    ),
-                  ),
-                  trailing ??
-                      Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: chevronColor,
                       ),
-                ],
+                    ),
+                    trailing ??
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 20,
+                          color: chevronColor,
+                        ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _withFooter(Widget row) {
+    final extra = footer;
+    if (extra == null) {
+      return row;
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SettingsHairline(),
+              const SizedBox(height: 10),
+              DefaultTextStyle.merge(
+                style: AppTypography.settingsRowSubtitle.copyWith(height: 1.4),
+                child: extra,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -637,6 +672,7 @@ class SettingsToggleTile extends StatelessWidget {
     required this.onChanged,
     this.icon,
     this.iconAsset,
+    this.note,
   }) : assert(icon == null || iconAsset == null);
 
   final String title;
@@ -645,6 +681,9 @@ class SettingsToggleTile extends StatelessWidget {
   final ValueChanged<bool> onChanged;
   final IconData? icon;
   final String? iconAsset;
+
+  /// Explanation shown inside the card under a hairline.
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
@@ -655,6 +694,7 @@ class SettingsToggleTile extends StatelessWidget {
       iconAsset: iconAsset,
       onTap: () => onChanged(!value),
       trailing: SettingsToggle(value: value, onChanged: onChanged),
+      footer: note == null ? null : Text(note!),
     );
   }
 }

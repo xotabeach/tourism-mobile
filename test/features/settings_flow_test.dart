@@ -134,11 +134,15 @@ void main() {
     await tester.tap(find.byTooltip('Настройки'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Внешний вид'));
+    await tester.tap(find.text('Настройки приложения'));
     await tester.pumpAndSettle();
     expect(find.byType(SettingsAppearanceScreen), findsOneWidget);
+    // Design (2026-09-21): short title in the top bar, the explanation of
+    // «Меньше анимаций» inside the same card.
+    expect(find.text('Настройка приложения'), findsOneWidget);
     expect(find.text('Иконка приложения'), findsOneWidget);
     expect(find.text('Меньше анимаций'), findsOneWidget);
+    expect(find.textContaining('скелетоны загрузки замирают'), findsOneWidget);
     expect(find.text('Вибрация в приложении'), findsOneWidget);
   });
 

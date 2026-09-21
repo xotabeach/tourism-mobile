@@ -50,9 +50,9 @@ class SettingsScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsOffline),
         ),
         SettingsNavTile(
-          title: 'Внешний вид',
-          subtitle: 'Иконка, анимации и стиль кнопок',
-          icon: Icons.palette_outlined,
+          title: 'Настройки приложения',
+          subtitle: 'Анимация, вибрация, иконка и стиль',
+          iconAsset: AppIconography.settingsAppPrefs,
           onTap: () => context.pushNamed(AppRouteNames.settingsAppearance),
         ),
         SettingsNavTile(
