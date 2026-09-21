@@ -73,6 +73,7 @@ class RoutePublishState {
     this.replaceConfirmFor,
     this.uploadsDone = 0,
     this.uploadsTotal = 0,
+    this.draftsListOpen = false,
   });
 
   final DraftSaveStatus saveStatus;
@@ -81,6 +82,10 @@ class RoutePublishState {
   /// when it has none.
   final int uploadsDone;
   final int uploadsTotal;
+
+  /// The window listing the saved drafts is up (without a local draft to
+  /// continue, which [availableDraft] brings up on its own).
+  final bool draftsListOpen;
 
   /// The draft was picked up from a previous session: shown once as a note.
   final bool restoredNotice;
@@ -155,10 +160,12 @@ class RoutePublishState {
     bool clearReplaceConfirm = false,
     int? uploadsDone,
     int? uploadsTotal,
+    bool? draftsListOpen,
   }) {
     return RoutePublishState(
       uploadsDone: uploadsDone ?? this.uploadsDone,
       uploadsTotal: uploadsTotal ?? this.uploadsTotal,
+      draftsListOpen: draftsListOpen ?? this.draftsListOpen,
       saveStatus: saveStatus ?? this.saveStatus,
       restoredNotice: restoredNotice ?? this.restoredNotice,
       conflict: conflict ?? this.conflict,
@@ -271,6 +278,9 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
   Timer? _autosave;
   Timer? _sendRetry;
   int _sendRetries = 0;
+
+  /// The saved drafts were offered on this visit already.
+  bool _draftsPromptShown = false;
   Timer? _localRetry;
   Future<void>? _persistFuture;
 
@@ -635,10 +645,13 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         unawaited(_loadServerDrafts());
         return;
       }
-      if (_dirty) {
-        // The author started typing before the draft loaded: ask, do not overwrite.
+      if (_dirty || !_editingExisting) {
+        // Opening the form offers the draft in a window with the other saved
+        // drafts, rather than dropping the author into it unasked; typing
+        // that landed before the draft loaded is not overwritten either.
         state = state.copyWith(availableDraft: existing, isHydrating: false);
       } else {
+        // Editing a route from its own card: that route is what was asked for.
         _quiet(() {
           state = state.copyWith(
             draft: existing,
@@ -713,7 +726,23 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       final drafts = page.items
           .where((route) => route.publicationStatus == 'draft')
           .toList(growable: false);
-      _quiet(() => state = state.copyWith(serverDrafts: drafts));
+      // An empty form with saved drafts behind it offers them once, the way
+      // a local draft is offered; after that they stay one tap away.
+      final offer =
+          !_draftsPromptShown &&
+          drafts.isNotEmpty &&
+          !_dirty &&
+          state.availableDraft == null &&
+          !state.draft.hasMeaningfulContent;
+      if (offer) {
+        _draftsPromptShown = true;
+      }
+      _quiet(
+        () => state = state.copyWith(
+          serverDrafts: drafts,
+          draftsListOpen: offer ? true : null,
+        ),
+      );
     } on Object {
       // Offline or a failed call: the local draft is still offered.
     }
@@ -761,6 +790,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
           isOpeningDraft: false,
           clearAvailableDraft: true,
           restoredNotice: false,
+          draftsListOpen: false,
         );
       });
       _dirty = false;
@@ -799,13 +829,34 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       return;
     }
     _quiet(() {
-      state = state.copyWith(draft: draft, clearAvailableDraft: true);
+      state = state.copyWith(
+        draft: draft,
+        clearAvailableDraft: true,
+        draftsListOpen: false,
+      );
     });
     // Opening a draft has to draw its map too. Previously the preview was
     // only computed from the point-editing path, so a restored draft showed
     // the placeholder until the author happened to move a point.
     _refreshRoutePreview();
     _refreshStatus();
+    // What a previous session left unsent goes out now that it is open.
+    if (draft.unsynced && !_dirty) {
+      unawaited(_sendPending());
+    }
+  }
+
+  /// Shows the saved drafts in the window over the form.
+  void openDraftsList() {
+    _draftsPromptShown = true;
+    _quiet(() => state = state.copyWith(draftsListOpen: true));
+  }
+
+  /// Closes the drafts window and keeps the form as it is.
+  void closeDraftsList() {
+    if (state.draftsListOpen) {
+      _quiet(() => state = state.copyWith(draftsListOpen: false));
+    }
   }
 
   void dismissRestoredNotice() {
@@ -824,6 +875,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       state = state.copyWith(
         draft: const RouteDraft(),
         clearAvailableDraft: true,
+        draftsListOpen: false,
         restoredNotice: false,
         saveStatus: DraftSaveStatus.idle,
       );
