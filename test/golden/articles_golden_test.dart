@@ -261,7 +261,7 @@ void main() {
     );
     // Пока фото не выбрано, миниатюры в шапке нет: два пустых поля рядом
     // читались как одно сломанное (устройство, 2026-09-04).
-    await tester.tap(find.byIcon(Icons.add_a_photo_outlined));
+    await tester.tap(find.byKey(const ValueKey('editor-add-image')));
     await tester.pumpAndSettle();
     await expectLater(
       find.byKey(_goldenKey),
@@ -337,6 +337,13 @@ Future<void> _pumpGolden(
         AppImages.coastalBayHills,
       ])
         precacheImage(AssetImage(asset), context),
+      // Icons drawn as images (the editor's Solar icons) too, so a golden
+      // does not depend on whether an earlier test already loaded them.
+      for (final element in find.byType(Image).evaluate())
+        precacheImage(
+          (element.widget as Image).image,
+          element,
+        ).catchError((Object _) {}),
     ]);
   });
   await tester.pump();
