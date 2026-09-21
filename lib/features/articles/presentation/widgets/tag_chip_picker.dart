@@ -74,8 +74,9 @@ class _TagChipPickerState extends State<TagChipPicker> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          // The editor's tighter rhythm; the reading screen keeps its own.
+          spacing: widget.displayOnly ? 8 : 5,
+          runSpacing: widget.displayOnly ? 8 : 6,
           children: [
             for (final tag in visible)
               _TagChip(
@@ -101,26 +102,13 @@ class _TagChipPickerState extends State<TagChipPicker> {
               borderRadius: BorderRadius.circular(AppRadii.capsule),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _expanded ? 'Свернуть' : 'Показать все',
-                      style: AppTypography.chip.copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.accentBlue,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    Icon(
-                      _expanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: AppColors.accentBlue,
-                    ),
-                  ],
+                child: Text(
+                  _expanded ? 'Свернуть' : 'Показать все',
+                  style: AppTypography.chip.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.accentBlue,
+                  ),
                 ),
               ),
             ),
@@ -148,31 +136,33 @@ class _TagChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final chip = AnimatedContainer(
       duration: const Duration(milliseconds: 150),
+      // The editor's chips as drawn: 25.6 tall, a pale fill and a grey edge.
       padding: EdgeInsets.symmetric(
-        horizontal: displayOnly ? 14 : 15,
-        vertical: displayOnly ? 7 : 8,
+        horizontal: displayOnly ? 14 : 11,
+        vertical: displayOnly ? 7 : 5,
       ),
       decoration: BoxDecoration(
         color: displayOnly
             ? const Color(0xFF5E5E5E)
             : selected
             ? AppColors.primaryInk
-            : Colors.transparent,
+            : const Color(0xFFF1F1F1),
         borderRadius: BorderRadius.circular(AppRadii.chip),
         border: displayOnly
             ? null
             : Border.all(
                 color: selected
                     ? AppColors.primaryInk
-                    : const Color(0xFFD9D9DB),
+                    : const Color(0xFFDCDCDC),
               ),
       ),
       child: Text(
         label,
         style: AppTypography.chip.copyWith(
           fontSize: 13,
+          height: displayOnly ? null : 1.2,
           color: displayOnly || selected ? Colors.white : AppColors.primaryInk,
-          fontWeight: FontWeight.w500,
+          fontWeight: displayOnly ? FontWeight.w500 : FontWeight.w400,
         ),
       ),
     );

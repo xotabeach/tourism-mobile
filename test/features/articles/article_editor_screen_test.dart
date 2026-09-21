@@ -99,7 +99,7 @@ void main() {
   ) async {
     await _pumpEditor(tester);
 
-    await tester.tap(find.byIcon(Icons.notes_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-text')));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Добавить первый блок'), findsNothing);
@@ -109,14 +109,8 @@ void main() {
   testWidgets('each block type adds its own labelled tile', (tester) async {
     await _pumpEditor(tester);
 
-    for (final icon in [
-      Icons.notes_rounded,
-      Icons.add_a_photo_outlined,
-      Icons.format_quote_rounded,
-      Icons.format_list_bulleted_rounded,
-      Icons.horizontal_rule_rounded,
-    ]) {
-      await tester.tap(find.byIcon(icon));
+    for (final type in ['text', 'image', 'quote', 'list', 'divider']) {
+      await tester.tap(find.byKey(ValueKey('editor-add-$type')));
       await tester.pumpAndSettle();
     }
 
@@ -132,7 +126,7 @@ void main() {
   ) async {
     await _pumpEditor(tester);
 
-    await tester.tap(find.byIcon(Icons.add_a_photo_outlined));
+    await tester.tap(find.byKey(const ValueKey('editor-add-image')));
     await tester.pumpAndSettle();
 
     // Пустая миниатюра 40×40 в шапке рядом с большим полем загрузки читалась
@@ -152,7 +146,7 @@ void main() {
   ) async {
     await _pumpEditor(tester);
 
-    await tester.tap(find.byIcon(Icons.format_list_bulleted_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-list')));
     await tester.pumpAndSettle();
 
     // Порядок с макета дизайнера: сначала вид списка, потом сами пункты.
@@ -167,11 +161,11 @@ void main() {
   testWidgets('deleting a block removes its tile', (tester) async {
     await _pumpEditor(tester);
 
-    await tester.tap(find.byIcon(Icons.format_quote_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-quote')));
     await tester.pumpAndSettle();
     expect(_blockLabel('Цитата'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.delete_outline_rounded));
+    await tester.tap(find.byTooltip('Удалить блок'));
     await tester.pumpAndSettle();
 
     expect(_blockLabel('Цитата'), findsNothing);
@@ -182,7 +176,7 @@ void main() {
     await _pumpEditor(tester);
 
     await tester.enterText(find.byType(TextField).first, 'Черновик статьи');
-    await tester.tap(find.byIcon(Icons.notes_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-text')));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).last, 'Первый абзац');
     await tester.pumpAndSettle();
@@ -216,7 +210,7 @@ void main() {
   ) async {
     await _pumpEditor(tester);
 
-    await tester.tap(find.byIcon(Icons.notes_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-text')));
     await tester.pumpAndSettle();
     // A freshly added block opens straight away — otherwise there is nowhere
     // visible to type.
@@ -237,9 +231,9 @@ void main() {
     await _pumpEditor(tester);
 
     // Два блока: текст, затем цитата.
-    await tester.tap(find.byIcon(Icons.notes_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-text')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byIcon(Icons.format_quote_rounded));
+    await tester.tap(find.byKey(const ValueKey('editor-add-quote')));
     await tester.pumpAndSettle();
 
     Iterable<String> labelOrder() => tester

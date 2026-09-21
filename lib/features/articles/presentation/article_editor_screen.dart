@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
@@ -29,9 +30,14 @@ import 'package:tourism_mobile/features/articles/presentation/widgets/tag_chip_p
 /// карточек много, и крупные радиусы делают список рыхлым.
 const _blockRadius = 10.0;
 const _controlRadius = 9.0;
-const _attachHeight = 33.0;
+const _attachHeight = 32.0;
 const _segmentHeight = 31.0;
 const _fieldFill = Color(0xFFF1F1F3);
+
+OutlineInputBorder _blockFieldBorder(Color color) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(_controlRadius),
+  borderSide: BorderSide(color: color),
+);
 
 /// Block editor (G.9). Blocks are held locally and pushed as one list on
 /// every save — the backend rebuilds them wholesale — while an image block's
@@ -174,7 +180,7 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
               onChanged: controller.setTitle,
               length: state.title.characters.length,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Text(
               'Теги (до ${ArticleLimits.maxTagsPerArticle})',
               style: AppTypography.settingsRowTitle,
@@ -185,13 +191,13 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
               selected: state.tags,
               onToggle: controller.toggleTag,
               maxSelected: ArticleLimits.maxTagsPerArticle,
-              collapsedCount: 5,
+              collapsedCount: 8,
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Text('Привязать к:', style: AppTypography.settingsRowTitle),
             const SizedBox(height: 10),
             _AttachmentRow(state: state, controller: controller),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             const Text('Содержание:', style: AppTypography.settingsRowTitle),
             const SizedBox(height: 10),
             if (state.blocks.isEmpty)
@@ -276,7 +282,7 @@ class _ArticleEditorScreenState extends ConsumerState<ArticleEditorScreen> {
             // закреплены снизу: в канвасе они часть страницы, а закреплённые
             // съедали треть экрана. Новые блоки добавляются в конец, так что
             // после добавления человек и так уже внизу.
-            const SizedBox(height: 22),
+            const SizedBox(height: 4),
             _AddBlockBar(
               onAdd: (type) {
                 controller.addBlock(type);
@@ -369,16 +375,17 @@ class _TitleField extends StatelessWidget {
             hintText: 'Придумайте заголовок для статьи',
             hintStyle: AppTypography.settingsRowSubtitle.copyWith(fontSize: 14),
             filled: true,
-            fillColor: AppColors.controlSurface,
+            // As drawn: a grey field in a thin blue frame, focused or not.
+            fillColor: const Color(0xFFE7E7E7),
             counterText: '',
-            contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 30),
+            contentPadding: const EdgeInsets.fromLTRB(14, 14, 14, 34),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(_blockRadius),
-              borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+              borderSide: const BorderSide(color: AppColors.accentBlue),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(_blockRadius),
-              borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
+              borderSide: const BorderSide(color: AppColors.accentBlue),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(_blockRadius),
@@ -496,7 +503,7 @@ class _AttachKindOption extends StatelessWidget {
                 : Colors.white,
             borderRadius: BorderRadius.circular(_controlRadius),
             border: Border.all(
-              color: selected ? AppColors.accentBlue : const Color(0xFFD9D9DB),
+              color: AppColors.accentBlue,
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -506,7 +513,7 @@ class _AttachKindOption extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: AppTypography.chip.copyWith(
               fontSize: 14,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
               color: selected ? AppColors.accentBlue : AppColors.primaryInk,
             ),
           ),
@@ -636,7 +643,7 @@ class _DragDotsPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final stroke = Paint()
-      ..color = const Color(0xFFB9BABE)
+      ..color = const Color(0xFF8E8E93)
       ..strokeWidth = 1.4
       ..strokeCap = StrokeCap.round;
     for (final dy in const [3.0, 9.0, 15.0]) {
@@ -762,6 +769,7 @@ class _BlockEditorTile extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                             style: AppTypography.settingsRowTitle.copyWith(
                               fontSize: 13,
+                              fontWeight: FontWeight.w400,
                               fontStyle: block.type == ArticleBlockType.quote
                                   ? FontStyle.italic
                                   : FontStyle.normal,
@@ -772,10 +780,15 @@ class _BlockEditorTile extends ConsumerWidget {
                     ),
                   ),
                   IconButton(
+                    key: ValueKey('block-delete-${block.localId}'),
                     tooltip: 'Удалить блок',
                     visualDensity: VisualDensity.compact,
                     onPressed: onRemove,
-                    icon: const Icon(Icons.delete_outline_rounded, size: 20),
+                    icon: const AppAssetIcon(
+                      AppIconography.editorBlockDelete,
+                      size: 24,
+                      color: AppColors.primaryInk,
+                    ),
                   ),
                 ],
               ),
@@ -872,13 +885,17 @@ class _BlockEditorTile extends ConsumerWidget {
                 ArticleBlockType.list => 'По пункту на строку',
                 _ => 'Текст абзаца',
               },
+              hintStyle: AppTypography.settingsRowSubtitle.copyWith(
+                fontSize: 13,
+              ),
               filled: true,
               fillColor: _fieldFill,
               counterText: '',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(_controlRadius),
-                borderSide: const BorderSide(color: AppColors.hairline),
-              ),
+              // Every state gets its own border: otherwise the enabled and
+              // focused ones come from the theme's round field shape.
+              border: _blockFieldBorder(AppColors.hairline),
+              enabledBorder: _blockFieldBorder(const Color(0xFFD9D9D9)),
+              focusedBorder: _blockFieldBorder(AppColors.accentBlue),
             ),
           ),
           if (block.type == ArticleBlockType.quote) ...[
@@ -897,10 +914,9 @@ class _BlockEditorTile extends ConsumerWidget {
                 filled: true,
                 fillColor: _fieldFill,
                 counterText: '',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(_controlRadius),
-                  borderSide: const BorderSide(color: AppColors.hairline),
-                ),
+                border: _blockFieldBorder(AppColors.hairline),
+                enabledBorder: _blockFieldBorder(const Color(0xFFD9D9D9)),
+                focusedBorder: _blockFieldBorder(AppColors.accentBlue),
               ),
             ),
           ],
@@ -1022,8 +1038,8 @@ class _ListStyleSegment extends StatelessWidget {
           child: Text(
             label,
             style: AppTypography.chip.copyWith(
-              fontSize: 14,
-              fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
               color: selected ? Colors.white : AppColors.primaryInk,
             ),
           ),
@@ -1150,12 +1166,17 @@ class _AddBlockBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The designer's Solar icons, one per block type.
     const entries = [
-      (ArticleBlockType.text, Icons.notes_rounded, 'Текст'),
-      (ArticleBlockType.image, Icons.add_a_photo_outlined, 'Фото'),
-      (ArticleBlockType.quote, Icons.format_quote_rounded, 'Цитата'),
-      (ArticleBlockType.list, Icons.format_list_bulleted_rounded, 'Список'),
-      (ArticleBlockType.divider, Icons.horizontal_rule_rounded, 'Разделитель'),
+      (ArticleBlockType.text, AppIconography.editorBlockText, 'Текст'),
+      (ArticleBlockType.image, AppIconography.editorBlockPhoto, 'Фото'),
+      (ArticleBlockType.quote, AppIconography.editorBlockQuote, 'Цитата'),
+      (ArticleBlockType.list, AppIconography.editorBlockList, 'Список'),
+      (
+        ArticleBlockType.divider,
+        AppIconography.editorBlockDivider,
+        'Разделитель',
+      ),
     ];
     return Container(
       color: AppColors.pageSurface,
@@ -1172,14 +1193,21 @@ class _AddBlockBar extends StatelessWidget {
                 Material(
                   color: AppColors.elevatedSurface,
                   shape: const CircleBorder(
-                    side: BorderSide(color: Color(0xFFD9D9DB)),
+                    side: BorderSide(color: Color(0xFFDCDCDC)),
                   ),
                   child: InkWell(
+                    key: ValueKey('editor-add-${type.name}'),
                     customBorder: const CircleBorder(),
                     onTap: () => onAdd(type),
                     child: SizedBox.square(
-                      dimension: 46,
-                      child: Icon(icon, size: 20, color: AppColors.primaryInk),
+                      dimension: 40,
+                      child: Center(
+                        child: AppAssetIcon(
+                          icon,
+                          size: 24,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
                     ),
                   ),
                 ),

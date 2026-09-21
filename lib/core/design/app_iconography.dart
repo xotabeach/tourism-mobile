@@ -11,6 +11,14 @@ abstract final class AppIconography {
 
   /// Solar «cup-star», the route finished screen.
   static const String finishCup = '$_root/finish_cup.png';
+
+  /// Solar icons of the article editor's «add block» bar and block delete.
+  static const String editorBlockText = '$_root/editor_block_text.png';
+  static const String editorBlockPhoto = '$_root/editor_block_photo.png';
+  static const String editorBlockQuote = '$_root/editor_block_quote.png';
+  static const String editorBlockList = '$_root/editor_block_list.png';
+  static const String editorBlockDivider = '$_root/editor_block_divider.png';
+  static const String editorBlockDelete = '$_root/editor_block_delete.png';
   static const String filter = '$_root/filter.png';
   static const String heart = '$_root/heart.png';
   static const String home = '$_root/home.png';
