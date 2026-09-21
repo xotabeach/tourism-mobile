@@ -85,10 +85,11 @@ void main() {
   ) async {
     final container = await pumpQuiz(tester);
 
-    await tester.tap(find.text('Море'));
-    await tester.tap(find.text('Горы'));
+    await tester.tap(find.text('Природа'));
+    await tester.tap(find.text('Смотровые'));
     await tester.tap(find.text('Средний'));
-    await tester.tap(find.text('Путешествую с детьми'));
+    await tester.tap(find.text('3-5 дней'));
+    await tester.tap(find.text('Путешествие с детьми'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byIcon(Icons.check_rounded));
@@ -99,8 +100,11 @@ void main() {
     final saved = await container
         .read(preferencesRepositoryProvider)
         .getPreferences();
-    expect(saved.categories, containsAll(['Море', 'Горы']));
+    // Saved in the quiz's own order, whatever the tap order.
+    expect(saved.categories, ['Природа', 'Смотровые']);
     expect(saved.difficulty, 'moderate');
+    expect(saved.transport, isNull);
+    expect(saved.duration, 'd3_5');
     expect(saved.travelsWithKids, isTrue);
     expect(saved.travelsWithPets, isFalse);
     expect(saved.isCompleted, isTrue);
@@ -111,8 +115,9 @@ void main() {
   ) async {
     final repo = MockPreferencesRepository();
     await repo.updatePreferences(
-      categories: const ['Еда'],
+      categories: const ['Гастрономия', 'Море'],
       difficulty: 'hard',
+      duration: 'd6_7',
       travelsWithKids: false,
       travelsWithPets: true,
     );
@@ -139,9 +144,42 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final foodChipText = tester.widget<Text>(find.text('Еда'));
-    expect(foodChipText.style?.color, Colors.white);
-    final hardChipText = tester.widget<Text>(find.text('Сложный'));
-    expect(hardChipText.style?.color, Colors.white);
+    for (final selected in ['Гастрономия', 'Сложный', '6-7 дней']) {
+      expect(
+        tester.widget<Text>(find.text(selected)).style?.color,
+        Colors.white,
+        reason: selected,
+      );
+    }
+    // A word the quiz no longer offers (Море) is not shown or counted.
+    expect(find.text('Море'), findsNothing);
+    expect(
+      tester.widget<Text>(find.text('Природа')).style?.color,
+      isNot(Colors.white),
+    );
+  });
+
+  testWidgets('«На транспорте» replaces a difficulty and is saved apart', (
+    tester,
+  ) async {
+    final container = await pumpQuiz(tester);
+
+    await tester.tap(find.text('Лёгкий'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('На транспорте'));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<Text>(find.text('Лёгкий')).style?.color,
+      isNot(Colors.white),
+    );
+
+    await tester.tap(find.byIcon(Icons.check_rounded));
+    await tester.pumpAndSettle();
+
+    final saved = await container
+        .read(preferencesRepositoryProvider)
+        .getPreferences();
+    expect(saved.transport, preferenceTransportCar);
+    expect(saved.difficulty, isNull);
   });
 }

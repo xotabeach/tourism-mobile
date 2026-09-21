@@ -91,6 +91,16 @@ abstract final class AppIconography {
       '$_root/settings_reduce_motion.png';
   static const String settingsAppHaptics = '$_root/settings_app_haptics.png';
 
+  // Settings — «Настройка предпочтений» (solar icons, FRONTEND-21)
+  static const String settingsPrefInterests =
+      '$_root/settings_pref_interests.png';
+  static const String settingsPrefDifficulty =
+      '$_root/settings_pref_difficulty.png';
+  static const String settingsPrefDuration =
+      '$_root/settings_pref_duration.png';
+  static const String settingsPrefKids = '$_root/settings_pref_kids.png';
+  static const String settingsPrefPets = '$_root/settings_pref_pets.png';
+
   // Settings — profile
   static const String settingsChangeName = '$_root/settings_change_name.png';
   static const String settingsChangePhoto = '$_root/settings_change_photo.png';
@@ -141,6 +151,11 @@ abstract final class AppIconography {
     settingsAppIcon,
     settingsReduceMotion,
     settingsAppHaptics,
+    settingsPrefInterests,
+    settingsPrefDifficulty,
+    settingsPrefDuration,
+    settingsPrefKids,
+    settingsPrefPets,
     settingsChangeName,
     settingsChangePhoto,
     settingsChangePhone,
