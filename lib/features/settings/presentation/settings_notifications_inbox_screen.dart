@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
@@ -133,21 +134,15 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
     unawaited(AppHaptics.selectionClick());
     final notifier = ref.read(notificationsInboxProvider.notifier)
       ..queueDelete([item]);
-    final messenger = ScaffoldMessenger.of(context);
     final count = notifier.pendingCount;
     final label = count == 1 ? 'Уведомление удалено' : 'Удалено: $count';
-    messenger
-      ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          duration: notificationsUndoWindow,
-          content: Semantics(liveRegion: true, child: Text(label)),
-          action: SnackBarAction(
-            label: 'Отменить',
-            onPressed: notifier.undoPending,
-          ),
-        ),
-      );
+    showAppNotice(
+      context,
+      label,
+      duration: notificationsUndoWindow,
+      actionLabel: 'Отменить',
+      onAction: notifier.undoPending,
+    );
   }
 
   static Future<void> _openNotification(
@@ -432,6 +427,8 @@ class _InboxLifecycleGuardState extends ConsumerState<_InboxLifecycleGuard> {
 
   @override
   void dispose() {
+    // Leaving sends the pending deletes, so their «Отменить» must go too.
+    dismissAppNotice();
     unawaited(_notifier.flushPending());
     super.dispose();
   }
@@ -439,13 +436,11 @@ class _InboxLifecycleGuardState extends ConsumerState<_InboxLifecycleGuard> {
   @override
   Widget build(BuildContext context) {
     ref.listen<int>(notificationsDeleteFailedProvider, (prev, next) {
-      ScaffoldMessenger.of(context)
-        ..clearSnackBars()
-        ..showSnackBar(
-          const SnackBar(
-            content: Text('Не удалось удалить, уведомления возвращены'),
-          ),
-        );
+      showAppNotice(
+        context,
+        'Не удалось удалить, уведомления возвращены',
+        kind: AppNoticeKind.error,
+      );
     });
     return const SizedBox.shrink();
   }
@@ -482,25 +477,34 @@ class _ClearActions extends ConsumerWidget {
     NotificationsClearScope scope,
   ) async {
     final notifier = ref.read(notificationsInboxProvider.notifier);
-    final messenger = ScaffoldMessenger.of(context);
     final int count;
     try {
       await notifier.flushPending();
       count = await notifier.previewClear(scope);
     } on NotFoundFailure {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Обновите приложение, чтобы очищать')),
-      );
+      if (context.mounted) {
+        showAppNotice(
+          context,
+          'Обновите приложение, чтобы очищать',
+          kind: AppNoticeKind.error,
+        );
+      }
       return;
     } on Object {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Не удалось выполнить, попробуйте позже')),
-      );
+      if (context.mounted) {
+        showAppNotice(
+          context,
+          'Не удалось выполнить, попробуйте позже',
+          kind: AppNoticeKind.error,
+        );
+      }
       return;
     }
     if (count == 0 || !context.mounted) {
       if (count == 0) {
-        messenger.showSnackBar(const SnackBar(content: Text('Нечего очищать')));
+        if (context.mounted) {
+          showAppNotice(context, 'Нечего очищать');
+        }
       }
       return;
     }
@@ -532,11 +536,21 @@ class _ClearActions extends ConsumerWidget {
     }
     try {
       final deleted = await notifier.clearBulk(scope);
-      messenger.showSnackBar(SnackBar(content: Text('Удалено: $deleted')));
+      if (context.mounted) {
+        showAppNotice(
+          context,
+          'Удалено: $deleted',
+          kind: AppNoticeKind.success,
+        );
+      }
     } on Object {
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Не удалось удалить, попробуйте позже')),
-      );
+      if (context.mounted) {
+        showAppNotice(
+          context,
+          'Не удалось удалить, попробуйте позже',
+          kind: AppNoticeKind.error,
+        );
+      }
     }
   }
 }

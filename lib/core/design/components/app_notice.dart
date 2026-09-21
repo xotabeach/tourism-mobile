@@ -34,6 +34,10 @@ void showAppNotice(
   );
 }
 
+/// Hides the notice on screen, if any. For screens whose notice stops making
+/// sense once they are gone (an «Отменить» for an action already sent).
+void dismissAppNotice() => _AppNoticeHost._dismiss();
+
 class _AppNoticeHost {
   static OverlayEntry? _current;
 
@@ -151,43 +155,50 @@ class _AppNoticeState extends State<_AppNotice>
       // Only intercept touches when there is something to tap: an undo
       // affordance must stay reachable, but a plain notice must not block
       // the UI underneath it.
-      child: IgnorePointer(
-        ignoring: !hasAction,
-        child: FadeTransition(
-          opacity: curved,
-          child: SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(0, -0.35),
-              end: Offset.zero,
-            ).animate(curved),
-            child: Material(
-              color: AppColors.elevatedSurface,
-              borderRadius: BorderRadius.circular(18),
-              elevation: 10,
-              shadowColor: const Color(0x33000000),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Row(
-                  children: [
-                    Icon(icon, size: 20, color: accent),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        widget.message,
-                        style: AppTypography.settingsRowTitle.copyWith(
-                          fontSize: 13.5,
-                          height: 1.35,
+      // Announced by screen readers the moment it appears.
+      child: Semantics(
+        liveRegion: true,
+        child: IgnorePointer(
+          ignoring: !hasAction,
+          child: FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween<Offset>(
+                begin: const Offset(0, -0.35),
+                end: Offset.zero,
+              ).animate(curved),
+              child: Material(
+                color: AppColors.elevatedSurface,
+                borderRadius: BorderRadius.circular(18),
+                elevation: 10,
+                shadowColor: const Color(0x33000000),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(icon, size: 20, color: accent),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          widget.message,
+                          style: AppTypography.settingsRowTitle.copyWith(
+                            fontSize: 13.5,
+                            height: 1.35,
+                          ),
                         ),
                       ),
-                    ),
-                    if (hasAction) ...[
-                      const SizedBox(width: 8),
-                      TextButton(onPressed: onAction, child: Text(actionLabel)),
+                      if (hasAction) ...[
+                        const SizedBox(width: 8),
+                        TextButton(
+                          onPressed: onAction,
+                          child: Text(actionLabel),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
