@@ -32,6 +32,24 @@ abstract final class AppIconography {
   static const String settingsSupport = '$_root/settings_support.png';
   static const String settingsAbout = '$_root/settings_about.png';
 
+  /// Already red (the design colours it apart from the other rows), drawn
+  /// as-is rather than through the tinted variants.
+  static const String settingsLogout = '$_root/settings_logout.png';
+
+  // Settings — «О приложении» (solar icons from the design, 2026-09-21)
+  static const String settingsLegalTerms = '$_root/settings_legal_terms.png';
+  static const String settingsLegalPrivacy =
+      '$_root/settings_legal_privacy.png';
+  static const String settingsLegalPersonalData =
+      '$_root/settings_legal_personal_data.png';
+  static const String settingsLegalModeration =
+      '$_root/settings_legal_moderation.png';
+  static const String settingsLegalRefunds =
+      '$_root/settings_legal_refunds.png';
+  static const String settingsCompanyDetails =
+      '$_root/settings_company_details.png';
+  static const String settingsContacts = '$_root/settings_contacts.png';
+
   // Settings — profile
   static const String settingsChangeName = '$_root/settings_change_name.png';
   static const String settingsChangePhoto = '$_root/settings_change_photo.png';
@@ -68,6 +86,13 @@ abstract final class AppIconography {
     settingsOffline,
     settingsSupport,
     settingsAbout,
+    settingsLegalTerms,
+    settingsLegalPrivacy,
+    settingsLegalPersonalData,
+    settingsLegalModeration,
+    settingsLegalRefunds,
+    settingsCompanyDetails,
+    settingsContacts,
     settingsChangeName,
     settingsChangePhoto,
     settingsChangePhone,

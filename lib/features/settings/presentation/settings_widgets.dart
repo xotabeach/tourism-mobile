@@ -423,6 +423,7 @@ class SettingsNavTile extends StatelessWidget {
     this.subtitle,
     this.icon,
     this.iconAsset,
+    this.coloredIconAsset,
     this.onTap,
     this.trailing,
     this.emphasized = false,
@@ -433,6 +434,9 @@ class SettingsNavTile extends StatelessWidget {
   final String? subtitle;
   final IconData? icon;
   final String? iconAsset;
+
+  /// An icon that carries its own colour (e.g. the red «log out» mark).
+  final String? coloredIconAsset;
   final VoidCallback? onTap;
   final Widget? trailing;
   final bool emphasized;
@@ -480,10 +484,19 @@ class SettingsNavTile extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
-                  if (iconAsset != null || icon != null) ...[
+                  if (iconAsset != null ||
+                      icon != null ||
+                      coloredIconAsset != null) ...[
                     SizedBox.square(
                       dimension: SettingsMetrics.iconBox,
-                      child: iconAsset != null
+                      child: coloredIconAsset != null
+                          ? Image.asset(
+                              coloredIconAsset!,
+                              width: AppIconography.settings,
+                              height: AppIconography.settings,
+                              filterQuality: FilterQuality.high,
+                            )
+                          : iconAsset != null
                           ? AppAssetIcon(
                               iconAsset!,
                               size: AppIconography.settings,

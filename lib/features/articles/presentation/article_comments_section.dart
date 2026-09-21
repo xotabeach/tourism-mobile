@@ -512,6 +512,11 @@ class _ArticleCommentComposerState
     }
   }
 
+  static OutlineInputBorder _fieldBorder(Color color) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color),
+  );
+
   @override
   Widget build(BuildContext context) {
     final used = _controller.text.characters.length;
@@ -570,10 +575,13 @@ class _ArticleCommentComposerState
                   hintText: 'Напишите комментарий',
                   filled: true,
                   fillColor: const Color(0xFFF0F0F0),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: Color(0xFFD9D9DB)),
-                  ),
+                  // Every state needs its own border: otherwise the enabled
+                  // and focused ones come from the theme's round (22 dp)
+                  // field shape, which is what the design flagged.
+                  border: _fieldBorder(const Color(0xFFD9D9DB)),
+                  enabledBorder: _fieldBorder(const Color(0xFFD9D9DB)),
+                  focusedBorder: _fieldBorder(AppColors.primaryInk),
+                  disabledBorder: _fieldBorder(const Color(0xFFE4E4E6)),
                   counterText: '',
                   contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
                 ),

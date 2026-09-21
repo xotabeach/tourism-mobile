@@ -92,7 +92,6 @@ class SettingsAboutScreen extends ConsumerWidget {
           title: 'История изменений',
           subtitle: 'Что нового в каждой версии',
           icon: Icons.history_rounded,
-          dense: true,
           onTap: () => context.pushNamed(AppRouteNames.settingsChangelog),
         ),
         for (final document in legalDocuments) ...[
@@ -100,8 +99,7 @@ class SettingsAboutScreen extends ConsumerWidget {
           SettingsNavTile(
             title: document.title,
             subtitle: document.subtitle,
-            icon: document.icon,
-            dense: true,
+            iconAsset: document.iconAsset,
             onTap: () => context.pushNamed(
               AppRouteNames.settingsLegalDocument,
               pathParameters: {'id': document.id},
@@ -112,16 +110,14 @@ class SettingsAboutScreen extends ConsumerWidget {
         SettingsNavTile(
           title: 'Реквизиты компании',
           subtitle: 'Наименование, ИНН, ОГРН, адрес',
-          icon: Icons.article_outlined,
-          dense: true,
+          iconAsset: AppIconography.settingsCompanyDetails,
           onTap: () => context.pushNamed(AppRouteNames.settingsCompanyDetails),
         ),
         const SizedBox(height: SettingsMetrics.rowGap),
         SettingsNavTile(
           title: 'Контактная информация',
           subtitle: 'Способы связи с командой',
-          icon: Icons.mail_outline_rounded,
-          dense: true,
+          iconAsset: AppIconography.settingsContacts,
           onTap: () => context.pushNamed(AppRouteNames.settingsContacts),
         ),
         const SizedBox(height: SettingsMetrics.rowGap),
@@ -145,7 +141,7 @@ class _DeviceAndVersionCard extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Устройство и версия',
+            'Устройство и версия (автоматически)',
             style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
           ),
           const SizedBox(height: 6),

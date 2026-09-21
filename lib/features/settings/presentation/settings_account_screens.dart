@@ -64,9 +64,9 @@ class SettingsAccountScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsChat),
         ),
         SettingsNavTile(
-          title: 'Выйти из аккаунта',
-          subtitle: 'Удалить локальную сессию на этом устройстве',
-          icon: Icons.logout_rounded,
+          title: 'Выйти из профиля',
+          subtitle: 'Профиль будет забыт на данном устройстве',
+          coloredIconAsset: AppIconography.settingsLogout,
           onTap: () => _confirmLogout(context, ref),
         ),
       ],

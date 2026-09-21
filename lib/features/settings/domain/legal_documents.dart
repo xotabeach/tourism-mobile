@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 
 /// Документы раздела «О приложении».
 ///
@@ -15,7 +15,7 @@ class LegalDocument {
     required this.id,
     required this.title,
     required this.subtitle,
-    required this.icon,
+    required this.iconAsset,
     required this.sections,
     this.updated,
   });
@@ -26,7 +26,7 @@ class LegalDocument {
 
   /// Вторая строка в списке — она же объясняет, зачем сюда заходить.
   final String subtitle;
-  final IconData icon;
+  final String iconAsset;
   final String? updated;
   final List<LegalSection> sections;
 }
@@ -45,7 +45,7 @@ const legalDocuments = <LegalDocument>[
     id: 'terms',
     title: 'Пользовательское соглашение',
     subtitle: 'Условия использования приложения',
-    icon: Icons.verified_user_outlined,
+    iconAsset: AppIconography.settingsLegalTerms,
     updated: _updated,
     sections: [
       LegalSection(
@@ -120,7 +120,7 @@ const legalDocuments = <LegalDocument>[
     id: 'privacy',
     title: 'Политика конфиденциальности',
     subtitle: 'Как мы храним и защищаем ваши данные',
-    icon: Icons.lock_outline_rounded,
+    iconAsset: AppIconography.settingsLegalPrivacy,
     updated: _updated,
     sections: [
       LegalSection(
@@ -185,7 +185,7 @@ const legalDocuments = <LegalDocument>[
     id: 'personal-data',
     title: 'Обработка персональных данных',
     subtitle: '152-ФЗ «О персональных данных»',
-    icon: Icons.how_to_reg_outlined,
+    iconAsset: AppIconography.settingsLegalPersonalData,
     updated: _updated,
     sections: [
       LegalSection(
@@ -234,7 +234,7 @@ const legalDocuments = <LegalDocument>[
     id: 'moderation',
     title: 'Правила модерации контента',
     subtitle: 'Требования к пользовательским маршрутам',
-    icon: Icons.shield_outlined,
+    iconAsset: AppIconography.settingsLegalModeration,
     updated: _updated,
     sections: [
       LegalSection(
@@ -290,7 +290,7 @@ const legalDocuments = <LegalDocument>[
     id: 'refunds',
     title: 'Политика возврата средств',
     subtitle: 'Условия возврата при оплате Тревел+',
-    icon: Icons.account_balance_wallet_outlined,
+    iconAsset: AppIconography.settingsLegalRefunds,
     updated: _updated,
     sections: [
       LegalSection(
