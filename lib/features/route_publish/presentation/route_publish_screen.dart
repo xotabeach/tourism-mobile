@@ -369,8 +369,8 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                           state: state,
                                           onStartNew: () =>
                                               _confirmStartNew(controller),
-                                          onOpenDrafts: () =>
-                                              _openDraftList(controller, state),
+                                          onOpenDrafts:
+                                              controller.openDraftsList,
                                         ),
                                       ],
                                       SizedBox(height: u(26)),
@@ -401,11 +401,27 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                   state.availableDraft != null)
                 Positioned.fill(
                   child: _DraftRecoveryOverlay(
-                    draft: state.availableDraft!,
-                    serverDrafts: state.serverDrafts,
+                    draft: state.availableDraft,
+                    serverDrafts: _otherDrafts(state, state.availableDraft),
                     busy: state.isOpeningDraft,
                     onContinue: controller.continueDraft,
                     onStartNew: controller.startNewDraft,
+                    onOpenServerDraft: controller.openServerDraft,
+                  ),
+                )
+              else if (_mode == RoutePublishMode.production &&
+                  state.draftsListOpen &&
+                  _otherDrafts(state, state.draft).isNotEmpty)
+                Positioned.fill(
+                  child: _DraftRecoveryOverlay(
+                    serverDrafts: _otherDrafts(state, state.draft),
+                    busy: state.isOpeningDraft,
+                    // An empty form: the choice is between a saved draft and
+                    // a new route. Mid-edit: only a way back to the form.
+                    closeLabel: state.draft.hasMeaningfulContent
+                        ? 'Закрыть'
+                        : 'Начать новый маршрут',
+                    onClose: controller.closeDraftsList,
                     onOpenServerDraft: controller.openServerDraft,
                   ),
                 ),
@@ -485,27 +501,17 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
     }
   }
 
-  Future<void> _openDraftList(
-    RoutePublishController controller,
+  /// Saved drafts other than the one [shown] (already on the form or
+  /// offered to continue), which would otherwise be listed twice.
+  static List<RouteSummary> _otherDrafts(
     RoutePublishState state,
-  ) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          child: _DraftList(
-            drafts: state.serverDrafts,
-            busy: state.isOpeningDraft,
-            onOpen: (id) {
-              Navigator.of(sheetContext).pop();
-              unawaited(controller.openServerDraft(id));
-            },
-          ),
-        ),
-      ),
-    );
+    RouteDraft? shown,
+  ) {
+    final id = shown?.serverId;
+    return [
+      for (final route in state.serverDrafts)
+        if (route.id != id) route,
+    ];
   }
 
   Future<void> _askConflict() async {
@@ -779,25 +785,34 @@ class _DraftStatusBar extends StatelessWidget {
   }
 }
 
+/// The window over the form that offers saved drafts: the one on this device
+/// to continue ([draft]), with the others behind a disclosure; or, without a
+/// local one, the list of saved drafts itself.
 class _DraftRecoveryOverlay extends StatefulWidget {
   const _DraftRecoveryOverlay({
-    required this.draft,
     required this.serverDrafts,
     required this.busy,
-    required this.onContinue,
-    required this.onStartNew,
     required this.onOpenServerDraft,
+    this.draft,
+    this.onContinue,
+    this.onStartNew,
+    this.onClose,
+    this.closeLabel = 'Закрыть',
   });
 
-  final RouteDraft draft;
+  final RouteDraft? draft;
 
   /// Other drafts the user has saved. Hidden behind a disclosure rather than
   /// listed up front: the local draft is what they were last working on, and
   /// that stays the one-tap answer.
   final List<RouteSummary> serverDrafts;
   final bool busy;
-  final VoidCallback onContinue;
-  final Future<void> Function() onStartNew;
+  final VoidCallback? onContinue;
+  final Future<void> Function()? onStartNew;
+
+  /// Without a local draft: closes the window and leaves the form as it is.
+  final VoidCallback? onClose;
+  final String closeLabel;
   final Future<void> Function(String routeId) onOpenServerDraft;
 
   @override
@@ -805,11 +820,9 @@ class _DraftRecoveryOverlay extends StatefulWidget {
 }
 
 class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
-  var _listOpen = false;
+  late var _listOpen = widget.draft == null;
 
-  RouteDraft get draft => widget.draft;
-
-  String get _updatedLabel {
+  String _updatedLabel(RouteDraft draft) {
     final value = draft.updatedAt?.toLocal();
     if (value == null) {
       return 'Сохранён на этом устройстве';
@@ -821,9 +834,19 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
 
   @override
   Widget build(BuildContext context) {
-    final title = draft.title.trim().isEmpty
+    final draft = widget.draft;
+    final count = widget.serverDrafts.length;
+    final heading = draft != null
+        ? 'У вас есть черновик'
+        : 'У вас есть черновики';
+    final title = draft == null
+        ? 'Выберите, какой продолжить'
+        : draft.title.trim().isEmpty
         ? 'Маршрут без названия'
         : draft.title.trim();
+    final detail = draft == null
+        ? '${_draftsCount(count)} на сервере'
+        : _updatedLabel(draft);
     return Material(
       color: Colors.transparent,
       child: Stack(
@@ -835,7 +858,9 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Semantics(
                 namesRoute: true,
-                label: 'Найден сохранённый черновик маршрута',
+                label: draft != null
+                    ? 'Найден сохранённый черновик маршрута'
+                    : 'Сохранённые черновики маршрутов',
                 child: Container(
                   key: const ValueKey('route-draft-choice'),
                   constraints: const BoxConstraints(maxWidth: 390),
@@ -863,7 +888,7 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'У вас есть черновик',
+                        heading,
                         textAlign: TextAlign.center,
                         style: PublishRouteDesignTokens.rubik(
                           fontSize: 21,
@@ -887,7 +912,7 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        _updatedLabel,
+                        detail,
                         textAlign: TextAlign.center,
                         style: PublishRouteDesignTokens.rubik(
                           fontSize: 13,
@@ -897,13 +922,22 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      _DraftChoiceButton(
-                        key: const ValueKey('route-draft-continue'),
-                        label: 'Продолжить',
-                        filled: true,
-                        onTap: widget.busy ? null : widget.onContinue,
-                      ),
-                      if (widget.serverDrafts.isNotEmpty) ...[
+                      if (draft == null)
+                        _DraftList(
+                          drafts: widget.serverDrafts,
+                          busy: widget.busy,
+                          onOpen: (id) =>
+                              unawaited(widget.onOpenServerDraft(id)),
+                        )
+                      else ...[
+                        _DraftChoiceButton(
+                          key: const ValueKey('route-draft-continue'),
+                          label: 'Продолжить',
+                          filled: true,
+                          onTap: widget.busy ? null : widget.onContinue,
+                        ),
+                      ],
+                      if (draft != null && widget.serverDrafts.isNotEmpty) ...[
                         const SizedBox(height: 9),
                         _DraftChoiceButton(
                           key: const ValueKey('route-draft-open-list'),
@@ -933,14 +967,22 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
                         ),
                       ],
                       const SizedBox(height: 9),
-                      _DraftChoiceButton(
-                        key: const ValueKey('route-draft-start-new'),
-                        label: 'Начать заново',
-                        filled: false,
-                        onTap: widget.busy
-                            ? null
-                            : () => unawaited(widget.onStartNew()),
-                      ),
+                      if (widget.onStartNew case final startNew?)
+                        _DraftChoiceButton(
+                          key: const ValueKey('route-draft-start-new'),
+                          label: 'Начать заново',
+                          filled: false,
+                          onTap: widget.busy
+                              ? null
+                              : () => unawaited(startNew()),
+                        )
+                      else
+                        _DraftChoiceButton(
+                          key: const ValueKey('route-draft-close'),
+                          label: widget.closeLabel,
+                          filled: false,
+                          onTap: widget.busy ? null : widget.onClose,
+                        ),
                     ],
                   ),
                 ),
@@ -951,6 +993,17 @@ class _DraftRecoveryOverlayState extends State<_DraftRecoveryOverlay> {
       ),
     );
   }
+}
+
+String _draftsCount(int count) {
+  final mod10 = count % 10;
+  final mod100 = count % 100;
+  final word = mod10 == 1 && mod100 != 11
+      ? 'черновик'
+      : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)
+      ? 'черновика'
+      : 'черновиков';
+  return '$count $word';
 }
 
 /// Scrollable, height-capped list of saved drafts.
@@ -998,9 +1051,13 @@ class _DraftList extends StatelessWidget {
               final title = draft.name.trim().isEmpty
                   ? 'Маршрут без названия'
                   : draft.name.trim();
+              final byAssistant = draft.source == 'generated';
               return Semantics(
                 button: true,
-                label: 'Открыть черновик: $title',
+                label: byAssistant
+                    ? 'Открыть черновик: $title, собран ИИ-помощником'
+                    : 'Открыть черновик: $title',
+                excludeSemantics: true,
                 child: InkWell(
                   onTap: busy ? null : () => onOpen(draft.id),
                   child: Padding(
@@ -1011,16 +1068,25 @@ class _DraftList extends StatelessWidget {
                     child: Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: PublishRouteDesignTokens.rubik(
-                              fontSize: 15,
-                              weight: FontWeight.w500,
-                              color: PublishRouteDesignTokens.dark,
-                              height: 1.2,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: PublishRouteDesignTokens.rubik(
+                                  fontSize: 15,
+                                  weight: FontWeight.w500,
+                                  color: PublishRouteDesignTokens.dark,
+                                  height: 1.2,
+                                ),
+                              ),
+                              if (byAssistant) ...[
+                                const SizedBox(height: 6),
+                                const _AssistantDraftBadge(),
+                              ],
+                            ],
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1037,6 +1103,44 @@ class _DraftList extends StatelessWidget {
             },
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Marks a draft the AI assistant put together in the chat, so it is not
+/// mistaken for one the person wrote («Крым · Природа» looked like a stranger's).
+class _AssistantDraftBadge extends StatelessWidget {
+  const _AssistantDraftBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('route-draft-assistant-badge'),
+      padding: const EdgeInsets.fromLTRB(7, 3, 9, 3),
+      decoration: BoxDecoration(
+        color: PublishRouteDesignTokens.selectedLightBlue,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.auto_awesome_rounded,
+            size: 13,
+            color: PublishRouteDesignTokens.primaryBlue,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'ИИ-помощник',
+            style: PublishRouteDesignTokens.rubik(
+              fontSize: 12,
+              weight: FontWeight.w500,
+              color: PublishRouteDesignTokens.primaryBlue,
+              height: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -11,6 +11,7 @@ import 'package:tourism_mobile/features/route_publish/data/route_media_picker.da
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
 import 'package:tourism_mobile/features/routes/data/mock_routes_repository.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 
 const _delay = Duration(milliseconds: 30);
 const _wait = Duration(milliseconds: 120);
@@ -154,11 +155,32 @@ final class _Picker implements RouteMediaPicker {
   }) async => const [];
 }
 
+final class _MyRoutes extends MockRoutesRepository {
+  _MyRoutes(this.drafts);
+
+  final List<RouteSummary> drafts;
+
+  @override
+  Future<RouteListPage> listMyRoutes() async =>
+      RouteListPage(items: drafts, total: drafts.length, limit: 100, offset: 0);
+}
+
+RouteSummary _serverDraft(String id, {String? source}) => RouteSummary(
+  id: id,
+  name: 'Черновик $id',
+  slug: id,
+  shortDescription: '',
+  stopsCount: 2,
+  source: source,
+  publicationStatus: 'draft',
+);
+
 class _Rig {
   _Rig({
     RouteDraft? stored,
     String? userId = 'user-1',
     bool editingExisting = false,
+    List<RouteSummary> serverDrafts = const [],
   }) : drafts = _Drafts()..value = stored,
        publication = _Publication(),
        store = _Store() {
@@ -179,7 +201,7 @@ class _Rig {
       mediaStore: store,
       publication: publication,
       sync: sync,
-      routes: MockRoutesRepository(),
+      routes: _MyRoutes(serverDrafts),
     );
   }
 
@@ -425,10 +447,59 @@ void main() {
       addTearDown(rig.controller.dispose);
       await rig.ready();
 
+      expect(rig.controller.state.availableDraft?.title, 'Старый черновик');
+      rig.controller.continueDraft();
       expect(rig.controller.state.draft.title, 'Старый черновик');
       expect(rig.controller.state.draft.ownerUserId, 'user-1');
     },
   );
+
+  group('saved drafts on entry', () {
+    test('an empty form with drafts on the server offers them once', () async {
+      final rig = _Rig(serverDrafts: [_serverDraft('a'), _serverDraft('b')]);
+      addTearDown(rig.controller.dispose);
+      await rig.ready();
+
+      expect(rig.controller.state.availableDraft, isNull);
+      expect(rig.controller.state.draftsListOpen, isTrue);
+      expect(rig.controller.state.serverDrafts, hasLength(2));
+
+      rig.controller.closeDraftsList();
+      await rig.controller.startNewDraft();
+      expect(
+        rig.controller.state.draftsListOpen,
+        isFalse,
+        reason: 'reloading the list after starting over does not ask again',
+      );
+
+      rig.controller.openDraftsList();
+      expect(rig.controller.state.draftsListOpen, isTrue);
+    });
+
+    test('a local draft is offered in the window, not the list', () async {
+      final rig = _Rig(
+        stored: const RouteDraft(ownerUserId: 'user-1', title: 'Мой'),
+        serverDrafts: [_serverDraft('a')],
+      );
+      addTearDown(rig.controller.dispose);
+      await rig.ready();
+
+      expect(rig.controller.state.availableDraft?.title, 'Мой');
+      expect(rig.controller.state.draftsListOpen, isFalse);
+    });
+
+    test('from a route card the route opens straight away', () async {
+      final rig = _Rig(
+        stored: const RouteDraft(ownerUserId: 'user-1', title: 'Свой'),
+        editingExisting: true,
+      );
+      addTearDown(rig.controller.dispose);
+      await rig.ready();
+
+      expect(rig.controller.state.availableDraft, isNull);
+      expect(rig.controller.state.draft.title, 'Свой');
+    });
+  });
 
   group('a route already through review', () {
     RouteDraft live({bool unsynced = false}) => RouteDraft(

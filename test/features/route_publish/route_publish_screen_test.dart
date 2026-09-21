@@ -247,7 +247,7 @@ void main() {
   });
 
   test(
-    'controller restores at once and starting over keeps the server draft',
+    'controller offers the draft and starting over keeps the server draft',
     () async {
       final drafts = _MemoryDraftRepository()
         ..value = const RouteDraft(
@@ -274,10 +274,13 @@ void main() {
       addTearDown(controller.dispose);
       await Future<void>.delayed(Duration.zero);
 
-      // The draft is picked up at once, with a note, instead of asking.
-      expect(controller.state.availableDraft, isNull);
+      // Opening the form offers the draft in the window instead of dropping
+      // the author into it unasked.
+      expect(controller.state.availableDraft?.title, 'Сохранённый маршрут');
+      expect(controller.state.draft.title, isEmpty);
+      controller.continueDraft();
       expect(controller.state.draft.title, 'Сохранённый маршрут');
-      expect(controller.state.restoredNotice, isTrue);
+      expect(controller.state.availableDraft, isNull);
 
       await controller.startNewDraft();
 
