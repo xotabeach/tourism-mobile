@@ -302,11 +302,19 @@ class SettingsTopBar extends StatelessWidget {
     this.iconColor,
     this.glassButtons = false,
     this.title,
+    this.arrowBack = false,
+    this.onBack,
   });
 
   /// Replaces the «КРЫМТРИП» brand; the back button becomes a plain arrow,
   /// as the list screens are drawn in the design.
   final String? title;
+
+  /// The newer screens draw «←» instead of «‹» even with the brand.
+  final bool arrowBack;
+
+  /// Defaults to popping the route.
+  final VoidCallback? onBack;
   final bool showSave;
   final VoidCallback? onSave;
   final Color? brandColor;
@@ -322,10 +330,10 @@ class SettingsTopBar extends StatelessWidget {
       child: Row(
         children: [
           SettingsCircleIconButton(
-            icon: title == null
+            icon: title == null && !arrowBack
                 ? Icons.arrow_back_ios_new_rounded
                 : Icons.arrow_back_rounded,
-            onTap: () => context.pop(),
+            onTap: onBack ?? () => context.pop(),
             background: buttonColor ?? SettingsColors.circleButton,
             iconColor: iconColor ?? Colors.white,
             iconSize: 18,

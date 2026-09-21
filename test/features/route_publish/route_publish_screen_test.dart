@@ -29,14 +29,20 @@ void main() {
       platform: TargetPlatform.iOS,
     );
 
-    _expectRect(tester, 'route-media-carousel', 18, 130, 399, 214);
+    // The top bar from the design (back + brand) sits above the heading and
+    // moves everything below it down by 47 px.
+    expect(
+      find.byKey(const ValueKey('route-publish-top-bar')),
+      findsOneWidget,
+    );
+    _expectRect(tester, 'route-media-carousel', 18, 177, 399, 214);
     final firstPhoto = tester.getRect(find.byType(Image).first);
     expect(firstPhoto.left, moreOrLessEquals(18, epsilon: 1));
-    expect(firstPhoto.top, moreOrLessEquals(130, epsilon: 1));
+    expect(firstPhoto.top, moreOrLessEquals(177, epsilon: 1));
     expect(firstPhoto.width, moreOrLessEquals(162, epsilon: 1));
     expect(firstPhoto.height, moreOrLessEquals(214, epsilon: 1));
-    _expectRect(tester, 'route-add-media', 18, 358, 399, 89);
-    _expectRect(tester, 'route-title-field', 18, 503, 399, 41);
+    _expectRect(tester, 'route-add-media', 18, 405, 399, 89);
+    _expectRect(tester, 'route-title-field', 18, 550, 399, 41);
     final titleField = find.byKey(const ValueKey('route-title-field'));
     final titleEditable = find.descendant(
       of: titleField,
@@ -66,13 +72,13 @@ void main() {
       tester.getCenter(find.text('0/30')).dy,
       moreOrLessEquals(tester.getCenter(titleField).dy, epsilon: 1),
     );
-    _expectRect(tester, 'route-description-field', 18, 553, 399, 102);
-    _expectRect(tester, 'Стартовая точка-card', 18, 712, 399, 65);
-    _expectRect(tester, 'Финишная точка-card', 18, 834, 399, 65);
-    _expectRect(tester, 'route-map-preview', 18, 1163, 399, 320);
-    _expectRect(tester, 'route-pace-Спокойный', 18, 1691, 127, 80);
-    _expectRect(tester, 'route-action-Опубликовать маршрут', 18, 1889, 399, 62);
-    _expectRect(tester, 'route-action-Сохранить черновик', 18, 1959, 399, 63);
+    _expectRect(tester, 'route-description-field', 18, 600, 399, 102);
+    _expectRect(tester, 'Стартовая точка-card', 18, 759, 399, 65);
+    _expectRect(tester, 'Финишная точка-card', 18, 881, 399, 65);
+    _expectRect(tester, 'route-map-preview', 18, 1210, 399, 320);
+    _expectRect(tester, 'route-pace-Спокойный', 18, 1738, 127, 80);
+    _expectRect(tester, 'route-action-Опубликовать маршрут', 18, 1936, 399, 62);
+    _expectRect(tester, 'route-action-Сохранить черновик', 18, 2006, 399, 63);
     expect(tester.takeException(), isNull);
 
     // Font rasterization differs between macOS (where this baseline is

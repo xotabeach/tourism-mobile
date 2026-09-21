@@ -24,6 +24,8 @@ import 'package:tourism_mobile/features/route_publish/presentation/route_place_p
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 class RoutePublishScreen extends ConsumerStatefulWidget {
   const RoutePublishScreen({
@@ -200,7 +202,22 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      SizedBox(height: u(27)),
+                                      SizedBox(height: u(8)),
+                                      // Top bar from the design: the screen
+                                      // is a shell tab, so «back» leaves to
+                                      // Home when there is nothing to pop.
+                                      SettingsTopBar(
+                                        key: const ValueKey(
+                                          'route-publish-top-bar',
+                                        ),
+                                        arrowBack: true,
+                                        onBack: () => context.canPop()
+                                            ? context.pop()
+                                            : context.goNamed(
+                                                AppRouteNames.home,
+                                              ),
+                                      ),
+                                      SizedBox(height: u(20)),
                                       _FixedText(
                                         height: u(29),
                                         text: 'Опубликовать маршрут:',
