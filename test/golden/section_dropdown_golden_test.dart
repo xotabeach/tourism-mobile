@@ -135,7 +135,10 @@ Future<void> _pump(
 
 Future<void> _loadGoldenFonts() async {
   final loader = FontLoader('Rubik')
-    ..addFont(rootBundle.load('assets/fonts/Rubik-VariableFont_wght.ttf'));
+    ..addFont(rootBundle.load('assets/fonts/Rubik-Regular.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Rubik-Medium.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Rubik-SemiBold.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Rubik-Bold.ttf'));
   await loader.load();
 
   final materialIcons = File(

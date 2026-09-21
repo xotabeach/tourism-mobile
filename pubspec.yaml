@@ -60,6 +60,15 @@ flutter:
     - assets/icons/raster/accent/
     - assets/icons/app/
   fonts:
+    # Static cuts, not the variable file: with the variable one Flutter drew
+    # 500, 600 and 700 all as the same synthetic bold (FRONTEND-33).
     - family: Rubik
       fonts:
-        - asset: assets/fonts/Rubik-VariableFont_wght.ttf
+        - asset: assets/fonts/Rubik-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Rubik-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Rubik-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Rubik-Bold.ttf
+          weight: 700

@@ -33,9 +33,11 @@ class _HelpRepository implements HelpRepository {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() async {
-    await (FontLoader(
-          'Rubik',
-        )..addFont(rootBundle.load('assets/fonts/Rubik-VariableFont_wght.ttf')))
+    await (FontLoader('Rubik')
+          ..addFont(rootBundle.load('assets/fonts/Rubik-Regular.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Rubik-Medium.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Rubik-SemiBold.ttf'))
+          ..addFont(rootBundle.load('assets/fonts/Rubik-Bold.ttf')))
         .load();
     var sdk = File(Platform.resolvedExecutable).parent;
     while (!File('${sdk.path}/bin/flutter').existsSync()) {
