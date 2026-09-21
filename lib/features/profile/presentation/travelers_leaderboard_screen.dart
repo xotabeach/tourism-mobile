@@ -113,7 +113,7 @@ class _LeaderboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final podiumColor = _podium[place];
+    final podiumColor = traveler.isExpert ? null : _podium[place];
     final borderColor = podiumColor ?? AppColors.hairline;
     final avatar = AppImages.imageProvider(
       resolvedUrl: AppImages.resolveMediaUrl(config, traveler.avatarUrl),
@@ -150,22 +150,42 @@ class _LeaderboardCard extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Column(
                 children: [
-                  Row(
-                    children: [
-                      _PlacePill(
-                        place: safePlace,
-                        isCurrentUser: isCurrentUser,
-                        outline: podiumColor,
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: _PointsPill(
-                          points: traveler.travelPoints,
-                          nextRankPoints: traveler.nextRankPoints,
+                  // Experts are outside the points rating: no place and no
+                  // points, or their own card would claim a «Топ 1» that
+                  // belongs to someone else.
+                  if (traveler.isExpert)
+                    SizedBox(
+                      height: 30,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Эксперты не участвуют в рейтинге',
+                          key: const ValueKey('leaderboard-expert-note'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.settingsRowSubtitle.copyWith(
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ],
-                  ),
+                    )
+                  else
+                    Row(
+                      children: [
+                        _PlacePill(
+                          place: safePlace,
+                          isCurrentUser: isCurrentUser,
+                          outline: podiumColor,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: _PointsPill(
+                            points: traveler.travelPoints,
+                            nextRankPoints: traveler.nextRankPoints,
+                          ),
+                        ),
+                      ],
+                    ),
                   const SizedBox(height: 8),
                   const Divider(height: 1, thickness: 1),
                   const SizedBox(height: 8),
