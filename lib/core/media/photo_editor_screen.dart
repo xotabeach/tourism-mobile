@@ -4,9 +4,9 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/media/photo_crop_geometry.dart';
 
 /// What the crop window is shaped for.
@@ -266,9 +266,11 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
     } on Object {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(
+      showAppNotice(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Не удалось обрезать фото')));
+        'Не удалось обрезать фото',
+        kind: AppNoticeKind.error,
+      );
     }
   }
 
