@@ -164,7 +164,10 @@ Future<void> _pumpReferenceFrame(
 
 Future<void> _loadFonts() async {
   final rubik = FontLoader('Rubik')
-    ..addFont(rootBundle.load('assets/fonts/Rubik-VariableFont_wght.ttf'));
+    ..addFont(rootBundle.load('assets/fonts/Rubik-Regular.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Rubik-Medium.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Rubik-SemiBold.ttf'))
+    ..addFont(rootBundle.load('assets/fonts/Rubik-Bold.ttf'));
   await rubik.load();
 
   final materialIcons = File(
