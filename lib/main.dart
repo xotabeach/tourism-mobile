@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
@@ -12,6 +13,9 @@ import 'package:tourism_mobile/features/settings/application/motion_preference.d
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Portrait only; the manifest and Info.plist say the same so nothing turns
+  // before Flutter starts.
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await LiquidGlassWidgets.initialize();
   AppPerf.configureImageCache();
   await MotionPreferenceController.preload();
