@@ -140,6 +140,35 @@ void main() {
     );
   });
 
+  test('a slow answer is told apart from no connection', () async {
+    await expectLater(
+      guardApiCall<void>(
+        () => throw DioException.receiveTimeout(
+          timeout: const Duration(seconds: 1),
+          requestOptions: RequestOptions(path: '/upload'),
+        ),
+      ),
+      throwsA(
+        isA<NetworkFailure>().having(
+          (failure) => failure.code,
+          'code',
+          NetworkFailure.timeoutCode,
+        ),
+      ),
+    );
+    await expectLater(
+      guardApiCall<void>(
+        () => throw DioException.connectionError(
+          reason: 'no route to host',
+          requestOptions: RequestOptions(path: '/upload'),
+        ),
+      ),
+      throwsA(
+        isA<NetworkFailure>().having((failure) => failure.code, 'code', null),
+      ),
+    );
+  });
+
   test('decoding errors map to a generic unexpected failure', () async {
     await expectLater(
       guardApiCall<void>(() => throw const FormatException('secret payload')),

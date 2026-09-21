@@ -19,6 +19,10 @@ abstract interface class RouteMediaPicker {
   });
 }
 
+/// The server keeps route photos at 2560 px on the long side; picking them
+/// larger only made the upload several times heavier on a mobile network.
+const _maxPhotoEdge = 2560.0;
+
 final class ImagePickerRouteMediaPicker implements RouteMediaPicker {
   ImagePickerRouteMediaPicker(this._picker);
 
@@ -33,16 +37,16 @@ final class ImagePickerRouteMediaPicker implements RouteMediaPicker {
         kind = RouteMediaKind.image;
         file = await _picker.pickImage(
           source: ImageSource.gallery,
-          maxWidth: 4096,
-          maxHeight: 4096,
+          maxWidth: _maxPhotoEdge,
+          maxHeight: _maxPhotoEdge,
           imageQuality: 90,
         );
       case RouteMediaSource.cameraImage:
         kind = RouteMediaKind.image;
         file = await _picker.pickImage(
           source: ImageSource.camera,
-          maxWidth: 4096,
-          maxHeight: 4096,
+          maxWidth: _maxPhotoEdge,
+          maxHeight: _maxPhotoEdge,
           imageQuality: 90,
         );
       case RouteMediaSource.galleryVideo:
@@ -79,8 +83,8 @@ final class ImagePickerRouteMediaPicker implements RouteMediaPicker {
     }
     final files = await _picker.pickMultiImage(
       limit: limit,
-      maxWidth: 4096,
-      maxHeight: 4096,
+      maxWidth: _maxPhotoEdge,
+      maxHeight: _maxPhotoEdge,
       imageQuality: 90,
     );
     final items = <RouteMediaItem>[];

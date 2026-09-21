@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/core/errors/app_failure.dart';
@@ -171,6 +173,7 @@ class _Rig {
       userId: userId,
       editingExisting: editingExisting,
       autosaveDelay: _delay,
+      sendRetryDelay: const Duration(milliseconds: 60),
       drafts: drafts,
       mediaPicker: _Picker(),
       mediaStore: store,
@@ -282,6 +285,71 @@ void main() {
     expect(rig.drafts.value?.serverId, 'route-1');
     expect(rig.drafts.value?.unsynced, isFalse);
     expect(rig.drafts.value?.serverUpdatedAt, isNotNull);
+  });
+
+  group('a failed send says why and is tried again', () {
+    for (final (failure, status) in [
+      (const NetworkFailure(), DraftSaveStatus.offline),
+      (
+        const NetworkFailure('timed out', NetworkFailure.timeoutCode),
+        DraftSaveStatus.timedOut,
+      ),
+      (const UnexpectedFailure('boom'), DraftSaveStatus.sendFailed),
+    ]) {
+      test('${failure.runtimeType} ${failure.code}', () async {
+        final rig = _Rig();
+        addTearDown(rig.controller.dispose);
+        await rig.ready();
+        rig.complete();
+        rig.publication.failure = failure;
+
+        await rig.controller.flush();
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        expect(rig.controller.state.saveStatus, status);
+
+        // The server is back: the retry goes out on its own.
+        rig.publication.failure = null;
+        await Future<void>.delayed(_wait * 2);
+        expect(rig.publication.sent.length, greaterThanOrEqualTo(2));
+        expect(rig.controller.state.saveStatus, DraftSaveStatus.synced);
+      });
+    }
+  });
+
+  test('a send with photos counts them as they go', () async {
+    final rig = _Rig();
+    addTearDown(rig.controller.dispose);
+    await rig.ready();
+    rig.complete();
+    rig.publication
+      ..slow = const Duration(milliseconds: 60)
+      ..uploadPhotos = true;
+    rig.controller.state = rig.controller.state.copyWith(
+      draft: rig.controller.state.draft.copyWith(
+        media: const [
+          RouteMediaItem(
+            id: 'm1',
+            path: '/x/a.jpg',
+            kind: RouteMediaKind.image,
+          ),
+          RouteMediaItem(
+            id: 'm2',
+            path: '/x/b.jpg',
+            kind: RouteMediaKind.image,
+          ),
+        ],
+      ),
+    );
+
+    unawaited(rig.controller.flush());
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(rig.controller.state.saveStatus, DraftSaveStatus.syncing);
+    expect(rig.controller.state.uploadsTotal, 2);
+    expect(rig.controller.state.uploadsDone, 0);
+
+    await Future<void>.delayed(_wait);
+    expect(rig.controller.state.saveStatus, DraftSaveStatus.synced);
+    expect(rig.controller.state.uploadsTotal, 0);
   });
 
   test('an unchanged draft is not sent again', () async {

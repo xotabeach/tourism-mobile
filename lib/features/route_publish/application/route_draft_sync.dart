@@ -27,6 +27,10 @@ enum RouteDraftSyncOutcome {
   /// No connection. The draft stays marked unsent and is tried again later.
   offline,
 
+  /// The server did not answer in time (a slow upload, a busy server): not
+  /// the same as having no connection. Kept unsent and tried again later.
+  timedOut,
+
   /// The server refused for good until the places change.
   blockedPlaces,
 
@@ -251,8 +255,10 @@ class RouteDraftSyncService {
       }
       await _recordSaved(snapshot, receipt, generation);
       return RouteDraftSyncOutcome.synced;
-    } on NetworkFailure {
-      return RouteDraftSyncOutcome.offline;
+    } on NetworkFailure catch (error) {
+      return error.code == NetworkFailure.timeoutCode
+          ? RouteDraftSyncOutcome.timedOut
+          : RouteDraftSyncOutcome.offline;
     } on AppFailure catch (error) {
       if (generation != _generation) {
         return RouteDraftSyncOutcome.notOwner;
