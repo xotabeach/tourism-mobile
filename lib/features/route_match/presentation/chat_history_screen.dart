@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/features/route_match/application/route_match_providers.dart';
@@ -27,7 +28,7 @@ String chatSessionLabel(RoutePlanningSession session) {
     routeMatchDurationLabel(c.duration),
     if (c.interests.isNotEmpty) c.interests.first,
   ];
-  return parts.join(' · ');
+  return parts.join(' • ');
 }
 
 const _months = [
@@ -65,8 +66,11 @@ class ChatHistoryScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sessionsAsync = ref.watch(chatSessionsProvider);
 
+    final total = sessionsAsync.valueOrNull?.total;
     return SettingsScaffold(
-      title: 'История чатов с ИИ',
+      barTitle: total == null
+          ? 'Истории чатов с ИИ'
+          : 'Истории чатов с ИИ ($total)',
       children: [
         sessionsAsync.when(
           skipLoadingOnReload: true,
@@ -136,7 +140,7 @@ class _ChatSessionTile extends StatelessWidget {
         ? (session.status == 'closed' ? 'Завершён' : 'Активен')
         : _formatSessionDate(when.toLocal());
     return SettingsNavTile(
-      icon: Icons.forum_outlined,
+      iconAsset: AppIconography.settingsChatLine,
       title: chatSessionLabel(session),
       subtitle: subtitle,
       onTap: onTap,

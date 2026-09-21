@@ -61,6 +61,9 @@ abstract final class AppIconography {
   /// История чатов с ИИ — иконка от дизайнера (chat_story.svg, 2026-09-04).
   static const String settingsChatHistory = '$_root/settings_chat_history.png';
 
+  /// One past AI chat in «Истории чатов с ИИ» (solar chat-line, 2026-09-21).
+  static const String settingsChatLine = '$_root/settings_chat_line.png';
+
   // Settings — notifications
   static const String settingsPush = '$_root/settings_push.png';
   static const String settingsSms = '$_root/settings_sms.png';
@@ -98,6 +101,7 @@ abstract final class AppIconography {
     settingsChangePhone,
     settingsChangePreferences,
     settingsChat,
+    settingsChatLine,
     settingsPush,
     settingsSms,
     settingsVibro,

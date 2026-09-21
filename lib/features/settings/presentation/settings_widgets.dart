@@ -142,9 +142,15 @@ class SettingsScaffold extends StatelessWidget {
     this.spaceChildren = true,
     this.pinTopBar = false,
     this.extraBottomSpace = 0,
+    this.barTitle,
   });
 
   final String? title;
+
+  /// List screens in the newer design («Истории чатов с ИИ (5)», «Подписчики
+  /// Никиты (29)») put a short title in the top bar instead of the brand and
+  /// a big heading. Use either this or [title].
+  final String? barTitle;
   final String? subtitle;
   final List<Widget> children;
   final bool showSave;
@@ -184,6 +190,7 @@ class SettingsScaffold extends StatelessWidget {
                     SettingsTopBar(
                       showSave: showSave,
                       onSave: onSave ?? () => context.pop(),
+                      title: barTitle,
                     ),
                   if (headerOverlay != null) ...[
                     const SizedBox(height: 16),
@@ -255,6 +262,7 @@ class SettingsScaffold extends StatelessWidget {
                     child: SettingsTopBar(
                       showSave: showSave,
                       onSave: onSave ?? () => context.pop(),
+                      title: barTitle,
                     ),
                   ),
                 ),
@@ -293,8 +301,12 @@ class SettingsTopBar extends StatelessWidget {
     this.buttonColor,
     this.iconColor,
     this.glassButtons = false,
+    this.title,
   });
 
+  /// Replaces the «КРЫМТРИП» brand; the back button becomes a plain arrow,
+  /// as the list screens are drawn in the design.
+  final String? title;
   final bool showSave;
   final VoidCallback? onSave;
   final Color? brandColor;
@@ -310,7 +322,9 @@ class SettingsTopBar extends StatelessWidget {
       child: Row(
         children: [
           SettingsCircleIconButton(
-            icon: Icons.arrow_back_ios_new_rounded,
+            icon: title == null
+                ? Icons.arrow_back_ios_new_rounded
+                : Icons.arrow_back_rounded,
             onTap: () => context.pop(),
             background: buttonColor ?? SettingsColors.circleButton,
             iconColor: iconColor ?? Colors.white,
@@ -319,11 +333,21 @@ class SettingsTopBar extends StatelessWidget {
             glass: glassButtons,
           ),
           Expanded(
-            child: Text(
-              'КРЫМТРИП',
-              textAlign: TextAlign.center,
-              style: AppTypography.settingsBrand.copyWith(color: brand),
-            ),
+            child: title == null
+                ? Text(
+                    'КРЫМТРИП',
+                    textAlign: TextAlign.center,
+                    style: AppTypography.settingsBrand.copyWith(color: brand),
+                  )
+                : Text(
+                    title!,
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppTypography.settingsRowTitle.copyWith(
+                      fontSize: 15,
+                    ),
+                  ),
           ),
           if (showSave)
             SettingsCircleIconButton(

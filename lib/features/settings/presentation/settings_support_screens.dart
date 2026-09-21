@@ -217,13 +217,18 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
       title: '${item.title}:',
       spaceChildren: false,
       children: [
+        // The scaffold lays children out from the start edge, so without a
+        // full width a short question shrank to its text instead of spanning
+        // the grid like the answer below it.
         DecoratedBox(
+          key: const ValueKey('faq-question-card'),
           decoration: BoxDecoration(
             color: AppColors.elevatedSurface,
             borderRadius: BorderRadius.circular(AppRadii.settingsTile),
             boxShadow: AppShadows.settingsTile,
           ),
-          child: Padding(
+          child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -247,12 +252,14 @@ class SettingsFaqAnswerScreen extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         DecoratedBox(
+          key: const ValueKey('faq-answer-card'),
           decoration: BoxDecoration(
             color: AppColors.elevatedSurface,
             borderRadius: BorderRadius.circular(AppRadii.settingsTile),
             boxShadow: AppShadows.settingsTile,
           ),
-          child: Padding(
+          child: Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
