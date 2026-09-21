@@ -3,15 +3,20 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
 
-/// The four backdrops of the preloader (night → dusk → sunrise → day). The
-/// final «day» frame is also the welcome screen's background.
-abstract final class SplashFrames {
-  static const night = AssetImage('assets/splash/bg_1_night.jpg');
-  static const dusk = AssetImage('assets/splash/bg_2_dusk.jpg');
-  static const sunrise = AssetImage('assets/splash/bg_3_sunrise.jpg');
-  static const day = AssetImage('assets/splash/bg_4_day.jpg');
+import 'package:tourism_mobile/core/startup/splash_scene_layout.dart';
 
-  static const all = <ImageProvider>[night, dusk, sunrise, day];
+/// Assets of the preloader scene. The scene is built from the designer's
+/// layers (one consistent picture); the day part of it is also flattened into
+/// [day] for the welcome screen and for reduce-motion.
+abstract final class SplashFrames {
+  /// The finished day scene without the logo.
+  static const day = AssetImage('assets/splash/scene_day.jpg');
+
+  /// The day sky: a smooth gradient, shipped as a thin strip.
+  static const skyDay = AssetImage('assets/splash/scene/sky_day.png');
+
+  static AssetImage layer(String name) =>
+      AssetImage('assets/splash/scene/$name.png');
 
   static ImageStream? _dayStream;
   static ImageStreamListener? _dayListener;
@@ -79,5 +84,43 @@ class LoadedFrame {
     );
     stream.addListener(listener);
     return completer.future;
+  }
+}
+
+/// All scene layers decoded, or null if any failed (then the gate falls back
+/// to the flattened [SplashFrames.day] picture).
+class LoadedScene {
+  LoadedScene._(this.sky, this.layers);
+
+  final LoadedFrame sky;
+
+  /// Same order as [splashSceneLayers].
+  final List<LoadedFrame> layers;
+
+  static Future<LoadedScene?> load() async {
+    final loaded = await Future.wait([
+      LoadedFrame.load(SplashFrames.skyDay),
+      for (final layer in splashSceneLayers)
+        LoadedFrame.load(SplashFrames.layer(layer.name)),
+    ]);
+    if (loaded.any((frame) => frame == null)) {
+      for (final frame in loaded) {
+        frame?.dispose();
+      }
+      return null;
+    }
+    final frames = loaded.cast<LoadedFrame>();
+    return LoadedScene._(frames.first, frames.sublist(1));
+  }
+
+  void dispose() {
+    sky.dispose();
+    for (final layer in layers) {
+      layer.dispose();
+    }
+    for (final layer in splashSceneLayers) {
+      PaintingBinding.instance.imageCache.evict(SplashFrames.layer(layer.name));
+    }
+    PaintingBinding.instance.imageCache.evict(SplashFrames.skyDay);
   }
 }

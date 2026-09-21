@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/startup/krymtrip_logo.dart';
 import 'package:tourism_mobile/core/startup/splash_frames.dart';
+import 'package:tourism_mobile/core/startup/splash_scene_layout.dart';
 import 'package:tourism_mobile/core/startup/startup_config.dart';
 import 'package:tourism_mobile/core/startup/startup_readiness.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -47,7 +48,15 @@ class _StartupGateState extends ConsumerState<StartupGate>
   final _progress = ValueNotifier<double>(0);
   final _frameTick = ValueNotifier<int>(0);
   final _hint = ValueNotifier<bool>(false);
-  final _frames = List<LoadedFrame?>.filled(4, null);
+  LoadedScene? _scene;
+
+  /// The flattened day picture: reduce-motion shows only this, and it is the
+  /// fallback when a layer fails to load.
+  LoadedFrame? _dayFrame;
+
+  /// Completes once the drawn scene has reached full daylight, so the gate
+  /// never fades out onto Welcome from a darker frame.
+  final _reachedDay = Completer<void>();
 
   Ticker? _ticker;
   double _milestone = 0;
@@ -77,21 +86,17 @@ class _StartupGateState extends ConsumerState<StartupGate>
     SplashFrames.keepDayAlive();
     if (_reduceMotion) {
       _progress.value = 1;
-    } else {
-      final ticker = createTicker(_onTick);
-      _ticker = ticker;
-      unawaited(ticker.start());
+      _reachedDay.complete();
     }
-    unawaited(_loadFrames());
+    unawaited(_loadScene());
     unawaited(_run());
   }
 
   @override
   void dispose() {
     _ticker?.dispose();
-    for (final frame in _frames) {
-      frame?.dispose();
-    }
+    _scene?.dispose();
+    _dayFrame?.dispose();
     _progress.dispose();
     _frameTick.dispose();
     _hint.dispose();
@@ -108,21 +113,44 @@ class _StartupGateState extends ConsumerState<StartupGate>
     final next =
         _progress.value + (target - _progress.value) * (1 - math.exp(-dt * 7));
     _progress.value = next.clamp(0.0, 1.0);
+    if (_progress.value >= 0.998 && !_reachedDay.isCompleted) {
+      _progress.value = 1;
+      _reachedDay.complete();
+    }
   }
 
-  /// Night first (the native launch screen already shows the same colour),
-  /// then the rest in order; one decode at a time keeps the first frames free.
-  Future<void> _loadFrames() async {
-    final order = _reduceMotion ? const [3] : const [0, 3, 1, 2];
-    for (final index in order) {
-      final frame = await LoadedFrame.load(SplashFrames.all[index]);
-      if (!mounted) {
-        frame?.dispose();
-        return;
-      }
-      _frames[index] = frame;
-      _frameTick.value++;
+  /// The day picture first (the fallback, and all reduce-motion needs), then
+  /// the layers. The sunrise starts only once every layer is decoded, so no
+  /// layer can pop in half-way; until then the night sky and the logo show,
+  /// which is what the native launch screen already looks like.
+  Future<void> _loadScene() async {
+    final day = await LoadedFrame.load(SplashFrames.day);
+    if (!mounted) {
+      day?.dispose();
+      return;
     }
+    _dayFrame = day;
+    _frameTick.value++;
+    if (_reduceMotion) {
+      return;
+    }
+    final scene = await LoadedScene.load();
+    if (!mounted) {
+      scene?.dispose();
+      return;
+    }
+    if (scene == null) {
+      // Show the day picture straight away rather than a broken sunrise.
+      _progress.value = 1;
+      if (!_reachedDay.isCompleted) _reachedDay.complete();
+      _frameTick.value++;
+      return;
+    }
+    _scene = scene;
+    _frameTick.value++;
+    final ticker = createTicker(_onTick);
+    _ticker = ticker;
+    unawaited(ticker.start());
   }
 
   StartupDeps _deps() {
@@ -189,9 +217,19 @@ class _StartupGateState extends ConsumerState<StartupGate>
       onSlowHint: (visible) => _hint.value = visible,
     );
     await minimum;
+    // Let a running sunrise finish (it eases in), so the gate never fades
+    // onto Welcome from a darker frame. If the layers are not even decoded
+    // yet there is nothing to finish: the day picture is shown instead.
+    if (_ticker != null && !_reachedDay.isCompleted) {
+      final cutoff = Completer<void>();
+      final timer = Timer(const Duration(milliseconds: 1500), cutoff.complete);
+      await Future.any<void>([_reachedDay.future, cutoff.future]);
+      timer.cancel();
+    }
     if (!mounted) {
       return;
     }
+    _progress.value = 1;
     await _waitForRouter(result.authenticated);
     if (!mounted) {
       return;
@@ -243,14 +281,9 @@ class _StartupGateState extends ConsumerState<StartupGate>
       return;
     }
     _ticker?.stop();
-    // Everything but «day» goes: it is held for Welcome, the rest is ~19 MB.
-    for (var i = 0; i < _frames.length; i++) {
-      if (i != 3) {
-        _frames[i]?.dispose();
-        _frames[i] = null;
-        PaintingBinding.instance.imageCache.evict(SplashFrames.all[i]);
-      }
-    }
+    // The layers (~11 MB decoded) go; «day» stays held for Welcome.
+    _scene?.dispose();
+    _scene = null;
     // Riverpod forbids changing a provider while the tree builds.
     unawaited(
       Future<void>.microtask(() {
@@ -292,7 +325,8 @@ class _StartupGateState extends ConsumerState<StartupGate>
                   progress: _progress,
                   frameTick: _frameTick,
                   hint: _hint,
-                  frames: _frames,
+                  scene: () => _scene,
+                  dayFrame: () => _dayFrame,
                   zoom: !AppPerf.preferCheapEffects && !_reduceMotion,
                 ),
               ),
@@ -308,14 +342,16 @@ class _GateView extends StatelessWidget {
     required this.progress,
     required this.frameTick,
     required this.hint,
-    required this.frames,
+    required this.scene,
+    required this.dayFrame,
     required this.zoom,
   });
 
   final ValueNotifier<double> progress;
   final ValueNotifier<int> frameTick;
   final ValueNotifier<bool> hint;
-  final List<LoadedFrame?> frames;
+  final LoadedScene? Function() scene;
+  final LoadedFrame? Function() dayFrame;
   final bool zoom;
 
   @override
@@ -334,10 +370,11 @@ class _GateView extends StatelessWidget {
               children: [
                 RepaintBoundary(
                   child: CustomPaint(
-                    painter: _BackdropPainter(
+                    painter: _ScenePainter(
                       progress: progress,
                       frameTick: frameTick,
-                      frames: frames,
+                      scene: scene,
+                      dayFrame: dayFrame,
                       zoom: zoom,
                     ),
                   ),
@@ -365,72 +402,305 @@ class _GateView extends StatelessWidget {
   }
 }
 
-/// Draws the four backdrops as a chain of cross-fades. Everything is painted
-/// straight to the canvas with a per-image alpha: no widget rebuilds and no
-/// full-screen `saveLayer`, which is what makes this cheap on Mali GPUs.
-class _BackdropPainter extends CustomPainter {
-  _BackdropPainter({
+/// Draws the preloader scene: one picture built from the designer's layers,
+/// lit from night to day. Nothing is cross-faded between different pictures
+/// (that is what made the first version jump): the geometry stays put, only
+/// the colour of the light changes, the sun rises from behind the horizon
+/// and the near layers settle by a few pixels for depth.
+///
+/// Everything is drawn straight to the canvas with per-image paint (colour
+/// matrix and alpha): no widget rebuilds and no full-screen `saveLayer`.
+class _ScenePainter extends CustomPainter {
+  _ScenePainter({
     required this.progress,
     required this.frameTick,
-    required this.frames,
+    required this.scene,
+    required this.dayFrame,
     required this.zoom,
   }) : super(repaint: Listenable.merge([progress, frameTick]));
 
   final ValueNotifier<double> progress;
   final ValueNotifier<int> frameTick;
-  final List<LoadedFrame?> frames;
+  final LoadedScene? Function() scene;
+  final LoadedFrame? Function() dayFrame;
   final bool zoom;
 
-  static double _smooth(double t) => t * t * (3 - 2 * t);
+  /// Same alignment as the welcome screen's backdrop, so the hand-over is
+  /// pixel for pixel.
+  static const _alignment = Alignment(-0.12, 0);
+
+  // Sky colours sampled from the designer's night and dusk pictures, at the
+  // same heights (fractions of the 1672 px canvas) down to the horizon.
+  static const _skyStops = [0.0, 0.18, 0.36, 0.48, 0.57, 0.63, 0.67, 1.0];
+  static const _nightSky = [
+    Color(0xFF0B1A31),
+    Color(0xFF09182F),
+    Color(0xFF0A1C34),
+    Color(0xFF0D213C),
+    Color(0xFF1F304C),
+    Color(0xFF494858),
+    Color(0xFF8C6868),
+    Color(0xFF8C6868),
+  ];
+  static const _duskSky = [
+    Color(0xFF0E264A),
+    Color(0xFF0F2650),
+    Color(0xFF193867),
+    Color(0xFF46587E),
+    Color(0xFF917A84),
+    Color(0xFFE69F81),
+    Color(0xFFFDB784),
+    Color(0xFFFDB784),
+  ];
+
+  static const _identity = <double>[
+    1, 0, 0, 0, 0, //
+    0, 1, 0, 0, 0, //
+    0, 0, 1, 0, 0, //
+    0, 0, 0, 1, 0, //
+  ];
+
+  /// Darkened, bluish and partly desaturated: moonlight.
+  static final _night = _lightMatrix(
+    scale: const [0.18, 0.22, 0.40],
+    add: const [0, 4, 16],
+    desaturate: 0.55,
+  );
+
+  /// Warm and still dim: the first light before sunrise.
+  static final _dusk = _lightMatrix(
+    scale: const [0.80, 0.60, 0.72],
+    add: const [14, 2, 6],
+    desaturate: 0.2,
+  );
+
+  static List<double> _lightMatrix({
+    required List<double> scale,
+    required List<double> add,
+    required double desaturate,
+  }) {
+    const lum = [0.2126, 0.7152, 0.0722];
+    final m = <double>[];
+    for (var c = 0; c < 3; c++) {
+      for (var i = 0; i < 3; i++) {
+        final keep = i == c ? 1 - desaturate : 0.0;
+        m.add(scale[c] * (keep + desaturate * lum[i]));
+      }
+      m
+        ..add(0)
+        ..add(add[c]);
+    }
+    m.addAll(const [0, 0, 0, 1, 0]);
+    return m;
+  }
+
+  static List<double> _lerp(List<double> a, List<double> b, double t) => [
+    for (var i = 0; i < a.length; i++) a[i] + (b[i] - a[i]) * t,
+  ];
+
+  static double _smooth(double t) {
+    final x = t.clamp(0.0, 1.0);
+    return x * x * (3 - 2 * x);
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Offset.zero & size;
-    canvas.drawRect(rect, Paint()..color = startupNavy);
-    final p = progress.value.clamp(0.0, 1.0);
-    final position = Curves.easeInOutSine.transform(p) * 3;
+    final t = progress.value.clamp(0.0, 1.0);
+    final loaded = scene();
+    final day = dayFrame();
 
-    final alphas = [
-      1.0,
-      for (var i = 1; i < 4; i++) _smooth((position - (i - 1)).clamp(0.0, 1.0)),
-    ];
-    // Layers under a fully opaque one are invisible: skip them.
-    var first = 0;
-    for (var i = 3; i > 0; i--) {
-      if (alphas[i] >= 0.999 && frames[i] != null) {
-        first = i;
-        break;
-      }
-    }
+    // Cover-fit the 941 x 1672 canvas exactly like BoxFit.cover would.
+    final scale = math.max(
+      size.width / splashSceneWidth,
+      size.height / splashSceneHeight,
+    );
+    final dw = splashSceneWidth * scale;
+    final dh = splashSceneHeight * scale;
+    final dx = (size.width - dw) * (_alignment.x + 1) / 2;
+    final dy = (size.height - dh) * (_alignment.y + 1) / 2;
 
-    canvas.save();
-    if (zoom) {
-      final scale = 1.02 + 0.06 * (1 - Curves.easeOutCubic.transform(p));
+    canvas
+      ..save()
+      ..clipRect(Offset.zero & size)
+      ..drawRect(Offset.zero & size, Paint()..color = startupNavy);
+    if (zoom && loaded != null) {
+      final z = 1 + 0.05 * (1 - Curves.easeOutCubic.transform(t));
       canvas
         ..translate(size.width / 2, size.height / 2)
-        ..scale(scale)
+        ..scale(z)
         ..translate(-size.width / 2, -size.height / 2);
     }
-    for (var i = first; i < 4; i++) {
-      final frame = frames[i];
-      if (frame == null || alphas[i] <= 0) {
+    canvas
+      ..translate(dx, dy)
+      ..scale(scale);
+    const sceneRect = Rect.fromLTWH(0, 0, splashSceneWidth, splashSceneHeight);
+
+    if (loaded == null) {
+      // Layers not decoded yet (or failed): the night sky, or the finished
+      // day picture once the gate is about to hand over.
+      if (t >= 1 && day != null) {
+        paintImage(
+          canvas: canvas,
+          rect: sceneRect,
+          image: day.image,
+          fit: BoxFit.fill,
+          filterQuality: FilterQuality.medium,
+        );
+      } else {
+        _paintGradient(canvas, sceneRect, _nightSky, 1);
+      }
+      canvas.restore();
+      return;
+    }
+
+    final firstLight = _smooth(t / 0.45);
+    final daylight = _smooth((t - 0.4) / 0.55);
+    final settle = 1 - Curves.easeOutCubic.transform(t);
+    final light = ColorFilter.matrix(
+      _lerp(_lerp(_night, _dusk, firstLight), _identity, daylight),
+    );
+
+    // Sky: the day gradient, with dusk and night laid over it and fading.
+    paintImage(
+      canvas: canvas,
+      rect: sceneRect,
+      image: loaded.sky.image,
+      fit: BoxFit.fill,
+      filterQuality: FilterQuality.medium,
+    );
+    _paintGradient(canvas, sceneRect, _duskSky, 1 - daylight);
+    _paintGradient(canvas, sceneRect, _nightSky, 1 - firstLight);
+
+    for (var i = 0; i < splashSceneLayers.length; i++) {
+      final layer = splashSceneLayers[i];
+      final image = loaded.layers[i].image;
+      var x = layer.left;
+      var y = layer.top;
+      var opacity = 1.0;
+      ColorFilter? filter = light;
+      switch (layer.name) {
+        case 'sun':
+          // Rises from behind the sea and the mountains, which are drawn
+          // after it; it is light, so it keeps its own colour.
+          y += 110 * (1 - _smooth((t - 0.2) / 0.65));
+          opacity = _smooth((t - 0.15) / 0.5);
+          filter = null;
+        case 'clouds':
+          x -= 24 * settle;
+        case 'sea':
+          y += 12 * settle;
+        case 'mountains':
+          y += 6 * settle;
+        case 'coast':
+          y += 14 * settle;
+        case 'foreground' || 'tourists':
+          y += 26 * settle;
+        case 'gull':
+          opacity = _smooth((t - 0.75) / 0.25);
+      }
+      if (opacity <= 0) {
         continue;
       }
-      paintImage(
-        canvas: canvas,
-        rect: rect,
-        image: frame.image,
-        fit: BoxFit.cover,
-        // Same alignment as the welcome screen's backdrop, so the hand-over
-        // is seamless.
-        alignment: const Alignment(-0.12, 0),
-        opacity: alphas[i],
-        filterQuality: FilterQuality.medium,
+      canvas.drawImage(
+        image,
+        Offset(x, y),
+        Paint()
+          ..filterQuality = FilterQuality.medium
+          ..colorFilter = filter
+          ..color = Color.fromRGBO(0, 0, 0, opacity),
       );
     }
     canvas.restore();
   }
 
+  void _paintGradient(
+    Canvas canvas,
+    Rect rect,
+    List<Color> colors,
+    double opacity,
+  ) {
+    if (opacity <= 0.001) {
+      return;
+    }
+    canvas.drawRect(
+      rect,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [for (final c in colors) c.withValues(alpha: opacity)],
+          stops: _skyStops,
+        ).createShader(rect),
+    );
+  }
+
   @override
-  bool shouldRepaint(_BackdropPainter old) => false;
+  bool shouldRepaint(_ScenePainter old) => false;
+}
+
+/// The preloader scene frozen at [progress] (0 night, 1 day), without the
+/// logo. For tests and design checks.
+@visibleForTesting
+class SplashScenePreview extends StatefulWidget {
+  const SplashScenePreview({required this.progress, super.key});
+
+  final double progress;
+
+  @override
+  State<SplashScenePreview> createState() => _SplashScenePreviewState();
+}
+
+class _SplashScenePreviewState extends State<SplashScenePreview> {
+  late final _progress = ValueNotifier<double>(widget.progress);
+  final _tick = ValueNotifier<int>(0);
+  LoadedScene? _scene;
+  LoadedFrame? _day;
+
+  /// Completes once the layers are decoded (tests wait on it).
+  final loaded = Completer<void>();
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(() async {
+      final scene = await LoadedScene.load();
+      final day = await LoadedFrame.load(SplashFrames.day);
+      if (!mounted) {
+        scene?.dispose();
+        day?.dispose();
+        return;
+      }
+      _scene = scene;
+      _day = day;
+      _tick.value++;
+      loaded.complete();
+    }());
+  }
+
+  @override
+  void didUpdateWidget(SplashScenePreview oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _progress.value = widget.progress;
+  }
+
+  @override
+  void dispose() {
+    _scene?.dispose();
+    _day?.dispose();
+    _progress.dispose();
+    _tick.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => CustomPaint(
+    size: Size.infinite,
+    painter: _ScenePainter(
+      progress: _progress,
+      frameTick: _tick,
+      scene: () => _scene,
+      dayFrame: () => _day,
+      zoom: false,
+    ),
+  );
 }

@@ -52,6 +52,7 @@ flutter:
   assets:
     - assets/images/
     - assets/splash/
+    - assets/splash/scene/
     - assets/icons/raster/
     - assets/icons/raster/ink/
     - assets/icons/raster/muted/
