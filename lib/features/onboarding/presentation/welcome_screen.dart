@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,12 +10,13 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/startup/splash_frames.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Full-bleed welcome matching Figma «Приветственный экран».
-class WelcomeScreen extends ConsumerWidget {
+class WelcomeScreen extends ConsumerStatefulWidget {
   const WelcomeScreen({super.key});
 
   static const routePath = '/welcome';
@@ -22,7 +25,46 @@ class WelcomeScreen extends ConsumerWidget {
   static const double _avatarBorderWidth = 2;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
+  /// The session ended at start-up (the server rejected the saved login).
+  /// Kept here, not read from the session, because the session flag is
+  /// one-shot: it is cleared as soon as this screen has picked it up.
+  var _sessionExpired = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickUpExpiredNotice(ref.read(sessionProvider).sessionExpiredNotice);
+  }
+
+  void _pickUpExpiredNotice(bool pending) {
+    if (!pending) {
+      return;
+    }
+    _sessionExpired = true;
+    // Clearing notifies listeners (the router): never during build.
+    unawaited(
+      Future<void>.microtask(() {
+        if (mounted) {
+          ref.read(sessionProvider.notifier).consumeSessionExpiredNotice();
+        }
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<bool>(sessionProvider.select((s) => s.sessionExpiredNotice), (
+      _,
+      pending,
+    ) {
+      if (pending) {
+        setState(() => _pickUpExpiredNotice(pending));
+      }
+    });
     final session = ref.watch(
       sessionProvider.select(
         (s) => (isAuthenticated: s.isAuthenticated, avatarUrl: s.avatarUrl),
@@ -74,7 +116,19 @@ class WelcomeScreen extends ConsumerWidget {
                       color: Colors.white.withValues(alpha: 0.62),
                     ),
                   ),
-                  const SizedBox(height: 28),
+                  if (_sessionExpired) ...[
+                    const SizedBox(height: 20),
+                    Text(
+                      'Сессия истекла, войдите снова',
+                      key: const ValueKey('welcome-session-expired'),
+                      style: AppTypography.welcomeSubtitle.copyWith(
+                        color: Colors.white.withValues(alpha: 0.9),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ] else
+                    const SizedBox(height: 28),
                   Row(
                     children: [
                       _WelcomeProfileButton(
@@ -88,7 +142,7 @@ class WelcomeScreen extends ConsumerWidget {
                         child: AppAdaptivePrimaryButton(
                           label: 'Начать путешествие',
                           onPressed: enterApp,
-                          height: _profileButtonSize,
+                          height: WelcomeScreen._profileButtonSize,
                         ),
                       ),
                     ],
@@ -179,8 +233,10 @@ class _WelcomeBackdrop extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        Image.asset(
-          AppImages.welcomeSunset,
+        // The same «day» frame the preloader ends on, so the hand-over from
+        // the preloader is seamless.
+        Image(
+          image: SplashFrames.day,
           fit: BoxFit.cover,
           alignment: const Alignment(-0.12, 0),
           errorBuilder: (_, _, _) =>
@@ -191,12 +247,15 @@ class _WelcomeBackdrop extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
+              // The daylight sky is far brighter than the old sunset photo, so
+              // the scrim starts earlier and ends darker under the white text.
               colors: [
                 Colors.black.withValues(alpha: 0),
-                Colors.black.withValues(alpha: 0.1),
-                Colors.black.withValues(alpha: 0.79),
+                Colors.black.withValues(alpha: 0.12),
+                Colors.black.withValues(alpha: 0.6),
+                Colors.black.withValues(alpha: 0.88),
               ],
-              stops: const [0, 0.44, 1],
+              stops: const [0, 0.3, 0.62, 1],
             ),
           ),
         ),

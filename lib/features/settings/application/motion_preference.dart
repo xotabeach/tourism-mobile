@@ -18,6 +18,17 @@ class MotionPreferenceController extends StateNotifier<bool> {
 
   static const _key = 'settings.reduce_motion';
 
+  /// Reads the saved setting into [AppMotion] before the first frame, so the
+  /// preloader never starts moving for someone who turned motion off.
+  static Future<void> preload() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      AppMotion.reduceMotion = prefs.getBool(_key) ?? AppMotion.reduceMotion;
+    } on Object {
+      // Not critical: fall back to the default (animations on).
+    }
+  }
+
   Future<void> _restore() async {
     try {
       final prefs = await SharedPreferences.getInstance();

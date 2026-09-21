@@ -38,6 +38,8 @@ class SessionState {
     this.advancedFiltersEnabled = true,
     this.otpConsentsRequired = true,
     this.isOffline = false,
+    this.isProvisional = false,
+    this.sessionExpiredNotice = false,
   });
 
   final bool isHydrated;
@@ -66,6 +68,16 @@ class SessionState {
   /// auth-rejection (invalid/expired refresh token).
   final bool isOffline;
 
+  /// The session is shown from the cached identity while the real check is
+  /// still running (cold start on a slow network). There is no access token
+  /// yet: authenticated requests wait for the shared refresh.
+  final bool isProvisional;
+
+  /// One-shot: the refresh token was rejected at start-up, so the person is
+  /// back on the welcome screen and should be told why. The screen that shows
+  /// the message clears it via [SessionController.consumeSessionExpiredNotice].
+  final bool sessionExpiredNotice;
+
   bool get isAuthenticated =>
       onboardingCompleted && (accessToken != null || userId != null);
 
@@ -90,6 +102,8 @@ class SessionState {
     bool? advancedFiltersEnabled,
     bool? otpConsentsRequired,
     bool? isOffline,
+    bool? isProvisional,
+    bool? sessionExpiredNotice,
     bool clearAccessToken = false,
     bool clearAvatarUrl = false,
     bool clearCoverUrl = false,
@@ -122,6 +136,8 @@ class SessionState {
           advancedFiltersEnabled ?? this.advancedFiltersEnabled,
       otpConsentsRequired: otpConsentsRequired ?? this.otpConsentsRequired,
       isOffline: isOffline ?? this.isOffline,
+      isProvisional: isProvisional ?? this.isProvisional,
+      sessionExpiredNotice: sessionExpiredNotice ?? this.sessionExpiredNotice,
     );
   }
 }
@@ -419,75 +435,49 @@ class SessionController extends StateNotifier<SessionState> {
     if (state.isHydrated) {
       return;
     }
+    // Same single-flight as a 401 retry: with rotating refresh tokens a second
+    // concurrent refresh of the same token reads as theft and revokes the
+    // whole token family, so hydrate and the interceptor must never race.
+    await refreshAccessToken();
+  }
+
+  /// Shows the session from the cached identity while [hydrate] is still
+  /// running, so a slow network does not keep the person on the preloader.
+  /// Returns false when there is nothing to show (no stored token or cache).
+  Future<bool> enterProvisional() async {
+    if (state.isHydrated) {
+      return false;
+    }
+    if (state.isProvisional) {
+      return true;
+    }
     final refresh = await _storage.read(key: SecureStorageKeys.refreshToken);
     if (refresh == null || refresh.isEmpty) {
-      state = state.copyWith(isHydrated: true);
-      return;
+      return false;
     }
-    try {
-      final tokens = await _auth.refresh(refresh);
-      await _storage.write(
-        key: SecureStorageKeys.refreshToken,
-        value: tokens.refreshToken,
-      );
-      final me = await _auth.getMe(tokens.accessToken);
-      state = state.copyWith(
-        isHydrated: true,
-        onboardingCompleted: true,
-        isOffline: false,
-        displayName: me.displayName,
-        phone: me.phone,
-        userId: me.id,
-        accessToken: tokens.accessToken,
-        avatarUrl: me.avatarUrl,
-        coverUrl: me.coverUrl,
-        notifyPushEnabled: me.notifyPushEnabled,
-        notifySmsEnabled: me.notifySmsEnabled,
-        notifyHapticsEnabled: me.notifyHapticsEnabled,
-        travelPlusActive: me.travelPlusActive,
-        travelPlusPlan: me.travelPlusPlan,
-        travelPlusExpiresAt: me.travelPlusExpiresAt,
-        aiChatEnabled: me.aiChatEnabled,
-        maxRoutePoints: me.maxRoutePoints,
-        alternativesCount: me.alternativesCount,
-        advancedFiltersEnabled: me.advancedFiltersEnabled,
-        clearAvatarUrl: me.avatarUrl == null,
-        clearCoverUrl: me.coverUrl == null,
-        clearTravelPlusPlan: me.travelPlusPlan == null,
-        clearTravelPlusExpiresAt: me.travelPlusExpiresAt == null,
-      );
-      unawaited(_cacheIdentity(me));
-    } on NetworkFailure {
-      // No connectivity is not "the refresh token was rejected" — keep the
-      // token and restore whatever identity was cached from the last
-      // successful getMe() so a cold start offline doesn't read as logged
-      // out. A stale/absent access token here is fine: every live API call
-      // already has its own NetworkFailure handling, and the offline stores
-      // (routes, route execution) work from cached data regardless.
-      final cached = await _identityCache.read();
-      if (cached == null) {
-        // Nothing to restore — most likely a corrupted/never-written cache.
-        // Fall through to the same behavior as an auth rejection rather than
-        // claim a session we cannot actually describe.
-        await _storage.delete(key: SecureStorageKeys.refreshToken);
-        state = const SessionState(isHydrated: true);
-        return;
-      }
-      state = state.copyWith(
-        isHydrated: true,
-        onboardingCompleted: true,
-        isOffline: true,
-        displayName: cached.displayName,
-        phone: cached.phone,
-        userId: cached.userId,
-        avatarUrl: cached.avatarUrl,
-        coverUrl: cached.coverUrl,
-        clearAvatarUrl: cached.avatarUrl == null,
-        clearCoverUrl: cached.coverUrl == null,
-      );
-    } on Object {
-      await _storage.delete(key: SecureStorageKeys.refreshToken);
-      state = const SessionState(isHydrated: true);
+    final cached = await _identityCache.read();
+    // hydrate may have finished while the cache was being read.
+    if (cached == null || state.isHydrated) {
+      return false;
+    }
+    state = state.copyWith(
+      onboardingCompleted: true,
+      isProvisional: true,
+      isOffline: false,
+      displayName: cached.displayName,
+      phone: cached.phone,
+      userId: cached.userId,
+      avatarUrl: cached.avatarUrl,
+      coverUrl: cached.coverUrl,
+      clearAvatarUrl: cached.avatarUrl == null,
+      clearCoverUrl: cached.coverUrl == null,
+    );
+    return true;
+  }
+
+  void consumeSessionExpiredNotice() {
+    if (state.sessionExpiredNotice) {
+      state = state.copyWith(sessionExpiredNotice: false);
     }
   }
 
@@ -505,34 +495,92 @@ class SessionController extends StateNotifier<SessionState> {
     });
   }
 
+  /// One code path for start-up and mid-session refreshes. While the session
+  /// is not hydrated yet this also loads the profile and finishes the start-up.
+  ///
+  /// Only an outright 401/403 from the refresh endpoint means the token was
+  /// rejected. Everything else (no network, 5xx, 429, a timeout, a parse
+  /// error) is a transient problem: the token stays and the session falls back
+  /// to the cached identity instead of logging the person out.
   Future<String?> _refreshAccessTokenInternal() async {
+    final startingUp = !state.isHydrated;
     final refresh = await _storage.read(key: SecureStorageKeys.refreshToken);
     if (refresh == null || refresh.isEmpty) {
+      if (startingUp) {
+        state = state.copyWith(isHydrated: true, isProvisional: false);
+        return null;
+      }
       await clearSession();
       return null;
     }
+    final AuthTokens tokens;
     try {
-      final tokens = await _auth.refresh(refresh);
-      await _storage.write(
-        key: SecureStorageKeys.refreshToken,
-        value: tokens.refreshToken,
-      );
-      state = state.copyWith(accessToken: tokens.accessToken, isOffline: false);
-      return tokens.accessToken;
-    } on NetworkFailure {
-      // A mid-session 401 retry failing to reach the server is not a
-      // rejected token — leave the session and stored token untouched so a
-      // transient blip doesn't force a logout. The request that triggered
-      // this refresh will simply surface its own NetworkFailure.
-      state = state.copyWith(isOffline: true);
+      tokens = await _auth.refresh(refresh);
+    } on AuthFailure {
+      await clearSession(sessionExpired: true);
       return null;
     } on Object {
-      await clearSession();
+      if (startingUp) {
+        await _startFromCache();
+      } else {
+        state = state.copyWith(isOffline: true);
+      }
       return null;
     }
+    await _storage.write(
+      key: SecureStorageKeys.refreshToken,
+      value: tokens.refreshToken,
+    );
+    if (!startingUp) {
+      state = state.copyWith(accessToken: tokens.accessToken, isOffline: false);
+      return tokens.accessToken;
+    }
+    try {
+      final me = await _auth.getMe(tokens.accessToken);
+      state = state.copyWith(
+        isHydrated: true,
+        isProvisional: false,
+        onboardingCompleted: true,
+        isOffline: false,
+        accessToken: tokens.accessToken,
+      );
+      _applyMe(me);
+    } on Object {
+      // The token was rotated and saved above; only the profile is missing.
+      await _startFromCache(accessToken: tokens.accessToken);
+    }
+    return tokens.accessToken;
   }
 
-  Future<void> clearSession() async {
+  /// Start-up without a live answer: use the identity cached by the last
+  /// successful getMe(). A missing access token is fine — every live call has
+  /// its own NetworkFailure handling and the offline stores work from cached
+  /// data regardless. With no cache there is nothing to describe, so the
+  /// person lands on the welcome screen as a guest; the stored token is kept
+  /// for the next start.
+  Future<void> _startFromCache({String? accessToken}) async {
+    final cached = await _identityCache.read();
+    if (cached == null) {
+      state = const SessionState(isHydrated: true);
+      return;
+    }
+    state = state.copyWith(
+      isHydrated: true,
+      isProvisional: false,
+      onboardingCompleted: true,
+      isOffline: true,
+      accessToken: accessToken,
+      displayName: cached.displayName,
+      phone: cached.phone,
+      userId: cached.userId,
+      avatarUrl: cached.avatarUrl,
+      coverUrl: cached.coverUrl,
+      clearAvatarUrl: cached.avatarUrl == null,
+      clearCoverUrl: cached.coverUrl == null,
+    );
+  }
+
+  Future<void> clearSession({bool sessionExpired = false}) async {
     final refresh = await _storage.read(key: SecureStorageKeys.refreshToken);
     if (refresh != null && !useMockData) {
       try {
@@ -547,7 +595,10 @@ class SessionController extends StateNotifier<SessionState> {
     } on Object {
       // Best-effort; the token deletion above is what actually matters.
     }
-    state = const SessionState(isHydrated: true);
+    state = SessionState(
+      isHydrated: true,
+      sessionExpiredNotice: sessionExpired,
+    );
     await onSessionCleared?.call();
   }
 

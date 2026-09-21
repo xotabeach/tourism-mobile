@@ -8,11 +8,13 @@ import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/performance/app_perf.dart';
+import 'package:tourism_mobile/features/settings/application/motion_preference.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LiquidGlassWidgets.initialize();
   AppPerf.configureImageCache();
+  await MotionPreferenceController.preload();
   if (AppPush.isConfigured) {
     FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
   }

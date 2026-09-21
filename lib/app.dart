@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,8 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/push_sync.dart';
+import 'package:tourism_mobile/core/startup/startup_config.dart';
+import 'package:tourism_mobile/core/startup/startup_gate.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -27,11 +30,19 @@ class TourismApp extends ConsumerStatefulWidget {
 }
 
 class _TourismAppState extends ConsumerState<TourismApp> {
+  /// A notification tapped while the preloader is still up; opened right
+  /// after it closes (and dropped for a guest).
+  RemoteMessage? _pendingPush;
+
   @override
   void initState() {
     super.initState();
     if (AppPush.isConfigured) {
       AppPush.onOpened = (message) {
+        if (ref.read(startupGateActiveProvider)) {
+          _pendingPush = message;
+          return;
+        }
         final router = ref.read(appRouterProvider);
         handlePushOpened(router, message);
       };
@@ -66,6 +77,17 @@ class _TourismAppState extends ConsumerState<TourismApp> {
       ..watch(routesListProvider)
       ..watch(placesListProvider)
       ..watch(topTravelersProvider);
+
+    ref.listen<bool>(startupGateActiveProvider, (previous, active) {
+      final message = _pendingPush;
+      if (active || message == null) {
+        return;
+      }
+      _pendingPush = null;
+      if (ref.read(sessionProvider).isAuthenticated) {
+        handlePushOpened(ref.read(appRouterProvider), message);
+      }
+    });
 
     // Register FCM token whenever an authenticated session has push enabled
     // (cold start / login), not only when the settings toggle flips.
@@ -104,12 +126,16 @@ class _TourismAppState extends ConsumerState<TourismApp> {
         theme: AppTheme.light,
         routerConfig: router,
         builder: (context, child) {
-          if (!reduceMotion) {
-            return child ?? const SizedBox.shrink();
-          }
-          return MediaQuery(
-            data: MediaQuery.of(context).copyWith(disableAnimations: true),
-            child: child ?? const SizedBox.shrink(),
+          final content = child ?? const SizedBox.shrink();
+          return StartupGate(
+            child: reduceMotion
+                ? MediaQuery(
+                    data: MediaQuery.of(
+                      context,
+                    ).copyWith(disableAnimations: true),
+                    child: content,
+                  )
+                : content,
           );
         },
       ),

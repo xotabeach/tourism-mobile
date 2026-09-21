@@ -51,6 +51,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/splash/
     - assets/icons/raster/
     - assets/icons/raster/ink/
     - assets/icons/raster/muted/

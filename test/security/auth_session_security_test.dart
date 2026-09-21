@@ -298,8 +298,8 @@ void main() {
     );
   });
 
-  test('hydrate under NetworkFailure with no cached identity falls back to '
-      'logged out (cannot claim a session it cannot describe)', () async {
+  test('hydrate under NetworkFailure with no cached identity lands on the '
+      'welcome screen but keeps the token for the next start', () async {
     final storage = MemorySecureStorage();
     await storage.write(
       key: SecureStorageKeys.refreshToken,
@@ -315,7 +315,12 @@ void main() {
 
     expect(controller.state.isHydrated, isTrue);
     expect(controller.state.isAuthenticated, isFalse);
-    expect(await storage.read(key: SecureStorageKeys.refreshToken), isNull);
+    // Nothing to describe, so no claimed session; but the token was not
+    // rejected, so it stays and the next start can still recover.
+    expect(
+      await storage.read(key: SecureStorageKeys.refreshToken),
+      'refresh-1',
+    );
   });
 
   test('a mid-session refresh under NetworkFailure keeps the session instead '

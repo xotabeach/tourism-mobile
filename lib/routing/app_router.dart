@@ -109,7 +109,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final session = ref.read(sessionProvider);
-      if (!session.isHydrated) {
+      // A provisional session (shown from the cached identity while the
+      // start-up refresh runs) already knows where the person belongs.
+      if (!session.isHydrated && !session.isProvisional) {
         return null;
       }
       final completed = session.onboardingCompleted;

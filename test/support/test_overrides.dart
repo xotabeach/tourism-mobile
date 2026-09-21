@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/startup/startup_config.dart';
 import 'package:tourism_mobile/core/storage/memory_secure_storage.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/auth/data/auth_repository_impl.dart';
@@ -28,6 +29,9 @@ List<Override> testSessionOverrides({
 }) {
   final storage = MemorySecureStorage();
   return [
+    // The preloader has its own tests; elsewhere its timers would only keep
+    // pumpAndSettle waiting.
+    startupGateEnabledProvider.overrideWithValue(false),
     appConfigProvider.overrideWithValue(testAppConfig),
     secureStorageProvider.overrideWithValue(storage),
     authRepositoryProvider.overrideWithValue(MockAuthRepository()),

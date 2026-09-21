@@ -38,8 +38,21 @@ final dioProvider = Provider<Dio>((ref) {
   );
   dio.interceptors.add(
     InterceptorsWrapper(
-      onRequest: (options, handler) {
-        final token = ref.read(sessionProvider).accessToken;
+      onRequest: (options, handler) async {
+        var token = ref.read(sessionProvider).accessToken;
+        final path = options.path;
+        final isAuthPath =
+            path.contains('/auth/otp/') ||
+            path.contains('/auth/refresh') ||
+            path.contains('/auth/logout');
+        if ((token == null || token.isEmpty) &&
+            !isAuthPath &&
+            ref.read(sessionProvider).isProvisional) {
+          // The session is shown from the cache while the start-up refresh is
+          // still running: join it instead of sending a request without a
+          // token (and racing a second refresh after the 401).
+          token = await ref.read(sessionProvider.notifier).refreshAccessToken();
+        }
         if (token != null && token.isNotEmpty) {
           options.headers['Authorization'] = 'Bearer $token';
         }
