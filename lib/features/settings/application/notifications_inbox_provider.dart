@@ -47,7 +47,9 @@ class NotificationsInboxController
 
   @override
   Future<List<InboxNotification>> build() async {
-    final session = ref.watch(sessionProvider);
+    final session = ref.watch(
+      sessionProvider.select((s) => (isAuthenticated: s.isAuthenticated)),
+    );
     _flushTimer?.cancel();
     _pending.clear();
     if (!session.isAuthenticated) {

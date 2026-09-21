@@ -49,7 +49,9 @@ final searchHistoryStoreProvider = Provider<SearchHistoryStore>((ref) {
 
 final searchHistoryProvider =
     StateNotifierProvider<SearchHistoryController, List<String>>((ref) {
-      final session = ref.watch(sessionProvider);
+      final session = ref.watch(
+        sessionProvider.select((s) => (userId: s.userId)),
+      );
       final owner = (session.userId?.trim().isNotEmpty ?? false)
           ? session.userId!
           : 'guest';

@@ -44,8 +44,10 @@ final articlesByAuthorProvider = FutureProvider.autoDispose
 final myArticlesProvider = FutureProvider.autoDispose<ArticleListPage>((
   ref,
 ) async {
-  final session = ref.watch(sessionProvider);
-  if (!session.isAuthenticated) {
+  final authenticated = ref.watch(
+    sessionProvider.select((s) => s.isAuthenticated),
+  );
+  if (!authenticated) {
     return const ArticleListPage(items: [], total: 0);
   }
   return ref.watch(articlesRepositoryProvider).listMyArticles();
@@ -71,8 +73,10 @@ final articleCommentsProvider = FutureProvider.autoDispose
 final savedArticlesProvider = FutureProvider.autoDispose<ArticleListPage>((
   ref,
 ) async {
-  final session = ref.watch(sessionProvider);
-  if (!session.isAuthenticated) {
+  final authenticated = ref.watch(
+    sessionProvider.select((s) => s.isAuthenticated),
+  );
+  if (!authenticated) {
     return const ArticleListPage(items: [], total: 0);
   }
   return ref.watch(articlesRepositoryProvider).listSaved();

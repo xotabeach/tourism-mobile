@@ -11,7 +11,9 @@ final routeReviewsProvider = FutureProvider.autoDispose
 final myRouteReviewsProvider = FutureProvider.autoDispose<List<RouteReview>>((
   ref,
 ) async {
-  final session = ref.watch(sessionProvider);
+  final session = ref.watch(
+    sessionProvider.select((s) => (isAuthenticated: s.isAuthenticated)),
+  );
   if (!session.isAuthenticated) {
     return const [];
   }

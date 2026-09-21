@@ -45,7 +45,17 @@ const _unknownRank = ProfileRank(
 /// backend to overlay real data on top, so this *is* the full preview
 /// experience, and it stays [MockProfile] in full.
 final profileProvider = Provider<ProfileSnapshot>((ref) {
-  final session = ref.watch(sessionProvider);
+  // Only what the snapshot shows: watching the whole session rebuilt the
+  // profile on every token refresh and «offline» flip.
+  final session = ref.watch(
+    sessionProvider.select(
+      (s) => (
+        displayName: s.displayName,
+        avatarUrl: s.avatarUrl,
+        coverUrl: s.coverUrl,
+      ),
+    ),
+  );
   final config = ref.watch(appConfigProvider);
   String? resolvedOrLocal(String? raw) {
     if (raw == null || raw.isEmpty) {
@@ -172,7 +182,7 @@ final travelersLeaderboardProvider = FutureProvider<List<PublicUserProfile>>((
 final currentLeaderboardTravelerProvider = FutureProvider<PublicUserProfile?>((
   ref,
 ) async {
-  final session = ref.watch(sessionProvider);
+  final session = ref.watch(sessionProvider.select((s) => (userId: s.userId)));
   final config = ref.watch(appConfigProvider);
   if (config.useMockData) {
     return _mockLeaderboard.first;
@@ -209,7 +219,10 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
   ref,
   userId,
 ) async {
-  final session = ref.watch(sessionProvider);
+  // Only who is looking. The whole session changes on every token refresh
+  // and «offline» flip; watching it restarted a load that was half done, and
+  // the profile stayed on its skeleton while that kept happening (BACKEND-6).
+  final session = ref.watch(sessionProvider.select((s) => (userId: s.userId)));
   final config = ref.watch(appConfigProvider);
   final isOwn = session.userId != null && session.userId == userId;
 
