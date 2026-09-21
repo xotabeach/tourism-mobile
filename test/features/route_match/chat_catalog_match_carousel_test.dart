@@ -42,10 +42,10 @@ void main() {
     // Tags render below the photo (design-spec screen 2), not overlaid on it.
     expect(find.text('Пляж'), findsOneWidget);
     // Distance shows both in the compact photo overlay and the param row.
-    expect(find.textContaining('10.2 км'), findsWidgets);
-    // The next page peeks in slightly (viewportFraction < 1), so both pages'
-    // arrow buttons can be in the tree at once — target the first (visible)
-    // one explicitly.
+    expect(find.textContaining('10,2 км'), findsWidgets);
+    // Pages are full width now (FRONTEND-12: the card follows the bubble's
+    // grid), but the PageView may still build the next one — target the
+    // first arrow explicitly.
     await tester.tap(find.byIcon(Icons.arrow_forward).first);
     await tester.pump();
     expect(openedId, 'route-1');

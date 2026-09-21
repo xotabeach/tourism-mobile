@@ -268,6 +268,66 @@ void main() {
     );
   });
 
+  testWidgets('golden catalog answer bubble — cards on the bubble grid', (
+    tester,
+  ) async {
+    await _pumpGolden(
+      tester,
+      Material(
+        color: const Color(0xFFF7F7F7),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          // In the chat the bubble sits in a scrolling list; a bounded box
+          // would stretch its column to the full height.
+          child: SingleChildScrollView(
+            child: AgentMessageBubble(
+              px: (value) => value,
+              message: const RouteChatMessage(
+                fromAgent: true,
+                text: 'Вот подобранные маршруты по выбранным параметрам:',
+                time: '17:53',
+                catalogMatch: [
+                  CatalogRouteItem(
+                    routeId: 'r1',
+                    title: 'Гора Чок-Сары-Кая',
+                    coverUrl: AppImages.coastPineTwilight,
+                    rating: 4.9,
+                    distanceKm: 8.6,
+                    localityLabel: 'Бахчисарай',
+                    tags: ['Горы', 'С детьми', 'Пешком', 'Круглый год'],
+                    budgetLabel: '2 500 ₽',
+                    difficultyLabel: '3/5',
+                    stopsCount: 4,
+                    durationMinutes: 280,
+                  ),
+                  CatalogRouteItem(routeId: 'r2', title: 'Второй маршрут'),
+                  CatalogRouteItem(routeId: 'r3', title: 'Третий маршрут'),
+                  CatalogRouteItem(routeId: 'r4', title: 'Четвёртый маршрут'),
+                  CatalogRouteItem(routeId: 'r5', title: 'Пятый маршрут'),
+                ],
+                actions: [
+                  {
+                    'id': 'build_custom',
+                    'label': 'Собрать собственный маршрут',
+                  },
+                  {'id': 'reset', 'label': 'Очистить мои параметры'},
+                ],
+              ),
+              onOpenCatalogRoute: (_) {},
+              onChatAction: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+      size: const Size(393, 640),
+    );
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/chat_catalog_answer.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
   testWidgets('golden city select — collapsed and open', (tester) async {
     await _pumpGolden(
       tester,

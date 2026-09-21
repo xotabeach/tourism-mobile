@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/route_match/domain/route_match_models.dart';
@@ -85,7 +85,7 @@ class _CompactProposalCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final durationLabel = formatRouteDuration(card.durationMinutes);
     final distanceLabel = card.distanceKm != null
-        ? '${card.distanceKm!.toStringAsFixed(1)} км'
+        ? '${card.distanceKm!.toStringAsFixed(1).replaceAll('.', ',')} км'
         : null;
 
     return Material(
@@ -213,7 +213,7 @@ class _AssembledProposalCardState
   Widget build(BuildContext context) {
     final card = widget.card;
     final distanceLabel = card.distanceKm != null
-        ? '${card.distanceKm!.toStringAsFixed(1)} км'
+        ? '${card.distanceKm!.toStringAsFixed(1).replaceAll('.', ',')} км'
         : null;
     final gallery = _galleryImages;
 
@@ -260,17 +260,8 @@ class _AssembledProposalCardState
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     for (var i = 0; i < gallery.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 5),
-                      Container(
-                        width: i == _galleryPage ? 7 : 6,
-                        height: i == _galleryPage ? 7 : 6,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: i == _galleryPage
-                              ? RouteBuilderDesignTokens.primaryBlue
-                              : RouteBuilderDesignTokens.borderGray,
-                        ),
-                      ),
+                      if (i > 0) const SizedBox(width: 6),
+                      ChatPageDot(index: i, current: _galleryPage),
                     ],
                   ],
                 ),
@@ -656,7 +647,7 @@ class RoutePreviewRatingBadge extends StatelessWidget {
           const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFFC107)),
           const SizedBox(width: 4),
           Text(
-            rating.toStringAsFixed(1),
+            rating.toStringAsFixed(1).replaceAll('.', ','),
             style: RouteBuilderDesignTokens.rubik(
               fontSize: 13,
               weight: FontWeight.w600,
@@ -705,7 +696,9 @@ class RoutePreviewTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      // Size measured off the design export (FRONTEND-12): 12 pt label,
+      // 24 dp tall pill.
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFF666666),
         borderRadius: BorderRadius.circular(14),
@@ -713,7 +706,7 @@ class RoutePreviewTagChip extends StatelessWidget {
       child: Text(
         label,
         style: RouteBuilderDesignTokens.rubik(
-          fontSize: 10,
+          fontSize: 12,
           color: Colors.white,
           height: 1.0,
         ),
@@ -756,13 +749,29 @@ class RouteParamsBlock extends StatelessWidget {
           Icons.account_balance_wallet_outlined,
           '$budgetCaption:',
           budgetLabel!,
+          asset: AppIconography.paramBudget,
         ),
       if (difficultyLabel != null)
-        _ParamRowData(Icons.bolt_rounded, 'Сложность:', difficultyLabel!),
+        _ParamRowData(
+          Icons.bolt_rounded,
+          'Сложность:',
+          difficultyLabel!,
+          asset: AppIconography.paramDifficulty,
+        ),
       if (localityLabel != null)
-        _ParamRowData(Icons.landscape_outlined, 'Маршрут:', localityLabel!),
+        _ParamRowData(
+          Icons.landscape_outlined,
+          'Маршрут:',
+          localityLabel!,
+          asset: AppIconography.paramLocality,
+        ),
       if (distanceLabel != null)
-        _ParamRowData(Icons.place_outlined, 'Расстояние:', distanceLabel!),
+        _ParamRowData(
+          Icons.place_outlined,
+          'Расстояние:',
+          distanceLabel!,
+          asset: AppIconography.paramDistance,
+        ),
       if (durationLabel != null)
         _ParamRowData(Icons.schedule_rounded, 'Время в пути:', durationLabel!),
       if (stopsLabel != null)
@@ -780,7 +789,16 @@ class RouteParamsBlock extends StatelessWidget {
           // line — the value is not pushed to the right edge.
           Row(
             children: [
-              Icon(row.icon, size: 13, color: const Color(0xFF33343A)),
+              // Filled Solar marks from the design; the rows the design does
+              // not show keep their Material icon.
+              if (row.asset != null)
+                AppAssetIcon(
+                  row.asset!,
+                  size: 18,
+                  color: const Color(0xFF1C1C1E),
+                )
+              else
+                Icon(row.icon, size: 16, color: const Color(0xFF33343A)),
               const SizedBox(width: 6),
               Flexible(
                 child: Text.rich(
@@ -834,11 +852,12 @@ ButtonStyle _proposalActionStyle({required double height}) {
 }
 
 class _ParamRowData {
-  const _ParamRowData(this.icon, this.label, this.value);
+  const _ParamRowData(this.icon, this.label, this.value, {this.asset});
 
   final IconData icon;
   final String label;
   final String value;
+  final String? asset;
 }
 
 class _MetaPill extends StatelessWidget {
@@ -906,7 +925,7 @@ class CatalogRoutePreviewHeader extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final distanceLabel = distanceKm != null
-        ? '${distanceKm!.toStringAsFixed(1)} км'
+        ? '${distanceKm!.toStringAsFixed(1).replaceAll('.', ',')} км'
         : null;
     final config = ref.watch(appConfigProvider);
 
@@ -957,12 +976,14 @@ class CatalogRoutePreviewHeader extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // One line, as in the design: two lines ran into the rating
+              // badge above once the photo got its design height.
               Text(
                 title,
-                maxLines: 2,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: RouteBuilderDesignTokens.rubik(
-                  fontSize: 19,
+                  fontSize: 18,
                   weight: FontWeight.w700,
                   color: Colors.white,
                   height: 1.15,
@@ -1028,6 +1049,37 @@ class CatalogRoutePreviewHeader extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Page dot of the design: the current one blue, the others pale blue and
+/// smaller the further they are from it.
+class ChatPageDot extends StatelessWidget {
+  const ChatPageDot({required this.index, required this.current, super.key});
+
+  final int index;
+  final int current;
+
+  static const _pale = Color(0xFFBFD5F2);
+
+  @override
+  Widget build(BuildContext context) {
+    final distance = (index - current).abs();
+    final size = switch (distance) {
+      0 => 8.0,
+      1 => 7.0,
+      2 => 6.0,
+      _ => 5.0,
+    };
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: distance == 0 ? RouteBuilderDesignTokens.primaryBlue : _pale,
+      ),
     );
   }
 }
