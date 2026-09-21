@@ -182,4 +182,38 @@ void main() {
     expect(result?.authenticated, isFalse);
     expect(fake.provisionalCalls, 0);
   });
+
+  group('the sunrise while loading', () {
+    /// The allowance after [ms] of 16 ms frames, loading at [milestone].
+    double after(int ms, {double milestone = 0.3, double from = 0}) {
+      var value = from;
+      for (var t = 0; t < ms; t += 16) {
+        value = sunriseAllowance(
+          previous: value,
+          milestone: milestone,
+          step: const Duration(milliseconds: 16),
+        );
+      }
+      return value;
+    }
+
+    test('keeps moving while loading is stuck, short of full day', () {
+      // It used to stay on the milestone for the whole wait: a frozen frame.
+      expect(after(0), 0);
+      expect(after(500), greaterThan(0.4));
+      expect(after(2000), greaterThan(after(1000)));
+      expect(after(60000), lessThanOrEqualTo(0.9 + 1e-9));
+    });
+
+    test('a later milestone below what is drawn neither stops nor rewinds', () {
+      final drawn = after(3000);
+      expect(drawn, greaterThan(0.55));
+      final next = after(100, milestone: 0.55, from: drawn);
+      expect(next, greaterThan(drawn));
+    });
+
+    test('a finished start-up may reach full day', () {
+      expect(after(16, milestone: 1), 1);
+    });
+  });
 }
