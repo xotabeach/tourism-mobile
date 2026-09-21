@@ -36,6 +36,10 @@ abstract final class AppIconography {
   /// as-is rather than through the tinted variants.
   static const String settingsLogout = '$_root/settings_logout.png';
 
+  /// Filled blue «?» of the help assistant, also drawn as-is.
+  static const String settingsHelpAssistant =
+      '$_root/settings_help_assistant.png';
+
   // Settings — «О приложении» (solar icons from the design, 2026-09-21)
   static const String settingsLegalTerms = '$_root/settings_legal_terms.png';
   static const String settingsLegalPrivacy =

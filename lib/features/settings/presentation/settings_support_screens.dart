@@ -85,6 +85,13 @@ class SettingsSupportScreen extends StatelessWidget {
           onContactSupport: (question) =>
               context.pushNamed(AppRouteNames.settingsChat, extra: question),
         ),
+        // The design separates the assistant from the help sections.
+        const SizedBox(height: 4),
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 20),
+          child: SettingsHairline(),
+        ),
+        const SizedBox(height: 16),
         SettingsNavTile(
           title: 'Маршруты и навигация',
           iconAsset: AppIconography.settingsFaqRoutes,

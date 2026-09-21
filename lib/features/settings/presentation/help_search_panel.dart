@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -81,6 +82,15 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
     }
   }
 
+  // Same field look as the blog comment box in the design.
+  static const _fieldFill = Color(0xFFE8E8E8);
+  static const _fieldEdge = Color(0xFFD9D9DB);
+
+  static OutlineInputBorder _fieldBorder(Color color) => OutlineInputBorder(
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: color),
+  );
+
   @override
   Widget build(BuildContext context) {
     final result = _result;
@@ -109,116 +119,126 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.accentBlue.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.help_outline_rounded,
-                          color: AppColors.accentBlueIcon,
-                          size: 22,
-                        ),
+                      Image.asset(
+                        AppIconography.settingsHelpAssistant,
+                        width: 34,
+                        height: 34,
+                        filterQuality: FilterQuality.high,
                       ),
                       const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Помощник по справке',
-                          style: AppTypography.settingsRowTitle,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Помощник по справке',
+                              style: AppTypography.settingsRowTitle,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Опишите проблему - получите решение',
+                              style: AppTypography.settingsRowSubtitle.copyWith(
+                                color: AppColors.settingsSecondaryInk,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Опишите проблему — предложим подходящие инструкции.',
+                  const SizedBox(height: 12),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 20),
+                    child: SettingsHairline(),
                   ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: _query,
-                    focusNode: _queryFocus,
-                    maxLength: 400,
-                    minLines: 1,
-                    maxLines: 3,
-                    textInputAction: TextInputAction.search,
-                    style: AppTypography.settingsRowSubtitle.copyWith(
-                      color: AppColors.settingsInk,
-                      height: 1.4,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Например: не начислились баллы',
-                      hintStyle: AppTypography.settingsRowSubtitle,
-                      filled: true,
-                      fillColor: AppColors.pageSurface,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 14,
+                  const SizedBox(height: 10),
+                  Stack(
+                    children: [
+                      TextField(
+                        controller: _query,
+                        focusNode: _queryFocus,
+                        maxLength: helpQueryMaxLength,
+                        minLines: 3,
+                        maxLines: 3,
+                        textInputAction: TextInputAction.search,
+                        style: AppTypography.settingsRowSubtitle.copyWith(
+                          color: AppColors.settingsInk,
+                          height: 1.4,
+                        ),
+                        decoration: InputDecoration(
+                          hintText: 'Например: не начислились баллы',
+                          hintStyle: AppTypography.settingsRowSubtitle,
+                          filled: true,
+                          fillColor: _fieldFill,
+                          counterText: '',
+                          contentPadding: const EdgeInsets.fromLTRB(
+                            14,
+                            12,
+                            14,
+                            26,
+                          ),
+                          border: _fieldBorder(_fieldEdge),
+                          enabledBorder: _fieldBorder(_fieldEdge),
+                          focusedBorder: _fieldBorder(AppColors.accentBlue),
+                        ),
+                        onSubmitted: (_) => _search(),
+                        onChanged: (_) => setState(() {
+                          _generation++;
+                          _result = null;
+                          _failed = false;
+                        }),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.accentBlue,
+                      Positioned(
+                        right: 12,
+                        bottom: 8,
+                        child: Text(
+                          '${_query.text.characters.length}/$helpQueryMaxLength',
+                          style: AppTypography.settingsRowSubtitle.copyWith(
+                            fontSize: 11,
+                          ),
                         ),
                       ),
-                      counterStyle: AppTypography.settingsRowSubtitle.copyWith(
-                        fontSize: 11,
-                      ),
-                    ),
-                    onSubmitted: (_) => _search(),
-                    onChanged: (_) => setState(() {
-                      _generation++;
-                      _result = null;
-                      _failed = false;
-                    }),
+                    ],
                   ),
+                  const SizedBox(height: 10),
                   FilledButton(
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.accentBlue,
+                      backgroundColor: AppColors.primaryInk,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(46),
+                      // The design keeps it black even before anything is typed.
+                      disabledBackgroundColor: AppColors.primaryInk,
+                      disabledForegroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(44),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 12,
+                        vertical: 10,
                       ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                      shape: const StadiumBorder(),
                       textStyle: AppTypography.settingsRowTitle.copyWith(
                         fontSize: 14,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     onPressed: _busy || _query.text.trim().isEmpty
                         ? null
                         : _search,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        if (_busy)
-                          const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                    child: _busy
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Ищем в справке…'),
+                            ],
                           )
-                        else
-                          const Icon(Icons.search_rounded, size: 19),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            _busy ? 'Ищем в справке…' : 'Найти инструкцию',
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ],
-                    ),
+                        : const Text('Найти инструкцию'),
                   ),
                   if (_busy && _slow) ...[
                     const SizedBox(height: 8),
@@ -285,7 +305,21 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
                       child: const Text('Уточнить вопрос'),
                     ),
                   ],
-                  TextButton(
+                  const SizedBox(height: 4),
+                  OutlinedButton(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.accentBlue,
+                      side: const BorderSide(
+                        color: AppColors.accentBlue,
+                        width: 1.5,
+                      ),
+                      minimumSize: const Size.fromHeight(44),
+                      shape: const StadiumBorder(),
+                      textStyle: AppTypography.settingsRowTitle.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                     onPressed: () =>
                         widget.onContactSupport(_query.text.trim()),
                     child: const Text('Написать оператору'),
@@ -299,6 +333,9 @@ class _HelpSearchPanelState extends ConsumerState<HelpSearchPanel> {
     );
   }
 }
+
+/// The design caps the question at 120 characters (a question, not a story).
+const helpQueryMaxLength = 120;
 
 class HelpArticleScreen extends ConsumerStatefulWidget {
   const HelpArticleScreen({required this.article, super.key});
