@@ -30,6 +30,7 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/achievement_card_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/follow_list_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_carousel_stub.dart';
 import 'package:tourism_mobile/features/profile/presentation/user_content_list_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_icons.dart';
@@ -91,6 +92,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ..removeListener(_onScroll)
       ..dispose();
     super.dispose();
+  }
+
+  /// Followers / subscriptions list (FRONTEND-11). Pushed on the navigator
+  /// the profile itself lives on, so it works from the tab and from an
+  /// article alike.
+  void _openFollowList(
+    FollowListKind kind, {
+    required bool isOwn,
+    required String displayName,
+  }) {
+    unawaited(
+      Navigator.of(context).push<void>(
+        CupertinoPageRoute<void>(
+          builder: (_) => FollowListScreen(
+            kind: kind,
+            userId: isOwn ? ref.read(sessionProvider).userId : widget.userId,
+            displayName: isOwn ? null : displayName,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -228,6 +250,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               likedByMe: profile.likedByMe,
               isExpert: profile.isExpert,
               pullDownOffset: _pullDownOffset,
+              onFollowersTap: () => _openFollowList(
+                FollowListKind.followers,
+                isOwn: isOwn,
+                displayName: profile.displayName,
+              ),
+              onFollowingTap: isOwn
+                  ? () => _openFollowList(
+                      FollowListKind.following,
+                      isOwn: true,
+                      displayName: profile.displayName,
+                    )
+                  : null,
             ),
             SliverToBoxAdapter(
               child: Column(
@@ -697,7 +731,12 @@ class _ProfileCollapsingHeader extends StatelessWidget {
     this.likedByMe = false,
     this.isExpert = false,
     this.pullDownOffset = 0,
+    this.onFollowersTap,
+    this.onFollowingTap,
   });
+
+  final VoidCallback? onFollowersTap;
+  final VoidCallback? onFollowingTap;
 
   /// Geometry measured from the 393 logical-pixel Figma export.
   // Photo runs to y≈207 and tucks 35 px behind the card (design exports).
@@ -900,6 +939,8 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                         showFollowing: isOwn,
                         isExpert: isExpert,
                         expertTitle: profile.expertTitle,
+                        onFollowersTap: onFollowersTap,
+                        onFollowingTap: onFollowingTap,
                       ),
                     ),
                   ),
@@ -996,8 +1037,12 @@ class _RankCard extends StatelessWidget {
     required this.showFollowing,
     required this.isExpert,
     this.expertTitle,
+    this.onFollowersTap,
+    this.onFollowingTap,
   });
 
+  final VoidCallback? onFollowersTap;
+  final VoidCallback? onFollowingTap;
   final ProfileRank rank;
   final int followersCount;
   final int followingCount;
@@ -1033,22 +1078,30 @@ class _RankCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _FollowStatBox(
-                        key: const ValueKey('profile-followers-stat'),
-                        iconAsset: AppIconography.profileSelected,
-                        useFollowersIcon: true,
-                        value: compactCount(followersCount),
-                        label: 'Подписчиков',
+                      child: _Tappable(
+                        label: 'Подписчики',
+                        onTap: onFollowersTap,
+                        child: _FollowStatBox(
+                          key: const ValueKey('profile-followers-stat'),
+                          iconAsset: AppIconography.profileSelected,
+                          useFollowersIcon: true,
+                          value: compactCount(followersCount),
+                          label: 'Подписчиков',
+                        ),
                       ),
                     ),
                     if (showFollowing) ...[
                       const SizedBox(width: 8),
                       Expanded(
-                        child: _FollowStatBox(
-                          key: const ValueKey('profile-following-stat'),
-                          iconAsset: AppIconography.heart,
-                          value: compactCount(followingCount),
-                          label: 'Подписок',
+                        child: _Tappable(
+                          label: 'Подписки',
+                          onTap: onFollowingTap,
+                          child: _FollowStatBox(
+                            key: const ValueKey('profile-following-stat'),
+                            iconAsset: AppIconography.heart,
+                            value: compactCount(followingCount),
+                            label: 'Подписок',
+                          ),
                         ),
                       ),
                     ],
@@ -1735,6 +1788,30 @@ class _PageDots extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _Tappable extends StatelessWidget {
+  const _Tappable({required this.label, required this.child, this.onTap});
+
+  final String label;
+  final Widget child;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) {
+      return child;
+    }
+    return Semantics(
+      button: true,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: child,
+      ),
     );
   }
 }

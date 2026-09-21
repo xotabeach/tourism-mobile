@@ -97,6 +97,13 @@ abstract class PublicProfileRepository {
   Future<List<RouteSummary>> userRoutes(String userId, {int limit = 100});
   Future<List<PublicUserProfile>> search(String query, {int limit = 8});
   Future<List<PublicUserProfile>> subscriptions({int limit = 50});
+
+  /// Who follows [userId]; [query] narrows by name on the server.
+  Future<List<PublicUserProfile>> followers(
+    String userId, {
+    String? query,
+    int limit = 100,
+  });
   Future<List<PublicUserProfile>> leaderboard({int limit = 50, int offset = 0});
   Future<List<ProfileAchievement>> achievements(String userId);
   Future<void> like(String userId);
@@ -148,6 +155,29 @@ class ApiPublicProfileRepository implements PublicProfileRepository {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/v1/users/search',
         queryParameters: {'q': query, 'limit': limit},
+      );
+      final items = response.data?['items'] as List<dynamic>? ?? const [];
+      return items
+          .map(
+            (item) => PublicUserProfile.fromJson(item as Map<String, dynamic>),
+          )
+          .toList(growable: false);
+    });
+  }
+
+  @override
+  Future<List<PublicUserProfile>> followers(
+    String userId, {
+    String? query,
+    int limit = 100,
+  }) {
+    return guardApiCall(() async {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/v1/users/$userId/followers',
+        queryParameters: {
+          'limit': limit,
+          if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+        },
       );
       final items = response.data?['items'] as List<dynamic>? ?? const [];
       return items
