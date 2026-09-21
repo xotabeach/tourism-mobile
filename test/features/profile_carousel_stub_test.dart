@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/profile/presentation/follow_list_screen.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 
@@ -58,5 +59,22 @@ void main() {
     expect(articlesStub, findsOneWidget);
     expect(find.text('Новая статья'), findsOneWidget);
     expect(find.text('Написать статью'), findsWidgets);
+  });
+
+  testWidgets('tapping the counters opens followers and subscriptions', (
+    tester,
+  ) async {
+    await _openOwnProfile(tester);
+
+    await tester.tap(find.byKey(const ValueKey('profile-followers-stat')));
+    await tester.pumpAndSettle();
+    expect(find.byType(FollowListScreen), findsOneWidget);
+    expect(find.textContaining('Мои подписчики'), findsOneWidget);
+    Navigator.of(tester.element(find.byType(FollowListScreen))).pop();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('profile-following-stat')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Мои подписки'), findsOneWidget);
   });
 }
