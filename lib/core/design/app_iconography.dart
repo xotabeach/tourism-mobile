@@ -27,6 +27,9 @@ abstract final class AppIconography {
   // Profile «Статистика» (solar icons from the design, 2026-09-21)
   static const String statRoutesCompleted = '$_root/stat_routes_completed.png';
   static const String statDistance = '$_root/stat_distance.png';
+
+  /// Solar «alarm», the «Всего в пути» row of the route run screen.
+  static const String execAlarm = '$_root/exec_alarm.png';
   static const String statRoutesCreated = '$_root/stat_routes_created.png';
   static const String statArticles = '$_root/stat_articles.png';
   static const String statLikes = '$_root/stat_likes.png';

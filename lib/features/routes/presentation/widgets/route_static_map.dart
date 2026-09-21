@@ -37,6 +37,7 @@ class RouteStaticMap extends StatefulWidget {
     this.geometry,
     this.height = 260,
     this.footerLabel,
+    this.pillFooter = false,
     this.interactive = true,
     this.selectedIndex,
     this.onStopTap,
@@ -65,6 +66,10 @@ class RouteStaticMap extends StatefulWidget {
   final RouteGeometry? geometry;
   final double height;
   final String? footerLabel;
+
+  /// The route run screen draws the footer as a translucent pill with a thin
+  /// light edge instead of the dark tag.
+  final bool pillFooter;
 
   /// Whether tapping opens the zoomable full-screen map.
   final bool interactive;
@@ -265,27 +270,53 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                   ),
                 if (widget.footerLabel != null && selectedStop == null)
                   Positioned(
-                    left: 14,
-                    bottom: 12,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        color: const Color(0xCC000000),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        child: Text(
-                          widget.footerLabel!,
-                          style: AppTypography.button.copyWith(
-                            fontSize: 13,
-                            color: Colors.white,
+                    left: widget.pillFooter ? 16 : 14,
+                    bottom: widget.pillFooter ? 16 : 12,
+                    child: widget.pillFooter
+                        ? DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xB31B2426),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.22),
+                              ),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 5,
+                              ),
+                              child: Text(
+                                widget.footerLabel!,
+                                style: const TextStyle(
+                                  fontFamily: AppFonts.rubik,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.2,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          )
+                        : DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: const Color(0xCC000000),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              child: Text(
+                                widget.footerLabel!,
+                                style: AppTypography.button.copyWith(
+                                  fontSize: 13,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                    ),
                   ),
               ],
             );

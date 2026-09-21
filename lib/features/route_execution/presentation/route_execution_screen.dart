@@ -6,7 +6,9 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
+import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
@@ -26,8 +28,10 @@ import 'package:tourism_mobile/features/routes/application/offline_routes_provid
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
+import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteExecutionScreen extends ConsumerStatefulWidget {
@@ -55,13 +59,25 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   // After a confirmed prompt, further marks within a minute are not asked again.
   DateTime? _promptConfirmedAt;
 
+  /// Ticks «Всего в пути» over while the screen is open.
+  Timer? _clock;
+
   @override
   void initState() {
     super.initState();
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted && _execution?.isActive == true) setState(() {});
+    });
     unawaited(_loadOrStart());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_explainLocation());
     });
+  }
+
+  @override
+  void dispose() {
+    _clock?.cancel();
+    super.dispose();
   }
 
   Future<void> _explainLocation() async {
@@ -664,56 +680,62 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   Widget build(BuildContext context) {
     final routeAsync = ref.watch(routeDetailProvider(widget.routeId));
     final route = routeAsync.asData?.value;
+    final status = _execution?.status;
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
-      appBar: AppBar(
-        title: const Text('Прохождение'),
-        leading: IconButton(
-          tooltip: 'Назад',
-          onPressed: () => context.pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        actions: [
-          if (_isInProgress)
-            IconButton(
-              tooltip: 'Отменить',
-              onPressed: _cancelRoute,
-              icon: const Icon(Icons.stop_circle_outlined),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: _ExecutionTopBar(
+                onBack: () => context.pop(),
+                // The pause control sits in the corner as drawn; a paused run
+                // resumes from the same place.
+                onPause: status == RouteExecutionStatus.active
+                    ? _pauseRoute
+                    : null,
+                onResume: status == RouteExecutionStatus.paused
+                    ? _resumeRoute
+                    : null,
+              ),
             ),
-        ],
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                  ? _ExecutionErrorView(
+                      message: _error!,
+                      blocking: _blockingExecution,
+                      onRetry: () {
+                        setState(() {
+                          _error = null;
+                          _loading = true;
+                        });
+                        unawaited(_loadOrStart());
+                      },
+                      onOpenBlocking: () {
+                        final blocking = _blockingExecution;
+                        final blockingRouteId = blocking?.routeId;
+                        if (blockingRouteId == null) return;
+                        context.pushReplacementNamed(
+                          AppRouteNames.routeExecution,
+                          pathParameters: {'id': blockingRouteId},
+                        );
+                      },
+                    )
+                  : _execution == null
+                  ? const Center(child: Text('Не удалось открыть прохождение'))
+                  : _buildContent(_execution!, route),
+            ),
+          ],
+        ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? _ExecutionErrorView(
-              message: _error!,
-              blocking: _blockingExecution,
-              onRetry: () {
-                setState(() {
-                  _error = null;
-                  _loading = true;
-                });
-                unawaited(_loadOrStart());
-              },
-              onOpenBlocking: () {
-                final blocking = _blockingExecution;
-                final blockingRouteId = blocking?.routeId;
-                if (blockingRouteId == null) return;
-                context.pushReplacementNamed(
-                  AppRouteNames.routeExecution,
-                  pathParameters: {'id': blockingRouteId},
-                );
-              },
-            )
-          : _execution == null
-          ? const Center(child: Text('Не удалось открыть прохождение'))
-          : _buildContent(_execution!, route),
     );
   }
 
   Widget _buildContent(RouteExecution execution, RouteDetail? route) {
-    final completed = execution.status == RouteExecutionStatus.completed;
-    final cancelled = execution.status == RouteExecutionStatus.cancelled;
     final title = route?.name ?? execution.routeName;
     // GPS is only worth reading while the run is actually in progress — no
     // point tracking position on a finished or cancelled screen.
@@ -726,8 +748,8 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     // A stray fix (stale cache, simulator default location, no GPS lock yet)
     // can land hundreds of km from the route — feeding that into the map's
     // fit would zoom it out to a near-global view instead of the route
-    // itself. The distance-to-next-stop chip below is still shown as-is:
-    // an implausible distance there just reads as "very far", not broken.
+    // itself. The distance row below is still shown as-is: an implausible
+    // distance there just reads as "very far", not broken.
     final mapLivePosition =
         liveLatLng != null && route != null && _isNearRoute(liveLatLng, route)
         ? liveLatLng
@@ -741,38 +763,48 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       for (final stop in execution.stops)
         if (stop.isCompleted) stop.position,
     };
-    final nextStop = execution.isActive
-        ? execution.stops
-              .where(
-                (stop) =>
-                    !stop.isCompleted && stop.lat != null && stop.lng != null,
-              )
-              .firstOrNull
-        : null;
-    final nextStopDistanceMeters = liveLatLng != null && nextStop != null
+    final nextStop =
+        execution.status == RouteExecutionStatus.completed ||
+            execution.status == RouteExecutionStatus.cancelled
+        ? null
+        : execution.stops.where((stop) => !stop.isCompleted).firstOrNull;
+    // To the next stop from where the phone is; without a fix, the length of
+    // the leg that leads there.
+    final nextStopDistanceMeters =
+        liveLatLng != null && nextStop?.lat != null && nextStop?.lng != null
         ? Geolocator.distanceBetween(
             liveLatLng.lat,
             liveLatLng.lng,
-            nextStop.lat!,
+            nextStop!.lat!,
             nextStop.lng!,
-          )
-        : null;
+          ).round()
+        : nextStop?.legDistanceMeters;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 36),
+      padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
       children: [
         Text(
           title,
-          style: AppTypography.routeTitle.copyWith(
-            fontSize: 27,
+          style: const TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
             color: AppColors.primaryInk,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           _statusLabel(execution.status),
-          style: AppTypography.coach.copyWith(color: AppColors.secondaryInk),
+          style: const TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            height: 1.2,
+            color: _ExecutionColors.muted,
+          ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         _ProgressCard(execution: execution),
         if (_offline) ...[
           const SizedBox(height: 12),
@@ -782,88 +814,113 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           ),
         ],
         if (route != null) ...[
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           RouteStaticMap(
             staticMapUrl: route.staticMapUrl,
             stops: route.stops,
             geometry: route.geometry,
             config: ref.watch(appConfigProvider),
-            footerLabel: routePointsLabel(route.stops.length),
+            height: 342,
+            footerLabel: execution.completedStops > 0
+                ? 'Вы на ${execution.completedStops} точке'
+                : routePointsLabel(route.stops.length),
+            pillFooter: true,
             livePosition: mapLivePosition,
             completedFraction: completedFraction,
             completedStopPositions: completedStopPositions,
             activeLeg: _activeLeg(execution, route),
           ),
         ],
+        const SizedBox(height: 8),
+        _InfoRow(
+          iconAsset: AppIconography.execAlarm,
+          label: 'Всего в пути:',
+          value: '${_elapsedMinutes(execution)} мин.',
+        ),
         if (nextStopDistanceMeters != null) ...[
-          const SizedBox(height: 12),
-          _NextStopDistanceChip(
-            placeName: nextStop!.placeName,
-            distanceMeters: nextStopDistanceMeters,
+          const SizedBox(height: 4),
+          _InfoRow(
+            iconAsset: AppIconography.statRoutesCompleted,
+            label: 'До след. точки',
+            value: formatDistanceKm(nextStopDistanceMeters),
           ),
         ],
         if (execution.routing?.warnings.isNotEmpty == true) ...[
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
           _WarningCard(warnings: execution.routing!.warnings),
         ],
-        const SizedBox(height: 22),
-        const Text('Остановки', style: AppTypography.sectionTitle),
-        const SizedBox(height: 10),
+        const SizedBox(height: 24),
+        const Text(
+          'Остановки:',
+          style: TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            height: 1.2,
+            color: AppColors.primaryInk,
+          ),
+        ),
+        const SizedBox(height: 8),
         if (execution.stops.isEmpty)
           const _EmptyStopsCard()
         else
           for (final stop in execution.stops)
-            _StopCard(
+            _StopRow(
               stop: stop,
               busy: _busyStopId == stop.id,
               enabled: execution.isActive,
               onComplete: () => unawaited(_completeStop(stop)),
             ),
         if (execution.status == RouteExecutionStatus.paused) ...[
-          const SizedBox(height: 22),
-          FilledButton.icon(
-            onPressed: _resumeRoute,
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Возобновить'),
+          const SizedBox(height: 18),
+          _DarkButton(label: 'Возобновить', onPressed: _resumeRoute),
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton(
+              onPressed: _cancelRoute,
+              child: const Text('Отменить маршрут'),
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
+          const Text(
             'Маршрут на паузе. Остановки недоступны, пока не возобновишь.',
             textAlign: TextAlign.center,
-            style: AppTypography.routeMetadata.copyWith(
-              color: AppColors.secondaryInk,
-            ),
+            style: _footnoteStyle,
           ),
         ],
-        if (!completed && !cancelled && execution.isActive) ...[
-          const SizedBox(height: 22),
-          FilledButton.icon(
+        if (execution.isActive) ...[
+          const SizedBox(height: 18),
+          _DarkButton(
+            label: 'Завершить маршрут',
+            busy: _finishing,
             onPressed: _finishing ? null : _completeRoute,
-            icon: _finishing
-                ? const SizedBox.square(
-                    dimension: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.flag_rounded),
-            label: const Text('Завершить маршрут'),
-          ),
-          const SizedBox(height: 10),
-          OutlinedButton.icon(
-            onPressed: _pauseRoute,
-            icon: const Icon(Icons.pause_rounded),
-            label: const Text('Пауза'),
           ),
           const SizedBox(height: 8),
-          Text(
-            'Завершай остановки по мере прохождения — так история и награды будут честными.',
+          const Text(
+            'Завершай остановки по мере прохождения для верного отображения истории и наград',
             textAlign: TextAlign.center,
-            style: AppTypography.routeMetadata.copyWith(
-              color: AppColors.secondaryInk,
-            ),
+            style: _footnoteStyle,
           ),
         ],
       ],
     );
+  }
+
+  static const _footnoteStyle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.3,
+    color: _ExecutionColors.muted,
+  );
+
+  /// Minutes on the way so far, pauses left out.
+  static int _elapsedMinutes(RouteExecution execution) {
+    final end =
+        execution.completedAt ?? execution.cancelledAt ?? DateTime.now();
+    final seconds =
+        end.difference(execution.startedAt).inSeconds -
+        execution.pausedDurationSeconds;
+    return seconds <= 0 ? 0 : seconds ~/ 60;
   }
 
   void _showError(String message) {
@@ -963,10 +1020,92 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   }
 }
 
+class _ExecutionColors {
+  static const muted = Color(0xFF8E8E93);
+  static const track = Color(0xFFD6E4F7);
+  static const ring = Color(0xFFD9D9D9);
+}
+
+/// Back on the left, the title in the middle and the pause (or resume)
+/// control on the right, as in the design.
+class _ExecutionTopBar extends StatelessWidget {
+  const _ExecutionTopBar({
+    required this.onBack,
+    required this.onPause,
+    required this.onResume,
+  });
+
+  final VoidCallback onBack;
+  final VoidCallback? onPause;
+  final VoidCallback? onResume;
+
+  @override
+  Widget build(BuildContext context) {
+    final onPause = this.onPause;
+    final onResume = this.onResume;
+    return SizedBox(
+      height: SettingsMetrics.headerButton,
+      child: Row(
+        children: [
+          Semantics(
+            label: 'Назад',
+            button: true,
+            excludeSemantics: true,
+            child: SettingsCircleIconButton(
+              icon: Icons.arrow_back_rounded,
+              iconSize: 22,
+              onTap: onBack,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              'Прохождение',
+              textAlign: TextAlign.center,
+              style: AppTypography.settingsRowTitle.copyWith(fontSize: 16),
+            ),
+          ),
+          if (onPause != null)
+            Semantics(
+              label: 'Пауза',
+              button: true,
+              excludeSemantics: true,
+              child: SettingsCircleIconButton(
+                icon: Icons.pause_rounded,
+                iconSize: 30,
+                onTap: onPause,
+              ),
+            )
+          else if (onResume != null)
+            Semantics(
+              label: 'Возобновить',
+              button: true,
+              excludeSemantics: true,
+              child: SettingsCircleIconButton(
+                icon: Icons.play_arrow_rounded,
+                iconSize: 30,
+                onTap: onResume,
+              ),
+            )
+          else
+            const SizedBox(width: SettingsMetrics.headerButton),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProgressCard extends StatelessWidget {
   const _ProgressCard({required this.execution});
 
   final RouteExecution execution;
+
+  static const _label = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    height: 1.2,
+    color: _ExecutionColors.muted,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -974,49 +1113,129 @@ class _ProgressCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x12000000),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: AppShadows.tile,
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Прогресс', style: AppTypography.button),
+                const Text('Прогресс:', style: _label),
                 Text(
                   '$percent%',
-                  style: AppTypography.button.copyWith(
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    height: 1.2,
                     color: AppColors.accentBlue,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             ClipRRect(
               borderRadius: BorderRadius.circular(99),
               child: LinearProgressIndicator(
-                minHeight: 10,
+                minHeight: 8,
                 value: execution.progress,
-                backgroundColor: AppColors.accentBlue.withValues(alpha: .12),
+                backgroundColor: _ExecutionColors.track,
                 color: AppColors.accentBlue,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
+            if (execution.totalStops == 0)
+              const Text(
+                'Остановки появятся после синхронизации маршрута',
+                style: _label,
+              )
+            else
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Остановки:',
+                    style: _label.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                  Text(
+                    '${execution.completedStops}/${execution.totalStops}',
+                    style: const TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      height: 1.2,
+                      color: AppColors.primaryInk,
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// «Всего в пути: 174 мин.»: a pill with a blue icon, the label on the left
+/// and the value on the right.
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.iconAsset,
+    required this.label,
+    required this.value,
+  });
+
+  final String iconAsset;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      label: '$label $value',
+      excludeSemantics: true,
+      child: Container(
+        height: 43,
+        padding: const EdgeInsets.fromLTRB(12, 0, 14, 0),
+        decoration: BoxDecoration(
+          color: AppColors.elevatedSurface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: const Color(0xFFEFEFF1)),
+        ),
+        child: Row(
+          children: [
+            AppAssetIcon(iconAsset, size: 24, color: AppColors.accentBlue),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                  color: _ExecutionColors.muted,
+                ),
+              ),
+            ),
             Text(
-              execution.totalStops == 0
-                  ? 'Остановки появятся после синхронизации маршрута'
-                  : '${execution.completedStops} из ${execution.totalStops} остановок',
-              style: AppTypography.routeMetadata.copyWith(
-                color: AppColors.secondaryInk,
+              value,
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+                color: AppColors.primaryInk,
               ),
             ),
           ],
@@ -1026,53 +1245,54 @@ class _ProgressCard extends StatelessWidget {
   }
 }
 
-/// Soft GPS hint — distance to the next incomplete stop. Purely informative:
-/// nothing here ever gates the "Готово" button, since place coordinates
-/// aren't reliable enough to make arrival a hard requirement.
-class _NextStopDistanceChip extends StatelessWidget {
-  const _NextStopDistanceChip({
-    required this.placeName,
-    required this.distanceMeters,
+class _DarkButton extends StatelessWidget {
+  const _DarkButton({
+    required this.label,
+    required this.onPressed,
+    this.busy = false,
   });
 
-  final String placeName;
-  final double distanceMeters;
-
-  String get _distanceLabel {
-    if (distanceMeters < 1000) {
-      return '≈${distanceMeters.round()} м';
-    }
-    return '≈${(distanceMeters / 1000).toStringAsFixed(1)} км';
-  }
+  final String label;
+  final VoidCallback? onPressed;
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: AppColors.controlSurface,
-        borderRadius: BorderRadius.circular(AppRadii.card),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.near_me_rounded,
-              size: 18,
-              color: AppColors.accentBlue,
+    return Semantics(
+      button: true,
+      enabled: onPressed != null,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: AppColors.primaryInk,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            height: 56,
+            width: double.infinity,
+            child: Center(
+              child: busy
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      label,
+                      style: const TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w400,
+                        height: 1.2,
+                        color: Colors.white,
+                      ),
+                    ),
             ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                '$_distanceLabel до точки «$placeName»',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.routeMetadata.copyWith(
-                  color: AppColors.primaryInk,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1117,8 +1337,8 @@ class _OfflineBanner extends StatelessWidget {
   }
 }
 
-class _StopCard extends StatelessWidget {
-  const _StopCard({
+class _StopRow extends StatelessWidget {
+  const _StopRow({
     required this.stop,
     required this.busy,
     required this.enabled,
@@ -1132,9 +1352,12 @@ class _StopCard extends StatelessWidget {
 
   String get _subtitle {
     final parts = [
-      stop.isOptional ? 'Можно пропустить' : 'Обязательная остановка',
-      // Leg length and expected time; absent for the first stop and short legs.
-      ?formatLegLabel(stop.legDistanceMeters, stop.legEstimateSeconds),
+      // Leg length, with the expected time when there is one.
+      ?formatLegLabel(stop.legDistanceMeters, stop.legEstimateSeconds) ??
+          (stop.legDistanceMeters == null
+              ? null
+              : formatDistanceKm(stop.legDistanceMeters)),
+      if (stop.isOptional) 'Можно пропустить',
       if (stop.undelivered && !stop.isCompleted)
         'Отметка не доставлена — отметьте заново',
     ];
@@ -1144,40 +1367,135 @@ class _StopCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = stop.isCompleted;
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      color: AppColors.elevatedSurface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadii.card),
-      ),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: done
-              ? AppColors.positiveSwipeTint.withValues(alpha: .14)
-              : AppColors.accentBlue.withValues(alpha: .12),
-          foregroundColor: done
-              ? AppColors.positiveSwipeTint
-              : AppColors.accentBlue,
-          child: done
-              ? const Icon(Icons.check_rounded)
-              : Text('${stop.position}'),
-        ),
-        title: Text(stop.placeName, style: AppTypography.button),
-        subtitle: Text(_subtitle),
-        trailing: done
-            ? const Icon(
-                Icons.check_circle_rounded,
-                color: AppColors.positiveSwipeTint,
-              )
-            : FilledButton.tonal(
-                onPressed: enabled && !busy ? onComplete : null,
-                child: busy
-                    ? const SizedBox.square(
-                        dimension: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Готово'),
+    final subtitle = _subtitle;
+    return SizedBox(
+      height: 47,
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primaryInk,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              '${stop.position}',
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                height: 1,
+                color: Colors.white,
               ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  stop.placeName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    height: 1.2,
+                    color: AppColors.primaryInk,
+                  ),
+                ),
+                if (subtitle.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.2,
+                      color: _ExecutionColors.muted,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          _StopMark(
+            done: done,
+            busy: busy,
+            placeName: stop.placeName,
+            onTap: !done && enabled && !busy ? onComplete : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The round mark on the right of a stop: an empty ring to tap when the
+/// stop is reached, filled with a tick once it is.
+class _StopMark extends StatelessWidget {
+  const _StopMark({
+    required this.done,
+    required this.busy,
+    required this.placeName,
+    required this.onTap,
+  });
+
+  final bool done;
+  final bool busy;
+  final String placeName;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: !done,
+      checked: done,
+      enabled: onTap != null,
+      label: done ? '«$placeName» отмечена' : 'Отметить «$placeName»',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox.square(
+          dimension: 44,
+          child: Center(
+            child: Container(
+              width: 31,
+              height: 31,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: done ? AppColors.primaryInk : Colors.transparent,
+                border: done
+                    ? null
+                    : Border.all(color: _ExecutionColors.ring, width: 1.2),
+              ),
+              alignment: Alignment.center,
+              child: busy
+                  ? const SizedBox.square(
+                      dimension: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.6),
+                    )
+                  : done
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 18,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+          ),
+        ),
       ),
     );
   }
