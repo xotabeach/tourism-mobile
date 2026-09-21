@@ -9,7 +9,6 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/startup/splash_frames.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -99,7 +98,8 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                   Text(
                     'КРЫМТРИП',
                     style: AppTypography.welcomeBrand.copyWith(
-                      color: Colors.white.withValues(alpha: 0.58),
+                      color: Colors.white.withValues(alpha: 0.8),
+                      shadows: _textShade,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -107,13 +107,15 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                     'ПОСТРОЙ СВОЙ\nИДЕАЛЬНЫЙ\nВЫХОДНОЙ',
                     style: AppTypography.welcomeTitle.copyWith(
                       color: Colors.white,
+                      shadows: _textShade,
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     'ПУТЕШЕСТВУЙ, ДЕЛИСЬ,\nНАХОДИ, ВДОХНОВЛЯЙСЯ.',
                     style: AppTypography.welcomeSubtitle.copyWith(
-                      color: Colors.white.withValues(alpha: 0.62),
+                      color: Colors.white.withValues(alpha: 0.88),
+                      shadows: _textShade,
                     ),
                   ),
                   if (_sessionExpired) ...[
@@ -122,8 +124,9 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       'Сессия истекла, войдите снова',
                       key: const ValueKey('welcome-session-expired'),
                       style: AppTypography.welcomeSubtitle.copyWith(
-                        color: Colors.white.withValues(alpha: 0.9),
+                        color: Colors.white,
                         fontWeight: FontWeight.w600,
+                        shadows: _textShade,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -139,11 +142,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: AppAdaptivePrimaryButton(
-                          label: 'Начать путешествие',
-                          onPressed: enterApp,
-                          height: WelcomeScreen._profileButtonSize,
-                        ),
+                        child: _WelcomeStartButton(onPressed: enterApp),
                       ),
                     ],
                   ),
@@ -213,14 +212,73 @@ class _WelcomeProfileButton extends StatelessWidget {
       );
     }
 
-    return AppGlassIconButton(
-      semanticLabel: 'Открыть профиль',
-      onPressed: onPressed,
-      iconAsset: AppIconography.profileSelected,
-      dimension: WelcomeScreen._profileButtonSize,
-      iconSize: 28,
-      foregroundColor: AppColors.primaryInk,
-      fillColor: Colors.white.withValues(alpha: 0.82),
+    return Semantics(
+      button: true,
+      label: 'Открыть профиль',
+      excludeSemantics: true,
+      child: Material(
+        color: _welcomeButtonFill,
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: const SizedBox.square(
+            dimension: WelcomeScreen._profileButtonSize,
+            child: Center(
+              child: AppAssetIcon(
+                AppIconography.profileSelected,
+                size: 28,
+                color: AppColors.primaryInk,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A soft shade behind the white text, so it holds over the bright sunset
+/// band without darkening the whole picture.
+const _textShade = [Shadow(color: Color(0x66000000), blurRadius: 14)];
+
+/// Solid, not glass: over the photo a see-through glass button took on the
+/// dark foreground and its dark label all but disappeared.
+const _welcomeButtonFill = Color(0xF2FFFFFF);
+
+class _WelcomeStartButton extends StatelessWidget {
+  const _WelcomeStartButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    const label = 'Начать путешествие';
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: _welcomeButtonFill,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          child: SizedBox(
+            height: WelcomeScreen._profileButtonSize,
+            width: double.infinity,
+            child: Center(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: AppColors.primaryInk,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -241,15 +299,16 @@ class _WelcomeBackdrop extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              // The daylight sky is far brighter than the old sunset photo, so
-              // the scrim starts earlier and ends darker under the white text.
+              // Only as much shade as the white text needs: the picture is the
+              // point of this screen, and a heavy scrim buried it and the
+              // buttons with it.
               colors: [
                 Colors.black.withValues(alpha: 0),
-                Colors.black.withValues(alpha: 0.12),
-                Colors.black.withValues(alpha: 0.6),
-                Colors.black.withValues(alpha: 0.88),
+                Colors.black.withValues(alpha: 0),
+                Colors.black.withValues(alpha: 0.22),
+                Colors.black.withValues(alpha: 0.42),
               ],
-              stops: const [0, 0.3, 0.62, 1],
+              stops: const [0, 0.5, 0.72, 1],
             ),
           ),
         ),

@@ -512,20 +512,27 @@ class _ScenePainter extends CustomPainter {
     final dy = size.height - dh;
     final firstLight = _smooth((t - 0.06) / 0.42);
     final daylight = _smooth((t - 0.48) / 0.52);
-    final topColor = Color.lerp(
-      Color.lerp(_nightSky.first, _duskSky.first, firstLight),
-      SplashFrames.daySkyColor,
-      daylight,
-    )!;
 
     canvas
       ..save()
       ..clipRect(Offset.zero & size)
-      ..drawRect(Offset.zero & size, Paint()..color = topColor);
-    canvas
+      // The day sky under everything: it is also the top colour of the day
+      // picture, so the sky above the scene continues it without a seam.
+      ..drawRect(Offset.zero & size, Paint()..color = SplashFrames.daySkyColor)
       ..translate(0, dy)
       ..scale(scale);
     const sceneRect = Rect.fromLTWH(0, 0, splashSceneWidth, splashSceneHeight);
+    // The whole screen in scene units. The night and dusk skies are painted
+    // over all of it (their gradients hold their end colours past the
+    // scene), so the sky above the picture is lit by exactly the same layers
+    // as the sky inside it. A separately blended fill there used to leave a
+    // visible line where the scene began.
+    final screenRect = Rect.fromLTWH(
+      0,
+      -dy / scale,
+      size.width / scale,
+      size.height / scale,
+    ).inflate(1);
 
     if (loaded == null) {
       // Layers not decoded yet (or failed): the night sky, or the finished
@@ -539,7 +546,7 @@ class _ScenePainter extends CustomPainter {
           filterQuality: FilterQuality.medium,
         );
       } else {
-        _paintGradient(canvas, sceneRect, _nightSky, 1);
+        _paintGradient(canvas, sceneRect, screenRect, _nightSky, 1);
       }
       canvas.restore();
       return;
@@ -557,8 +564,8 @@ class _ScenePainter extends CustomPainter {
       fit: BoxFit.fill,
       filterQuality: FilterQuality.medium,
     );
-    _paintGradient(canvas, sceneRect, _duskSky, 1 - daylight);
-    _paintGradient(canvas, sceneRect, _nightSky, 1 - firstLight);
+    _paintGradient(canvas, sceneRect, screenRect, _duskSky, 1 - daylight);
+    _paintGradient(canvas, sceneRect, screenRect, _nightSky, 1 - firstLight);
 
     for (var i = 0; i < splashSceneLayers.length; i++) {
       final layer = splashSceneLayers[i];
@@ -597,9 +604,12 @@ class _ScenePainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Paints [colors] laid out over [rect] (the scene) across [cover] (the
+  /// screen): past the scene the gradient keeps its first and last colour.
   void _paintGradient(
     Canvas canvas,
     Rect rect,
+    Rect cover,
     List<Color> colors,
     double opacity,
   ) {
@@ -607,9 +617,7 @@ class _ScenePainter extends CustomPainter {
       return;
     }
     canvas.drawRect(
-      // Cover the fractional image edge too: otherwise its bright day sky
-      // can leave a one-pixel line against the extended night sky.
-      rect.inflate(2),
+      cover,
       Paint()
         ..shader = LinearGradient(
           begin: Alignment.topCenter,

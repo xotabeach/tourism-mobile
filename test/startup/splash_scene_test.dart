@@ -120,6 +120,51 @@ void main() {
     }
   });
 
+  testWidgets('no line where the scene meets the sky above it', (tester) async {
+    // A tall phone: the scene is fitted to the width, so there is sky above
+    // it. Its top edge used to show as a line mid-sunrise.
+    const size = Size(393, 852);
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = size;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+    final context = tester.element(find.byType(SizedBox));
+    await tester.runAsync(() async {
+      await precacheImage(SplashFrames.day, context);
+      await precacheImage(SplashFrames.skyDay, context);
+      for (final layer in splashSceneLayers) {
+        await precacheImage(SplashFrames.layer(layer.name), context);
+      }
+    });
+    final edge =
+        (size.height - splashSceneHeight * size.width / splashSceneWidth)
+            .round();
+    int channel(List<int> pixels, int row, int c) =>
+        pixels[(row * size.width.toInt() + size.width ~/ 2) * 4 + c];
+
+    for (final progress in [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]) {
+      final frame = await _capture(
+        tester,
+        SplashScenePreview(progress: progress),
+        size: size,
+      );
+      final pixels = await _pixels(tester, frame);
+      // Neighbouring rows across the edge: the old line was one or two
+      // rows darker than the sky on both sides of it.
+      for (var row = edge - 5; row < edge + 5; row++) {
+        for (var c = 0; c < 3; c++) {
+          expect(
+            (channel(pixels, row + 1, c) - channel(pixels, row, c)).abs(),
+            lessThanOrEqualTo(3),
+            reason: 'line at the scene top at $progress, row $row',
+          );
+        }
+      }
+      frame.dispose();
+    }
+  });
+
   test('every scene layer is bundled', () {
     expect(File('assets/splash/scene/sky_day.png').existsSync(), isTrue);
     expect(File('assets/splash/scene_day.jpg').existsSync(), isTrue);
