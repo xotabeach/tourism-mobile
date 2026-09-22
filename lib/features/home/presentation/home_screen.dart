@@ -31,6 +31,7 @@ import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_c
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
+import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -51,7 +52,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  static const _chips = ['Все', 'Море', 'Горы', 'Еда', 'Лес'];
+  static const _chips = routeCatalogFilters;
   static const _pinnedBarThreshold = 48.0;
   final _scrollController = ScrollController();
   final _searchController = TextEditingController();
@@ -122,36 +123,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() => _searchFilters = applied);
   }
 
-  List<RouteSummary> _filtered(List<RouteSummary> items) {
-    return items.where((route) {
-      final haystack =
-          '${route.name} ${route.shortDescription ?? ''} '
-                  '${route.authorLabel ?? ''} ${route.difficulty ?? ''} '
-                  '${route.transportMode ?? ''}'
-              .toLowerCase();
-      final matchesChip = switch (_selectedChip.toLowerCase()) {
-        'все' => true,
-        'море' =>
-          haystack.contains('берег') ||
-              haystack.contains('ялт') ||
-              haystack.contains('мор') ||
-              haystack.contains('фиолент') ||
-              haystack.contains('свет'),
-        'горы' =>
-          haystack.contains('гор') ||
-              haystack.contains('бахчисар') ||
-              haystack.contains('кале') ||
-              haystack.contains('петри'),
-        'еда' => haystack.contains('еда') || haystack.contains('кухн'),
-        'лес' =>
-          haystack.contains('лес') ||
-              haystack.contains('троп') ||
-              haystack.contains('сосны'),
-        _ => true,
-      };
-      return matchesChip;
-    }).toList();
-  }
+  List<RouteSummary> _filtered(List<RouteSummary> items) =>
+      filterRouteCatalog(items, _selectedChip);
 
   void _warmRouteCovers(
     BuildContext context,

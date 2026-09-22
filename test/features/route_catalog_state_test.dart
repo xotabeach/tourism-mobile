@@ -11,6 +11,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_swipe_deck.dart';
+import 'package:tourism_mobile/features/search/application/search_filter_apply.dart';
 
 import '../support/test_overrides.dart';
 
@@ -51,6 +52,43 @@ void main() {
     expect(filterRouteCatalog(routes, 'Море'), [_seaRoute]);
     expect(filterRouteCatalog(routes, 'Горы'), [_mountainRoute]);
     expect(filterRouteCatalog(routes, 'Еда'), isEmpty);
+  });
+
+  test('the sea tag decides the «Море» filter when the server sends it', () {
+    // BACKEND-19: the editor's tag wins over words in the title both ways.
+    const taggedMountain = RouteSummary(
+      id: 'tagged',
+      name: 'Подъем на Ай-Петри',
+      slug: 'tagged',
+      shortDescription: 'Горный маршрут',
+      stopsCount: 3,
+      isSeaside: true,
+    );
+    const untaggedSea = RouteSummary(
+      id: 'untagged',
+      name: 'Море и сосны',
+      slug: 'untagged',
+      shortDescription: 'Береговая тропа у бухты',
+      stopsCount: 2,
+      isSeaside: false,
+    );
+    const routes = [taggedMountain, untaggedSea];
+
+    expect(filterRouteCatalog(routes, 'Море'), [taggedMountain]);
+    expect(matchesRouteSearchTags(taggedMountain, {'Море'}), isTrue);
+    expect(matchesRouteSearchTags(untaggedSea, {'Море'}), isFalse);
+    expect(matchesRouteSearchTags(untaggedSea, {'Море', 'Лес'}), isTrue);
+    expect(
+      RouteSummary.fromJson({
+        'id': 'x',
+        'name': 'x',
+        'slug': 'x',
+        'short_description': null,
+        'stops_count': 2,
+        'is_seaside': true,
+      }).isSeaside,
+      isTrue,
+    );
   });
 
   testWidgets('committed right swipe updates observed favorite state', (

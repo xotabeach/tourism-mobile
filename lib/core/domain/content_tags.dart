@@ -1,7 +1,7 @@
 /// Shared tag vocabulary for anything a user categorizes — routes (via the
 /// publish flow's tag picker) and articles. One word list so a reader
 /// doesn't have to learn a second vocabulary for blog content.
-const routeTags = [
+const _sharedTags = [
   'Природа',
   'Пешком',
   'С детьми',
@@ -24,4 +24,11 @@ const articleOnlyTags = [
   'Мнение',
 ];
 
-const articleTags = [...routeTags, ...articleOnlyTags];
+/// «Море» is not the author's pick for a route: the server works it out
+/// from the stops (BACKEND-19).
+final routeTags = [
+  for (final tag in _sharedTags)
+    if (tag != 'Море') tag,
+];
+
+const articleTags = [..._sharedTags, ...articleOnlyTags];

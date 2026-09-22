@@ -90,6 +90,7 @@ class RouteSummary {
     this.isRoundTrip = false,
     this.suitableForChildren,
     this.petsAllowed,
+    this.isSeaside,
     this.seasonality = const [],
     this.authorLabel,
     this.coverImageUrl,
@@ -123,6 +124,9 @@ class RouteSummary {
   /// Backend already sends these; the card builds its chips from them.
   final bool? suitableForChildren;
   final bool? petsAllowed;
+
+  /// Editor's «Море» tag (BACKEND-19). `null` from a server that predates it.
+  final bool? isSeaside;
   final List<String> seasonality;
   final String? authorLabel;
 
@@ -153,6 +157,7 @@ class RouteSummary {
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       suitableForChildren: json['suitable_for_children'] as bool?,
       petsAllowed: json['pets_allowed'] as bool?,
+      isSeaside: json['is_seaside'] as bool?,
       seasonality: (json['seasonality'] as List<dynamic>? ?? const [])
           .whereType<String>()
           .toList(growable: false),
@@ -184,6 +189,7 @@ class RouteSummary {
     'is_round_trip': isRoundTrip,
     'suitable_for_children': suitableForChildren,
     'pets_allowed': petsAllowed,
+    'is_seaside': isSeaside,
     'seasonality': seasonality,
     'author_label': authorLabel,
     'cover_image_url': coverImageUrl,
@@ -365,6 +371,7 @@ class RouteDetail extends RouteSummary {
     super.isRoundTrip,
     super.suitableForChildren,
     super.petsAllowed,
+    super.isSeaside,
     super.seasonality,
     super.authorLabel,
     super.coverImageUrl,
@@ -413,6 +420,7 @@ class RouteDetail extends RouteSummary {
       isRoundTrip: json['is_round_trip'] as bool? ?? false,
       suitableForChildren: json['suitable_for_children'] as bool?,
       petsAllowed: json['pets_allowed'] as bool?,
+      isSeaside: json['is_seaside'] as bool?,
       seasonality: (json['seasonality'] as List<dynamic>? ?? const [])
           .whereType<String>()
           .toList(growable: false),
