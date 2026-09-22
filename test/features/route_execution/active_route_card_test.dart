@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
@@ -19,6 +20,8 @@ RouteExecution _run({
   DateTime? pausedAt,
   DateTime? lastActivityAt,
   int pausedDurationSeconds = 0,
+  DateTime? completedAt,
+  bool myReviewExists = false,
 }) {
   final start =
       startedAt ?? DateTime.now().subtract(const Duration(minutes: 78));
@@ -31,6 +34,8 @@ RouteExecution _run({
     pausedAt: pausedAt,
     lastActivityAt: lastActivityAt,
     pausedDurationSeconds: pausedDurationSeconds,
+    completedAt: completedAt,
+    myReviewExists: myReviewExists,
     totalStops: 7,
     completedStops: 3,
     requiredStops: 7,
@@ -53,10 +58,15 @@ RouteExecution _run({
 }
 
 class _Repo extends MockRouteExecutionRepository {
-  _Repo({this.active, this.failure});
+  _Repo({this.active, this.failure, this.history = const []});
 
   final RouteExecution? active;
   final Object? failure;
+  final List<RouteExecution> history;
+
+  @override
+  Future<List<RouteExecution>> list({int limit = 20, int offset = 0}) async =>
+      history;
 
   @override
   Future<RouteExecution?> getActive() async {
@@ -70,6 +80,7 @@ Future<HomeActiveRun?> _load({
   Object? failure,
   RouteExecution? snapshot,
   bool signedIn = true,
+  List<RouteExecution> history = const [],
 }) async {
   final store = MemoryRouteExecutionOfflineStore();
   if (snapshot != null) await store.saveSnapshot(snapshot);
@@ -77,7 +88,7 @@ Future<HomeActiveRun?> _load({
     overrides: [
       ...testSessionOverrides(onboardingCompleted: signedIn),
       routeExecutionRepositoryProvider.overrideWithValue(
-        _Repo(active: active, failure: failure),
+        _Repo(active: active, failure: failure, history: history),
       ),
       routeExecutionOfflineStoreProvider.overrideWithValue(store),
     ],
@@ -87,6 +98,48 @@ Future<HomeActiveRun?> _load({
 }
 
 void main() {
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  group('review ask after the finish', () {
+    RouteExecution finished({
+      Duration ago = const Duration(hours: 2),
+      bool reviewed = false,
+    }) => _run(
+      status: RouteExecutionStatus.completed,
+      completedAt: DateTime.now().subtract(ago),
+      myReviewExists: reviewed,
+    );
+
+    test('a run finished today without a review asks for one', () async {
+      final state = await _load(active: null, history: [finished()]);
+      expect(state?.askForReview, isTrue);
+    });
+
+    test('not once the route is reviewed', () async {
+      expect(
+        await _load(active: null, history: [finished(reviewed: true)]),
+        isNull,
+      );
+    });
+
+    test('not after a day', () async {
+      expect(
+        await _load(
+          active: null,
+          history: [finished(ago: const Duration(hours: 25))],
+        ),
+        isNull,
+      );
+    });
+
+    test('not after the cross was tapped for this run', () async {
+      SharedPreferences.setMockInitialValues({
+        'home.review_ask_dismissed_run': 'run-1',
+      });
+      expect(await _load(active: null, history: [finished()]), isNull);
+    });
+  });
+
   group('home active run', () {
     test('a run in progress on the server shows the card', () async {
       final state = await _load(active: _run());
@@ -201,5 +254,38 @@ void main() {
       await pump(tester, HomeActiveRun(run: _run(), offline: true));
       expect(find.text('Нет сети'), findsOneWidget);
     });
+  });
+
+  testWidgets('the review ask card', (tester) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 400);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: testSessionOverrides(onboardingCompleted: true),
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(16),
+              child: ActiveRouteCard(
+                state: HomeActiveRun(
+                  run: _run(
+                    status: RouteExecutionStatus.completed,
+                    completedAt: DateTime.now(),
+                  ),
+                  offline: false,
+                  askForReview: true,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Маршрут пройден'), findsOneWidget);
+    expect(find.bySemanticsLabel('Не предлагать оценку'), findsOneWidget);
   });
 }

@@ -328,6 +328,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         child: RouteDetailsScreen(
                           routeId: id,
                           initialRoute: initialRoute,
+                          openReviews:
+                              state.uri.queryParameters['tab'] == 'reviews',
                         ),
                       );
                     },

@@ -45,6 +45,7 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
   const RouteDetailsScreen({
     required this.routeId,
     this.initialRoute,
+    this.openReviews = false,
     super.key,
   });
 
@@ -52,6 +53,9 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
 
   final String routeId;
   final RouteSummary? initialRoute;
+
+  /// Open on the reviews tab: the home card's «Оцените маршрут».
+  final bool openReviews;
 
   @override
   ConsumerState<RouteDetailsScreen> createState() => _RouteDetailsScreenState();
@@ -67,7 +71,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   late final AnimationController _galleryController;
 
   int? _selectedStop;
-  var _selectedSection = _RouteDetailsSection.about;
+  late var _selectedSection = widget.openReviews
+      ? _RouteDetailsSection.comments
+      : _RouteDetailsSection.about;
 
   @override
   void initState() {

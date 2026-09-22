@@ -42,6 +42,9 @@ abstract final class AppIconography {
 
   /// Solar «map-point-bold», the next stop on the home run card.
   static const String runPin = '$_root/run_pin.png';
+
+  /// Solar «cup-star», the «Маршрут пройден» pill of the review ask.
+  static const String runCup = '$_root/run_cup.png';
   static const String statRoutesCreated = '$_root/stat_routes_created.png';
   static const String statArticles = '$_root/stat_articles.png';
   static const String statLikes = '$_root/stat_likes.png';
