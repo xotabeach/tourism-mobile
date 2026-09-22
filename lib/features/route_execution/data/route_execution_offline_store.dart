@@ -8,6 +8,7 @@ import 'package:tourism_mobile/features/route_execution/domain/route_execution.d
 enum RouteExecutionAction {
   start,
   completeStop,
+  uncompleteStop,
   complete,
   cancel,
   pause,

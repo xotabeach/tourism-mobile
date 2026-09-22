@@ -65,6 +65,21 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) {
+    return _mutate(
+      () => _dio.delete<Map<String, dynamic>>(
+        '/api/v1/route-executions/$executionId/stops/$stopId/complete',
+        data: _eventBody(clientEventId, occurredAt),
+      ),
+    );
+  }
+
+  @override
   Future<RouteExecution> complete(
     String executionId, {
     String? clientEventId,

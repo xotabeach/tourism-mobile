@@ -357,6 +357,84 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     }
   }
 
+  /// The stop whose mark can be taken back: the latest one marked, so legs
+  /// and pace keep following the order the stops were really reached in.
+  static String? _lastMarkedStopId(RouteExecution execution) {
+    RouteExecutionStop? latest;
+    for (final stop in execution.stops) {
+      final at = stop.completedAt;
+      if (at == null) continue;
+      if (latest == null || at.isAfter(latest.completedAt!)) latest = stop;
+    }
+    return latest?.id;
+  }
+
+  Future<void> _uncompleteStop(RouteExecutionStop stop) async {
+    final execution = _execution;
+    if (execution == null || !execution.isActive || _busyStopId != null) return;
+    final confirmed = await showUnmarkConfirmDialog(
+      context,
+      placeName: stop.placeName,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _busyStopId = stop.id);
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
+    final updated = _uncompleteStopLocally(execution, stop.id);
+    final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
+    try {
+      // A mark still waiting to be sent is simply withdrawn.
+      if (await coordinator.withdrawQueuedMark(execution.id, stop.id)) {
+        await coordinator.save(updated);
+        await _refreshPendingActions();
+        if (mounted) setState(() => _execution = updated);
+        return;
+      }
+      final saved = await ref
+          .read(routeExecutionRepositoryProvider)
+          .uncompleteStop(
+            execution.id,
+            stop.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
+      await coordinator.save(saved);
+      if (mounted) setState(() => _execution = saved);
+      ref.invalidate(routeExecutionHistoryProvider);
+    } on NetworkFailure catch (error) {
+      await _queueOfflineAction(
+        executionId: execution.id,
+        action: RouteExecutionAction.uncompleteStop,
+        stopId: stop.id,
+        clientEventId: clientEventId,
+        occurredAt: occurredAt,
+        updated: updated,
+      );
+      if (mounted) _showError(_friendlyError(error));
+    } on Object catch (error) {
+      if (mounted) _showError(_friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _busyStopId = null);
+    }
+  }
+
+  RouteExecution _uncompleteStopLocally(
+    RouteExecution execution,
+    String stopId,
+  ) {
+    final stops = [
+      for (final stop in execution.stops)
+        stop.id == stopId ? stop.withoutCompletion() : stop,
+    ];
+    return execution.copyWith(
+      stops: stops,
+      completedStops: stops.where((stop) => stop.isCompleted).length,
+      completedRequiredStops: stops
+          .where((stop) => stop.isCompleted && !stop.isOptional)
+          .length,
+    );
+  }
+
   Future<void> _completeRoute() async {
     final execution = _execution;
     if (execution == null || !execution.isActive || _finishing) return;
@@ -768,17 +846,18 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             execution.status == RouteExecutionStatus.cancelled
         ? null
         : execution.stops.where((stop) => !stop.isCompleted).firstOrNull;
-    // To the next stop from where the phone is; without a fix, the length of
-    // the leg that leads there.
-    final nextStopDistanceMeters =
-        liveLatLng != null && nextStop?.lat != null && nextStop?.lng != null
-        ? Geolocator.distanceBetween(
-            liveLatLng.lat,
-            liveLatLng.lng,
-            nextStop!.lat!,
-            nextStop.lng!,
-          ).round()
-        : nextStop?.legDistanceMeters;
+    // To the next stop from where the phone is, as the crow flies; without a
+    // plausible fix, the length of the whole leg that leads there along the
+    // way. The two are different numbers, so the row says which one it shows
+    // (FRONTEND-36: they used to share one unlabelled value and jump).
+    final nextStopDistance =
+        mapLivePosition != null &&
+            nextStop?.lat != null &&
+            nextStop?.lng != null
+        ? '${formatStopDistance(Geolocator.distanceBetween(mapLivePosition.lat, mapLivePosition.lng, nextStop!.lat!, nextStop.lng!).round())} по прямой'
+        : nextStop?.legDistanceMeters == null
+        ? null
+        : 'весь участок ${formatStopDistance(nextStop!.legDistanceMeters!)}';
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return ListView(
       padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
@@ -837,12 +916,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           label: 'Всего в пути:',
           value: '${_elapsedMinutes(execution)} мин.',
         ),
-        if (nextStopDistanceMeters != null) ...[
+        if (nextStopDistance != null) ...[
           const SizedBox(height: 4),
           _InfoRow(
             iconAsset: AppIconography.statRoutesCompleted,
             label: 'До след. точки',
-            value: formatDistanceKm(nextStopDistanceMeters),
+            value: nextStopDistance,
           ),
         ],
         if (execution.routing?.warnings.isNotEmpty == true) ...[
@@ -870,6 +949,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
               busy: _busyStopId == stop.id,
               enabled: execution.isActive,
               onComplete: () => unawaited(_completeStop(stop)),
+              onUndo:
+                  execution.isActive && stop.id == _lastMarkedStopId(execution)
+                  ? () => unawaited(_uncompleteStop(stop))
+                  : null,
             ),
         if (execution.status == RouteExecutionStatus.paused) ...[
           const SizedBox(height: 18),
@@ -929,6 +1012,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
 
   static String _friendlyError(Object error) {
     final message = error.toString();
+    if (message.contains('route_execution_stop_not_last')) {
+      return 'Снять можно только последнюю отметку';
+    }
     if (message.contains('текущий маршрут')) {
       return 'Сначала заверши текущий маршрут';
     }
@@ -1343,12 +1429,16 @@ class _StopRow extends StatelessWidget {
     required this.busy,
     required this.enabled,
     required this.onComplete,
+    this.onUndo,
   });
 
   final RouteExecutionStop stop;
   final bool busy;
   final bool enabled;
   final VoidCallback onComplete;
+
+  /// Set only for the latest marked stop: tapping its tick takes it back.
+  final VoidCallback? onUndo;
 
   String get _subtitle {
     final parts = [
@@ -1432,7 +1522,13 @@ class _StopRow extends StatelessWidget {
             done: done,
             busy: busy,
             placeName: stop.placeName,
-            onTap: !done && enabled && !busy ? onComplete : null,
+            onTap: busy
+                ? null
+                : done
+                ? onUndo
+                : enabled
+                ? onComplete
+                : null,
           ),
         ],
       ),
@@ -1459,10 +1555,14 @@ class _StopMark extends StatelessWidget {
   Widget build(BuildContext context) {
     return Semantics(
       container: true,
-      button: !done,
+      button: !done || onTap != null,
       checked: done,
       enabled: onTap != null,
-      label: done ? '«$placeName» отмечена' : 'Отметить «$placeName»',
+      label: !done
+          ? 'Отметить «$placeName»'
+          : onTap != null
+          ? '«$placeName» отмечена, снять отметку'
+          : '«$placeName» отмечена',
       excludeSemantics: true,
       child: GestureDetector(
         onTap: onTap,

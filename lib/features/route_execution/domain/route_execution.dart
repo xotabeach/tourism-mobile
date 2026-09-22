@@ -81,6 +81,22 @@ class RouteExecutionStop {
     undelivered: undelivered ?? this.undelivered,
   );
 
+  /// The same stop, unmarked again (FRONTEND-36).
+  RouteExecutionStop withoutCompletion() => RouteExecutionStop(
+    id: id,
+    position: position,
+    placeName: placeName,
+    isOptional: isOptional,
+    routeStopId: routeStopId,
+    placeId: placeId,
+    lat: lat,
+    lng: lng,
+    legDistanceMeters: legDistanceMeters,
+    legEstimateSeconds: legEstimateSeconds,
+    legEstimateSource: legEstimateSource,
+    paceWarnBelowSeconds: paceWarnBelowSeconds,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'route_stop_id': routeStopId,

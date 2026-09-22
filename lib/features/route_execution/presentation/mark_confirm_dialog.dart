@@ -35,6 +35,31 @@ Future<bool> showMarkConfirmDialog(
   return confirmed == true;
 }
 
+/// "Take the mark back?" before unmarking the latest stop (FRONTEND-36).
+Future<bool> showUnmarkConfirmDialog(
+  BuildContext context, {
+  required String placeName,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Снять отметку?'),
+      content: Text('Точка «$placeName» снова станет неотмеченной.'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Отмена'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Снять отметку'),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
+}
+
 /// Explanation shown once before the system location prompt. True = allow.
 Future<bool> showLocationExplanationDialog(BuildContext context) async {
   final allow = await showDialog<bool>(

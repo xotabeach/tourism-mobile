@@ -67,6 +67,14 @@ class _Repo implements RouteExecutionRepository {
   }
 
   @override
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => execution;
+
+  @override
   Future<List<RouteExecution>> list({int limit = 20, int offset = 0}) async =>
       const [];
 
