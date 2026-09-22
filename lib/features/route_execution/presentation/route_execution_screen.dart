@@ -1110,6 +1110,9 @@ class _ExecutionColors {
   static const muted = Color(0xFF8E8E93);
   static const track = Color(0xFFD6E4F7);
   static const ring = Color(0xFFD9D9D9);
+
+  /// DESIGN-4 «не доставлена» red (#FF383C, same as the cross icon).
+  static const error = Color(0xFFFF383C);
 }
 
 /// Back on the left, the title in the middle and the pause (or resume)
@@ -1448,15 +1451,16 @@ class _StopRow extends StatelessWidget {
               ? null
               : formatDistanceKm(stop.legDistanceMeters)),
       if (stop.isOptional) 'Можно пропустить',
-      if (stop.undelivered && !stop.isCompleted)
-        'Отметка не доставлена — отметьте заново',
     ];
-    return parts.join(' · ');
+    return parts.join(' • ');
   }
 
   @override
   Widget build(BuildContext context) {
     final done = stop.isCompleted;
+    // A mark made offline that the server never got (DESIGN-4, №3): a red
+    // cross in place of the ring and a short red note, tap marks it again.
+    final undelivered = stop.undelivered && !done;
     final subtitle = _subtitle;
     return SizedBox(
       height: 47,
@@ -1518,8 +1522,24 @@ class _StopRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
+          if (undelivered && !busy) ...[
+            const ExcludeSemantics(
+              child: Text(
+                'Что-то пошло не так,\nпопробуйте ещё раз.',
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
+                  height: 1.2,
+                  color: _ExecutionColors.error,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
           _StopMark(
             done: done,
+            undelivered: undelivered,
             busy: busy,
             placeName: stop.placeName,
             onTap: busy
@@ -1544,9 +1564,11 @@ class _StopMark extends StatelessWidget {
     required this.busy,
     required this.placeName,
     required this.onTap,
+    this.undelivered = false,
   });
 
   final bool done;
+  final bool undelivered;
   final bool busy;
   final String placeName;
   final VoidCallback? onTap;
@@ -1558,7 +1580,9 @@ class _StopMark extends StatelessWidget {
       button: !done || onTap != null,
       checked: done,
       enabled: onTap != null,
-      label: !done
+      label: undelivered
+          ? 'Отметка «$placeName» не доставлена, отметить заново'
+          : !done
           ? 'Отметить «$placeName»'
           : onTap != null
           ? '«$placeName» отмечена, снять отметку'
@@ -1570,30 +1594,39 @@ class _StopMark extends StatelessWidget {
         child: SizedBox.square(
           dimension: 44,
           child: Center(
-            child: Container(
-              width: 31,
-              height: 31,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: done ? AppColors.primaryInk : Colors.transparent,
-                border: done
-                    ? null
-                    : Border.all(color: _ExecutionColors.ring, width: 1.2),
-              ),
-              alignment: Alignment.center,
-              child: busy
-                  ? const SizedBox.square(
-                      dimension: 14,
-                      child: CircularProgressIndicator(strokeWidth: 1.6),
-                    )
-                  : done
-                  ? const Icon(
-                      Icons.check_rounded,
-                      size: 18,
-                      color: Colors.white,
-                    )
-                  : null,
-            ),
+            child: undelivered && !busy
+                ? Image.asset(
+                    AppIconography.execUndelivered,
+                    width: 31,
+                    height: 31,
+                  )
+                : Container(
+                    width: 31,
+                    height: 31,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: done ? AppColors.primaryInk : Colors.transparent,
+                      border: done
+                          ? null
+                          : Border.all(
+                              color: _ExecutionColors.ring,
+                              width: 1.2,
+                            ),
+                    ),
+                    alignment: Alignment.center,
+                    child: busy
+                        ? const SizedBox.square(
+                            dimension: 14,
+                            child: CircularProgressIndicator(strokeWidth: 1.6),
+                          )
+                        : done
+                        ? const Icon(
+                            Icons.check_rounded,
+                            size: 18,
+                            color: Colors.white,
+                          )
+                        : null,
+                  ),
           ),
         ),
       ),

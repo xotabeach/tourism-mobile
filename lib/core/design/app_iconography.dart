@@ -33,6 +33,17 @@ abstract final class AppIconography {
 
   /// Solar «alarm», the «Всего в пути» row of the route run screen.
   static const String execAlarm = '$_root/exec_alarm.png';
+
+  /// Filled blue alarm on the «too fast» mark sheet (DESIGN-4, own colours).
+  static const String execAlarmBold = '$_root/exec_alarm_bold.png';
+
+  /// Red circled cross on a stop whose mark was not delivered (DESIGN-4,
+  /// own colours).
+  static const String execUndelivered = '$_root/exec_undelivered.png';
+
+  /// Blue map point on the «not there yet» mark sheet (DESIGN-4 set, own
+  /// colours).
+  static const String execNotThere = '$_root/exec_not_there.png';
   static const String statRoutesCreated = '$_root/stat_routes_created.png';
   static const String statArticles = '$_root/stat_articles.png';
   static const String statLikes = '$_root/stat_likes.png';
@@ -132,6 +143,10 @@ abstract final class AppIconography {
   static const String settingsSms = '$_root/settings_sms.png';
   static const String settingsVibro = '$_root/settings_vibro.png';
 
+  /// Solar «streets-map-point», the location switch in app settings
+  /// (DESIGN-4).
+  static const String settingsGeolocation = '$_root/settings_geolocation.png';
+
   // Settings — offline
   static const String settingsAutoDownload =
       '$_root/settings_auto_download.png';
@@ -185,6 +200,7 @@ abstract final class AppIconography {
     settingsPush,
     settingsSms,
     settingsVibro,
+    settingsGeolocation,
     settingsAutoDownload,
     settingsAskDownload,
     settingsFaqRoutes,

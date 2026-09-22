@@ -105,7 +105,7 @@ PaceHint evaluateLegPace({
   return elapsed < threshold ? PaceHint.tooFast : PaceHint.ok;
 }
 
-/// "3,5 км · ≈ 40 мин" for a leg row, or null when there is nothing worth
+/// "3,5 км • ≈ 40 мин" for a leg row, or null when there is nothing worth
 /// showing (no estimate, or a leg of about two minutes or less).
 String? formatLegLabel(int? distanceMeters, int? estimateSeconds) {
   if (estimateSeconds == null || estimateSeconds < 120) return null;
@@ -116,7 +116,7 @@ String? formatLegLabel(int? distanceMeters, int? estimateSeconds) {
   final distance = distanceMeters == null
       ? null
       : formatStopDistance(distanceMeters);
-  return distance == null ? time : '$distance · $time';
+  return distance == null ? time : '$distance • $time';
 }
 
 String _hours(int minutes) {
