@@ -45,6 +45,14 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
   }) => _requireActive();
 
   @override
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) => _requireActive();
+
+  @override
   Future<RouteExecution> complete(
     String executionId, {
     String? clientEventId,

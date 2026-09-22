@@ -289,6 +289,42 @@ void main() {
     expect(await store.listOutbox(), isEmpty);
   });
 
+  test('an unmark queued offline replays through the outbox', () async {
+    final repository = _StubExecutionRepository(failures: const {});
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    await coordinator.enqueue(
+      executionId: 'execution-1',
+      action: RouteExecutionAction.uncompleteStop,
+      stopId: 'stop-b',
+    );
+
+    await coordinator.replayPending();
+
+    expect(repository.delivered, ['undo:stop-b']);
+    expect(await store.listOutbox(), isEmpty);
+  });
+
+  test('taking back a mark that was never sent needs no request', () async {
+    final repository = _StubExecutionRepository(failures: const {});
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    await coordinator.enqueue(
+      executionId: 'execution-1',
+      action: RouteExecutionAction.completeStop,
+      stopId: 'stop-b',
+    );
+
+    expect(
+      await coordinator.withdrawQueuedMark('execution-1', 'stop-a'),
+      false,
+    );
+    expect(await coordinator.withdrawQueuedMark('execution-1', 'stop-b'), true);
+    expect(await store.listOutbox(), isEmpty);
+    await coordinator.replayPending();
+    expect(repository.delivered, isEmpty);
+  });
+
   test('an action that keeps failing is dropped after the last try', () async {
     final repository = _StubExecutionRepository(
       failures: {'stop-broken': StateError('server said no')},
@@ -348,6 +384,17 @@ class _StubExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    delivered.add('undo:$stopId');
+    return _execution;
+  }
+
+  @override
   Future<RouteExecution> complete(
     String executionId, {
     String? clientEventId,
@@ -393,6 +440,14 @@ class _StartReconcileRepository implements RouteExecutionRepository {
   final startedRouteIds = <String>[];
   final completedStopServerIds = <String>[];
   final completedExecutionIds = <String>[];
+
+  @override
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) => throw UnimplementedError();
 
   @override
   Future<RouteExecution> start(String routeId) async {

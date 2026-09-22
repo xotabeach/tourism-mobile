@@ -113,7 +113,9 @@ String? formatLegLabel(int? distanceMeters, int? estimateSeconds) {
   final time = minutes >= 60
       ? _hours(minutes)
       : '≈ ${math.max(minutes, 5)} мин';
-  final distance = distanceMeters == null ? null : _distance(distanceMeters);
+  final distance = distanceMeters == null
+      ? null
+      : formatStopDistance(distanceMeters);
   return distance == null ? time : '$distance · $time';
 }
 
@@ -123,7 +125,9 @@ String _hours(int minutes) {
   return rest == 0 ? '≈ $hours ч' : '≈ $hours ч $rest мин';
 }
 
-String _distance(int meters) {
+/// "350 м" under a kilometre, "1,2 км" / "3 км" above (FRONTEND-36: a
+/// kilometre with one decimal turned 40 m into "0,0 км").
+String formatStopDistance(int meters) {
   if (meters < 1000) return '$meters м';
   final km = (meters / 100).round() / 10;
   final text = km == km.roundToDouble()

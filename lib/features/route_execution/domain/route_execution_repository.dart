@@ -18,6 +18,14 @@ abstract interface class RouteExecutionRepository {
     MarkPosition? position,
   });
 
+  /// Takes back the latest mark while the run is in progress (FRONTEND-36).
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
+
   Future<RouteExecution> complete(
     String executionId, {
     String? clientEventId,

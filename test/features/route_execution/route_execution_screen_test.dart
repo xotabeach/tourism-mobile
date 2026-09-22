@@ -14,10 +14,32 @@ import 'package:tourism_mobile/routing/app_router.dart';
 import '../../support/test_overrides.dart';
 
 class _Repo extends MockRouteExecutionRepository {
+  final unmarked = <String>[];
+  RouteExecution? _run;
+
+  @override
+  Future<RouteExecution> uncompleteStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    unmarked.add(stopId);
+    final run = _run!;
+    final stops = [
+      for (final stop in run.stops)
+        stop.id == stopId ? stop.withoutCompletion() : stop,
+    ];
+    return _run = run.copyWith(
+      stops: stops,
+      completedStops: stops.where((stop) => stop.isCompleted).length,
+    );
+  }
+
   @override
   Future<RouteExecution> start(String routeId) async {
     final now = DateTime.now();
-    return RouteExecution(
+    return _run = RouteExecution(
       id: 'run-1',
       routeId: routeId,
       routeName: 'Алушта: от гор к набережной',
@@ -42,42 +64,45 @@ class _Repo extends MockRouteExecutionRepository {
   }
 }
 
+Future<void> _openRunScreen(WidgetTester tester, _Repo repo) async {
+  for (final channel in [
+    'flutter.baseflow.com/geolocator',
+    'flutter.baseflow.com/geolocator_updates',
+  ]) {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      MethodChannel(channel),
+      (call) async => switch (call.method) {
+        'checkPermission' || 'requestPermission' => 2,
+        'isLocationServiceEnabled' => true,
+        _ => null,
+      },
+    );
+  }
+  tester.view
+    ..devicePixelRatio = 1
+    ..physicalSize = const Size(393, 1400);
+  addTearDown(tester.view.reset);
+  await pumpTourismAppAtHome(
+    tester,
+    overrides: [routeExecutionRepositoryProvider.overrideWithValue(repo)],
+  );
+  unawaited(
+    GoRouter.of(tester.element(find.byType(HomeScreen))).pushNamed(
+      AppRouteNames.routeExecution,
+      pathParameters: {'id': 'route-south-coast'},
+    ),
+  );
+  for (var i = 0; i < 4; i++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 100)),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+}
+
 void main() {
   testWidgets('the run screen follows the design layout', (tester) async {
-    for (final channel in [
-      'flutter.baseflow.com/geolocator',
-      'flutter.baseflow.com/geolocator_updates',
-    ]) {
-      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        MethodChannel(channel),
-        (call) async => switch (call.method) {
-          'checkPermission' || 'requestPermission' => 2,
-          'isLocationServiceEnabled' => true,
-          _ => null,
-        },
-      );
-    }
-    tester.view
-      ..devicePixelRatio = 1
-      ..physicalSize = const Size(393, 1400);
-    addTearDown(tester.view.reset);
-    await pumpTourismAppAtHome(
-      tester,
-      overrides: [routeExecutionRepositoryProvider.overrideWithValue(_Repo())],
-    );
-    unawaited(
-      GoRouter.of(tester.element(find.byType(HomeScreen))).pushNamed(
-        AppRouteNames.routeExecution,
-        pathParameters: {'id': 'route-south-coast'},
-      ),
-    );
-    for (var i = 0; i < 4; i++) {
-      await tester.runAsync(
-        () => Future<void>.delayed(const Duration(milliseconds: 100)),
-      );
-      await tester.pump(const Duration(milliseconds: 300));
-    }
-
+    await _openRunScreen(tester, _Repo());
     expect(find.byType(RouteExecutionScreen), findsOneWidget);
     expect(find.text('Прохождение'), findsOneWidget);
     expect(find.text('Прогресс:'), findsOneWidget);
@@ -85,14 +110,47 @@ void main() {
     expect(find.bySemanticsLabel('Всего в пути: 174 мин.'), findsOneWidget);
     expect(find.text('Остановки:'), findsNWidgets(2));
     expect(find.bySemanticsLabel('Пауза'), findsOneWidget);
-    expect(find.bySemanticsLabel('«Точка 1» отмечена'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel('«Точка 1» отмечена, снять отметку'),
+      findsOneWidget,
+    );
     expect(find.bySemanticsLabel('Отметить «Точка 2»'), findsOneWidget);
     expect(find.text('3,5 км'), findsWidgets);
+    // Without a location fix the row says it is the whole leg, not a distance
+    // from the phone.
+    expect(find.text('весь участок 3,5 км'), findsOneWidget);
     expect(find.bySemanticsLabel('Завершить маршрут'), findsOneWidget);
     // The separate «Пауза» button and the old «Готово» buttons are gone.
     expect(find.text('Готово'), findsNothing);
 
     // Leave the screen so its minute clock is disposed.
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('the latest mark can be taken back after a confirmation', (
+    tester,
+  ) async {
+    final repo = _Repo();
+    await _openRunScreen(tester, repo);
+
+    await tester.tap(
+      find.bySemanticsLabel('«Точка 1» отмечена, снять отметку'),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Снять отметку?'), findsOneWidget);
+    await tester.tap(find.text('Снять отметку'));
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(repo.unmarked, ['s0']);
+    expect(find.text('0/4'), findsOneWidget);
+    expect(find.bySemanticsLabel('Отметить «Точка 1»'), findsOneWidget);
+
     GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
     await tester.pump(const Duration(seconds: 1));
   });

@@ -88,7 +88,8 @@ class RouteExecutionOfflineCoordinator {
     final handled = <String>{};
     for (final entry in outbox) {
       if (handled.contains(entry.id)) continue;
-      if (entry.action == RouteExecutionAction.completeStop &&
+      if ((entry.action == RouteExecutionAction.completeStop ||
+              entry.action == RouteExecutionAction.uncompleteStop) &&
           entry.stopId == null) {
         await store.removeOutbox(entry.id);
         continue;
@@ -166,6 +167,21 @@ class RouteExecutionOfflineCoordinator {
   }
 
   Future<void> save(RouteExecution execution) => store.saveSnapshot(execution);
+
+  /// Drops a stop mark that is still waiting in the queue, so taking it back
+  /// needs no request at all. False when the mark already reached the server.
+  Future<bool> withdrawQueuedMark(String executionId, String stopId) async {
+    var withdrawn = false;
+    for (final entry in await store.listOutbox()) {
+      if (entry.action == RouteExecutionAction.completeStop &&
+          entry.executionId == executionId &&
+          entry.stopId == stopId) {
+        await store.removeOutbox(entry.id);
+        withdrawn = true;
+      }
+    }
+    return withdrawn;
+  }
 
   /// [clientEventId] should be the key of the request that failed, so a
   /// mutation the server already applied is deduped rather than repeated.
@@ -253,6 +269,12 @@ class RouteExecutionOfflineCoordinator {
         clientEventId: entry.clientEventId,
         occurredAt: entry.createdAt,
         position: _freshPosition(entry),
+      ),
+      RouteExecutionAction.uncompleteStop => repository.uncompleteStop(
+        entry.executionId,
+        entry.stopId ?? '',
+        clientEventId: entry.clientEventId,
+        occurredAt: entry.createdAt,
       ),
       RouteExecutionAction.complete => repository.complete(
         entry.executionId,
