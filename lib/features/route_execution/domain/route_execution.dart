@@ -290,6 +290,9 @@ class RouteExecution {
     this.heldPoints = 0,
     this.antifraud,
     this.pausedAtLastMarkSeconds,
+    this.pausedAt,
+    this.lastActivityAt,
+    this.myReviewExists = false,
   });
 
   final String id;
@@ -322,6 +325,18 @@ class RouteExecution {
   /// `pausedDurationSeconds` at the time of the last mark on this device, so
   /// the pace hint can net out pauses. Local only; null means unknown.
   final int? pausedAtLastMarkSeconds;
+
+  /// Start of the current pause (server), so a paused timer stands still:
+  /// the pause only enters [pausedDurationSeconds] on resume. FRONTEND-34.
+  final DateTime? pausedAt;
+
+  /// Latest of start, a mark and a resume (server), for «давно не
+  /// отмечали». Older servers omit it; see [lastActivity].
+  final DateTime? lastActivityAt;
+
+  /// This person already reviewed the route of this finished run.
+  final bool myReviewExists;
+
   final int totalStops;
   final int completedStops;
   final int requiredStops;
@@ -329,6 +344,31 @@ class RouteExecution {
   final List<RouteExecutionStop> stops;
 
   bool get isActive => status == RouteExecutionStatus.active;
+
+  /// Time on the route net of pauses: it stops at completion, cancellation
+  /// or the start of the current pause.
+  Duration elapsed(DateTime now) {
+    final end =
+        completedAt ??
+        cancelledAt ??
+        (status == RouteExecutionStatus.paused ? pausedAt : null) ??
+        now;
+    final value =
+        end.difference(startedAt) - Duration(seconds: pausedDurationSeconds);
+    return value.isNegative ? Duration.zero : value;
+  }
+
+  /// [lastActivityAt], or the latest of start and marks when the server did
+  /// not send it.
+  DateTime get lastActivity {
+    if (lastActivityAt != null) return lastActivityAt!;
+    var latest = startedAt;
+    for (final stop in stops) {
+      final at = stop.completedAt;
+      if (at != null && at.isAfter(latest)) latest = at;
+    }
+    return latest;
+  }
 
   RouteExecution copyWith({
     RouteExecutionStatus? status,
@@ -345,6 +385,9 @@ class RouteExecution {
     RouteExecutionAntiFraud? antifraud,
     bool clearAntifraud = false,
     int? pausedAtLastMarkSeconds,
+    DateTime? pausedAt,
+    bool clearPausedAt = false,
+    DateTime? lastActivityAt,
   }) => RouteExecution(
     id: id,
     routeId: routeId,
@@ -369,6 +412,9 @@ class RouteExecution {
     antifraud: clearAntifraud ? null : antifraud ?? this.antifraud,
     pausedAtLastMarkSeconds:
         pausedAtLastMarkSeconds ?? this.pausedAtLastMarkSeconds,
+    pausedAt: clearPausedAt ? null : pausedAt ?? this.pausedAt,
+    lastActivityAt: lastActivityAt ?? this.lastActivityAt,
+    myReviewExists: myReviewExists,
   );
 
   Map<String, dynamic> toJson() => {
@@ -382,6 +428,9 @@ class RouteExecution {
     'held_points': heldPoints,
     'antifraud': antifraud?.toJson(),
     'paused_at_last_mark_seconds': pausedAtLastMarkSeconds,
+    'paused_at': pausedAt?.toUtc().toIso8601String(),
+    'last_activity_at': lastActivityAt?.toUtc().toIso8601String(),
+    'my_review_exists': myReviewExists,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -432,6 +481,9 @@ class RouteExecution {
           : null,
       pausedAtLastMarkSeconds: (json['paused_at_last_mark_seconds'] as num?)
           ?.toInt(),
+      pausedAt: _date(json['paused_at']),
+      lastActivityAt: _date(json['last_activity_at']),
+      myReviewExists: json['my_review_exists'] as bool? ?? false,
       stops: rawStops is List
           ? rawStops
                 .whereType<Map<dynamic, dynamic>>()

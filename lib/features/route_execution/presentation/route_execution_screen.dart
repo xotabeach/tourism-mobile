@@ -14,6 +14,7 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
+import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
 import 'package:tourism_mobile/features/route_execution/application/live_location_provider.dart';
 import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
 import 'package:tourism_mobile/features/route_execution/application/mark_advice.dart';
@@ -35,9 +36,17 @@ import 'package:tourism_mobile/features/settings/presentation/settings_widgets.d
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class RouteExecutionScreen extends ConsumerStatefulWidget {
-  const RouteExecutionScreen({required this.routeId, super.key});
+  const RouteExecutionScreen({
+    required this.routeId,
+    this.openOnly = false,
+    super.key,
+  });
 
   final String routeId;
+
+  /// Opened from the home card (FRONTEND-34): show the run in progress, but
+  /// never start a new one — it may have been finished on another device.
+  final bool openOnly;
 
   @override
   ConsumerState<RouteExecutionScreen> createState() =>
@@ -74,9 +83,21 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     });
   }
 
+  // Kept from build: ref is off limits in dispose.
+  ProviderContainer? _container;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _container = ProviderScope.containerOf(context, listen: false);
+  }
+
   @override
   void dispose() {
     _clock?.cancel();
+    // Whatever happened here (marks, a pause, the finish), the home card of
+    // the run is out of date now (FRONTEND-34).
+    _container?.invalidate(homeActiveRunProvider);
     super.dispose();
   }
 
@@ -139,6 +160,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted && _blockingExecution != null) {
         setState(() => _blockingExecution = null);
       }
+      final ownRun = active?.routeId == widget.routeId && inProgress;
+      if (widget.openOnly && !ownRun) {
+        throw const _RunAlreadyOver();
+      }
       final fetched = active?.routeId == widget.routeId
           ? active!
           : await repository.start(widget.routeId);
@@ -192,11 +217,23 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         _loading = false;
         _error = blockedStartMessage(until, DateTime.now());
       });
+    } on _RunAlreadyOver {
+      // The card was stale: drop it and say so instead of starting again.
+      ref.invalidate(homeActiveRunProvider);
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Прохождение уже завершено';
+      });
     } on Object catch (error) {
       final cached = await ref
           .read(routeExecutionOfflineStoreProvider)
           .getSnapshot();
-      if (cached?.routeId == widget.routeId) {
+      final cachedInProgress =
+          cached?.status == RouteExecutionStatus.active ||
+          cached?.status == RouteExecutionStatus.paused;
+      if (cached?.routeId == widget.routeId &&
+          (!widget.openOnly || cachedInProgress)) {
         if (!mounted) return;
         await _refreshPendingActions();
         setState(() {
@@ -210,7 +247,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       // No run in progress at all yet — if this route was downloaded, a
       // brand-new offline start is possible; the "start" outbox entry
       // reconciles with the server once connectivity returns.
-      if (error is NetworkFailure) {
+      if (error is NetworkFailure && !widget.openOnly) {
         final downloaded = await ref
             .read(offlineRouteStoreProvider)
             .get(widget.routeId);
@@ -585,7 +622,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
     if (_isLocalPendingStart) {
-      final updated = execution.copyWith(status: RouteExecutionStatus.paused);
+      final updated = _pausedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.pause,
@@ -610,7 +647,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (mounted) _showError(_friendlyError(error));
         return;
       }
-      final updated = execution.copyWith(status: RouteExecutionStatus.paused);
+      final updated = _pausedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.pause,
@@ -630,7 +667,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
     if (_isLocalPendingStart) {
-      final updated = execution.copyWith(status: RouteExecutionStatus.active);
+      final updated = _resumedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.resume,
@@ -655,7 +692,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (mounted) _showError(_friendlyError(error));
         return;
       }
-      final updated = execution.copyWith(status: RouteExecutionStatus.active);
+      final updated = _resumedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.resume,
@@ -997,13 +1034,24 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   );
 
   /// Minutes on the way so far, pauses left out.
-  static int _elapsedMinutes(RouteExecution execution) {
-    final end =
-        execution.completedAt ?? execution.cancelledAt ?? DateTime.now();
-    final seconds =
-        end.difference(execution.startedAt).inSeconds -
-        execution.pausedDurationSeconds;
-    return seconds <= 0 ? 0 : seconds ~/ 60;
+  static int _elapsedMinutes(RouteExecution execution) =>
+      execution.elapsed(DateTime.now()).inMinutes;
+
+  /// Offline pause/resume keep the timer honest until the server answers:
+  /// a pause freezes it, a resume folds the pause into the paused total.
+  static RouteExecution _pausedLocally(RouteExecution run, DateTime at) =>
+      run.copyWith(status: RouteExecutionStatus.paused, pausedAt: at);
+
+  static RouteExecution _resumedLocally(RouteExecution run, DateTime at) {
+    final since = run.pausedAt;
+    return run.copyWith(
+      status: RouteExecutionStatus.active,
+      clearPausedAt: true,
+      lastActivityAt: at,
+      pausedDurationSeconds: since == null
+          ? null
+          : run.pausedDurationSeconds + at.difference(since).inSeconds,
+    );
   }
 
   void _showError(String message) {
@@ -1752,4 +1800,9 @@ class _ExecutionErrorView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Open-only mode found no run of this route in progress.
+class _RunAlreadyOver implements Exception {
+  const _RunAlreadyOver();
 }

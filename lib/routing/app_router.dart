@@ -328,6 +328,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                         child: RouteDetailsScreen(
                           routeId: id,
                           initialRoute: initialRoute,
+                          openReviews:
+                              state.uri.queryParameters['tab'] == 'reviews',
                         ),
                       );
                     },
@@ -344,7 +346,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           final routeId = state.pathParameters['id']!;
                           return CupertinoPage<void>(
                             key: state.pageKey,
-                            child: RouteExecutionScreen(routeId: routeId),
+                            child: RouteExecutionScreen(
+                              routeId: routeId,
+                              openOnly:
+                                  state.uri.queryParameters['open'] == '1',
+                            ),
                           );
                         },
                       ),

@@ -30,6 +30,8 @@ import 'package:tourism_mobile/features/places/application/places_providers.dart
 import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_card.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
+import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_route_card.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -764,7 +766,13 @@ class _HomeHeader extends ConsumerWidget {
           const SizedBox(height: 18)
         else ...[
           const SizedBox(height: AppSpacing.xl),
-          const BuildRouteBanner(),
+          // A run in progress takes the banner's place (FRONTEND-34); the
+          // banner stays while it loads, so people without a run never see
+          // it blink.
+          switch (ref.watch(homeActiveRunProvider).valueOrNull) {
+            final run? => ActiveRouteCard(state: run),
+            null => const BuildRouteBanner(),
+          },
           const SizedBox(height: 25),
           Row(
             children: [

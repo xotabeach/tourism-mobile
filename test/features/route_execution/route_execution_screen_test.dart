@@ -19,6 +19,7 @@ class _Repo extends MockRouteExecutionRepository {
   /// A stop whose offline mark never reached the server (DESIGN-4, №3).
   final String? undeliveredStopId;
   final unmarked = <String>[];
+  var starts = 0;
   RouteExecution? _run;
 
   @override
@@ -42,6 +43,7 @@ class _Repo extends MockRouteExecutionRepository {
 
   @override
   Future<RouteExecution> start(String routeId) async {
+    starts += 1;
     final now = DateTime.now();
     return _run = RouteExecution(
       id: 'run-1',
@@ -70,7 +72,11 @@ class _Repo extends MockRouteExecutionRepository {
   }
 }
 
-Future<void> _openRunScreen(WidgetTester tester, _Repo repo) async {
+Future<void> _openRunScreen(
+  WidgetTester tester,
+  _Repo repo, {
+  bool openOnly = false,
+}) async {
   for (final channel in [
     'flutter.baseflow.com/geolocator',
     'flutter.baseflow.com/geolocator_updates',
@@ -96,6 +102,7 @@ Future<void> _openRunScreen(WidgetTester tester, _Repo repo) async {
     GoRouter.of(tester.element(find.byType(HomeScreen))).pushNamed(
       AppRouteNames.routeExecution,
       pathParameters: {'id': 'route-south-coast'},
+      queryParameters: openOnly ? const {'open': '1'} : const {},
     ),
   );
   for (var i = 0; i < 4; i++) {
@@ -156,6 +163,21 @@ void main() {
     expect(repo.unmarked, ['s0']);
     expect(find.text('0/4'), findsOneWidget);
     expect(find.bySemanticsLabel('Отметить «Точка 1»'), findsOneWidget);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('opened from the home card, a finished run is not restarted', (
+    tester,
+  ) async {
+    // FRONTEND-34: the card can outlive its run (finished on another
+    // device); tapping it must not start the route again.
+    final repo = _Repo();
+    await _openRunScreen(tester, repo, openOnly: true);
+
+    expect(repo.starts, 0);
+    expect(find.text('Прохождение уже завершено'), findsOneWidget);
 
     GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
     await tester.pump(const Duration(seconds: 1));
