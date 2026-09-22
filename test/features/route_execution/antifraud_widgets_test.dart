@@ -74,11 +74,10 @@ void main() {
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
       expect(
-        find.text('Кажется, вы ещё не дошли до этой точки'),
+        find.text('Кажется, вы ещё не дошли\nдо этой точки. Точно отметить?'),
         findsOneWidget,
       );
-      expect(find.text('Точно отметить?'), findsOneWidget);
-      await tester.tap(find.text('Всё равно отметить'));
+      await tester.tap(find.text('Отметить точку'));
       await tester.pumpAndSettle();
       expect(result, isTrue);
     });
@@ -100,8 +99,11 @@ void main() {
       );
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
-      expect(find.text('Быстрее, чем обычно'), findsOneWidget);
-      await tester.tap(find.text('Отменить отметку'));
+      expect(
+        find.text('Вы слишком быстро\nдошли до точки. Вы точно на месте?'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Не отмечать'));
       await tester.pumpAndSettle();
       expect(result, isFalse);
     });
@@ -134,11 +136,11 @@ void main() {
   group('location explanation dialog', () {
     testWidgets('"Разрешить" returns true', (tester) async {
       await _open(tester, showLocationExplanationDialog);
-      expect(find.text('Разрешить геолокацию?'), findsOneWidget);
-      expect(find.textContaining('необязательно'), findsOneWidget);
+      expect(find.text('Разрешить геолокацию'), findsOneWidget);
+      expect(find.textContaining('Необязательно'), findsOneWidget);
       await tester.tap(find.text('Разрешить'));
       await tester.pumpAndSettle();
-      expect(find.text('Разрешить геолокацию?'), findsNothing);
+      expect(find.text('Разрешить геолокацию'), findsNothing);
     });
 
     testWidgets('"Не сейчас" returns false', (tester) async {
@@ -257,15 +259,20 @@ void main() {
             height: 80,
             child: RouteStartButton(
               onPressed: () => taps++,
-              label: 'Доступно через 40 мин (14:30)',
+              label: 'Прохождение временно недоступно:\nчерез 40 мин (в 14:30)',
               unavailable: true,
               semanticsLabel: 'Недоступно до 14:30, нажмите для проверки',
             ),
           ),
         ),
       );
-      expect(find.text('Доступно через 40 мин (14:30)'), findsOneWidget);
-      await tester.tap(find.text('Доступно через 40 мин (14:30)'));
+      expect(
+        find.text('Прохождение временно недоступно:\nчерез 40 мин (в 14:30)'),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.text('Прохождение временно недоступно:\nчерез 40 мин (в 14:30)'),
+      );
       expect(taps, 1);
     });
 
@@ -280,7 +287,7 @@ void main() {
             height: 80,
             child: RouteStartButton(
               onPressed: () {},
-              label: 'Доступно через 40 мин (14:30)',
+              label: 'Прохождение временно недоступно:\nчерез 40 мин (в 14:30)',
               unavailable: true,
               semanticsLabel: 'Недоступно до 14:30, нажмите для проверки',
             ),

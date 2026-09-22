@@ -7,6 +7,9 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 
+/// Solid grey of the blocked «Пройти маршрут» (DESIGN-4 №6, #646464).
+const _unavailableFill = Color(0xFF646464);
+
 /// Primary CTA used by the shell floating nav on route / Travel+ details.
 class RouteStartButton extends StatelessWidget {
   const RouteStartButton({
@@ -53,17 +56,19 @@ class RouteStartButton extends StatelessWidget {
           borderRadius: AppRadii.capsule,
           blur: 20 * progress,
           fillColor:
-              (unavailable
-                      ? AppColors.secondaryInk
-                      : AppColors.activeNavigationFill)
+              (unavailable ? _unavailableFill : AppColors.activeNavigationFill)
                   .withValues(alpha: 0.96 * progress),
-          borderColor: Colors.white.withValues(alpha: 0.28 * progress),
+          // DESIGN-4 №6 draws the blocked button flat: no glass rim, no lift.
+          borderColor: unavailable
+              ? Colors.transparent
+              : Colors.white.withValues(alpha: 0.28 * progress),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.16 * progress),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
+            if (!unavailable)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.16 * progress),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
           ],
           child: IgnorePointer(
             ignoring: progress < 0.99,
@@ -81,11 +86,15 @@ class RouteStartButton extends StatelessWidget {
                   child: Center(
                     child: Text(
                       label,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
                       style: AppTypography.button.copyWith(
-                        fontSize: 17,
-                        color: Colors.white.withValues(
-                          alpha: (unavailable ? 0.85 : 1) * progress,
-                        ),
+                        // DESIGN-4 №6: the blocked state carries a two-line
+                        // «Прохождение временно недоступно: через …».
+                        fontSize: unavailable ? 15 : 17,
+                        fontWeight: unavailable ? FontWeight.w400 : null,
+                        height: unavailable ? 1.25 : null,
+                        color: Colors.white.withValues(alpha: progress),
                       ),
                     ),
                   ),

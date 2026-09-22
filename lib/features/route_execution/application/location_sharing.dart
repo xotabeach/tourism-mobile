@@ -82,7 +82,9 @@ Future<bool> osLocationGranted() async {
 }
 
 /// Explains why location helps, once, before the system dialog. Called when
-/// the first route is started. Never shown again after "Не сейчас".
+/// the first route is started — from the route card's «Пройти маршрут»
+/// (DESIGN-4 draws the card above that button), and again by the run screen
+/// for the other ways into a run. Never shown again after "Не сейчас".
 Future<void> explainLocationOnce(BuildContext context, WidgetRef ref) async {
   final controller = ref.read(locationSharingProvider.notifier);
   if (ref.read(locationSharingProvider).asked) return;
@@ -90,7 +92,13 @@ Future<void> explainLocationOnce(BuildContext context, WidgetRef ref) async {
     await controller.markAsked();
     return;
   }
-  final permission = await Geolocator.checkPermission();
+  final LocationPermission permission;
+  try {
+    permission = await Geolocator.checkPermission();
+  } on Object {
+    // No location service to ask about (desktop, a test host): skip quietly.
+    return;
+  }
   if (permission == LocationPermission.deniedForever) {
     await controller.markAsked();
     return;

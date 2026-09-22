@@ -58,14 +58,14 @@ String describeBlockedUntil(DateTime until, DateTime now) {
   final clock =
       '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
   final remaining = until.difference(now);
-  if (remaining.inMinutes < 1) return 'совсем скоро ($clock)';
+  if (remaining.inMinutes < 1) return 'совсем скоро (в $clock)';
   final minutes = remaining.inMinutes;
   final span = minutes < 60
       ? '$minutes мин'
       : minutes < 60 * 48
       ? '${(minutes / 60).ceil()} ч'
       : '${(minutes / 60 / 24).ceil()} дн';
-  return 'через $span ($clock)';
+  return 'через $span (в $clock)';
 }
 
 String blockedStartMessage(DateTime? until, DateTime now) {

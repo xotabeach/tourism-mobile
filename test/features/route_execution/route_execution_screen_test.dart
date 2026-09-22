@@ -14,6 +14,10 @@ import 'package:tourism_mobile/routing/app_router.dart';
 import '../../support/test_overrides.dart';
 
 class _Repo extends MockRouteExecutionRepository {
+  _Repo({this.undeliveredStopId});
+
+  /// A stop whose offline mark never reached the server (DESIGN-4, №3).
+  final String? undeliveredStopId;
   final unmarked = <String>[];
   var starts = 0;
   RouteExecution? _run;
@@ -59,7 +63,9 @@ class _Repo extends MockRouteExecutionRepository {
             placeName: 'Точка ${i + 1}',
             isOptional: false,
             legDistanceMeters: i == 0 ? null : 3500,
+            legEstimateSeconds: i == 0 ? null : 2400,
             completedAt: i == 0 ? now : null,
+            undelivered: 's$i' == undeliveredStopId,
           ),
       ],
     );
@@ -122,7 +128,7 @@ void main() {
       findsOneWidget,
     );
     expect(find.bySemanticsLabel('Отметить «Точка 2»'), findsOneWidget);
-    expect(find.text('3,5 км'), findsWidgets);
+    expect(find.text('3,5 км • ≈ 40 мин'), findsWidgets);
     // Without a location fix the row says it is the whole leg, not a distance
     // from the phone.
     expect(find.text('весь участок 3,5 км'), findsOneWidget);
@@ -172,6 +178,27 @@ void main() {
 
     expect(repo.starts, 0);
     expect(find.text('Прохождение уже завершено'), findsOneWidget);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('an undelivered mark shows the red cross and a retry note', (
+    tester,
+  ) async {
+    await _openRunScreen(tester, _Repo(undeliveredStopId: 's1'));
+
+    // DESIGN-4 №1: leg length and time with a bullet.
+    expect(find.text('3,5 км • ≈ 40 мин'), findsWidgets);
+    // №3: the note next to the stop, the cross in place of the ring.
+    expect(
+      find.text('Что-то пошло не так,\nпопробуйте ещё раз.'),
+      findsOneWidget,
+    );
+    expect(
+      find.bySemanticsLabel('Отметка «Точка 2» не доставлена, отметить заново'),
+      findsOneWidget,
+    );
 
     GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
     await tester.pump(const Duration(seconds: 1));
