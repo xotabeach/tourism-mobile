@@ -20,6 +20,7 @@ import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
+import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
@@ -246,12 +247,17 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
         '${local.minute.toString().padLeft(2, '0')}';
   }
 
-  void _startRoute(BuildContext context) {
+  Future<void> _startRoute(BuildContext context) async {
     final segments = GoRouterState.of(context).uri.pathSegments;
     if (segments.length < 2 || segments.first != 'routes') {
       return;
     }
-    unawaited(context.push('/routes/${segments[1]}/execution'));
+    final routeId = segments[1];
+    // DESIGN-4: the one-time location card sits above this very button, so
+    // it is asked here, before the run screen covers the route card.
+    await explainLocationOnce(context, ref);
+    if (!context.mounted) return;
+    unawaited(context.push('/routes/$routeId/execution'));
   }
 
   @override
@@ -286,13 +292,14 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     final blockedUntil = ref.watch(routeStartBlockedUntilProvider).valueOrNull;
     final startBlocked = blockedUntil != null;
     final detailActionLabel = startBlocked
-        ? 'Доступно ${describeBlockedUntil(blockedUntil, DateTime.now())}'
+        ? 'Прохождение временно недоступно:\n'
+              '${describeBlockedUntil(blockedUntil, DateTime.now())}'
         : 'Пройти маршрут';
     final detailActionSemantics = startBlocked
         ? 'Недоступно до ${_clock(blockedUntil)}, нажмите для проверки'
         : null;
     final VoidCallback? detailAction = showRouteAction
-        ? () => _startRoute(context)
+        ? () => unawaited(_startRoute(context))
         : null;
 
     return Scaffold(

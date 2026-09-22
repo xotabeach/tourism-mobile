@@ -44,7 +44,6 @@ class _SettingsNotificationsScreenState
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     unawaited(_refreshOsStatus());
-    unawaited(_refreshLocationPermission());
   }
 
   @override
@@ -70,7 +69,6 @@ class _SettingsNotificationsScreenState
 
   Future<void> _onResumed() async {
     await _refreshOsStatus();
-    await _refreshLocationPermission();
     if (!mounted) {
       return;
     }
@@ -112,18 +110,6 @@ class _SettingsNotificationsScreenState
     if (open == true) {
       await AppPush.openSystemNotificationSettings();
     }
-  }
-
-  bool? _osLocationGranted;
-
-  Future<void> _refreshLocationPermission() async {
-    final granted = await osLocationGranted();
-    if (mounted) setState(() => _osLocationGranted = granted);
-  }
-
-  Future<void> _onLocationSharingChanged(bool value) async {
-    await setPositionSharing(ref, value);
-    await _refreshLocationPermission();
   }
 
   Future<void> _onPushChanged(bool value) async {
@@ -235,15 +221,6 @@ class _SettingsNotificationsScreenState
             );
           },
         ),
-        SettingsToggleTile(
-          title: 'Положение при отметке точек',
-          subtitle: 'Помогает точнее засчитывать прохождение',
-          icon: Icons.my_location_rounded,
-          value:
-              ref.watch(locationSharingProvider).shareEnabled &&
-              (_osLocationGranted ?? false),
-          onChanged: (value) => unawaited(_onLocationSharingChanged(value)),
-        ),
       ],
     );
   }
@@ -296,6 +273,7 @@ class SettingsAppearanceScreen extends ConsumerWidget {
             );
           },
         ),
+        const _LocationSharingTile(),
         // Not in the (Android) design: an iOS-only setting, drawn the same way.
         if (Platform.isIOS)
           SettingsToggleTile(
@@ -678,6 +656,63 @@ class _DownloadedRouteRow extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// DESIGN-4 №5: «Разрешить геолокацию» in app settings. On only when the OS
+/// allows location and the person lets the app send their position with a
+/// stop mark; re-read on return from the system settings.
+class _LocationSharingTile extends ConsumerStatefulWidget {
+  const _LocationSharingTile();
+
+  @override
+  ConsumerState<_LocationSharingTile> createState() =>
+      _LocationSharingTileState();
+}
+
+class _LocationSharingTileState extends ConsumerState<_LocationSharingTile>
+    with WidgetsBindingObserver {
+  bool? _osGranted;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(_refresh());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(_refresh());
+  }
+
+  Future<void> _refresh() async {
+    final granted = await osLocationGranted();
+    if (mounted) setState(() => _osGranted = granted);
+  }
+
+  Future<void> _onChanged(bool value) async {
+    await setPositionSharing(ref, value);
+    await _refresh();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsToggleTile(
+      title: 'Разрешить геолокацию',
+      subtitle: 'Необходимо для маршрутов',
+      iconAsset: AppIconography.settingsGeolocation,
+      value:
+          ref.watch(locationSharingProvider).shareEnabled &&
+          (_osGranted ?? false),
+      onChanged: (value) => unawaited(_onChanged(value)),
     );
   }
 }

@@ -159,13 +159,13 @@ void main() {
 
   group('formatLegLabel', () {
     test('rounds to five minutes and joins the distance', () {
-      expect(formatLegLabel(3500, 2400), '3,5 км · ≈ 40 мин');
-      expect(formatLegLabel(800, 780), '800 м · ≈ 15 мин');
+      expect(formatLegLabel(3500, 2400), '3,5 км • ≈ 40 мин');
+      expect(formatLegLabel(800, 780), '800 м • ≈ 15 мин');
     });
 
     test('long legs switch to hours', () {
-      expect(formatLegLabel(9000, 3600), '9 км · ≈ 1 ч');
-      expect(formatLegLabel(9000, 4500), '9 км · ≈ 1 ч 15 мин');
+      expect(formatLegLabel(9000, 3600), '9 км • ≈ 1 ч');
+      expect(formatLegLabel(9000, 4500), '9 км • ≈ 1 ч 15 мин');
     });
 
     test('hides short or missing estimates', () {
