@@ -375,13 +375,7 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
     }
     if (filters.tags.isNotEmpty) {
       routes = routes
-          .where((route) {
-            final haystack =
-                '${route.name} ${route.shortDescription ?? ''} '
-                        '${route.authorLabel ?? ''} ${route.difficulty ?? ''}'
-                    .toLowerCase();
-            return matchesSearchTags(haystack, filters.tags);
-          })
+          .where((route) => matchesRouteSearchTags(route, filters.tags))
           .toList(growable: false);
       places = places
           .where((place) {

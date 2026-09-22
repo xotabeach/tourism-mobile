@@ -42,6 +42,22 @@ bool matchesSearchTags(String haystack, Set<String> tags) {
   return false;
 }
 
+/// Like [matchesSearchTags], but «Море» is answered by the route's own tag
+/// when the server sends it (BACKEND-19).
+bool matchesRouteSearchTags(RouteSummary route, Set<String> tags) {
+  if (tags.isEmpty) {
+    return true;
+  }
+  final haystack = routeSearchHaystack(route);
+  for (final tag in tags) {
+    final seaside = tag == 'Море' ? route.isSeaside : null;
+    if (seaside ?? matchesSearchTags(haystack, {tag})) {
+      return true;
+    }
+  }
+  return false;
+}
+
 String routeSearchHaystack(RouteSummary route) =>
     '${route.name} ${route.shortDescription ?? ''} '
             '${route.authorLabel ?? ''} ${route.difficulty ?? ''} '
@@ -63,9 +79,7 @@ List<RouteSummary> applyRouteFilters(
   SearchFilters filters,
 ) {
   final result = items
-      .where(
-        (route) => matchesSearchTags(routeSearchHaystack(route), filters.tags),
-      )
+      .where((route) => matchesRouteSearchTags(route, filters.tags))
       .toList();
   switch (filters.sort) {
     case SearchSort.rating:
