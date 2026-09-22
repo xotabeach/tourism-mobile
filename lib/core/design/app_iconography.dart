@@ -33,6 +33,15 @@ abstract final class AppIconography {
 
   /// Solar «alarm», the «Всего в пути» row of the route run screen.
   static const String execAlarm = '$_root/exec_alarm.png';
+
+  // Home card of a run in progress (DESIGN-12 №1, FRONTEND-34).
+  static const String runPlay = '$_root/run_play.png';
+  static const String runPause = '$_root/run_pause.png';
+  static const String runClock = '$_root/run_clock.png';
+  static const String runOffline = '$_root/run_offline.png';
+
+  /// Solar «map-point-bold», the next stop on the home run card.
+  static const String runPin = '$_root/run_pin.png';
   static const String statRoutesCreated = '$_root/stat_routes_created.png';
   static const String statArticles = '$_root/stat_articles.png';
   static const String statLikes = '$_root/stat_likes.png';

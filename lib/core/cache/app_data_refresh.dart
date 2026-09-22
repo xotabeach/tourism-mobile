@@ -7,6 +7,7 @@ import 'package:tourism_mobile/features/favorites/application/favorites_provider
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
@@ -117,6 +118,7 @@ void _invalidateScope(
 
   switch (scope) {
     case AppDataRefreshScope.home:
+      container.invalidate(homeActiveRunProvider);
       container.invalidate(homeRoutesProvider);
       container.invalidate(homePlacesProvider);
       container.invalidate(homeArticlesProvider);
@@ -135,6 +137,7 @@ void _invalidateScope(
     case AppDataRefreshScope.places:
       container.invalidate(placesListProvider);
     case AppDataRefreshScope.all:
+      container.invalidate(homeActiveRunProvider);
       container.invalidate(homeRoutesProvider);
       container.invalidate(homePlacesProvider);
       container.invalidate(routesListProvider);
