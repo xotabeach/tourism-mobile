@@ -4,6 +4,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
 
 /// Stylised route map with numbered pins.
 ///
@@ -19,6 +20,7 @@ class RouteMapPreview extends StatelessWidget {
     this.footerLabel,
     this.geometry,
     this.mapImage,
+    this.dashedLine = false,
     super.key,
   });
 
@@ -29,6 +31,9 @@ class RouteMapPreview extends StatelessWidget {
   final String? footerLabel;
   final RouteGeometry? geometry;
   final ImageProvider<Object>? mapImage;
+
+  /// A walked route: the line is dashed (spec 14, D23).
+  final bool dashedLine;
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +65,7 @@ class RouteMapPreview extends StatelessWidget {
                         painter: _RouteLinePainter(
                           points,
                           geometryPoints: projected.geometry,
+                          dashed: dashedLine,
                         ),
                       ),
                     ),
@@ -284,10 +290,15 @@ class _MapGridPainter extends CustomPainter {
 }
 
 class _RouteLinePainter extends CustomPainter {
-  const _RouteLinePainter(this.points, {this.geometryPoints = const []});
+  const _RouteLinePainter(
+    this.points, {
+    this.geometryPoints = const [],
+    this.dashed = false,
+  });
 
   final List<Offset> points;
   final List<Offset> geometryPoints;
+  final bool dashed;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -310,7 +321,7 @@ class _RouteLinePainter extends CustomPainter {
       );
     }
     canvas.drawPath(
-      path,
+      dashed ? dashedPath(path) : path,
       Paint()
         ..color = Colors.white.withValues(alpha: 0.8)
         ..strokeWidth = 3
@@ -322,6 +333,7 @@ class _RouteLinePainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _RouteLinePainter oldDelegate) {
     return oldDelegate.points != points ||
-        oldDelegate.geometryPoints != geometryPoints;
+        oldDelegate.geometryPoints != geometryPoints ||
+        oldDelegate.dashed != dashed;
   }
 }

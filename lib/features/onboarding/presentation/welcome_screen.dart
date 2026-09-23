@@ -141,9 +141,7 @@ class _WelcomeScreenState extends ConsumerState<WelcomeScreen> {
                         onPressed: enterApp,
                       ),
                       const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: _WelcomeStartButton(onPressed: enterApp),
-                      ),
+                      Expanded(child: _WelcomeStartButton(onPressed: enterApp)),
                     ],
                   ),
                 ],

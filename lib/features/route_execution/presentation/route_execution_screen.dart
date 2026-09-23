@@ -30,6 +30,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -997,6 +998,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             completedFraction: completedFraction,
             completedStopPositions: completedStopPositions,
             activeLeg: _activeLeg(execution, route),
+            dashedLine: isWalkingMode(route.transportMode),
           ),
         ],
         const SizedBox(height: 8),
