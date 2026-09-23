@@ -33,6 +33,7 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_menu_bubble.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
@@ -336,6 +337,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             footerLabel: routePointsLabel(route.stops.length),
                             selectedIndex: _selectedStop,
                             onStopTap: _selectStop,
+                            dashedLine: isWalkingMode(route.transportMode),
                           ),
                           const SizedBox(height: 24),
                           const _SectionTitle('Остановки:'),

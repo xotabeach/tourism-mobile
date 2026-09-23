@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 
 /// Replaces the network raster in tests, keyed by the requested URL.
@@ -68,8 +69,14 @@ class RouteStaticMap extends StatefulWidget {
     this.activeLeg,
     this.focusOnLeg = false,
     this.imageHeaders = const {},
+    this.dashedLine = false,
     super.key,
   });
+
+  /// The route is walked: the progress and active-leg lines are dashed like
+  /// the route line on the server's image (spec 14, D23). See
+  /// [isWalkingMode].
+  final bool dashedLine;
 
   /// Highlighted with an accent line when given.
   final ActiveLeg? activeLeg;
@@ -232,6 +239,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
       onPinTap: _selectStop,
       height: widget.height,
       footerLabel: widget.footerLabel,
+      dashedLine: widget.dashedLine,
     );
   }
 
@@ -316,7 +324,10 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                   Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(
-                        painter: _RouteProgressPainter(points),
+                        painter: _RouteProgressPainter(
+                          points,
+                          dashed: widget.dashedLine,
+                        ),
                       ),
                     ),
                   ),
@@ -327,7 +338,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                         painter: _ActiveLegPainter([
                           for (final point in leg.line)
                             projection.toPixel(point.lat, point.lng),
-                        ]),
+                        ], dashed: widget.dashedLine),
                       ),
                     ),
                   ),
@@ -525,6 +536,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             completedStopPositions: widget.completedStopPositions,
             activeLeg: widget.activeLeg,
             imageHeaders: widget.imageHeaders,
+            dashedLine: widget.dashedLine,
           ),
         ),
       ),
@@ -534,16 +546,14 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
 
 /// Accent line over the active stretch, drawn above the walked-so-far line.
 class _ActiveLegPainter extends CustomPainter {
-  const _ActiveLegPainter(this.points);
+  const _ActiveLegPainter(this.points, {required this.dashed});
 
   final List<Offset> points;
+  final bool dashed;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
+    final path = _linePath(points, dashed: dashed);
     canvas.drawPath(
       path,
       Paint()
@@ -566,22 +576,20 @@ class _ActiveLegPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ActiveLegPainter oldDelegate) =>
-      !listEquals(points, oldDelegate.points);
+      dashed != oldDelegate.dashed || !listEquals(points, oldDelegate.points);
 }
 
 /// Overlays the walked portion of the route on top of the vendor's own
 /// (uncolored) route line, from the start up to the current progress point.
 class _RouteProgressPainter extends CustomPainter {
-  const _RouteProgressPainter(this.points);
+  const _RouteProgressPainter(this.points, {required this.dashed});
 
   final List<Offset> points;
+  final bool dashed;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final point in points.skip(1)) {
-      path.lineTo(point.dx, point.dy);
-    }
+    final path = _linePath(points, dashed: dashed);
     // A light halo first so the green reads on both light and dark basemap
     // tiles, same idea as the pins' white border.
     canvas.drawPath(
@@ -606,7 +614,16 @@ class _RouteProgressPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RouteProgressPainter oldDelegate) =>
-      !listEquals(points, oldDelegate.points);
+      dashed != oldDelegate.dashed || !listEquals(points, oldDelegate.points);
+}
+
+/// A polyline through [points], dashed for a walked route.
+Path _linePath(List<Offset> points, {required bool dashed}) {
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  for (final point in points.skip(1)) {
+    path.lineTo(point.dx, point.dy);
+  }
+  return dashed ? dashedPath(path) : path;
 }
 
 class _MapPinDot extends StatelessWidget {
@@ -804,6 +821,7 @@ class _FullScreenRouteMap extends StatefulWidget {
     this.completedStopPositions = const {},
     this.activeLeg,
     this.imageHeaders = const {},
+    this.dashedLine = false,
   });
 
   /// Backend preview endpoint for this route, or null when the server does
@@ -825,6 +843,7 @@ class _FullScreenRouteMap extends StatefulWidget {
   final Set<int> completedStopPositions;
   final ActiveLeg? activeLeg;
   final Map<String, String> imageHeaders;
+  final bool dashedLine;
 
   @override
   State<_FullScreenRouteMap> createState() => _FullScreenRouteMapState();
@@ -890,6 +909,7 @@ class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
                       activeLeg: widget.activeLeg,
                       focusOnLeg: _focusLeg,
                       imageHeaders: widget.imageHeaders,
+                      dashedLine: widget.dashedLine,
                       // Already full screen: tapping should not stack another one.
                       interactive: false,
                     ),

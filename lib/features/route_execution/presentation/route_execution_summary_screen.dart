@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
@@ -13,6 +12,7 @@ import 'package:tourism_mobile/features/route_execution/application/points_statu
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -127,6 +127,7 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
                           ? 'Вы на ${execution.completedStops} точке'
                           : routePointsLabel(route.stops.length),
                       pillFooter: true,
+                      dashedLine: isWalkingMode(route.transportMode),
                       completedFraction: 1,
                       completedStopPositions: {
                         for (final stop in execution.stops)
