@@ -70,6 +70,7 @@ class RouteReview {
     this.authorAvatarUrl,
     this.media = const [],
     this.replyTo,
+    this.authorCompletedRoute = false,
   });
 
   final String id;
@@ -84,6 +85,12 @@ class RouteReview {
   final DateTime createdAt;
   final List<RouteReviewMedia> media;
   final RouteReviewReply? replyTo;
+
+  /// The author finished this route at least once («Прошёл маршрут»).
+  final bool authorCompletedRoute;
+
+  /// Stars left right after the run, without any text (FRONTEND-42).
+  bool get isRatingOnly => body.trim().isEmpty && replyTo == null;
 
   factory RouteReview.fromJson(Map<String, dynamic> json) {
     return RouteReview(
@@ -109,6 +116,7 @@ class RouteReview {
         final Map<String, dynamic> value => RouteReviewReply.fromJson(value),
         _ => null,
       },
+      authorCompletedRoute: json['author_completed_route'] as bool? ?? false,
     );
   }
 }
