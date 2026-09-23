@@ -121,8 +121,37 @@ class SettingsAboutScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsContacts),
         ),
         const SizedBox(height: SettingsMetrics.rowGap),
+        const _MapDataCard(),
+        const SizedBox(height: SettingsMetrics.rowGap),
         const _DeviceAndVersionCard(),
       ],
+    );
+  }
+}
+
+/// Источники карт и маршрутов. Лицензия ODbL и схема OpenMapTiles требуют
+/// указывать их там, где видно приложение (спека 12, D16).
+class _MapDataCard extends StatelessWidget {
+  const _MapDataCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return SettingsFormCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Карты и маршруты',
+            style: AppTypography.settingsRowTitle.copyWith(fontSize: 15),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Данные карт и маршрутов: © участники OpenStreetMap, лицензия '
+            'ODbL. Схема карты: © OpenMapTiles. Высоты: SRTM (NASA).',
+            style: AppTypography.settingsRowSubtitle,
+          ),
+        ],
+      ),
     );
   }
 }
