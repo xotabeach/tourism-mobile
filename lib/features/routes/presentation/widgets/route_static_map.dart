@@ -11,6 +11,27 @@ import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
 
+/// Replaces the network raster in tests, keyed by the requested URL.
+@visibleForTesting
+ImageProvider<Object> Function(String url)? debugRouteMapImage;
+
+/// A raster together with the projection it was requested for. Pins and
+/// lines are always drawn with the projection of the raster on screen, never
+/// with one computed for a frame that has not arrived yet.
+class _MapFrame {
+  const _MapFrame({
+    required this.url,
+    required this.image,
+    required this.projection,
+    required this.focus,
+  });
+
+  final String url;
+  final ImageProvider<Object> image;
+  final MapProjection projection;
+  final bool focus;
+}
+
 /// The stretch between the last marked stop and the next one, highlighted on
 /// the map while a route is being walked.
 class ActiveLeg {
@@ -115,10 +136,72 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
   bool get _focusActive =>
       widget.focusOnLeg && widget.activeLeg != null && !_focusFailed;
 
+  /// Raster currently on screen; the requested one replaces it only once it
+  /// has loaded, so a switch of frame never shows the old basemap under the
+  /// new frame's pins and lines.
+  _MapFrame? _shown;
+  _MapFrame? _pending;
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
+
   @override
   void didUpdateWidget(covariant RouteStaticMap oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.focusOnLeg != widget.focusOnLeg) _focusFailed = false;
+  }
+
+  @override
+  void dispose() {
+    _stopListening();
+    super.dispose();
+  }
+
+  void _stopListening() {
+    final listener = _listener;
+    if (listener != null) _stream?.removeListener(listener);
+    _stream = null;
+    _listener = null;
+  }
+
+  /// Starts loading [frame] unless it is already on screen or on its way.
+  void _request(_MapFrame frame) {
+    if (frame.url == _pending?.url) return;
+    _stopListening();
+    if (frame.url == _shown?.url) {
+      // Back on the frame already on screen: a late answer for the one the
+      // user switched away from must not replace it.
+      _pending = null;
+      return;
+    }
+    _pending = frame;
+    final stream = frame.image.resolve(createLocalImageConfiguration(context));
+    final listener = ImageStreamListener(
+      (_, _) {
+        if (!mounted || _pending?.url != frame.url) return;
+        _stopListening();
+        setState(() {
+          _shown = frame;
+          _pending = null;
+        });
+      },
+      onError: (_, _) {
+        if (!mounted || _pending?.url != frame.url) return;
+        _stopListening();
+        setState(() {
+          _pending = null;
+          // The zoomed-in frame falls back to the whole route; without any
+          // raster the stylized preview takes over for this session.
+          if (frame.focus) {
+            _focusFailed = true;
+          } else {
+            _imageFailed = true;
+          }
+        });
+      },
+    );
+    _stream = stream;
+    _listener = listener;
+    stream.addListener(listener);
   }
 
   /// Selected index within [RouteStaticMap.stops], parent-owned when the
@@ -185,14 +268,21 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
         child: LayoutBuilder(
           builder: (context, constraints) {
             final size = Size(constraints.maxWidth, constraints.maxHeight);
-            final projection = MapProjection.fit(
-              points: _fitPoints(),
-              size: size,
-            );
-            if (projection == null) {
+            final wanted = MapProjection.fit(points: _fitPoints(), size: size);
+            if (wanted == null) {
               return _fallbackPreview();
             }
-            final image = _mapImage(projection, size);
+            final requested = _mapFrame(wanted, size);
+            if (requested != null) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _request(requested);
+              });
+            }
+            final shown = _shown;
+            final current = shown != null && shown.projection.size == size
+                ? shown
+                : null;
+            final projection = current?.projection ?? wanted;
             final selectedIndex = _selectedStopIndex;
             final selectedStop =
                 (selectedIndex != null &&
@@ -209,27 +299,15 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                     onTap: widget.interactive
                         ? () => _openFullScreen(context)
                         : null,
-                    child: image == null
+                    child: current == null
                         ? const ColoredBox(color: AppColors.controlSurface)
                         : Image(
-                            image: image,
+                            image: current.image,
                             fit: BoxFit.cover,
                             gaplessPlayback: true,
-                            errorBuilder: (_, _, _) {
-                              // One rebuild into the stylized fallback; the
-                              // raster is unavailable for this session.
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                if (!mounted) return;
-                                if (_focusActive) {
-                                  setState(() => _focusFailed = true);
-                                } else if (!_imageFailed) {
-                                  setState(() => _imageFailed = true);
-                                }
-                              });
-                              return const ColoredBox(
-                                color: AppColors.controlSurface,
-                              );
-                            },
+                            errorBuilder: (_, _, _) => const ColoredBox(
+                              color: AppColors.controlSurface,
+                            ),
                           ),
                   ),
                 ),
@@ -396,7 +474,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
     return points;
   }
 
-  ImageProvider<Object>? _mapImage(MapProjection projection, Size size) {
+  _MapFrame? _mapFrame(MapProjection projection, Size size) {
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     final scale = devicePixelRatio >= 2 ? 2 : 1;
     final path =
@@ -410,16 +488,26 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
         '&pins=none';
     final resolved = AppImages.resolveMediaUrl(widget.config, path);
     if (resolved == null) return null;
-    if (widget.imageHeaders.isNotEmpty) {
+    ImageProvider<Object> image;
+    if (debugRouteMapImage case final override?) {
+      image = override(resolved);
+    } else if (widget.imageHeaders.isNotEmpty) {
       // Auth headers are only attached to the application's own API.
       final target = Uri.tryParse(resolved);
       final api = Uri.tryParse(widget.config.apiBaseUrl);
       if (target == null || api == null || target.origin != api.origin) {
         return null;
       }
-      return NetworkImage(resolved, headers: widget.imageHeaders);
+      image = NetworkImage(resolved, headers: widget.imageHeaders);
+    } else {
+      image = AppImages.imageProvider(resolvedUrl: resolved);
     }
-    return AppImages.imageProvider(resolvedUrl: resolved);
+    return _MapFrame(
+      url: resolved,
+      image: image,
+      projection: projection,
+      focus: _focusActive,
+    );
   }
 
   void _openFullScreen(BuildContext context) {
@@ -745,6 +833,16 @@ class _FullScreenRouteMap extends StatefulWidget {
 class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
   var _focusLeg = false;
 
+  /// Pinch zoom belongs to the frame it was made on: a new frame starts from
+  /// its own fitted scale.
+  final _zoom = TransformationController();
+
+  @override
+  void dispose() {
+    _zoom.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasLeg = widget.activeLeg != null;
@@ -767,13 +865,16 @@ class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
                     ButtonSegment(value: false, label: Text('Весь маршрут')),
                   ],
                   selected: {_focusLeg},
-                  onSelectionChanged: (value) =>
-                      setState(() => _focusLeg = value.first),
+                  onSelectionChanged: (value) => setState(() {
+                    _focusLeg = value.first;
+                    _zoom.value = Matrix4.identity();
+                  }),
                 ),
                 const SizedBox(height: 8),
               ],
               Expanded(
                 child: InteractiveViewer(
+                  transformationController: _zoom,
                   minScale: 1,
                   maxScale: 6,
                   child: LayoutBuilder(
