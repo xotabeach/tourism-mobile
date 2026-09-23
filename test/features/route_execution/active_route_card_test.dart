@@ -11,6 +11,7 @@ import 'package:tourism_mobile/features/route_execution/data/mock_route_executio
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_route_card.dart';
+import 'package:tourism_mobile/features/routes/data/route_reviews_repository.dart';
 
 import '../../support/test_overrides.dart';
 
@@ -288,4 +289,140 @@ void main() {
     expect(find.text('Маршрут пройден'), findsOneWidget);
     expect(find.bySemanticsLabel('Не предлагать оценку'), findsOneWidget);
   });
+
+  group('stars right on the card', () {
+    Future<_Reviews> pumpAsk(WidgetTester tester, {bool fail = false}) async {
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 400);
+      addTearDown(tester.view.reset);
+      final reviews = _Reviews(fail: fail);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...testSessionOverrides(onboardingCompleted: true),
+            routeReviewsRepositoryProvider.overrideWithValue(reviews),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(16),
+                child: ActiveRouteCard(
+                  state: HomeActiveRun(
+                    run: _run(
+                      status: RouteExecutionStatus.completed,
+                      completedAt: DateTime.now(),
+                    ),
+                    offline: false,
+                    askForReview: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      return reviews;
+    }
+
+    testWidgets('picking stars asks to confirm, then thanks', (tester) async {
+      final reviews = await pumpAsk(tester);
+      expect(find.text('Как вам маршрут?'), findsOneWidget);
+      expect(find.text('Подтвердить'), findsNothing);
+
+      await tester.tap(find.bySemanticsLabel('Оценка 4 из 5'));
+      await tester.pump();
+      expect(find.text('Подтвердить'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Подтвердить оценку'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(reviews.sent, [(route: 'route-1', body: '', rating: 4)]);
+      expect(find.text('Спасибо!'), findsOneWidget);
+      expect(
+        find.text('Ваш отзыв поможет\nдругим путешественникам'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a failed send keeps the stars to try again', (tester) async {
+      await pumpAsk(tester, fail: true);
+      await tester.tap(find.bySemanticsLabel('Оценка 5 из 5'));
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel('Подтвердить оценку'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Спасибо!'), findsNothing);
+      expect(find.text('Подтвердить'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+    });
+  });
+
+  test('a review says whether its author walked the route', () {
+    final review = RouteReview.fromJson({
+      'id': 'r1',
+      'route_id': 'route-1',
+      'author_user_id': 'u1',
+      'body': '',
+      'rating': 5,
+      'created_at': '2026-09-23T10:00:00Z',
+      'author_completed_route': true,
+    });
+    expect(review.authorCompletedRoute, isTrue);
+    expect(review.isRatingOnly, isTrue);
+  });
+}
+
+class _Reviews implements RouteReviewsRepository {
+  _Reviews({this.fail = false});
+
+  final bool fail;
+  final sent = <({String route, String body, int rating})>[];
+
+  @override
+  Future<RouteReviewsPage> listPublished(String routeId) async =>
+      const RouteReviewsPage(items: [], total: 0, ratingCount: 0);
+
+  @override
+  Future<List<RouteReview>> listMine() async => const [];
+
+  @override
+  Future<void> delete({
+    required String routeId,
+    required String reviewId,
+  }) async {}
+
+  @override
+  Future<void> deleteMedia({
+    required String routeId,
+    required String reviewId,
+    required String mediaId,
+  }) async {}
+
+  @override
+  Future<RouteReview> submit({
+    required String routeId,
+    required String body,
+    required int rating,
+    List<String> imagePaths = const [],
+    String? replyToReviewId,
+  }) async {
+    if (fail) throw const NetworkFailure('offline');
+    sent.add((route: routeId, body: body, rating: rating));
+    return RouteReview(
+      id: 'new',
+      routeId: routeId,
+      authorUserId: 'u1',
+      authorDisplayName: 'Я',
+      authorRankTitle: 'Новичок',
+      body: body,
+      rating: rating,
+      status: 'published',
+      createdAt: DateTime.now(),
+    );
+  }
 }

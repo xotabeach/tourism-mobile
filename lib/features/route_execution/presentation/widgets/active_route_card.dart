@@ -5,14 +5,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
+import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
+import 'package:tourism_mobile/features/routes/data/route_reviews_repository.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 // DESIGN-12 №1 colours, sampled from the mockup.
@@ -368,22 +372,51 @@ class _ProgressBar extends StatelessWidget {
 
 /// A run finished within a day, its route not reviewed yet (spec 13, D5).
 ///
-/// Not in DESIGN-12: drawn from the same card — cover, pill, title, a
-/// divider and a bottom row — so the two read as one family. A blue
-/// «Маршрут пройден» pill with the cup from the finish screen, a cross to
-/// stop asking, empty stars where the progress bar was, and the bottom row
-/// inviting a review. The whole card opens the route's reviews.
-class _ReviewAskCard extends ConsumerWidget {
+/// Not in DESIGN-12 (FRONTEND-42, own layout on the same card): cover, the
+/// blue «Маршрут пройден» pill and a cross to stop asking; in the middle the
+/// route, «Как вам маршрут?» and five large stars to tap. Picking stars swaps
+/// the run summary for «Подтвердить»; once sent, the same place thanks the
+/// person. Stars alone count as a review without text.
+class _ReviewAskCard extends ConsumerStatefulWidget {
   const _ReviewAskCard({required this.run});
 
   final RouteExecution run;
 
-  void _openReviews(BuildContext context) {
-    unawaited(context.push('/routes/${run.routeId}?tab=reviews'));
+  @override
+  ConsumerState<_ReviewAskCard> createState() => _ReviewAskCardState();
+}
+
+class _ReviewAskCardState extends ConsumerState<_ReviewAskCard> {
+  var _stars = 0;
+  var _sending = false;
+  var _sent = false;
+
+  Future<void> _submit() async {
+    final routeId = widget.run.routeId;
+    if (routeId == null || _stars == 0 || _sending) return;
+    setState(() => _sending = true);
+    try {
+      await ref
+          .read(routeReviewsRepositoryProvider)
+          .submit(routeId: routeId, body: '', rating: _stars);
+      ref
+        ..invalidate(routeReviewsProvider(routeId))
+        ..invalidate(myRouteReviewsProvider);
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _sent = true;
+      });
+    } on Object {
+      if (!mounted) return;
+      setState(() => _sending = false);
+      showAppNotice(context, 'Не удалось отправить оценку. Попробуйте ещё раз');
+    }
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    final run = widget.run;
     final points = run.awardedPoints;
     final routeMeters = run.routing?.distanceMeters;
     final stats = [
@@ -393,210 +426,268 @@ class _ReviewAskCard extends ConsumerWidget {
       '${run.elapsed(DateTime.now()).inMinutes} мин',
       if (points > 0) '+$points ТП',
     ].join(' • ');
-    return Semantics(
-      button: true,
-      label: 'Маршрут «${run.routeName}» пройден, $stats. Оценить маршрут',
-      child: AppPressableScale(
-        borderRadius: AppRadii.card,
-        onTap: () => _openReviews(context),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppRadii.card),
-          child: SizedBox(
-            height: 246,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ExcludeSemantics(
-                  child: AppImages.coverImage(
-                    config: ref.watch(appConfigProvider),
-                    coverImageUrl: run.routeCoverUrl,
-                    fallbackSeed: run.routeId ?? run.id,
-                  ),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AppRadii.card),
+      child: SizedBox(
+        height: 246,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ExcludeSemantics(
+              child: AppImages.coverImage(
+                config: ref.watch(appConfigProvider),
+                coverImageUrl: run.routeCoverUrl,
+                fallbackSeed: run.routeId ?? run.id,
+              ),
+            ),
+            const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0x66000000), Color(0xB3000000)],
                 ),
-                const DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Color(0x66000000), Color(0xB3000000)],
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ExcludeSemantics(
-                                child: _StatusPill(
-                                  status: _RunStatus(
-                                    'Маршрут пройден',
-                                    _accent,
-                                    AppIconography.runCup,
-                                  ),
-                                ),
+                      const Expanded(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: ExcludeSemantics(
+                            child: _StatusPill(
+                              status: _RunStatus(
+                                'Маршрут пройден',
+                                _accent,
+                                AppIconography.runCup,
                               ),
-                            ),
-                          ),
-                          Semantics(
-                            button: true,
-                            label: 'Не предлагать оценку',
-                            excludeSemantics: true,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () =>
-                                  unawaited(dismissReviewAsk(ref, run.id)),
-                              child: SizedBox.square(
-                                dimension: 32,
-                                child: AppGlassCircle(
-                                  dimension: 28,
-                                  blur: 12,
-                                  fillColor: Colors.white.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  borderColor: Colors.white.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  contentColor: Colors.white,
-                                  child: const Icon(
-                                    Icons.close_rounded,
-                                    size: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      ExcludeSemantics(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 215),
-                          child: Text(
-                            run.routeName,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontFamily: AppFonts.rubik,
-                              fontSize: 21,
-                              fontWeight: FontWeight.w500,
-                              height: 1.2,
-                              color: Colors.white,
                             ),
                           ),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      ExcludeSemantics(
-                        child: Row(
-                          children: [
-                            for (var i = 0; i < 5; i++) ...[
-                              if (i > 0) const SizedBox(width: 4),
-                              const Icon(
-                                Icons.star_border_rounded,
-                                size: 28,
-                                color: Colors.white,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      ExcludeSemantics(
-                        child: Text(
-                          stats,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: AppFonts.rubik,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w400,
-                            height: 1.2,
-                            color: Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Container(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: 0.18),
-                      ),
-                      const SizedBox(height: 10),
-                      ExcludeSemantics(
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: _accent,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.star_rounded,
-                                size: 20,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 180,
-                                  ),
-                                  child: const Text(
-                                    'Как вам маршрут? Оценка поможет '
-                                    'другим туристам',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontFamily: AppFonts.rubik,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w400,
-                                      height: 1.25,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            AppGlassCircle(
-                              dimension: 40,
+                      Semantics(
+                        button: true,
+                        label: _sent ? 'Закрыть' : 'Не предлагать оценку',
+                        excludeSemantics: true,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => unawaited(dismissReviewAsk(ref, run.id)),
+                          child: SizedBox.square(
+                            dimension: 32,
+                            child: AppGlassCircle(
+                              dimension: 28,
                               blur: 12,
-                              fillColor: Colors.white.withValues(alpha: 0.45),
+                              fillColor: Colors.white.withValues(alpha: 0.3),
                               borderColor: Colors.white.withValues(alpha: 0.3),
                               contentColor: Colors.white,
-                              child: const AppAssetIcon(
-                                AppIconography.arrow,
+                              child: const Icon(
+                                Icons.close_rounded,
+                                size: 16,
                                 color: Colors.white,
-                                size: 22,
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      child: _sent
+                          ? const _ReviewThanks(key: ValueKey('thanks'))
+                          : _ReviewAsk(
+                              key: const ValueKey('ask'),
+                              routeName: run.routeName,
+                              stars: _stars,
+                              stats: stats,
+                              sending: _sending,
+                              onStars: (value) =>
+                                  setState(() => _stars = value),
+                              onSubmit: () => unawaited(_submit()),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+const _centeredWhite = TextStyle(
+  fontFamily: AppFonts.rubik,
+  fontWeight: FontWeight.w500,
+  color: Colors.white,
+);
+
+class _ReviewAsk extends StatelessWidget {
+  const _ReviewAsk({
+    required this.routeName,
+    required this.stars,
+    required this.stats,
+    required this.sending,
+    required this.onStars,
+    required this.onSubmit,
+    super.key,
+  });
+
+  final String routeName;
+  final int stars;
+  final String stats;
+  final bool sending;
+  final ValueChanged<int> onStars;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          routeName,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: _centeredWhite.copyWith(fontSize: 19, height: 1.2),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Как вам маршрут?',
+          textAlign: TextAlign.center,
+          style: _centeredWhite.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            height: 1.2,
+            color: Colors.white.withValues(alpha: 0.85),
           ),
         ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 1; i <= 5; i++)
+              Semantics(
+                button: true,
+                selected: i <= stars,
+                label: 'Оценка $i из 5',
+                excludeSemantics: true,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: sending ? null : () => onStars(i),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Icon(
+                      i <= stars
+                          ? Icons.star_rounded
+                          : Icons.star_border_rounded,
+                      size: 40,
+                      color: i <= stars ? AppColors.rating : Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 40,
+          child: stars == 0
+              ? Center(
+                  child: Text(
+                    stats,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: _centeredWhite.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      height: 1.2,
+                      color: Colors.white.withValues(alpha: 0.7),
+                    ),
+                  ),
+                )
+              : Semantics(
+                  button: true,
+                  label: 'Подтвердить оценку',
+                  excludeSemantics: true,
+                  child: AppPressableScale(
+                    borderRadius: 20,
+                    onTap: sending ? null : onSubmit,
+                    child: Container(
+                      width: 180,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: sending
+                          ? const SizedBox.square(
+                              dimension: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primaryInk,
+                              ),
+                            )
+                          : const Text(
+                              'Подтвердить',
+                              style: TextStyle(
+                                fontFamily: AppFonts.rubik,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: AppColors.primaryInk,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ReviewThanks extends StatelessWidget {
+  const _ReviewThanks({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      liveRegion: true,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const AppAssetIcon(
+            AppIconography.runCup,
+            size: 40,
+            color: Colors.white,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Спасибо!',
+            textAlign: TextAlign.center,
+            style: _centeredWhite.copyWith(fontSize: 21, height: 1.2),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Ваш отзыв поможет\nдругим путешественникам',
+            textAlign: TextAlign.center,
+            style: _centeredWhite.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+              height: 1.3,
+              color: Colors.white.withValues(alpha: 0.85),
+            ),
+          ),
+        ],
       ),
     );
   }
