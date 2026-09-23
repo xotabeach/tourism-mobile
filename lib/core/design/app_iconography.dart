@@ -89,6 +89,10 @@ abstract final class AppIconography {
   static const String paramLocality = '$_root/param_locality.png';
   static const String paramDistance = '$_root/param_distance.png';
 
+  /// Outline place and distance marks on the chat route card photo (FRONTEND-41).
+  static const String chatCardLocality = '$_root/chat_card_locality.png';
+  static const String chatCardDistance = '$_root/chat_card_distance.png';
+
   // Settings — section roots
   static const String settingsProfile = '$_root/settings_profile.png';
   static const String settingsNotifications =

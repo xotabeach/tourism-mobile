@@ -260,7 +260,7 @@ class _AssembledProposalCardState
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     for (var i = 0; i < gallery.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 6),
+                      if (i > 0) const SizedBox(width: chatPageDotGap),
                       ChatPageDot(index: i, current: _galleryPage),
                     ],
                   ],
@@ -398,8 +398,8 @@ class _ProposalDetailsSection extends StatelessWidget {
       children: [
         if (card.tags.isNotEmpty) ...[
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
+            spacing: routePreviewTagGap,
+            runSpacing: routePreviewTagGap,
             children: [
               for (final tag in card.tags) RoutePreviewTagChip(label: tag),
             ],
@@ -635,22 +635,25 @@ class RoutePreviewRatingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mockup: a 17 pt dark glass pill with a thin light edge.
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      height: 17,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.45),
+        color: Colors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.star_rounded, size: 14, color: Color(0xFFFFC107)),
-          const SizedBox(width: 4),
+          const Icon(Icons.star_rounded, size: 11, color: Color(0xFFFFC107)),
+          const SizedBox(width: 3),
           Text(
             rating.toStringAsFixed(1).replaceAll('.', ','),
             style: RouteBuilderDesignTokens.rubik(
-              fontSize: 13,
-              weight: FontWeight.w600,
+              fontSize: 11,
+              weight: FontWeight.w500,
               color: Colors.white,
               height: 1.0,
             ),
@@ -673,15 +676,18 @@ class RoutePreviewRoundButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mockup: a 40 pt frosted circle with a white arrow.
     return Material(
-      color: Colors.white.withValues(alpha: 0.85),
-      shape: const CircleBorder(),
+      color: Colors.white.withValues(alpha: 0.3),
+      shape: CircleBorder(
+        side: BorderSide(color: Colors.white.withValues(alpha: 0.4)),
+      ),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(9),
-          child: Icon(icon, size: 17, color: const Color(0xFF33343A)),
+        child: SizedBox.square(
+          dimension: 40,
+          child: Icon(icon, size: 20, color: Colors.white),
         ),
       ),
     );
@@ -696,9 +702,9 @@ class RoutePreviewTagChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      // Size measured off the design export (FRONTEND-12): 12 pt label,
-      // 24 dp tall pill.
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      // Measured on the chat mockups (FRONTEND-41): 10.5 pt label in a 19 pt
+      // pill. The earlier export read 12 pt / 24 dp and looked heavy.
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: const Color(0xFF666666),
         borderRadius: BorderRadius.circular(14),
@@ -706,7 +712,7 @@ class RoutePreviewTagChip extends StatelessWidget {
       child: Text(
         label,
         style: RouteBuilderDesignTokens.rubik(
-          fontSize: 12,
+          fontSize: 10.5,
           color: Colors.white,
           height: 1.0,
         ),
@@ -714,6 +720,9 @@ class RoutePreviewTagChip extends StatelessWidget {
     );
   }
 }
+
+/// Gap between tag chips, both ways, on the chat mockups.
+const double routePreviewTagGap = 5;
 
 /// Icon + label + value rows (budget/difficulty/locality/distance). Shared
 /// by the proposal card and the catalog-match carousel (design-spec screen 2:
@@ -784,7 +793,8 @@ class RouteParamsBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (final row in rows) ...[
-          if (row != rows.first) const SizedBox(height: 10),
+          // Rows step 25 pt on the mockups.
+          if (row != rows.first) const SizedBox(height: 7),
           // Design export runs "label value" as one continuous left-aligned
           // line — the value is not pushed to the right edge.
           Row(
@@ -983,54 +993,62 @@ class CatalogRoutePreviewHeader extends ConsumerWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: RouteBuilderDesignTokens.rubik(
-                  fontSize: 18,
-                  weight: FontWeight.w700,
+                  fontSize: 14,
+                  weight: FontWeight.w500,
                   color: Colors.white,
                   height: 1.15,
                 ),
               ),
               if (localityLabel != null || distanceLabel != null) ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    if (localityLabel != null) ...[
-                      const Icon(
-                        Icons.place_outlined,
-                        size: 13,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          localityLabel!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                const SizedBox(height: 8),
+                // Mockup: outline marks and muted text, split by a thin bar.
+                Opacity(
+                  opacity: 0.6,
+                  child: Row(
+                    children: [
+                      if (localityLabel != null) ...[
+                        const AppAssetIcon(
+                          AppIconography.chatCardLocality,
+                          size: 10,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            localityLabel!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: RouteBuilderDesignTokens.rubik(
+                              fontSize: 12,
+                              color: Colors.white,
+                              height: 1.1,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (localityLabel != null && distanceLabel != null)
+                        Container(
+                          width: 1,
+                          height: 15,
+                          margin: const EdgeInsets.symmetric(horizontal: 8),
+                          color: Colors.white,
+                        ),
+                      if (distanceLabel != null) ...[
+                        const AppAssetIcon(
+                          AppIconography.chatCardDistance,
+                          size: 10,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          distanceLabel,
                           style: RouteBuilderDesignTokens.rubik(
                             fontSize: 12,
                             color: Colors.white,
                             height: 1.1,
                           ),
                         ),
-                      ),
+                      ],
                     ],
-                    if (distanceLabel != null) ...[
-                      const SizedBox(width: 14),
-                      const Icon(
-                        Icons.route_outlined,
-                        size: 13,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        distanceLabel,
-                        style: RouteBuilderDesignTokens.rubik(
-                          fontSize: 12,
-                          color: Colors.white,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                  ],
+                  ),
                 ),
               ],
               if (tags.isNotEmpty ||
@@ -1053,6 +1071,9 @@ class CatalogRoutePreviewHeader extends ConsumerWidget {
   }
 }
 
+/// Space between two page dots in the mockup.
+const double chatPageDotGap = 4;
+
 /// Page dot of the design: the current one blue, the others pale blue and
 /// smaller the further they are from it.
 class ChatPageDot extends StatelessWidget {
@@ -1065,12 +1086,12 @@ class ChatPageDot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mockup: 8, 8, 8, then 6 and 4 pt towards the far end.
     final distance = (index - current).abs();
     final size = switch (distance) {
-      0 => 8.0,
-      1 => 7.0,
-      2 => 6.0,
-      _ => 5.0,
+      0 || 1 || 2 => 8.0,
+      3 => 6.0,
+      _ => 4.0,
     };
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),

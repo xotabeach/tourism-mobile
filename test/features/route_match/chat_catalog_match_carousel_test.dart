@@ -85,4 +85,50 @@ void main() {
       expect(find.textContaining('Подходит на'), findsOneWidget);
     },
   );
+
+  testWidgets('cards keep a gap while swiping and fill the width at rest', (
+    tester,
+  ) async {
+    // FRONTEND-41: pages used to butt against each other mid-swipe.
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appConfigProvider.overrideWithValue(testAppConfig)],
+        child: MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 240,
+                child: SingleChildScrollView(
+                  child: ChatCatalogMatchCarousel(
+                    routes: const [
+                      CatalogRouteItem(routeId: 'a', title: 'Первый'),
+                      CatalogRouteItem(routeId: 'b', title: 'Второй'),
+                    ],
+                    onOpenRoute: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    final cards = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_CatalogRoutePage',
+    );
+    final carousel = tester.getRect(find.byType(ChatCatalogMatchCarousel));
+    final first = tester.getRect(cards.first);
+    expect(first.left, carousel.left);
+    expect(first.width, 240);
+
+    final gesture = await tester.startGesture(first.center);
+    await gesture.moveBy(const Offset(-120, 0));
+    await tester.pump();
+    final left = tester.getRect(cards.at(0));
+    final right = tester.getRect(cards.at(1));
+    expect(right.left - left.right, 12);
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
 }
