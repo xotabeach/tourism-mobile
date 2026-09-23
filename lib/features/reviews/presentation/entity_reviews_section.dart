@@ -368,7 +368,7 @@ class _EntityReviewsSectionState extends ConsumerState<EntityReviewsSection> {
       return 'отзыв';
     }
     if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
-      return 'отзывы';
+      return 'отзыва';
     }
     return 'отзывов';
   }
@@ -1146,6 +1146,39 @@ class _ReviewGalleryDialogState extends State<_ReviewGalleryDialog> {
   }
 }
 
+/// «Прошёл маршрут» under the author's rank: this person finished the route,
+/// so the review comes from someone who has been there (FRONTEND-42).
+class _WalkedBadge extends StatelessWidget {
+  const _WalkedBadge();
+
+  static const _green = Color(0xFF34C759);
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.only(top: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 12, color: _green),
+          SizedBox(width: 3),
+          Text(
+            'Прошёл маршрут',
+            maxLines: 1,
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              height: 1.3,
+              color: _green,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ReviewCard extends ConsumerStatefulWidget {
   const _ReviewCard({
     required this.kind,
@@ -1246,6 +1279,7 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                           color: AppColors.secondaryInk,
                         ),
                       ),
+                      if (review.authorCompletedRoute) const _WalkedBadge(),
                     ],
                   ),
                 ),
@@ -1272,77 +1306,78 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            if (!review.isRatingOnly) const SizedBox(height: 10),
             if (review.replyTo case final reply?) ...[
               _PublishedReplyContext(reply: reply),
               const SizedBox(height: 10),
             ],
-            LayoutBuilder(
-              builder: (context, constraints) {
-                const bodyStyle = TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w400,
-                  height: 1.45,
-                  color: AppColors.secondaryInk,
-                );
-                final painter = TextPainter(
-                  text: const TextSpan(style: bodyStyle),
-                  textDirection: Directionality.of(context),
-                  textScaler: MediaQuery.textScalerOf(context),
-                  maxLines: 4,
-                )..text = TextSpan(text: review.body, style: bodyStyle);
-                painter.layout(maxWidth: constraints.maxWidth);
-                final expandable =
-                    painter.didExceedMaxLines || media.length > 2;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AnimatedSize(
-                      duration: AppMotion.emphasized,
-                      curve: AppMotion.standard,
-                      alignment: Alignment.topCenter,
-                      child: Text(
-                        review.body,
-                        maxLines: _expanded ? null : 4,
-                        overflow: _expanded
-                            ? TextOverflow.visible
-                            : TextOverflow.ellipsis,
-                        style: bodyStyle,
-                      ),
-                    ),
-                    if (media.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+            if (!review.isRatingOnly || media.isNotEmpty)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const bodyStyle = TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w400,
+                    height: 1.45,
+                    color: AppColors.secondaryInk,
+                  );
+                  final painter = TextPainter(
+                    text: const TextSpan(style: bodyStyle),
+                    textDirection: Directionality.of(context),
+                    textScaler: MediaQuery.textScalerOf(context),
+                    maxLines: 4,
+                  )..text = TextSpan(text: review.body, style: bodyStyle);
+                  painter.layout(maxWidth: constraints.maxWidth);
+                  final expandable =
+                      painter.didExceedMaxLines || media.length > 2;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       AnimatedSize(
                         duration: AppMotion.emphasized,
                         curve: AppMotion.standard,
                         alignment: Alignment.topCenter,
-                        child: _ReviewMediaGrid(
-                          media: _expanded ? media : media.take(2).toList(),
-                          config: config,
-                          onOpen: (item) => _openGallery(media, item),
+                        child: Text(
+                          review.body,
+                          maxLines: _expanded ? null : 4,
+                          overflow: _expanded
+                              ? TextOverflow.visible
+                              : TextOverflow.ellipsis,
+                          style: bodyStyle,
                         ),
                       ),
-                    ],
-                    if (expandable) ...[
-                      const SizedBox(height: 10),
-                      GestureDetector(
-                        onTap: () => setState(() => _expanded = !_expanded),
-                        child: Text(
-                          _expanded
-                              ? 'Свернуть отзыв'
-                              : 'Читать отзыв полностью',
-                          style: AppTypography.button.copyWith(
-                            fontSize: 13,
-                            color: AppColors.primaryInk,
+                      if (media.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        AnimatedSize(
+                          duration: AppMotion.emphasized,
+                          curve: AppMotion.standard,
+                          alignment: Alignment.topCenter,
+                          child: _ReviewMediaGrid(
+                            media: _expanded ? media : media.take(2).toList(),
+                            config: config,
+                            onOpen: (item) => _openGallery(media, item),
                           ),
                         ),
-                      ),
+                      ],
+                      if (expandable) ...[
+                        const SizedBox(height: 10),
+                        GestureDetector(
+                          onTap: () => setState(() => _expanded = !_expanded),
+                          child: Text(
+                            _expanded
+                                ? 'Свернуть отзыв'
+                                : 'Читать отзыв полностью',
+                            style: AppTypography.button.copyWith(
+                              fontSize: 13,
+                              color: AppColors.primaryInk,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
-                );
-              },
-            ),
+                  );
+                },
+              ),
             const SizedBox(height: 10),
             Row(
               children: [
