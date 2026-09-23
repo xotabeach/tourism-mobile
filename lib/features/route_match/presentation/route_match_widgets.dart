@@ -2744,7 +2744,11 @@ class AgentMessageBubble extends StatelessWidget {
                         SizedBox(height: px(6)),
                         Padding(
                           padding: EdgeInsets.only(
-                            bottom: message.hasInteractiveBlocks
+                            // A route card sits a little further from the
+                            // text than buttons do (catalog mockup).
+                            bottom: message.catalogMatch.isNotEmpty
+                                ? px(12)
+                                : message.hasInteractiveBlocks
                                 ? px(8)
                                 : px(14),
                           ),

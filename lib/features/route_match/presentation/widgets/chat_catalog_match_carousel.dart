@@ -28,6 +28,11 @@ class _ChatCatalogMatchCarouselState extends State<ChatCatalogMatchCarousel> {
   /// Photo proportion of the design (card width to photo height).
   static const double _photoAspect = 3.1;
 
+  /// Space between two cards while one is being swiped away. At rest a card
+  /// still fills the bubble's content width exactly (FRONTEND-41: pages used
+  /// to butt against each other mid-swipe and read as one torn card).
+  static const double _pageGap = 12;
+
   @override
   void initState() {
     super.initState();
@@ -64,32 +69,56 @@ class _ChatCatalogMatchCarouselState extends State<ChatCatalogMatchCarousel> {
               // overflow at any bubble width.
               LayoutBuilder(
                 builder: (context, constraints) {
-                  final photoHeight = constraints.maxWidth / _photoAspect;
+                  final width = constraints.maxWidth;
+                  final photoHeight = width / _photoAspect;
+                  // Each page is one gap wider than the bubble and keeps half
+                  // a gap on either side of its card; the outer clip hides
+                  // those halves at rest and shows a full gap mid-swipe.
+                  // Body (measured): padding, two rows of tags, the divider and the
+                  // four param rows of the mockup; the match line only when
+                  // a route carries one, so the card ends under its content.
+                  final hasMatch = routes.any(
+                    (route) => route.matchPercent != null,
+                  );
                   return SizedBox(
-                    height: photoHeight + 206,
-                    child: PageView.builder(
-                      controller: _pageController,
-                      itemCount: routes.length,
-                      onPageChanged: (index) => setState(() => _page = index),
-                      itemBuilder: (context, index) {
-                        final route = routes[index];
-                        return _CatalogRoutePage(
-                          route: route,
-                          onOpen: () => widget.onOpenRoute(route.routeId),
-                        );
-                      },
+                    height: photoHeight + 180 + (hasMatch ? 30 : 0),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        minWidth: width + _pageGap,
+                        maxWidth: width + _pageGap,
+                        child: PageView.builder(
+                          controller: _pageController,
+                          itemCount: routes.length,
+                          onPageChanged: (index) =>
+                              setState(() => _page = index),
+                          itemBuilder: (context, index) {
+                            final route = routes[index];
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: _pageGap / 2,
+                              ),
+                              child: _CatalogRoutePage(
+                                route: route,
+                                onOpen: () => widget.onOpenRoute(route.routeId),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   );
                 },
               ),
               if (routes.length > 1)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8, bottom: 10),
+                  // Mockup: 13 pt from the dots to the first button, with
+                  // the bubble's own 10 pt after the carousel.
+                  padding: const EdgeInsets.only(top: 8, bottom: 3),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       for (var i = 0; i < routes.length; i++) ...[
-                        if (i > 0) const SizedBox(width: 6),
+                        if (i > 0) const SizedBox(width: chatPageDotGap),
                         ChatPageDot(index: i, current: _page),
                       ],
                     ],
@@ -124,10 +153,11 @@ class _CatalogRoutePage extends StatelessWidget {
     // Design export wraps the whole preview (photo + tags + params) in a
     // hairline-bordered rounded card inside the bubble.
     return Container(
+      // Mockup: #D1D1D1 hairline, 6 pt corners (measured on the export).
       decoration: BoxDecoration(
         color: AppColors.elevatedSurface,
-        border: Border.all(color: AppColors.hairline),
-        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD1D1D1)),
+        borderRadius: BorderRadius.circular(6),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -167,20 +197,20 @@ class _CatalogRoutePage extends StatelessWidget {
                     ],
                     if (route.tags.isNotEmpty) ...[
                       Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                        spacing: routePreviewTagGap,
+                        runSpacing: routePreviewTagGap,
                         children: [
                           for (final tag in route.tags)
                             RoutePreviewTagChip(label: tag),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                       const Divider(
                         height: 1,
                         thickness: 1,
                         color: AppColors.hairline,
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 8),
                     ],
                     RouteParamsBlock(
                       budgetLabel: route.budgetLabel,
