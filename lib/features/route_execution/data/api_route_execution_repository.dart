@@ -5,7 +5,8 @@ import 'package:tourism_mobile/features/route_execution/domain/route_execution.d
 import 'package:tourism_mobile/features/route_execution/domain/route_execution_repository.dart';
 
 class ApiRouteExecutionRepository implements RouteExecutionRepository {
-  ApiRouteExecutionRepository(this._dio);
+  ApiRouteExecutionRepository(this._dio, {this.onMutation});
+  final void Function()? onMutation;
 
   final Dio _dio;
 
@@ -156,6 +157,7 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
   ) {
     return guardApiCall(() async {
       final response = await request();
+      onMutation?.call();
       return RouteExecution.fromJson(response.data!);
     });
   }

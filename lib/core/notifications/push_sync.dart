@@ -103,7 +103,15 @@ void handlePushOpened(GoRouter router, RemoteMessage message) {
     return;
   }
   if (targetType == 'achievement') {
-    unawaited(router.pushNamed(AppRouteNames.achievements));
+    unawaited(
+      router.pushNamed(
+        AppRouteNames.achievements,
+        queryParameters: {
+          if (targetId is String && targetId.isNotEmpty)
+            "achievementId": targetId,
+        },
+      ),
+    );
     return;
   }
   if (targetType == 'support_ticket') {

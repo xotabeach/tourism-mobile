@@ -117,7 +117,10 @@ class _InboxForegroundHostState extends ConsumerState<InboxForegroundHost>
     if (path.endsWith('/inbox') || path.contains('/notifications/inbox')) {
       return;
     }
-    _showToast(fresh.first);
+    final ordinary = fresh
+        .where((item) => item.kind != InboxNotificationKind.achievementUnlocked)
+        .toList();
+    if (ordinary.isNotEmpty) _showToast(ordinary.first);
   }
 
   void _showToast(InboxNotification item) {

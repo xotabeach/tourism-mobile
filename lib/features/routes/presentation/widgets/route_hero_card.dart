@@ -30,6 +30,7 @@ int difficultyBolts(String? difficulty) {
     'easy' => 2,
     'moderate' => 3,
     'hard' => 4,
+    'extreme' => 5,
     'expert' => 5,
     _ => 2,
   };
@@ -40,6 +41,7 @@ String difficultyLabel(String? difficulty) {
     'easy' => 'Лёгкий',
     'moderate' => 'Средний',
     'hard' => 'Сложный',
+    'extreme' => 'Очень сложный',
     'expert' => 'Экстрим',
     _ => 'Маршрут',
   };

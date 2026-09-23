@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
@@ -12,6 +11,7 @@ import 'package:tourism_mobile/features/route_execution/data/mock_route_executio
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution_repository.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 
 final routeExecutionRepositoryProvider = Provider<RouteExecutionRepository>((
   ref,
@@ -19,7 +19,12 @@ final routeExecutionRepositoryProvider = Provider<RouteExecutionRepository>((
   if (ref.watch(appConfigProvider).useMockData) {
     return MockRouteExecutionRepository();
   }
-  return ApiRouteExecutionRepository(ref.watch(dioProvider));
+  return ApiRouteExecutionRepository(
+    ref.watch(dioProvider),
+    onMutation: () {
+      unawaited(ref.read(notificationsInboxProvider.notifier).softRefresh());
+    },
+  );
 });
 
 final activeRouteExecutionProvider =

@@ -10,6 +10,11 @@ class ProfileAchievement {
     this.howToEarn = '',
     this.iconSlug = '',
     this.unlockedAt,
+    this.isSoon = false,
+    this.available = true,
+    this.celebrated = true,
+    this.progressCurrent,
+    this.progressTarget,
   });
 
   final String id;
@@ -28,6 +33,31 @@ class ProfileAchievement {
   /// Whether the traveler has earned this badge. Defaults to unlocked so
   /// existing call sites keep showing the full colorful set.
   final bool isUnlocked;
+  final bool isSoon;
+  final bool available;
+  final bool celebrated;
+  final double? progressCurrent;
+  final double? progressTarget;
+
+  factory ProfileAchievement.fromJson(Map<String, dynamic> json) {
+    final progress = json["progress"] as Map<String, dynamic>?;
+    return ProfileAchievement(
+      id: json["id"] as String? ?? "",
+      title: json["title"] as String? ?? "",
+      description: json["description"] as String? ?? "",
+      howToEarn: json["how_to_earn"] as String? ?? "",
+      iconSlug: json["icon_slug"] as String? ?? "",
+      isUnlocked: json["is_unlocked"] as bool? ?? json["status"] == "unlocked",
+      isSoon: json["status"] == "soon",
+      available: json["available"] as bool? ?? json["status"] != "soon",
+      celebrated: json["celebrated"] as bool? ?? true,
+      unlockedAt: DateTime.tryParse(
+        json["unlocked_at"] as String? ?? "",
+      )?.toLocal(),
+      progressCurrent: (progress?["current"] as num?)?.toDouble(),
+      progressTarget: (progress?["target"] as num?)?.toDouble(),
+    );
+  }
 }
 
 class ProfileRank {
