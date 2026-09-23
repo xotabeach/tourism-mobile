@@ -53,6 +53,16 @@ class RouteExecutionScreen extends ConsumerStatefulWidget {
       _RouteExecutionScreenState();
 }
 
+/// API code of a start refused because another run is in progress.
+@visibleForTesting
+const activeRunConflictCode = 'active_route_execution_exists';
+
+/// Offline, the previous run's start has not reached the server yet.
+@visibleForTesting
+const offlineStartWaitsMessage =
+    'Прошлое прохождение ещё не отправлено.\n'
+    'Подключитесь к сети, чтобы начать новый маршрут.';
+
 class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   RouteExecution? _execution;
   String? _error;
@@ -226,6 +236,25 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         _error = 'Прохождение уже завершено';
       });
     } on Object catch (error) {
+      if (error is AppFailure && error.code == activeRunConflictCode) {
+        // Another device started a run between the check above and this
+        // start: name it instead of a bare refusal.
+        RouteExecution? blocking;
+        try {
+          blocking = await ref
+              .read(routeExecutionRepositoryProvider)
+              .getActive();
+        } on Object {
+          blocking = null;
+        }
+        if (!mounted) return;
+        setState(() {
+          _blockingExecution = blocking;
+          _loading = false;
+          _error = 'Сначала заверши текущий маршрут';
+        });
+        return;
+      }
       final cached = await ref
           .read(routeExecutionOfflineStoreProvider)
           .getSnapshot();
@@ -252,6 +281,29 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             .read(offlineRouteStoreProvider)
             .get(widget.routeId);
         if (downloaded != null) {
+          // The device keeps one run: starting another offline would
+          // overwrite the one in progress and queue a start the server
+          // refuses once back online.
+          if (cached != null && cachedInProgress) {
+            if (!mounted) return;
+            setState(() {
+              _blockingExecution = cached;
+              _loading = false;
+              _error = 'Сначала заверши текущий маршрут';
+            });
+            return;
+          }
+          final unsentStart = (await store.listOutbox()).any(
+            (entry) => entry.action == RouteExecutionAction.start,
+          );
+          if (unsentStart) {
+            if (!mounted) return;
+            setState(() {
+              _loading = false;
+              _error = offlineStartWaitsMessage;
+            });
+            return;
+          }
           final execution = await ref
               .read(routeExecutionOfflineCoordinatorProvider)
               .startOffline(downloaded.route);
@@ -1059,6 +1111,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   }
 
   static String _friendlyError(Object error) {
+    if (error is AppFailure && error.code == activeRunConflictCode) {
+      return 'Сначала заверши текущий маршрут';
+    }
     final message = error.toString();
     if (message.contains('route_execution_stop_not_last')) {
       return 'Снять можно только последнюю отметку';
