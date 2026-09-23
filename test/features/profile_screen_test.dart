@@ -230,6 +230,8 @@ void main() {
     // progress bar / leaderboard row, and the "Звание" value is the expert
     // label rather than the points rank title.
     expect(find.text('Эксперт КрымТрип'), findsOneWidget);
+    // Someone else's catalog is private: only their earned badges, no «Все».
+    expect(find.bySemanticsLabel('Все достижения'), findsNothing);
     expect(find.textContaining(' тп'), findsNothing);
     expect(find.textContaining('Топ '), findsNothing);
   });

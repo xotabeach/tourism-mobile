@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/cache/stale_data_refresher.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
@@ -15,6 +14,7 @@ import 'package:tourism_mobile/core/theme/app_theme.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/profile/presentation/achievement_celebration_host.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/settings/application/liquid_glass_preference.dart';
@@ -126,7 +126,13 @@ class _TourismAppState extends ConsumerState<TourismApp> {
         theme: AppTheme.light,
         routerConfig: router,
         builder: (context, child) {
-          final content = child ?? const SizedBox.shrink();
+          final content = Stack(
+            fit: StackFit.expand,
+            children: [
+              child ?? const SizedBox.shrink(),
+              const AchievementCelebrationHost(),
+            ],
+          );
           return StartupGate(
             child: reduceMotion
                 ? MediaQuery(

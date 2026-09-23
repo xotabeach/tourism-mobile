@@ -436,7 +436,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: AchievementsScreen.routePath,
                     pageBuilder: (context, state) => CupertinoPage<void>(
                       key: state.pageKey,
-                      child: const AchievementsScreen(),
+                      child: AchievementsScreen(
+                        initialAchievementId:
+                            state.uri.queryParameters["achievementId"],
+                      ),
                     ),
                   ),
                   GoRoute(

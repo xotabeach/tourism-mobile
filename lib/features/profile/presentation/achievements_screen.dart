@@ -1,6 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -12,8 +13,11 @@ import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/profile/data/achievements_repository.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/achievement_card_screen.dart';
+import 'package:tourism_mobile/features/profile/presentation/achievement_celebration_host.dart';
+import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_progress.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
 
 /// Full-screen achievements catalog (Figma «Достижения»).
@@ -21,7 +25,8 @@ import 'package:tourism_mobile/features/settings/presentation/settings_widgets.d
 /// Header «Достижения:» + segment «Полученные/Все» + search field
 /// «Искать достижение» + vertical badge feed with unlocked/locked states.
 class AchievementsScreen extends ConsumerStatefulWidget {
-  const AchievementsScreen({super.key});
+  const AchievementsScreen({super.key, this.initialAchievementId});
+  final String? initialAchievementId;
 
   static const routePath = 'achievements';
 
@@ -32,6 +37,7 @@ class AchievementsScreen extends ConsumerStatefulWidget {
 enum _AchievementFilter { unlocked, all }
 
 class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
+  bool _openedInitial = false;
   final _searchController = TextEditingController();
   var _filter = _AchievementFilter.all;
 
@@ -46,15 +52,39 @@ class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
     final userId = ref.watch(sessionProvider).userId ?? 'mock-user';
     final catalog = ref.watch(userAchievementsProvider(userId));
     final query = _searchController.text.trim().toLowerCase();
+    final initialId = widget.initialAchievementId;
+    if (!_openedInitial && initialId != null && catalog.hasValue) {
+      final matches = catalog.value!.where((item) => item.id == initialId);
+      _openedInitial = true;
+      if (matches.isNotEmpty) {
+        final achievement = matches.first;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          ref
+              .read(openedAchievementIdsProvider.notifier)
+              .update((ids) => {...ids, initialId});
+          unawaited(
+            ref
+                .read(achievementsRepositoryProvider)
+                .celebrate([initialId])
+                .catchError((Object _) {}),
+          );
+          openAchievementCard(context, achievement);
+        });
+      }
+    }
 
     return SettingsScaffold(
       title: 'Достижения:',
       subtitle: catalog.maybeWhen(
         data: (all) {
           final unlockedCount = all
-              .where((achievement) => achievement.isUnlocked)
+              .where(
+                (achievement) =>
+                    achievement.isUnlocked && achievement.available,
+              )
               .length;
-          return 'Получено $unlockedCount из ${all.length}';
+          return 'Получено $unlockedCount из ${all.where((item) => item.available).length}';
         },
         orElse: () => null,
       ),
@@ -317,6 +347,7 @@ class _AchievementBadgeRow extends StatelessWidget {
                             color: AppColors.secondaryInk,
                           ),
                         ),
+                        AchievementProgress(achievement: achievement),
                       ],
                     ),
                   ),

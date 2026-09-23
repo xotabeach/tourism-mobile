@@ -1,17 +1,18 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/profile/data/achievements_repository.dart';
 import 'package:tourism_mobile/features/profile/data/mock_profile.dart';
 import 'package:tourism_mobile/features/profile/data/offline_own_routes_cache.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 
 final publicProfileRepositoryProvider = Provider<PublicProfileRepository>((
   ref,
@@ -201,6 +202,10 @@ final userAchievementsProvider =
       if (config.useMockData) {
         return [for (final page in MockProfile.achievementPages) ...page];
       }
+      final ownId = ref.watch(sessionProvider.select((s) => s.userId));
+      if (ownId == userId) {
+        return ref.watch(achievementsRepositoryProvider).list();
+      }
       return ref.watch(publicProfileRepositoryProvider).achievements(userId);
     });
 
@@ -383,6 +388,7 @@ class ProfileLikeController extends AsyncNotifier<void> {
         await repo.unlike(userId);
       } else {
         await repo.like(userId);
+        unawaited(ref.read(notificationsInboxProvider.notifier).softRefresh());
       }
       ref.invalidate(publicProfileProvider(userId));
       final selfId = ref.read(sessionProvider).userId;

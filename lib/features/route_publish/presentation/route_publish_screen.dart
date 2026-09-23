@@ -2621,13 +2621,16 @@ class RouteDifficultySelector extends StatelessWidget {
   Widget build(BuildContext context) {
     const widths = [76.0, 76.0, 76.0, 75.0, 76.0];
     return Semantics(
-      label: 'Сложность маршрута, $value из 5',
+      label:
+          'Сложность маршрута, $value из 5${value == 5 ? ', очень сложный' : ''}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _FixedText(
             height: u(23),
-            text: 'Сложность маршрута:',
+            text: value == 5
+                ? 'Сложность: очень сложный'
+                : 'Сложность маршрута:',
             style: _style(
               u,
               20,

@@ -325,32 +325,35 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Semantics(
-                          button: true,
-                          label: 'Все достижения',
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(AppRadii.chip),
-                            onTap: () =>
-                                context.pushNamed(AppRouteNames.achievements),
-                            child: const Padding(
-                              padding: EdgeInsets.fromLTRB(10, 6, 2, 6),
-                              child: Row(
-                                children: [
-                                  Text(
-                                    'Все',
-                                    style: AppTypography.sectionAction,
-                                  ),
-                                  SizedBox(width: 2),
-                                  Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 20,
-                                    color: AppColors.secondaryInk,
-                                  ),
-                                ],
+                        if (isOwn)
+                          Semantics(
+                            button: true,
+                            label: 'Все достижения',
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(
+                                AppRadii.chip,
+                              ),
+                              onTap: () =>
+                                  context.pushNamed(AppRouteNames.achievements),
+                              child: const Padding(
+                                padding: EdgeInsets.fromLTRB(10, 6, 2, 6),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      'Все',
+                                      style: AppTypography.sectionAction,
+                                    ),
+                                    SizedBox(width: 2),
+                                    Icon(
+                                      Icons.chevron_right_rounded,
+                                      size: 20,
+                                      color: AppColors.secondaryInk,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
                       ],
                     ),
                   ),

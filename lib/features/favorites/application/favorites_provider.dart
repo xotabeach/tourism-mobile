@@ -1,12 +1,12 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/features/favorites/data/favorites_repository_impl.dart';
 import 'package:tourism_mobile/features/favorites/domain/favorites_repository.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
+import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 
 class FavoritesState {
   const FavoritesState({
@@ -33,7 +33,9 @@ class FavoritesState {
 }
 
 class FavoritesController extends StateNotifier<FavoritesState> {
-  FavoritesController(this._repository) : super(const FavoritesState());
+  FavoritesController(this._repository, {this.onChanged})
+    : super(const FavoritesState());
+  final void Function()? onChanged;
 
   final FavoritesRepository _repository;
 
@@ -59,6 +61,7 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     state = state.copyWith(routeIds: Set.unmodifiable({...previous, routeId}));
     try {
       await _repository.addRoute(routeId);
+      onChanged?.call();
     } on Object {
       state = state.copyWith(routeIds: previous);
       rethrow;
@@ -75,6 +78,7 @@ class FavoritesController extends StateNotifier<FavoritesState> {
     );
     try {
       await _repository.removeRoute(routeId);
+      onChanged?.call();
     } on Object {
       state = state.copyWith(routeIds: previous);
       rethrow;
@@ -145,6 +149,9 @@ final favoritesProvider =
       final config = ref.watch(appConfigProvider);
       final controller = FavoritesController(
         ref.watch(favoritesRepositoryProvider),
+        onChanged: () => unawaited(
+          ref.read(notificationsInboxProvider.notifier).softRefresh(),
+        ),
       );
       ref.listen<SessionState>(sessionProvider, (previous, next) {
         final becameAuthed =

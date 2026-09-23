@@ -6,6 +6,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_icons.dart';
+import 'package:tourism_mobile/features/profile/presentation/widgets/achievement_progress.dart';
 
 /// Full card for a single achievement.
 ///
@@ -64,6 +65,11 @@ class AchievementCardScreen extends StatelessWidget {
                   unlockedAt: unlockedAt,
                 ),
               ),
+              if (achievement.isSoon) ...[
+                const SizedBox(height: 12),
+                const Text("Пока нельзя получить", textAlign: TextAlign.center),
+              ],
+              AchievementProgress(achievement: achievement),
               if (showDescription) ...[
                 const SizedBox(height: 22),
                 _Section(title: 'Описание', body: description),
