@@ -7,6 +7,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
+import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
@@ -22,9 +23,11 @@ import 'package:tourism_mobile/features/onboarding/application/session_provider.
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/start_route_sheet.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_mode_provider.dart';
 import 'package:tourism_mobile/features/route_match/presentation/route_match_screen.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_publish_screen.dart';
+import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/presentation/routes_catalog_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
@@ -257,6 +260,19 @@ class _AppShellScreenState extends ConsumerState<AppShellScreen>
     // it is asked here, before the run screen covers the route card.
     await explainLocationOnce(context, ref);
     if (!context.mounted) return;
+    // FRONTEND-45: every start is confirmed, so a stray tap starts nothing.
+    // The summary is what the route screen already loaded, no new request.
+    // While starts are blocked the tap only re-checks the block, as before.
+    final blocked =
+        ref.read(routeStartBlockedUntilProvider).valueOrNull != null;
+    if (!blocked) {
+      final start = await showStartRouteSheet(
+        context,
+        config: ref.read(appConfigProvider),
+        route: ref.read(routeDetailProvider(routeId)).valueOrNull,
+      );
+      if (!start || !context.mounted) return;
+    }
     unawaited(context.push('/routes/$routeId/execution'));
   }
 

@@ -12,6 +12,8 @@ import 'package:tourism_mobile/features/articles/application/articles_providers.
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
+import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/start_route_sheet.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/data/route_reviews_repository.dart';
@@ -82,6 +84,12 @@ bool _isSelected(WidgetTester tester, Pattern semanticsLabel) {
           .flagsCollection
           .isSelected ==
       Tristate.isTrue;
+}
+
+class _LocationExplained extends LocationSharingController {
+  _LocationExplained() {
+    state = const LocationSharingState(asked: true);
+  }
 }
 
 void main() {
@@ -641,5 +649,55 @@ void main() {
           'the articles row (bottom=$articleCardBottom) must not paint '
           'past the start of "Похожие маршруты" (top=$similarRoutesTop)',
     );
+  });
+
+  testWidgets('«Пройти маршрут» starts the run only after «Запустить»', (
+    tester,
+  ) async {
+    // The one-time location card needs the platform plugin, absent here;
+    // this test starts after it was shown.
+    final shell = await _openRouteDetails(
+      tester,
+      overrides: [
+        locationSharingProvider.overrideWith((ref) => _LocationExplained()),
+      ],
+    );
+    String location() => GoRouter.of(
+      shell,
+    ).routerDelegate.currentConfiguration.last.matchedLocation;
+    final detailsPath = location();
+    expect(detailsPath, startsWith('/routes/'));
+
+    Future<void> tapStart() async {
+      await tester.tap(find.text('Пройти маршрут').last);
+      await tester.pumpAndSettle();
+    }
+
+    await tapStart();
+    expect(find.text('Начать маршрут?'), findsOneWidget);
+    expect(find.byType(StartRouteSheet), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(StartRouteSheet),
+        matching: find.text('Классика Южного берега'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Отмена'));
+    await tester.pumpAndSettle();
+    expect(find.byType(StartRouteSheet), findsNothing);
+    expect(location(), detailsPath);
+
+    // Closing the sheet by the barrier goes nowhere either.
+    await tapStart();
+    await tester.tapAt(const Offset(200, 20));
+    await tester.pumpAndSettle();
+    expect(find.byType(StartRouteSheet), findsNothing);
+    expect(location(), detailsPath);
+
+    await tapStart();
+    await tester.tap(find.text('Запустить'));
+    await tester.pumpAndSettle();
+    expect(location(), '$detailsPath/execution');
   });
 }
