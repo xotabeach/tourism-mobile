@@ -338,6 +338,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             selectedIndex: _selectedStop,
                             onStopTap: _selectStop,
                             dashedLine: isWalkingMode(route.transportMode),
+                            segments: route.segments,
                           ),
                           const SizedBox(height: 24),
                           const _SectionTitle('Остановки:'),

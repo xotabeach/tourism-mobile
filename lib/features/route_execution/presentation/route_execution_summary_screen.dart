@@ -128,6 +128,7 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
                           : routePointsLabel(route.stops.length),
                       pillFooter: true,
                       dashedLine: isWalkingMode(route.transportMode),
+                      segments: route.segments,
                       completedFraction: 1,
                       completedStopPositions: {
                         for (final stop in execution.stops)

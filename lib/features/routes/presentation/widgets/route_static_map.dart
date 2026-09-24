@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
@@ -9,8 +10,16 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/route_interactive_map.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
+
+/// The expanded map is the interactive one (spec 12a-9) except under
+/// `flutter test`, which has no platform views; tests may flip it.
+@visibleForTesting
+bool debugInteractiveRouteMap = !Platform.environment.containsKey(
+  'FLUTTER_TEST',
+);
 
 /// Replaces the network raster in tests, keyed by the requested URL.
 @visibleForTesting
@@ -79,8 +88,13 @@ class RouteStaticMap extends StatefulWidget {
     this.focusOnLeg = false,
     this.imageHeaders = const {},
     this.dashedLine = false,
+    this.segments = const [],
     super.key,
   });
+
+  /// Segments of the route, for the expanded interactive map to draw each
+  /// in its own way (spec 12a-9).
+  final List<RouteSegment> segments;
 
   /// The route is walked: the progress and active-leg lines are dashed like
   /// the route line on the server's image (spec 14, D23). See
@@ -570,6 +584,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
             activeLeg: widget.activeLeg,
             imageHeaders: widget.imageHeaders,
             dashedLine: widget.dashedLine,
+            segments: widget.segments,
           ),
         ),
       ),
@@ -863,6 +878,7 @@ class _FullScreenRouteMap extends StatefulWidget {
     this.activeLeg,
     this.imageHeaders = const {},
     this.dashedLine = false,
+    this.segments = const [],
   });
 
   /// Backend preview endpoint for this route, or null when the server does
@@ -885,6 +901,7 @@ class _FullScreenRouteMap extends StatefulWidget {
   final ActiveLeg? activeLeg;
   final Map<String, String> imageHeaders;
   final bool dashedLine;
+  final List<RouteSegment> segments;
 
   @override
   State<_FullScreenRouteMap> createState() => _FullScreenRouteMapState();
@@ -892,6 +909,9 @@ class _FullScreenRouteMap extends StatefulWidget {
 
 class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
   var _focusLeg = false;
+
+  /// The interactive map could not load (offline): the picture instead.
+  var _interactiveFailed = false;
 
   /// Pinch zoom belongs to the frame it was made on: a new frame starts from
   /// its own fitted scale.
@@ -932,31 +952,51 @@ class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
                 ),
                 const SizedBox(height: 8),
               ],
-              Expanded(
-                child: InteractiveViewer(
-                  transformationController: _zoom,
-                  minScale: 1,
-                  maxScale: 6,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) => RouteStaticMap(
-                      staticMapUrl: widget.staticMapUrl,
+              if (debugInteractiveRouteMap && !_interactiveFailed)
+                Expanded(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: RouteInteractiveMap(
+                      config: widget.config,
                       stops: widget.stops,
                       geometry: widget.geometry,
-                      config: widget.config,
-                      height: constraints.maxHeight,
-                      livePosition: widget.livePosition,
-                      completedFraction: widget.completedFraction,
-                      completedStopPositions: widget.completedStopPositions,
-                      activeLeg: widget.activeLeg,
-                      focusOnLeg: _focusLeg,
-                      imageHeaders: widget.imageHeaders,
+                      segments: widget.segments,
                       dashedLine: widget.dashedLine,
-                      // Already full screen: tapping should not stack another one.
-                      interactive: false,
+                      livePosition: widget.livePosition,
+                      completedStopPositions: widget.completedStopPositions,
+                      activeLeg: widget.activeLeg?.line,
+                      focusOnLeg: _focusLeg,
+                      onUnavailable: () =>
+                          setState(() => _interactiveFailed = true),
+                    ),
+                  ),
+                )
+              else
+                Expanded(
+                  child: InteractiveViewer(
+                    transformationController: _zoom,
+                    minScale: 1,
+                    maxScale: 6,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => RouteStaticMap(
+                        staticMapUrl: widget.staticMapUrl,
+                        stops: widget.stops,
+                        geometry: widget.geometry,
+                        config: widget.config,
+                        height: constraints.maxHeight,
+                        livePosition: widget.livePosition,
+                        completedFraction: widget.completedFraction,
+                        completedStopPositions: widget.completedStopPositions,
+                        activeLeg: widget.activeLeg,
+                        focusOnLeg: _focusLeg,
+                        imageHeaders: widget.imageHeaders,
+                        dashedLine: widget.dashedLine,
+                        // Already full screen: tapping should not stack another one.
+                        interactive: false,
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),
