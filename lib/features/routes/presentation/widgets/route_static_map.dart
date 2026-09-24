@@ -966,6 +966,15 @@ class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
                       completedStopPositions: widget.completedStopPositions,
                       activeLeg: widget.activeLeg?.line,
                       focusOnLeg: _focusLeg,
+                      // The same place card as on the picture map.
+                      calloutBuilder: (stop, anchor, viewport, onClose) =>
+                          _StopCallout(
+                            stop: stop,
+                            config: widget.config,
+                            anchor: anchor,
+                            viewport: viewport,
+                            onClose: onClose,
+                          ),
                       onUnavailable: () =>
                           setState(() => _interactiveFailed = true),
                     ),

@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:maplibre_gl/maplibre_gl.dart';
@@ -27,8 +29,19 @@ class RouteInteractiveMap extends StatefulWidget {
     this.completedStopPositions = const {},
     this.activeLeg,
     this.focusOnLeg = false,
+    this.calloutBuilder,
     super.key,
   });
+
+  /// The place card for a tapped stop, placed at [anchor] (logical pixels
+  /// from the map's top left) — the same card the picture map shows.
+  final Widget Function(
+    RouteStop stop,
+    Offset anchor,
+    Size viewport,
+    VoidCallback onClose,
+  )?
+  calloutBuilder;
 
   final AppConfig config;
   final List<RouteStop> stops;
@@ -61,6 +74,11 @@ class _RouteInteractiveMapState extends State<RouteInteractiveMap> {
   MapLibreMapController? _controller;
   var _styleLoaded = false;
   Timer? _timeout;
+
+  /// The tapped stop and where its pin is on screen, for the place card.
+  RouteStop? _selected;
+  Offset? _anchor;
+  static const _tapRadius = 28.0;
 
   @override
   void initState() {
@@ -270,20 +288,86 @@ class _RouteInteractiveMapState extends State<RouteInteractiveMap> {
     await _frame(animate: false);
   }
 
+  /// Android reports map pixels as physical ones, iOS as logical points.
+  double get _pixelRatio =>
+      Platform.isAndroid ? MediaQuery.devicePixelRatioOf(context) : 1;
+
+  Future<void> _onMapClick(math.Point<double> tap) async {
+    final controller = _controller;
+    if (controller == null || widget.calloutBuilder == null) return;
+    final located = [
+      for (final stop in widget.stops)
+        if (stop.lat != null && stop.lng != null) stop,
+    ];
+    if (located.isEmpty) return;
+    final screen = await controller.toScreenLocationBatch([
+      for (final stop in located) LatLng(stop.lat!, stop.lng!),
+    ]);
+    final radius = _tapRadius * _pixelRatio;
+    RouteStop? hit;
+    var best = double.infinity;
+    for (var i = 0; i < located.length && i < screen.length; i++) {
+      final dx = screen[i].x - tap.x;
+      final dy = screen[i].y - tap.y;
+      final distance = math.sqrt(dx * dx + dy * dy);
+      if (distance <= radius && distance < best) {
+        best = distance;
+        hit = located[i];
+      }
+    }
+    if (!mounted) return;
+    if (hit == null) {
+      setState(() => _selected = null);
+      return;
+    }
+    _selected = hit;
+    await _placeCallout();
+  }
+
+  /// Keeps the card on its pin after the camera moved.
+  Future<void> _placeCallout() async {
+    final controller = _controller;
+    final stop = _selected;
+    if (controller == null || stop == null) return;
+    final point = await controller.toScreenLocation(
+      LatLng(stop.lat!, stop.lng!),
+    );
+    if (!mounted) return;
+    setState(
+      () => _anchor = Offset(
+        point.x.toDouble() / _pixelRatio,
+        point.y.toDouble() / _pixelRatio,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final start = boundsOf(_allPoints)?.southWest ?? (lat: 44.95, lng: 34.1);
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        _map(start),
-        // Until our style is in, a spinner rather than a blank map.
-        if (!_styleLoaded)
-          const ColoredBox(
-            color: Color(0xFFF2EFE9),
-            child: Center(child: CircularProgressIndicator()),
-          ),
-      ],
+    final selected = _selected;
+    final anchor = _anchor;
+    return LayoutBuilder(
+      builder: (context, constraints) => Stack(
+        fit: StackFit.expand,
+        children: [
+          _map(start),
+          if (selected != null &&
+              anchor != null &&
+              widget.calloutBuilder != null)
+            widget.calloutBuilder!(
+              selected,
+              anchor,
+              constraints.biggest,
+              () => setState(() => _selected = null),
+            ),
+          // Until our style is in, a spinner rather than a blank map.
+          if (!_styleLoaded)
+            const ColoredBox(
+              color: Color(0xFFF2EFE9),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+        ],
+      ),
     );
   }
 
@@ -296,6 +380,8 @@ class _RouteInteractiveMapState extends State<RouteInteractiveMap> {
       ),
       onMapCreated: (controller) => _controller = controller,
       onStyleLoadedCallback: () => unawaited(_onStyleLoaded()),
+      onMapClick: (point, _) => unawaited(_onMapClick(point)),
+      onCameraIdle: () => unawaited(_placeCallout()),
       compassEnabled: true,
       rotateGesturesEnabled: false,
       tiltGesturesEnabled: false,
