@@ -266,6 +266,49 @@ class RouteGeometry {
   };
 }
 
+/// A continuous run of a route's stops walked or driven in one day (spec 14a).
+class RouteDay {
+  const RouteDay({
+    required this.dayIndex,
+    required this.firstStopId,
+    required this.lastStopId,
+    this.boundarySource = 'auto',
+    this.overnightNote,
+    this.overloaded = false,
+  });
+
+  final int dayIndex;
+  final String firstStopId;
+  final String lastStopId;
+
+  /// `auto` from the route's norms, `manual` once someone moved it.
+  final String boundarySource;
+
+  /// «Ночлег в районе: …»; null on the last day.
+  final String? overnightNote;
+
+  /// A leg longer than a whole day leads into it.
+  final bool overloaded;
+
+  factory RouteDay.fromJson(Map<String, dynamic> json) => RouteDay(
+    dayIndex: (json['day_index'] as num).toInt(),
+    firstStopId: json['first_stop_id'] as String,
+    lastStopId: json['last_stop_id'] as String,
+    boundarySource: json['boundary_source'] as String? ?? 'auto',
+    overnightNote: json['overnight_note'] as String?,
+    overloaded: json['overloaded'] as bool? ?? false,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'day_index': dayIndex,
+    'first_stop_id': firstStopId,
+    'last_stop_id': lastStopId,
+    'boundary_source': boundarySource,
+    'overnight_note': overnightNote,
+    'overloaded': overloaded,
+  };
+}
+
 /// One stretch of a leg travelled one way (spec 14): a drive, the walk up
 /// from the car park (`approach`) or the same walk back (`return`).
 class RouteSegment {
@@ -442,6 +485,7 @@ class RouteDetail extends RouteSummary {
     this.routing,
     this.staticMapUrl,
     this.segments = const [],
+    this.days = const [],
   });
 
   final String? description;
@@ -456,6 +500,9 @@ class RouteDetail extends RouteSummary {
 
   /// Every leg's segments in order; empty for routes that have none yet.
   final List<RouteSegment> segments;
+
+  /// Days in order; one for a short route, empty from older servers.
+  final List<RouteDay> days;
 
   /// Segments of the leg that leads to the stop at [stopIndex] (0-based).
   List<RouteSegment> segmentsTo(int stopIndex) => [
@@ -516,6 +563,10 @@ class RouteDetail extends RouteSummary {
           .whereType<Map<String, dynamic>>()
           .map(RouteSegment.fromJson)
           .toList(growable: false),
+      days: (json['days'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(RouteDay.fromJson)
+          .toList(growable: false),
     );
   }
 
@@ -523,6 +574,7 @@ class RouteDetail extends RouteSummary {
   Map<String, dynamic> toJson() => {
     ...super.toJson(),
     'segments': [for (final segment in segments) segment.toJson()],
+    'days': [for (final day in days) day.toJson()],
     'description': description,
     'freshness_status': freshnessStatus,
     'geometry': geometry?.toJson(),

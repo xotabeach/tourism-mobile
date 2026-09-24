@@ -49,4 +49,11 @@ abstract interface class RouteExecutionRepository {
     String? clientEventId,
     DateTime? occurredAt,
   });
+
+  /// «Закончить день» of a multi-day run: a night pause (spec 14a).
+  Future<RouteExecution> endDay(String executionId);
+
+  /// «Завершить многодневный маршрут»: ends the run, the finished days
+  /// are still paid.
+  Future<RouteExecution> finishEarly(String executionId);
 }

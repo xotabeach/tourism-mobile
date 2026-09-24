@@ -293,6 +293,10 @@ class RouteExecution {
     this.pausedAt,
     this.lastActivityAt,
     this.myReviewExists = false,
+    this.plannedDays = 1,
+    this.currentDay = 1,
+    this.nightPaused = false,
+    this.endedEarly = false,
   });
 
   final String id;
@@ -336,6 +340,21 @@ class RouteExecution {
 
   /// This person already reviewed the route of this finished run.
   final bool myReviewExists;
+
+  /// Days the route is planned for (spec 14a); 1 for an ordinary route.
+  final int plannedDays;
+
+  /// «День N»: the day being walked, ended days + 1. May exceed
+  /// [plannedDays] when the walker takes longer than planned.
+  final int currentDay;
+
+  /// Resting after «Закончить день»; resuming starts [currentDay].
+  final bool nightPaused;
+
+  /// Ended before its last day; the finished days were still paid.
+  final bool endedEarly;
+
+  bool get isMultiDay => plannedDays > 1 || currentDay > 1;
 
   final int totalStops;
   final int completedStops;
@@ -388,6 +407,8 @@ class RouteExecution {
     DateTime? pausedAt,
     bool clearPausedAt = false,
     DateTime? lastActivityAt,
+    int? currentDay,
+    bool? nightPaused,
   }) => RouteExecution(
     id: id,
     routeId: routeId,
@@ -415,6 +436,10 @@ class RouteExecution {
     pausedAt: clearPausedAt ? null : pausedAt ?? this.pausedAt,
     lastActivityAt: lastActivityAt ?? this.lastActivityAt,
     myReviewExists: myReviewExists,
+    plannedDays: plannedDays,
+    currentDay: currentDay ?? this.currentDay,
+    nightPaused: nightPaused ?? this.nightPaused,
+    endedEarly: endedEarly,
   );
 
   Map<String, dynamic> toJson() => {
@@ -431,6 +456,10 @@ class RouteExecution {
     'paused_at': pausedAt?.toUtc().toIso8601String(),
     'last_activity_at': lastActivityAt?.toUtc().toIso8601String(),
     'my_review_exists': myReviewExists,
+    'planned_days': plannedDays,
+    'current_day': currentDay,
+    'night_paused': nightPaused,
+    'ended_early': endedEarly,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -474,6 +503,10 @@ class RouteExecution {
       pointsStatus: routePointsStatusFromJson(json['points_status']),
       pointsReason: json['points_reason'] as String?,
       heldPoints: (json['held_points'] as num?)?.toInt() ?? 0,
+      plannedDays: (json['planned_days'] as num?)?.toInt() ?? 1,
+      currentDay: (json['current_day'] as num?)?.toInt() ?? 1,
+      nightPaused: json['night_paused'] as bool? ?? false,
+      endedEarly: json['ended_early'] as bool? ?? false,
       antifraud: json['antifraud'] is Map
           ? RouteExecutionAntiFraud.fromJson(
               Map<String, dynamic>.from(json['antifraud'] as Map),
