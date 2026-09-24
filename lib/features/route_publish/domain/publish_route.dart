@@ -178,7 +178,19 @@ class RouteDraft {
     this.blockedReason,
     this.blockedFingerprint,
     this.serverUpdatedAt,
+    this.dayBreaks = const [],
   });
+
+  /// Stops (by place id) after which the author ends a day — «Закончить
+  /// день здесь» (spec 14a). Empty: the server splits by the route's norms.
+  final List<String> dayBreaks;
+
+  /// [dayBreaks] still on the route, in its order, never the finish: what
+  /// the server accepts.
+  List<String> get validDayBreaks => [
+    for (final stop in stops)
+      if (dayBreaks.contains(stop.location.id)) stop.location.id,
+  ];
 
   /// The server's `updated_at` from the last save or load: what this copy was
   /// based on. Sent back so a newer change from another device is not
@@ -225,7 +237,8 @@ class RouteDraft {
         finish?.id != other.finish?.id ||
         media.length != other.media.length ||
         stops.length != other.stops.length ||
-        filters.length != other.filters.length) {
+        filters.length != other.filters.length ||
+        validDayBreaks.join('|') != other.validDayBreaks.join('|')) {
       return false;
     }
     for (var i = 0; i < media.length; i++) {
@@ -391,8 +404,10 @@ class RouteDraft {
     DateTime? serverUpdatedAt,
     bool clearBlocked = false,
     bool clearServer = false,
+    List<String>? dayBreaks,
   }) {
     return RouteDraft(
+      dayBreaks: dayBreaks ?? this.dayBreaks,
       serverUpdatedAt: clearServer
           ? null
           : serverUpdatedAt ?? this.serverUpdatedAt,
@@ -439,6 +454,7 @@ class RouteDraft {
     'pace': pace.name,
     'difficulty': difficulty,
     'updated_at': updatedAt?.toIso8601String(),
+    'day_breaks': dayBreaks,
   };
 
   factory RouteDraft.fromJson(Map<String, Object?> json) {
@@ -484,6 +500,7 @@ class RouteDraft {
       ),
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
+      dayBreaks: (json['day_breaks'] as List? ?? const []).cast<String>(),
     );
   }
 }

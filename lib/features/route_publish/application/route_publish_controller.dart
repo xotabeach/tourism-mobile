@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:tourism_mobile/core/domain/content_tags.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -1105,6 +1107,15 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       filters.add(filter);
     }
     state = state.copyWith(draft: state.draft.copyWith(filters: filters));
+    // The car tag changes the road line itself (spec 14b).
+    if (filter == carRouteTag) _refreshRoutePreview();
+  }
+
+  /// «Закончить день здесь» on a stop, or take it back (spec 14a).
+  void toggleDayBreak(String placeId) {
+    final breaks = [...state.draft.dayBreaks];
+    if (!breaks.remove(placeId)) breaks.add(placeId);
+    state = state.copyWith(draft: state.draft.copyWith(dayBreaks: breaks));
   }
 
   void setPace(TravelPace pace) {
@@ -1339,7 +1350,12 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     state = state.copyWith(isPreviewLoading: true);
     _previewDebounce = Timer(const Duration(milliseconds: 400), () async {
       try {
-        final preview = await _publication.previewRoute(placeIds: placeIds);
+        final preview = await _publication.previewRoute(
+          placeIds: placeIds,
+          transportMode: state.draft.filters.contains(carRouteTag)
+              ? 'car'
+              : 'walk',
+        );
         if (!mounted || generation != _previewGeneration) {
           return;
         }

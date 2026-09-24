@@ -300,6 +300,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                       RouteStopsSection(
                                         u: u,
                                         stops: state.draft.stops,
+                                        dayBreaks: state.draft.dayBreaks,
                                         recalculating: state.isRecalculating,
                                         onAdd: () => _pickLocation(
                                           title: 'Добавить остановку',
@@ -638,6 +639,9 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
     int index,
     RoutePublishController controller,
   ) async {
+    final draft = ref.read(routePublishControllerProvider(_mode)).draft;
+    final placeId = draft.stops[index].location.id;
+    final endsDay = draft.dayBreaks.contains(placeId);
     final action = await showModalBottomSheet<_StopAction>(
       context: context,
       backgroundColor: PublishRouteDesignTokens.background,
@@ -652,6 +656,13 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
               onTap: () => Navigator.pop(context, _StopAction.edit),
             ),
             ListTile(
+              leading: const Icon(Icons.bedtime_outlined),
+              title: Text(
+                endsDay ? 'Не заканчивать день здесь' : 'Закончить день здесь',
+              ),
+              onTap: () => Navigator.pop(context, _StopAction.dayBreak),
+            ),
+            ListTile(
               leading: const Icon(Icons.delete_outline_rounded),
               title: const Text('Удалить остановку'),
               onTap: () => Navigator.pop(context, _StopAction.remove),
@@ -660,7 +671,9 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
         ),
       ),
     );
-    if (action == _StopAction.remove) {
+    if (action == _StopAction.dayBreak) {
+      controller.toggleDayBreak(placeId);
+    } else if (action == _StopAction.remove) {
       controller.removeStop(index);
     } else if (action == _StopAction.edit && mounted) {
       await _pickLocation(
@@ -1198,7 +1211,7 @@ class _DraftChoiceButton extends StatelessWidget {
   }
 }
 
-enum _StopAction { edit, remove }
+enum _StopAction { edit, dayBreak, remove }
 
 TextStyle _style(
   double Function(double) u,
@@ -2082,11 +2095,15 @@ class RouteStopsSection extends StatelessWidget {
     required this.onAdd,
     required this.onEdit,
     required this.onReorder,
+    this.dayBreaks = const [],
     super.key,
   });
 
   final double Function(double) u;
   final List<RouteStopDraft> stops;
+
+  /// Place ids of the stops that end a day (spec 14a).
+  final List<String> dayBreaks;
   final bool recalculating;
   final VoidCallback onAdd;
   final ValueChanged<int> onEdit;
@@ -2149,6 +2166,7 @@ class RouteStopsSection extends StatelessWidget {
                   u: u,
                   index: index + 1,
                   stop: stop,
+                  endsDay: dayBreaks.contains(stop.location.id),
                   onTap: () => onEdit(index),
                 ),
               );
@@ -2165,6 +2183,7 @@ class RouteStopRow extends StatelessWidget {
     required this.index,
     required this.stop,
     required this.onTap,
+    this.endsDay = false,
     super.key,
   });
 
@@ -2172,6 +2191,9 @@ class RouteStopRow extends StatelessWidget {
   final int index;
   final RouteStopDraft stop;
   final VoidCallback onTap;
+
+  /// «Закончить день здесь» was set on this stop.
+  final bool endsDay;
 
   @override
   Widget build(BuildContext context) {
@@ -2218,7 +2240,9 @@ class RouteStopRow extends StatelessWidget {
                     ),
                     SizedBox(height: u(3)),
                     Text(
-                      _distance(stop),
+                      endsDay
+                          ? '${_distance(stop)} · конец дня'
+                          : _distance(stop),
                       style: _style(
                         u,
                         14,
@@ -2418,6 +2442,7 @@ class RouteFilterChip extends StatelessWidget {
     'Романтика': 100.0,
     'Смотровые площадки': 172.0,
     'Леса': 60.0,
+    'На машине': 105.0,
   };
 
   @override

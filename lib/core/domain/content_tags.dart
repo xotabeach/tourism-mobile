@@ -29,6 +29,11 @@ const articleOnlyTags = [
 final routeTags = [
   for (final tag in _sharedTags)
     if (tag != 'Море') tag,
+  // Drives the route, with walks to what a car cannot reach (spec 14b).
+  carRouteTag,
 ];
+
+/// The tag that makes an author's route a drive; the server reads it too.
+const carRouteTag = 'На машине';
 
 const articleTags = [..._sharedTags, ...articleOnlyTags];
