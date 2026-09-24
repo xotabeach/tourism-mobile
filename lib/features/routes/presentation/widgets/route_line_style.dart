@@ -1,5 +1,7 @@
 import 'dart:ui';
 
+import 'package:tourism_mobile/features/routes/domain/route.dart';
+
 /// Every spelling of walking the backend has stored for a route
 /// (spec 14, «Словарь способов»). Bicycles were never routed and are walked.
 const _walkingModes = {
@@ -34,4 +36,44 @@ Path dashedPath(Path source, {double dash = 10, double gap = 7}) {
     }
   }
   return dashed;
+}
+
+/// How a leg is travelled, when it is more than one plain way:
+/// «на машине 3,3 км · пешком 1,4 км от парковки». Null for a leg walked or
+/// driven all the way, where the plain leg length already says it all.
+String? legTravelSummary(List<RouteSegment> leg) {
+  final mixed =
+      leg.any((segment) => segment.role != 'main') ||
+      leg.map((segment) => segment.mode).toSet().length > 1;
+  if (!mixed) return null;
+  final parts = [
+    for (final segment in leg)
+      if (segment.distanceMeters case final meters?)
+        '${_modeWords(segment.mode)} ${_km(meters)}${_roleTail(segment.role)}',
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+String _modeWords(String mode) => switch (mode) {
+  'walk' => 'пешком',
+  'car' => 'на машине',
+  'cable_car' => 'на канатной дороге',
+  'ferry' => 'на пароме',
+  'train' => 'на электричке',
+  _ => 'на транспорте',
+};
+
+String _roleTail(String role) => switch (role) {
+  'approach' => ' от парковки',
+  'return' => ' обратно к машине',
+  _ => '',
+};
+
+String _km(int meters) {
+  if (meters < 1000) return '$meters м';
+  final km = (meters / 100).round() / 10;
+  final text = km == km.roundToDouble()
+      ? km.toInt().toString()
+      : km.toStringAsFixed(1).replaceAll('.', ',');
+  return '$text км';
 }

@@ -349,6 +349,9 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           )
                             _StopRow(
                               stop: route.stops[index],
+                              travelSummary: legTravelSummary(
+                                route.segmentsTo(index),
+                              ),
                               selected: _selectedStop == index,
                               showDivider: index != route.stops.length - 1,
                               onNumberTap: () => _selectStop(index),
@@ -1439,9 +1442,13 @@ class _StopRow extends StatelessWidget {
     required this.showDivider,
     required this.onNumberTap,
     required this.onOpen,
+    this.travelSummary,
   });
 
   final RouteStop stop;
+
+  /// How the leg to this stop is travelled when it mixes ways (spec 14b).
+  final String? travelSummary;
   final bool selected;
   final bool showDivider;
   final VoidCallback onNumberTap;
@@ -1453,6 +1460,7 @@ class _StopRow extends StatelessWidget {
       if (stop.visitDurationMinutes != null) '${stop.visitDurationMinutes} мин',
       if (stop.note != null) stop.note!,
       if (stop.isOptional) 'опционально',
+      ?travelSummary,
     ].join(' · ');
 
     return Column(

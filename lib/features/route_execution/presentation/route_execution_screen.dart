@@ -357,6 +357,19 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       line: line.length >= 2 ? line : [fromPoint, toPoint],
       from: fromPoint,
       to: toPoint,
+      // A drive with walks is drawn part by part: walks dashed (spec 14b).
+      pieces: [
+        for (final segment
+            in route?.segmentsTo(to.position - 1) ?? const <RouteSegment>[])
+          if ((segment.geometry?.coordinates.length ?? 0) >= 2)
+            (
+              dashed: segment.isWalk,
+              line: [
+                for (final point in segment.geometry!.coordinates)
+                  (lat: point.lat, lng: point.lng),
+              ],
+            ),
+      ],
     );
   }
 
@@ -1037,6 +1050,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           for (final stop in execution.stops)
             _StopRow(
               stop: stop,
+              travelSummary: legTravelSummary(
+                route?.segmentsTo(stop.position - 1) ?? const [],
+              ),
               busy: _busyStopId == stop.id,
               enabled: execution.isActive,
               onComplete: () => unawaited(_completeStop(stop)),
@@ -1538,9 +1554,14 @@ class _StopRow extends StatelessWidget {
     required this.enabled,
     required this.onComplete,
     this.onUndo,
+    this.travelSummary,
   });
 
   final RouteExecutionStop stop;
+
+  /// «на машине 3,3 км · пешком 1,4 км от парковки» for a leg that is not
+  /// one plain way (spec 14b).
+  final String? travelSummary;
   final bool busy;
   final bool enabled;
   final VoidCallback onComplete;
@@ -1555,6 +1576,7 @@ class _StopRow extends StatelessWidget {
           (stop.legDistanceMeters == null
               ? null
               : formatDistanceKm(stop.legDistanceMeters)),
+      ?travelSummary,
       if (stop.isOptional) 'Можно пропустить',
     ];
     return parts.join(' • ');

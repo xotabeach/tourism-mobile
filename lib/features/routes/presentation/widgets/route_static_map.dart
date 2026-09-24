@@ -36,10 +36,19 @@ class _MapFrame {
 /// The stretch between the last marked stop and the next one, highlighted on
 /// the map while a route is being walked.
 class ActiveLeg {
-  const ActiveLeg({required this.line, required this.from, required this.to});
+  const ActiveLeg({
+    required this.line,
+    required this.from,
+    required this.to,
+    this.pieces = const [],
+  });
 
   /// The part of the route line between the two stops.
   final List<({double lat, double lng})> line;
+
+  /// The leg's segments when it is driven with walks; drawn instead of
+  /// [line], each dashed or solid by its own way (spec 14b).
+  final List<({bool dashed, List<({double lat, double lng})> line})> pieces;
   final ({double lat, double lng}) from;
   final ({double lat, double lng}) to;
 }
@@ -335,10 +344,34 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
                   Positioned.fill(
                     child: IgnorePointer(
                       child: CustomPaint(
-                        painter: _ActiveLegPainter([
-                          for (final point in leg.line)
-                            projection.toPixel(point.lat, point.lng),
-                        ], dashed: widget.dashedLine),
+                        painter: _ActiveLegPainter(
+                          leg.pieces.isEmpty
+                              ? [
+                                  (
+                                    dashed: widget.dashedLine,
+                                    points: [
+                                      for (final point in leg.line)
+                                        projection.toPixel(
+                                          point.lat,
+                                          point.lng,
+                                        ),
+                                    ],
+                                  ),
+                                ]
+                              : [
+                                  for (final piece in leg.pieces)
+                                    (
+                                      dashed: piece.dashed,
+                                      points: [
+                                        for (final point in piece.line)
+                                          projection.toPixel(
+                                            point.lat,
+                                            point.lng,
+                                          ),
+                                      ],
+                                    ),
+                                ],
+                        ),
                       ),
                     ),
                   ),
@@ -546,14 +579,17 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
 
 /// Accent line over the active stretch, drawn above the walked-so-far line.
 class _ActiveLegPainter extends CustomPainter {
-  const _ActiveLegPainter(this.points, {required this.dashed});
+  const _ActiveLegPainter(this.parts);
 
-  final List<Offset> points;
-  final bool dashed;
+  final List<({bool dashed, List<Offset> points})> parts;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = _linePath(points, dashed: dashed);
+    final path = Path();
+    for (final part in parts) {
+      if (part.points.length < 2) continue;
+      path.addPath(_linePath(part.points, dashed: part.dashed), Offset.zero);
+    }
     canvas.drawPath(
       path,
       Paint()
@@ -576,7 +612,12 @@ class _ActiveLegPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ActiveLegPainter oldDelegate) =>
-      dashed != oldDelegate.dashed || !listEquals(points, oldDelegate.points);
+      oldDelegate.parts.length != parts.length ||
+      [
+        for (var i = 0; i < parts.length; i++)
+          parts[i].dashed != oldDelegate.parts[i].dashed ||
+              !listEquals(parts[i].points, oldDelegate.parts[i].points),
+      ].any((changed) => changed);
 }
 
 /// Overlays the walked portion of the route on top of the vendor's own

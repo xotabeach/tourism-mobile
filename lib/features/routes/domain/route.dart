@@ -266,6 +266,57 @@ class RouteGeometry {
   };
 }
 
+/// One stretch of a leg travelled one way (spec 14): a drive, the walk up
+/// from the car park (`approach`) or the same walk back (`return`).
+class RouteSegment {
+  const RouteSegment({
+    required this.legIndex,
+    required this.seq,
+    required this.mode,
+    required this.role,
+    this.distanceMeters,
+    this.durationSeconds,
+    this.geometry,
+  });
+
+  /// 0 for the leg from the first stop to the second.
+  final int legIndex;
+  final int seq;
+
+  /// `walk`, `car`, or a transit mode (`bus`, `train`, `cable_car`, ...).
+  final String mode;
+
+  /// `main`, `approach` or `return`.
+  final String role;
+  final int? distanceMeters;
+  final int? durationSeconds;
+  final RouteGeometry? geometry;
+
+  bool get isWalk => mode == 'walk';
+
+  factory RouteSegment.fromJson(Map<String, dynamic> json) => RouteSegment(
+    legIndex: (json['leg_index'] as num).toInt(),
+    seq: (json['seq'] as num).toInt(),
+    mode: json['mode'] as String,
+    role: json['role'] as String? ?? 'main',
+    distanceMeters: (json['distance_meters'] as num?)?.toInt(),
+    durationSeconds: (json['duration_seconds'] as num?)?.toInt(),
+    geometry: json['geometry'] is Map<String, dynamic>
+        ? RouteGeometry.fromJson(json['geometry'] as Map<String, dynamic>)
+        : null,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'leg_index': legIndex,
+    'seq': seq,
+    'mode': mode,
+    'role': role,
+    'distance_meters': distanceMeters,
+    'duration_seconds': durationSeconds,
+    'geometry': geometry?.toJson(),
+  };
+}
+
 class RouteCoordinate {
   const RouteCoordinate({required this.lng, required this.lat});
 
@@ -390,6 +441,7 @@ class RouteDetail extends RouteSummary {
     this.geometry,
     this.routing,
     this.staticMapUrl,
+    this.segments = const [],
   });
 
   final String? description;
@@ -401,6 +453,15 @@ class RouteDetail extends RouteSummary {
 
   /// Backend proxy URL for a cached Static API image; never contains a vendor key.
   final String? staticMapUrl;
+
+  /// Every leg's segments in order; empty for routes that have none yet.
+  final List<RouteSegment> segments;
+
+  /// Segments of the leg that leads to the stop at [stopIndex] (0-based).
+  List<RouteSegment> segmentsTo(int stopIndex) => [
+    for (final segment in segments)
+      if (segment.legIndex == stopIndex - 1) segment,
+  ];
 
   factory RouteDetail.fromJson(Map<String, dynamic> json) {
     final stopsJson = json['stops'] as List<dynamic>? ?? const [];
@@ -451,12 +512,17 @@ class RouteDetail extends RouteSummary {
           ? RouteRoutingInfo.fromJson(json['routing'] as Map<String, dynamic>)
           : null,
       staticMapUrl: json['static_map_url'] as String?,
+      segments: (json['segments'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(RouteSegment.fromJson)
+          .toList(growable: false),
     );
   }
 
   @override
   Map<String, dynamic> toJson() => {
     ...super.toJson(),
+    'segments': [for (final segment in segments) segment.toJson()],
     'description': description,
     'freshness_status': freshnessStatus,
     'geometry': geometry?.toJson(),
