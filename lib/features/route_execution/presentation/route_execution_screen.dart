@@ -1080,6 +1080,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             completedStopPositions: completedStopPositions,
             activeLeg: _activeLeg(execution, route),
             dashedLine: isWalkingMode(route.transportMode),
+            segments: route.segments,
           ),
         ],
         const SizedBox(height: 8),

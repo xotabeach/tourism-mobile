@@ -34,6 +34,7 @@ dependencies:
   # 2048px PNG is several megabytes — slow to upload over mobile data for a
   # picture the backend re-encodes to WebP anyway.
   image: ^4.9.2
+  maplibre_gl: ^0.27.1
 
 dev_dependencies:
   # Used by the draft-media test to point path_provider at a scratch dir.
