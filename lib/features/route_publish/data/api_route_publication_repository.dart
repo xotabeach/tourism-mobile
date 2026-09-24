@@ -90,6 +90,9 @@ final class ApiRoutePublicationRepository
       updatedAt: DateTime.tryParse(
         json['updated_at'] as String? ?? '',
       )?.toUtc(),
+      dayBreaks: (json['day_breaks'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(),
     );
   }
 
@@ -228,6 +231,8 @@ final class ApiRoutePublicationRepository
       'filters': draft.filters,
       'pace': draft.pace.name,
       'difficulty': draft.difficulty,
+      // Empty asks the server to split the days by the route's norms.
+      'day_breaks': draft.validDayBreaks,
     };
   }
 
