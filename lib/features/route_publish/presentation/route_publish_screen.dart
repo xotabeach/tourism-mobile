@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_edge_back_gesture.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
@@ -317,6 +319,9 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                             _mode == RoutePublishMode.golden,
                                         draft: state.draft,
                                         preview: state.routePreview,
+                                        previewError: state.previewError,
+                                        onRetryPreview:
+                                            controller.retryRoutePreview,
                                         config: ref.watch(appConfigProvider),
                                         // The golden fixture renders a
                                         // baked image and has no session to
@@ -2295,6 +2300,8 @@ class RouteMapPreviewCard extends StatelessWidget {
     this.preview,
     this.config,
     this.imageHeaders = const {},
+    this.previewError,
+    this.onRetryPreview,
     super.key,
   });
 
@@ -2302,6 +2309,10 @@ class RouteMapPreviewCard extends StatelessWidget {
   final bool golden;
   final RouteDraft draft;
   final VoidCallback onTap;
+
+  /// Why the road line is missing, with [onRetryPreview] to ask again.
+  final String? previewError;
+  final VoidCallback? onRetryPreview;
 
   /// Road geometry for the points placed so far. Until it arrives (or when
   /// routing is unavailable) the card keeps the stylised diagram — the
@@ -2352,19 +2363,45 @@ class RouteMapPreviewCard extends StatelessWidget {
                     fit: BoxFit.cover,
                     alignment: Alignment.bottomCenter,
                   )
-                : routePreview != null && previewConfig != null
-                ? IgnorePointer(
-                    child: RouteStaticMap(
-                      key: const ValueKey('route-map-preview-static'),
-                      staticMapUrl: routePreview.staticMapPath,
-                      stops: stops,
-                      geometry: routePreview.geometry,
-                      config: previewConfig,
-                      imageHeaders: imageHeaders,
-                      height: u(320),
-                      interactive: false,
-                      footerLabel: routePointsLabel(routeLocations.length),
-                    ),
+                : previewConfig != null && routeLocations.isNotEmpty
+                ? Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      IgnorePointer(
+                        // The real map from the first point on; the road
+                        // line joins it when routed (FRONTEND-44).
+                        child: RouteStaticMap(
+                          key: ValueKey(
+                            routePreview == null
+                                ? 'route-map-preview-points'
+                                : 'route-map-preview-static',
+                          ),
+                          staticMapUrl:
+                              routePreview?.staticMapPath ??
+                              pointsMapPath([
+                                for (final location in routeLocations)
+                                  location.id,
+                              ]),
+                          stops: stops,
+                          geometry: routePreview?.geometry,
+                          config: previewConfig,
+                          imageHeaders: imageHeaders,
+                          height: u(320),
+                          interactive: false,
+                          footerLabel: routePointsLabel(routeLocations.length),
+                        ),
+                      ),
+                      if (previewError case final message?)
+                        Positioned(
+                          left: u(12),
+                          right: u(12),
+                          top: u(12),
+                          child: _PreviewErrorBanner(
+                            message: message,
+                            onRetry: onRetryPreview,
+                          ),
+                        ),
+                    ],
                   )
                 : IgnorePointer(
                     child: RouteMapPreview(
@@ -2375,6 +2412,47 @@ class RouteMapPreviewCard extends StatelessWidget {
                     ),
                   ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Map of the places an author has put down, before any routing: public,
+/// drawn by the server from published places only (FRONTEND-44).
+@visibleForTesting
+String pointsMapPath(List<String> placeIds) =>
+    '/api/v1/maps/static/points/p1/${placeIds.join(',')}';
+
+/// «Не удалось построить линию маршрута · Повторить» over the map card.
+class _PreviewErrorBanner extends StatelessWidget {
+  const _PreviewErrorBanner({required this.message, this.onRetry});
+
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.94),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 13,
+                  color: PublishRouteDesignTokens.dark,
+                ),
+              ),
+            ),
+            if (onRetry != null)
+              TextButton(onPressed: onRetry, child: const Text('Повторить')),
+          ],
         ),
       ),
     );

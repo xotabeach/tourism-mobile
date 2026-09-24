@@ -19,6 +19,7 @@ class MapProjection {
   static const double tileSize = 256;
   static const int minZoom = 1;
   static const int maxZoom = 18;
+  static const int singlePointZoom = 14;
 
   final double centerLat;
   final double centerLng;
@@ -76,6 +77,16 @@ class MapProjection {
     }
     final centerLat = (minLat + maxLat) / 2;
     final centerLng = (minLng + maxLng) / 2;
+    if (minLat == maxLat && minLng == maxLng) {
+      // One point (or several on one spot): frame it like a place, not at
+      // the closest zoom there is. Same rule as the server (FRONTEND-44).
+      return MapProjection(
+        centerLat: centerLat,
+        centerLng: centerLng,
+        zoom: singlePointZoom,
+        size: size,
+      );
+    }
 
     // Largest zoom whose projected span still fits the viewport.
     var best = minZoom;
