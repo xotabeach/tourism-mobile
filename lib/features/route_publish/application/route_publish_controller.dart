@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tourism_mobile/core/domain/content_tags.dart';
@@ -56,6 +57,7 @@ class RoutePublishState {
     this.isOpeningDraft = false,
     this.routePreview,
     this.isPreviewLoading = false,
+    this.previewError,
     this.isHydrating = false,
     this.isPickingMedia = false,
     this.isSaving = false,
@@ -112,6 +114,10 @@ class RoutePublishState {
   /// when routing is unavailable) — the form then draws its own diagram.
   final RouteDraftPreview? routePreview;
   final bool isPreviewLoading;
+
+  /// Why the road line could not be drawn, for the map card to say and
+  /// offer a retry; null when it was, or nothing was asked yet (FRONTEND-44).
+  final String? previewError;
   final bool isHydrating;
   final bool isPickingMedia;
   final bool isSaving;
@@ -134,6 +140,8 @@ class RoutePublishState {
     RouteDraftPreview? routePreview,
     bool? isPreviewLoading,
     bool clearRoutePreview = false,
+    String? previewError,
+    bool clearPreviewError = false,
     bool clearAvailableDraft = false,
     bool? isHydrating,
     bool? isPickingMedia,
@@ -181,6 +189,9 @@ class RoutePublishState {
           ? null
           : (routePreview ?? this.routePreview),
       isPreviewLoading: isPreviewLoading ?? this.isPreviewLoading,
+      previewError: clearPreviewError
+          ? null
+          : previewError ?? this.previewError,
       availableDraft: clearAvailableDraft
           ? null
           : availableDraft ?? this.availableDraft,
@@ -1343,11 +1354,15 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     _previewDebounce?.cancel();
     final placeIds = _routePlaceIds();
     if (placeIds.length < 2) {
-      state = state.copyWith(isPreviewLoading: false, clearRoutePreview: true);
+      state = state.copyWith(
+        isPreviewLoading: false,
+        clearRoutePreview: true,
+        clearPreviewError: true,
+      );
       return;
     }
     final generation = ++_previewGeneration;
-    state = state.copyWith(isPreviewLoading: true);
+    state = state.copyWith(isPreviewLoading: true, clearPreviewError: true);
     _previewDebounce = Timer(const Duration(milliseconds: 400), () async {
       try {
         final preview = await _publication.previewRoute(
@@ -1364,14 +1379,21 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
           clearRoutePreview: preview.geometry == null,
           isPreviewLoading: false,
         );
-      } on Object {
-        // Offline, or routing unavailable: the diagram is still drawn.
+      } on Object catch (error) {
+        // The points stay on the real map; the card says why the line is
+        // missing and offers a retry instead of failing silently.
         if (mounted && generation == _previewGeneration) {
-          state = state.copyWith(isPreviewLoading: false);
+          state = state.copyWith(
+            isPreviewLoading: false,
+            previewError: routePreviewErrorText(error),
+          );
         }
       }
     });
   }
+
+  /// «Повторить» on the map card after a failed road line.
+  void retryRoutePreview() => _refreshRoutePreview();
 
   void _recalculateDistances() {
     // Before the early return below: start and finish alone are already a
@@ -1421,4 +1443,16 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       messageSerial: state.messageSerial + 1,
     );
   }
+}
+
+/// What the map card says when the road line could not be drawn.
+@visibleForTesting
+String routePreviewErrorText(Object error) {
+  if (error is AppFailure && error.code == 'invalid_route_place') {
+    return 'Одна из точек недоступна для маршрута. Замените её.';
+  }
+  if (error is NetworkFailure) {
+    return 'Нет связи, линия маршрута не построена.';
+  }
+  return 'Не удалось построить линию маршрута.';
 }
