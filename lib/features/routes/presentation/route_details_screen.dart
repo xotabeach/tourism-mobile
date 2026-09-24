@@ -346,7 +346,13 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             var index = 0;
                             index < route.stops.length;
                             index++
-                          )
+                          ) ...[
+                            // Day headings only for a route of several days
+                            // (spec 14a, temporary until the mockups).
+                            if (route.days.length > 1)
+                              for (final day in route.days)
+                                if (day.firstStopId == route.stops[index].id)
+                                  _DayHeading(day: day),
                             _StopRow(
                               stop: route.stops[index],
                               travelSummary: legTravelSummary(
@@ -357,6 +363,12 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                               onNumberTap: () => _selectStop(index),
                               onOpen: () => _openPlace(route.stops[index]),
                             ),
+                            if (route.days.length > 1)
+                              for (final day in route.days)
+                                if (day.lastStopId == route.stops[index].id &&
+                                    day.overnightNote != null)
+                                  _OvernightNote(text: day.overnightNote!),
+                          ],
                           _ArticlesForRouteSection(routeId: route.id),
                           _SimilarRoutesSection(currentRouteId: route.id),
                         ] else ...[
@@ -1648,6 +1660,81 @@ class _RatingLine extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// «День 2» above the first stop of a day; flags a day whose leg in is
+/// longer than a day (spec 14a, temporary).
+class _DayHeading extends StatelessWidget {
+  const _DayHeading({required this.day});
+
+  final RouteDay day;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 12, 6, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'День ${day.dayIndex}',
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryInk,
+            ),
+          ),
+          if (day.overloaded)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Text(
+                'Переход длиннее одного дня: добавьте точку для ночлега',
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 12,
+                  color: Color(0xFFB45309),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «Ночлег в районе: …» under the last stop of a day.
+class _OvernightNote extends StatelessWidget {
+  const _OvernightNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(44, 2, 6, 6),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.bedtime_outlined,
+            size: 14,
+            color: Color(0xFF6B7280),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 12,
+                color: Color(0xFF6B7280),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -13,6 +13,13 @@ class _Call {
 }
 
 class _Repo implements RouteExecutionRepository {
+  @override
+  Future<RouteExecution> endDay(String executionId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RouteExecution> finishEarly(String executionId) =>
+      throw UnimplementedError();
   final calls = <_Call>[];
   Object? completeStopFailure;
   Object? startFailure;

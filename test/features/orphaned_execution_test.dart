@@ -14,6 +14,13 @@ import '../support/test_overrides.dart';
 /// leaves behind, since the FK sets `route_id` to NULL rather than removing
 /// the run itself.
 class _OrphanedExecutionRepository implements RouteExecutionRepository {
+  @override
+  Future<RouteExecution> endDay(String executionId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RouteExecution> finishEarly(String executionId) =>
+      throw UnimplementedError();
   var cancelledId = '';
 
   static final orphan = RouteExecution(

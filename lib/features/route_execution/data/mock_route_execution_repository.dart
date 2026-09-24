@@ -140,8 +140,36 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       throw StateError('Маршрут не на паузе');
     }
     // A mock stand-in for the server's paused-time accounting.
-    _active = current.copyWith(status: RouteExecutionStatus.active);
+    _active = current.copyWith(
+      status: RouteExecutionStatus.active,
+      nightPaused: false,
+    );
     return _active!;
+  }
+
+  @override
+  Future<RouteExecution> endDay(String executionId) async {
+    final current = await _requireActive();
+    _active = current.copyWith(
+      status: RouteExecutionStatus.paused,
+      pausedAt: DateTime.now(),
+      nightPaused: true,
+      currentDay: current.currentDay + 1,
+    );
+    return _active!;
+  }
+
+  @override
+  Future<RouteExecution> finishEarly(String executionId) async {
+    final current = _active;
+    if (current == null) throw StateError('Нет активного маршрута');
+    final ended = current.copyWith(
+      status: RouteExecutionStatus.cancelled,
+      cancelledAt: DateTime.now(),
+      nightPaused: false,
+    );
+    _active = null;
+    return ended;
   }
 
   Future<RouteExecution> _requireActive() async {

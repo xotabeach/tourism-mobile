@@ -136,6 +136,24 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
     );
   }
 
+  @override
+  Future<RouteExecution> endDay(String executionId) {
+    return _mutate(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-executions/$executionId/end-day',
+      ),
+    );
+  }
+
+  @override
+  Future<RouteExecution> finishEarly(String executionId) {
+    return _mutate(
+      () => _dio.post<Map<String, dynamic>>(
+        '/api/v1/route-executions/$executionId/finish-early',
+      ),
+    );
+  }
+
   /// The API rejects unknown fields, so send only what the caller provided.
   static Map<String, dynamic>? _eventBody(
     String? clientEventId,

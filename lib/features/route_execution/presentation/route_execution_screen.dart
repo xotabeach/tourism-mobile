@@ -725,6 +725,61 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     }
   }
 
+  /// «Закончить день» of a multi-day run (spec 14a). Online only: the
+  /// night pause changes what the server pays, so it is not queued.
+  Future<void> _endDay() async {
+    final execution = _execution;
+    if (execution == null || !execution.isActive || _isLocalPendingStart) {
+      return;
+    }
+    try {
+      final updated = await ref
+          .read(routeExecutionRepositoryProvider)
+          .endDay(execution.id);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
+      if (mounted) setState(() => _execution = updated);
+    } on Object catch (error) {
+      if (mounted) _showError(_friendlyError(error));
+    }
+  }
+
+  /// «Завершить многодневный маршрут»: the finished days are still paid.
+  Future<void> _finishEarly() async {
+    final execution = _execution;
+    if (execution == null || !_isInProgress || _isLocalPendingStart) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Завершить маршрут досрочно?'),
+        content: const Text(
+          'Очки начислятся за дни, пройденные полностью. '
+          'Маршрут не будет считаться пройденным.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Остаться'),
+          ),
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Завершить'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      final updated = await ref
+          .read(routeExecutionRepositoryProvider)
+          .finishEarly(execution.id);
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
+      if (mounted) setState(() => _execution = updated);
+      ref.invalidate(routeExecutionHistoryProvider);
+    } on Object catch (error) {
+      if (mounted) _showError(_friendlyError(error));
+    }
+  }
+
   Future<void> _resumeRoute() async {
     final execution = _execution;
     if (execution == null || execution.status != RouteExecutionStatus.paused) {
@@ -988,6 +1043,19 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ),
         const SizedBox(height: 14),
         _ProgressCard(execution: execution),
+        if (execution.isMultiDay) ...[
+          const SizedBox(height: 10),
+          Text(
+            dayOfRunLabel(execution),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryInk,
+            ),
+          ),
+        ],
         if (_offline) ...[
           const SizedBox(height: 12),
           _OfflineBanner(
@@ -1061,7 +1129,26 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
                   ? () => unawaited(_uncompleteStop(stop))
                   : null,
             ),
-        if (execution.status == RouteExecutionStatus.paused) ...[
+        if (execution.status == RouteExecutionStatus.paused &&
+            execution.nightPaused) ...[
+          const SizedBox(height: 18),
+          _DarkButton(
+            label: 'Продолжить: день ${execution.currentDay}',
+            onPressed: _resumeRoute,
+          ),
+          const SizedBox(height: 4),
+          Center(
+            child: TextButton(
+              onPressed: _finishEarly,
+              child: const Text('Завершить многодневный маршрут'),
+            ),
+          ),
+          const Text(
+            'Отдых до следующего дня. Отметки недоступны, пока не продолжишь.',
+            textAlign: TextAlign.center,
+            style: _footnoteStyle,
+          ),
+        ] else if (execution.status == RouteExecutionStatus.paused) ...[
           const SizedBox(height: 18),
           _DarkButton(label: 'Возобновить', onPressed: _resumeRoute),
           const SizedBox(height: 4),
@@ -1084,6 +1171,15 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             busy: _finishing,
             onPressed: _finishing ? null : _completeRoute,
           ),
+          if (execution.plannedDays > 1) ...[
+            const SizedBox(height: 4),
+            Center(
+              child: TextButton(
+                onPressed: _endDay,
+                child: Text('Закончить день ${execution.currentDay}'),
+              ),
+            ),
+          ],
           const SizedBox(height: 8),
           const Text(
             'Завершай остановки по мере прохождения для верного отображения истории и наград',
@@ -1885,3 +1981,10 @@ class _ExecutionErrorView extends StatelessWidget {
 class _RunAlreadyOver implements Exception {
   const _RunAlreadyOver();
 }
+
+/// «День 2 из 3», or «День 5 (по плану 4)» for a walker taking longer.
+@visibleForTesting
+String dayOfRunLabel(RouteExecution execution) =>
+    execution.currentDay > execution.plannedDays
+    ? 'День ${execution.currentDay} (по плану ${execution.plannedDays})'
+    : 'День ${execution.currentDay} из ${execution.plannedDays}';

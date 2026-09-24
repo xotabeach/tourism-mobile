@@ -351,6 +351,13 @@ void main() {
 
 /// Repository that records deliveries and fails for chosen stop ids.
 class _StubExecutionRepository implements RouteExecutionRepository {
+  @override
+  Future<RouteExecution> endDay(String executionId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RouteExecution> finishEarly(String executionId) =>
+      throw UnimplementedError();
   _StubExecutionRepository({required this.failures});
 
   final Map<String, Object> failures;
@@ -437,6 +444,13 @@ class _StubExecutionRepository implements RouteExecutionRepository {
 /// returns a fresh execution whose stops carry the *server's own* ids while
 /// still exposing the original `routeStopId`, exactly like the real backend.
 class _StartReconcileRepository implements RouteExecutionRepository {
+  @override
+  Future<RouteExecution> endDay(String executionId) =>
+      throw UnimplementedError();
+
+  @override
+  Future<RouteExecution> finishEarly(String executionId) =>
+      throw UnimplementedError();
   final startedRouteIds = <String>[];
   final completedStopServerIds = <String>[];
   final completedExecutionIds = <String>[];
