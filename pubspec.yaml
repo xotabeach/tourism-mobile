@@ -1,7 +1,7 @@
 name: tourism_mobile
 description: Crimea Travel Platform mobile client for Android and iOS.
 publish_to: 'none'
-version: 0.2.5+24
+version: 0.3.0+25
 
 environment:
   sdk: '>=3.12.0 <4.0.0'
