@@ -1,14 +1,18 @@
 # tourism-mobile
 
-Private Flutter repository для Crimea Travel Platform — клиент Android и iOS
+Flutter-клиент КРЫМТРИП для Android и iOS
 (CrimeaTrip).
 
-Стек целиком: `tourism-platform/docs/stack.md`.
-Архитектура: `tourism-platform/docs/flutter-app-architecture.md`.
+Стек целиком: [tourism-platform/docs/stack.md](https://github.com/xotabeach/tourism-platform/blob/main/docs/stack.md).
+Архитектура: [flutter-app-architecture.md](https://github.com/xotabeach/tourism-platform/blob/main/docs/flutter-app-architecture.md).
+Версия исходного кода: `0.3.0+26` (`pubspec.yaml`); версия опубликованного APK
+может отличаться.
 
 ## Назначение
 
-- Каталог мест и маршрутов, профиль, избранное, публикация, inbox.
+- Каталог мест, маршрутов и статей, профиль, избранное, публикация, inbox.
+- Активное прохождение и история маршрутов, интерактивная карта, дни и
+  сложность маршрута.
 - Feature-first: Riverpod, GoRouter, Dio; credentials — secure storage.
 - Конфигурация local / test / staging / production без secrets в Git.
 
@@ -57,8 +61,7 @@ Release без `APP_ENV` выбирает `production` и откажется с�
 
 CI lean (default): на `main`/`gamma` style/tests не гоняются — локально
 `./scripts/validate.sh`. APK собирается локально, чтобы Android toolchain не
-конкурировал за память с production-контейнерами; см.
-[ci-and-runners.md](../tourism-platform/docs/ci-and-runners.md).
+конкурировал за память с production-контейнерами.
 
 ### Публикация APK по ссылке
 
@@ -73,7 +76,7 @@ API и кладёт его в media-том бэкенда:
 
 ```
 https://201-24-55-130.sslip.io/media/app/crimeatrip-latest.apk   # всегда последняя
-https://201-24-55-130.sslip.io/media/app/crimeatrip-0.2.5.apk    # архив по версии
+https://201-24-55-130.sslip.io/media/app/crimeatrip-<версия>.apk # если опубликована
 ```
 
 Команда запускается вручную, потому что она перезаписывает ссылку, с которой
@@ -119,8 +122,8 @@ chmod 600 ~/.ssh/crimeatrip-apk-publish
 ssh -i ~/.ssh/crimeatrip-apk-publish crimeatrip-deploy@<host>    # должно отказать
 ```
 
-Сборка iOS/Android, `dart-define`, signed APK/AAB:
-[mobile-build-and-install.md](../tourism-platform/docs/mobile-build-and-install.md).
+Сборка iOS/Android, `dart-define`, signed APK/AAB описаны в скриптах
+`scripts/build-signed-apk.sh` и `scripts/publish-production-apk.sh`.
 
 Проверки:
 
@@ -130,7 +133,7 @@ ssh -i ~/.ssh/crimeatrip-apk-publish crimeatrip-deploy@<host>    # должно 
 
 Пиксельные golden-тесты сняты на macOS; на других хостах пропускаются.
 CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
-`tourism-platform/docs/flutter-testing-guide.md`.
+[руководстве по тестам](https://github.com/xotabeach/tourism-platform/blob/main/docs/flutter-testing-guide.md).
 
 ## Что реально vs stub
 
@@ -141,11 +144,14 @@ CI: `SKIP_PIXEL_GOLDENS=1 flutter test`. Подробности —
 тест пользовательских предпочтений, inbox,
 FCM token (Android и сконфигурированный iOS-клиент; APNs key всё ещё нужен).
 
-**UI-only / stub:** Travel+ billing, аудиогид и история завершённых маршрутов.
+**UI-only / stub:** Travel+ billing и аудиогид.
 «Пройти маршрут» уже подключён к route-executions API (start/resume,
-остановки, complete/cancel); offline download работает как read-only snapshot
+остановки, complete/cancel, история); offline download работает как read-only snapshot
 и не заявляет turn-by-turn навигацию. В `DATA_SOURCE=mock` чат использует сценарии;
 в API-режиме работает через backend planning sessions.
+
+Статьи, комментарии и редактор статей подключены к API; маршруты показывают
+дни, этапы, интерактивную карту и объяснение оценки сложности.
 
 ## Структура
 
@@ -188,8 +194,8 @@ define выбирает production. Test/staging/production — HTTPS only и т
 
 ## Связанные репозитории
 
-- [`tourism-platform`](../tourism-platform) — архитектура и local Compose.
-- [`tourism-backend`](../tourism-backend) — OpenAPI и server contracts.
+- [`tourism-platform`](https://github.com/xotabeach/tourism-platform) — архитектура и local Compose.
+- [`tourism-backend`](https://github.com/xotabeach/tourism-backend) — OpenAPI и server contracts.
 
 Mobile не подключается к PostgreSQL и не вызывает Ollama напрямую.
 
