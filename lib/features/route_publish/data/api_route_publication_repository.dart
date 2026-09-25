@@ -67,6 +67,8 @@ final class ApiRoutePublicationRepository
         orElse: () => TravelPace.calm,
       ),
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
+      difficultyManual: json['difficulty_manual'] as bool? ?? false,
+      difficultyEstimate: (json['difficulty_auto'] as num?)?.toInt(),
       // Photos the draft already has on the server. Dropping them here made
       // the editor look empty even though the route card in the profile
       // showed them, and — because an empty media list means "delete
@@ -230,7 +232,10 @@ final class ApiRoutePublicationRepository
       ],
       'filters': draft.filters,
       'pace': draft.pace.name,
-      'difficulty': draft.difficulty,
+      // «Авто» sends the shown level with the flag off; the server keeps
+      // its estimate (spec 17).
+      'difficulty': draft.shownDifficulty,
+      'difficulty_manual': draft.difficultyManual,
       // Empty asks the server to split the days by the route's norms.
       'day_breaks': draft.validDayBreaks,
     };

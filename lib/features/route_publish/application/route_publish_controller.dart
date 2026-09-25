@@ -1133,9 +1133,22 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     state = state.copyWith(draft: state.draft.copyWith(pace: pace));
   }
 
+  /// The author's own rating; never below one step under the estimate
+  /// (spec 17, D9) — the server would refuse it.
   void setDifficulty(int value) {
+    final lowest = state.draft.lowestDifficulty;
     state = state.copyWith(
-      draft: state.draft.copyWith(difficulty: value.clamp(1, 5)),
+      draft: state.draft.copyWith(
+        difficulty: value.clamp(lowest, 5),
+        difficultyManual: true,
+      ),
+    );
+  }
+
+  /// «Авто»: the route takes the server's estimate.
+  void setDifficultyAuto() {
+    state = state.copyWith(
+      draft: state.draft.copyWith(difficultyManual: false),
     );
   }
 
@@ -1374,7 +1387,18 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
         if (!mounted || generation != _previewGeneration) {
           return;
         }
+        var draft = state.draft;
+        if (preview.difficultyLevel case final estimate?) {
+          // The estimate for the new stops (spec 17); an own rating that is
+          // now too low moves up to what the server allows.
+          draft = draft.copyWith(difficultyEstimate: estimate);
+          if (draft.difficultyManual &&
+              draft.difficulty < draft.lowestDifficulty) {
+            draft = draft.copyWith(difficulty: draft.lowestDifficulty);
+          }
+        }
         state = state.copyWith(
+          draft: draft,
           routePreview: preview.geometry == null ? null : preview,
           clearRoutePreview: preview.geometry == null,
           isPreviewLoading: false,

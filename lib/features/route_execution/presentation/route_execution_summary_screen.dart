@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/route_execution/application/points_status_text.dart';
+import 'package:tourism_mobile/features/route_execution/data/difficulty_feedback_api.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -136,6 +137,8 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
                       },
                     ),
                   ],
+                  const SizedBox(height: 20),
+                  DifficultyFeedbackCard(executionId: execution.id),
                   const SizedBox(height: 24),
                   _DarkButton(
                     label: 'На страницу маршрута',
@@ -463,6 +466,126 @@ class _DarkButton extends StatelessWidget {
                   fontWeight: FontWeight.w400,
                   height: 1.2,
                   color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One tap on how hard the route really was (spec 17, section 7). The answer
+/// only calibrates the estimate; a failed send is not worth bothering about.
+class DifficultyFeedbackCard extends ConsumerStatefulWidget {
+  const DifficultyFeedbackCard({required this.executionId, super.key});
+
+  final String executionId;
+
+  @override
+  ConsumerState<DifficultyFeedbackCard> createState() =>
+      _DifficultyFeedbackCardState();
+}
+
+class _DifficultyFeedbackCardState
+    extends ConsumerState<DifficultyFeedbackCard> {
+  DifficultyFeedback? _answer;
+
+  Future<void> _send(DifficultyFeedback answer) async {
+    setState(() => _answer = answer);
+    try {
+      await ref.read(sendDifficultyFeedbackProvider)(
+        widget.executionId,
+        answer,
+      );
+    } on Object {
+      // Calibration data, not the walker's problem.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final answer = _answer;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              answer == null
+                  ? 'Как вам сложность маршрута?'
+                  : 'Спасибо, это поможет точнее оценивать маршруты',
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+                color: AppColors.primaryInk,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (final option in DifficultyFeedback.values) ...[
+                  if (option != DifficultyFeedback.values.first)
+                    const SizedBox(width: 6),
+                  Expanded(
+                    child: _FeedbackPill(
+                      label: option.label,
+                      selected: answer == option,
+                      onTap: () => _send(option),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedbackPill extends StatelessWidget {
+  const _FeedbackPill({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: Material(
+        color: selected ? _accent : _accentPale,
+        shape: const StadiumBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            height: 40,
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: selected ? Colors.white : _accent,
                 ),
               ),
             ),

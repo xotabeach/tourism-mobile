@@ -6,7 +6,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart'
-    show difficultyLabel, formatDistanceKm;
+    show formatDistanceKm, routeDifficultyLabel;
 
 // Same palette as the DESIGN-4 run sheets (mark_confirm_dialog.dart).
 const _pillInk = Color(0xFF212121);
@@ -68,7 +68,8 @@ List<String> startRouteFacts(RouteDetail route) {
       duration,
     if (route.distanceMeters != null) formatDistanceKm(route.distanceMeters),
     if (stops > 0) '$stops ${_plural(stops, 'точка', 'точки', 'точек')}',
-    if (route.difficulty != null) difficultyLabel(route.difficulty),
+    if (route.difficultyLevel != null || route.difficulty != null)
+      routeDifficultyLabel(route.shownDifficulty),
   ];
 }
 
