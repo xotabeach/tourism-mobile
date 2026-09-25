@@ -31,6 +31,7 @@ import 'package:tourism_mobile/features/route_publish/presentation/route_publish
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/difficulty_breakdown_sheet.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_line_style.dart';
@@ -1222,7 +1223,11 @@ class _RouteFacts extends StatelessWidget {
         _FactRow(
           icon: Icons.bolt_outlined,
           label: 'Сложность:',
-          value: '${difficultyBolts(route.difficulty)}/5',
+          value:
+              '${route.shownDifficulty}/5'
+              '${route.difficultyBreakdown?.approximate ?? false ? ', примерно' : ''}',
+          // Spec 17: why it is this hard, and whose rating it is.
+          onTap: () => showDifficultyBreakdownSheet(context, route: route),
         ),
         if (routing?.movementDurationSeconds case final seconds?)
           _FactRow(
@@ -1402,14 +1407,32 @@ class _FactRow extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
   final String value;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final row = _row();
+    final tap = onTap;
+    if (tap == null) return row;
+    return Semantics(
+      button: true,
+      label: '$label $value, подробнее',
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: row,
+      ),
+    );
+  }
+
+  Widget _row() {
     return SizedBox(
       height: 28,
       child: Row(
@@ -1442,6 +1465,12 @@ class _FactRow extends StatelessWidget {
               ),
             ),
           ),
+          if (onTap != null)
+            const Icon(
+              Icons.info_outline,
+              size: 16,
+              color: AppColors.secondaryInk,
+            ),
         ],
       ),
     );
@@ -1681,7 +1710,11 @@ class _DayHeading extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'День ${day.dayIndex}',
+            [
+              'День ${day.dayIndex}',
+              // The day's own estimate (spec 17, temporary until DES-13).
+              if (day.difficultyLevel case final level?) 'сложность $level/5',
+            ].join(' · '),
             style: const TextStyle(
               fontFamily: AppFonts.rubik,
               fontSize: 15,

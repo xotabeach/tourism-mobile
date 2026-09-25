@@ -54,9 +54,13 @@ class RouteDraftPreview {
     required this.distanceMeters,
     required this.durationSeconds,
     required this.synthetic,
+    this.difficultyLevel,
   });
 
   final String previewId;
+
+  /// Spec 17: a quick estimate for these stops; null from older servers.
+  final int? difficultyLevel;
   final RouteGeometry? geometry;
   final int distanceMeters;
   final int durationSeconds;
@@ -78,6 +82,7 @@ class RouteDraftPreview {
       distanceMeters: (json['distance_meters'] as num?)?.toInt() ?? 0,
       durationSeconds: (json['duration_seconds'] as num?)?.toInt() ?? 0,
       synthetic: json['synthetic'] as bool? ?? false,
+      difficultyLevel: (json['difficulty_level'] as num?)?.toInt(),
     );
   }
 }

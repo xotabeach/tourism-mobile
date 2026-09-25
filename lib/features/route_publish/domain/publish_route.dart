@@ -170,6 +170,8 @@ class RouteDraft {
     this.filters = const [],
     this.pace = TravelPace.calm,
     this.difficulty = 3,
+    this.difficultyManual = false,
+    this.difficultyEstimate,
     this.updatedAt,
     this.ownerUserId,
     this.clientDraftId,
@@ -224,6 +226,23 @@ class RouteDraft {
   final List<String> filters;
   final TravelPace pace;
   final int difficulty;
+
+  /// Spec 17: [difficulty] is the author's own rating; otherwise the route
+  /// takes the server's estimate («Авто»).
+  final bool difficultyManual;
+
+  /// The server's estimate for these stops, for the «по расчёту» hint and
+  /// the lowest rating allowed (one step below it). Not form content.
+  final int? difficultyEstimate;
+
+  /// What the selector shows: the author's rating, else the estimate.
+  int get shownDifficulty =>
+      difficultyManual ? difficulty : (difficultyEstimate ?? difficulty);
+
+  /// The lowest rating an author may give (spec 17, D9).
+  int get lowestDifficulty =>
+      difficultyEstimate == null ? 1 : (difficultyEstimate! - 1).clamp(1, 5);
+
   final DateTime? updatedAt;
 
   /// Whether [other] holds the same form content (ignoring the bookkeeping:
@@ -233,6 +252,7 @@ class RouteDraft {
         description != other.description ||
         pace != other.pace ||
         difficulty != other.difficulty ||
+        difficultyManual != other.difficultyManual ||
         start?.id != other.start?.id ||
         finish?.id != other.finish?.id ||
         media.length != other.media.length ||
@@ -394,6 +414,8 @@ class RouteDraft {
     List<String>? filters,
     TravelPace? pace,
     int? difficulty,
+    bool? difficultyManual,
+    int? difficultyEstimate,
     DateTime? updatedAt,
     String? ownerUserId,
     String? clientDraftId,
@@ -430,6 +452,8 @@ class RouteDraft {
       filters: filters ?? this.filters,
       pace: pace ?? this.pace,
       difficulty: difficulty ?? this.difficulty,
+      difficultyManual: difficultyManual ?? this.difficultyManual,
+      difficultyEstimate: difficultyEstimate ?? this.difficultyEstimate,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
@@ -453,6 +477,8 @@ class RouteDraft {
     'filters': filters,
     'pace': pace.name,
     'difficulty': difficulty,
+    'difficulty_manual': difficultyManual,
+    'difficulty_estimate': difficultyEstimate,
     'updated_at': updatedAt?.toIso8601String(),
     'day_breaks': dayBreaks,
   };
@@ -499,6 +525,9 @@ class RouteDraft {
         json['pace'] as String? ?? TravelPace.calm.name,
       ),
       difficulty: (json['difficulty'] as num?)?.toInt() ?? 3,
+      // Drafts kept before spec 17 had no «Авто»: their 3 was a default.
+      difficultyManual: json['difficulty_manual'] as bool? ?? false,
+      difficultyEstimate: (json['difficulty_estimate'] as num?)?.toInt(),
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
       dayBreaks: (json['day_breaks'] as List? ?? const []).cast<String>(),
     );

@@ -74,8 +74,11 @@ void main() {
     _expectRect(tester, 'Финишная точка-card', 18, 881, 399, 65);
     _expectRect(tester, 'route-map-preview', 18, 1210, 399, 320);
     _expectRect(tester, 'route-pace-Спокойный', 18, 1738, 127, 80);
-    _expectRect(tester, 'route-action-Опубликовать маршрут', 18, 1936, 399, 62);
-    _expectRect(tester, 'route-action-Сохранить черновик', 18, 2006, 399, 63);
+    // The «по расчёту» hint under the difficulty (spec 17) is not in the
+    // mockup yet: everything below it sits 31 px lower until the designer
+    // draws it.
+    _expectRect(tester, 'route-action-Опубликовать маршрут', 18, 1967, 399, 62);
+    _expectRect(tester, 'route-action-Сохранить черновик', 18, 2037, 399, 63);
     expect(tester.takeException(), isNull);
 
     // Font rasterization differs between macOS (where this baseline is

@@ -84,6 +84,10 @@ class RouteSummary {
     this.estimatedDurationMinutes,
     this.distanceMeters,
     this.difficulty,
+    this.difficultyLevel,
+    this.difficultyAuto,
+    this.difficultySource = 'auto',
+    this.difficultyConfidence,
     this.ratingAverage,
     this.ratingCount = 0,
     this.transportMode,
@@ -112,6 +116,21 @@ class RouteSummary {
   final int? estimatedDurationMinutes;
   final int? distanceMeters;
   final String? difficulty;
+
+  /// Spec 17: the shown level 1..5 (the author's or editors' rating, or the
+  /// estimate), the estimate itself, whose rating is shown and how sure the
+  /// estimate is. Older servers send only [difficulty].
+  final int? difficultyLevel;
+  final int? difficultyAuto;
+  final String difficultySource;
+  final String? difficultyConfidence;
+
+  /// Level 1..5 to draw: the server's number, else the old word.
+  int get shownDifficulty =>
+      difficultyLevel ?? legacyDifficultyLevel(difficulty);
+
+  /// Whether the route says anything about its difficulty at all.
+  bool get hasDifficulty => difficultyLevel != null || difficulty != null;
 
   /// Среднее по опубликованным отзывам. `null`, пока нет ни одной оценки —
   /// карточка в этом случае не рисует звезду вовсе: пустая звезда читается
@@ -151,6 +170,10 @@ class RouteSummary {
       estimatedDurationMinutes: json['estimated_duration_minutes'] as int?,
       distanceMeters: json['distance_meters'] as int?,
       difficulty: json['difficulty'] as String?,
+      difficultyLevel: (json['difficulty_level'] as num?)?.toInt(),
+      difficultyAuto: (json['difficulty_auto'] as num?)?.toInt(),
+      difficultySource: json['difficulty_source'] as String? ?? 'auto',
+      difficultyConfidence: json['difficulty_confidence'] as String?,
       ratingAverage: (json['rating_average'] as num?)?.toDouble(),
       ratingCount: (json['rating_count'] as num?)?.toInt() ?? 0,
       transportMode: json['transport_mode'] as String?,
@@ -183,6 +206,10 @@ class RouteSummary {
     'estimated_duration_minutes': estimatedDurationMinutes,
     'distance_meters': distanceMeters,
     'difficulty': difficulty,
+    'difficulty_level': difficultyLevel,
+    'difficulty_auto': difficultyAuto,
+    'difficulty_source': difficultySource,
+    'difficulty_confidence': difficultyConfidence,
     'rating_average': ratingAverage,
     'rating_count': ratingCount,
     'transport_mode': transportMode,
@@ -275,6 +302,7 @@ class RouteDay {
     this.boundarySource = 'auto',
     this.overnightNote,
     this.overloaded = false,
+    this.difficultyLevel,
   });
 
   final int dayIndex;
@@ -290,6 +318,9 @@ class RouteDay {
   /// A leg longer than a whole day leads into it.
   final bool overloaded;
 
+  /// The day's estimated difficulty 1..5 (spec 17); null from older servers.
+  final int? difficultyLevel;
+
   factory RouteDay.fromJson(Map<String, dynamic> json) => RouteDay(
     dayIndex: (json['day_index'] as num).toInt(),
     firstStopId: json['first_stop_id'] as String,
@@ -297,12 +328,14 @@ class RouteDay {
     boundarySource: json['boundary_source'] as String? ?? 'auto',
     overnightNote: json['overnight_note'] as String?,
     overloaded: json['overloaded'] as bool? ?? false,
+    difficultyLevel: (json['difficulty_level'] as num?)?.toInt(),
   );
 
   Map<String, dynamic> toJson() => {
     'day_index': dayIndex,
     'first_stop_id': firstStopId,
     'last_stop_id': lastStopId,
+    'difficulty_level': difficultyLevel,
     'boundary_source': boundarySource,
     'overnight_note': overnightNote,
     'overloaded': overloaded,
@@ -459,6 +492,10 @@ class RouteDetail extends RouteSummary {
     super.estimatedDurationMinutes,
     super.distanceMeters,
     super.difficulty,
+    super.difficultyLevel,
+    super.difficultyAuto,
+    super.difficultySource,
+    super.difficultyConfidence,
     super.ratingAverage,
     super.ratingCount,
     super.transportMode,
@@ -486,7 +523,11 @@ class RouteDetail extends RouteSummary {
     this.staticMapUrl,
     this.segments = const [],
     this.days = const [],
+    this.difficultyBreakdown,
   });
+
+  /// Why the estimate came out as it did (spec 17); null from older servers.
+  final RouteDifficultyBreakdown? difficultyBreakdown;
 
   final String? description;
   final List<RouteStop> stops;
@@ -522,6 +563,10 @@ class RouteDetail extends RouteSummary {
       estimatedDurationMinutes: json['estimated_duration_minutes'] as int?,
       distanceMeters: json['distance_meters'] as int?,
       difficulty: json['difficulty'] as String?,
+      difficultyLevel: (json['difficulty_level'] as num?)?.toInt(),
+      difficultyAuto: (json['difficulty_auto'] as num?)?.toInt(),
+      difficultySource: json['difficulty_source'] as String? ?? 'auto',
+      difficultyConfidence: json['difficulty_confidence'] as String?,
       ratingAverage: (json['rating_average'] as num?)?.toDouble(),
       ratingCount: (json['rating_count'] as num?)?.toInt() ?? 0,
       transportMode: json['transport_mode'] as String?,
@@ -567,6 +612,10 @@ class RouteDetail extends RouteSummary {
           .whereType<Map<String, dynamic>>()
           .map(RouteDay.fromJson)
           .toList(growable: false),
+      difficultyBreakdown: RouteDifficultyBreakdown.tryParse(
+        (json['accessibility'] as Map<String, dynamic>?)?['difficulty'] ??
+            json['difficulty_breakdown'],
+      ),
     );
   }
 
@@ -575,6 +624,7 @@ class RouteDetail extends RouteSummary {
     ...super.toJson(),
     'segments': [for (final segment in segments) segment.toJson()],
     'days': [for (final day in days) day.toJson()],
+    'difficulty_breakdown': difficultyBreakdown?.toJson(),
     'description': description,
     'freshness_status': freshnessStatus,
     'geometry': geometry?.toJson(),
@@ -609,4 +659,105 @@ class RouteListPage {
       offset: json['offset'] as int,
     );
   }
+}
+
+/// The old difficulty word as a level, as the server maps it (spec 17).
+int legacyDifficultyLevel(String? word) => switch (word) {
+  'easy' => 2,
+  'moderate' => 3,
+  'hard' => 4,
+  'extreme' || 'expert' => 5,
+  _ => 2,
+};
+
+/// One reason behind a difficulty estimate: a code and its numbers.
+class DifficultyReason {
+  const DifficultyReason(this.code, this.values);
+
+  final String code;
+  final Map<String, dynamic> values;
+
+  num? _number(String key) => values[key] as num?;
+
+  String _km(num? value) =>
+      (value ?? 0).toStringAsFixed(1).replaceAll('.', ',').replaceAll(',0', '');
+
+  /// Words for the breakdown sheet; null for a code this app does not know.
+  String? get text => switch (code) {
+    'walk_effort' =>
+      'Пешком ${_km(_number('km'))} км, набор ${_number('ascent_m') ?? 0} м '
+          '(нагрузка как ${_km(_number('effort_km'))} км по ровному)',
+    'trail' => switch (values['grade']) {
+      'dirt' => 'Грунтовые тропы: ${_km((_number('meters') ?? 0) / 1000)} км',
+      final grade =>
+        'Горная тропа $grade: ${_km((_number('meters') ?? 0) / 1000)} км',
+    },
+    'steep' => 'Крутые участки до ${_number('degrees')}°',
+    'drive_hours' => 'За рулём ${_km(_number('hours'))} ч',
+    'unpaved' => 'Грунтовая дорога ${_km((_number('meters') ?? 0) / 1000)} км',
+    'offroad' =>
+      'Нужен внедорожник: ${_km((_number('meters') ?? 0) / 1000)} км',
+    'serpentine' => 'Серпантин ${_km((_number('meters') ?? 0) / 1000)} км',
+    'walk_and_drive' => 'Непросто и идти, и ехать',
+    'long_day' => 'Долгий день: ${_hours(_number('minutes'))} с остановками',
+    'multi_day' => '${_number('days')} дня подряд, накапливается усталость',
+    'low_data' => 'Оценка примерная: мало данных о рельефе',
+    _ => null,
+  };
+
+  static String _hours(num? minutes) {
+    final total = (minutes ?? 0).round();
+    final hours = total ~/ 60;
+    final rest = total % 60;
+    return rest == 0 ? '$hours ч' : '$hours ч $rest мин';
+  }
+
+  Map<String, dynamic> toJson() => {'code': code, ...values};
+}
+
+/// Why a route's estimate is what it is (spec 17, section 8).
+class RouteDifficultyBreakdown {
+  const RouteDifficultyBreakdown({
+    required this.level,
+    required this.confidence,
+    required this.reasons,
+    this.walkLevel,
+    this.driveLevel,
+  });
+
+  final int level;
+  final int? walkLevel;
+  final int? driveLevel;
+  final String confidence;
+  final List<DifficultyReason> reasons;
+
+  bool get approximate => confidence == 'low';
+
+  static RouteDifficultyBreakdown? tryParse(Object? raw) {
+    if (raw is! Map<String, dynamic>) return null;
+    final level = (raw['level'] as num?)?.toInt();
+    if (level == null) return null;
+    return RouteDifficultyBreakdown(
+      level: level,
+      walkLevel: (raw['walk_level'] as num?)?.toInt(),
+      driveLevel: (raw['drive_level'] as num?)?.toInt(),
+      confidence: raw['confidence'] as String? ?? 'low',
+      reasons: [
+        for (final item in raw['reasons'] as List<dynamic>? ?? const [])
+          if (item is Map<String, dynamic> && item['code'] is String)
+            DifficultyReason(item['code'] as String, {
+              for (final entry in item.entries)
+                if (entry.key != 'code') entry.key: entry.value,
+            }),
+      ],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'level': level,
+    'walk_level': walkLevel,
+    'drive_level': driveLevel,
+    'confidence': confidence,
+    'reasons': [for (final reason in reasons) reason.toJson()],
+  };
 }

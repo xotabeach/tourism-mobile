@@ -47,6 +47,20 @@ String difficultyLabel(String? difficulty) {
   };
 }
 
+/// Words for a route's level 1..5 (spec 17, section 1).
+String routeDifficultyLabel(int level) => switch (level) {
+  1 => 'Прогулка',
+  2 => 'Лёгкий',
+  3 => 'Средний',
+  4 => 'Сложный',
+  _ => 'Экстрим',
+};
+
+/// The card's difficulty word; «Маршрут» when the route has none.
+String routeDifficultyText(RouteSummary route) => route.hasDifficulty
+    ? routeDifficultyLabel(route.shownDifficulty)
+    : 'Маршрут';
+
 String transportLabel(String? mode) {
   return switch (mode) {
     'walk' || 'foot' || 'hiking' => 'Пешком',
@@ -71,7 +85,7 @@ List<String> routeTagLabels(RouteSummary route) {
   final season = seasonalityLabel(route.seasonality);
   return [
     transportLabel(route.transportMode),
-    difficultyLabel(route.difficulty),
+    routeDifficultyText(route),
     if (route.suitableForChildren ?? false) 'С детьми',
     if (route.petsAllowed ?? false) 'С питомцем',
     ?season,
@@ -388,7 +402,7 @@ class _RouteCardContentState extends State<_RouteCardContent> {
 
   @override
   Widget build(BuildContext context) {
-    final bolts = difficultyBolts(route.difficulty);
+    final bolts = route.shownDifficulty;
     final chipTags = tags.isNotEmpty ? tags : routeTagLabels(route);
     final actionOpacity = (1 - visualProgress * 1.35).clamp(0.0, 1.0);
     final compact = variant == RouteCardVariant.list;
@@ -572,7 +586,7 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                                 const SizedBox(height: AppSpacing.xs),
                                 _DifficultyRow(
                                   bolts: bolts,
-                                  label: difficultyLabel(route.difficulty),
+                                  label: routeDifficultyText(route),
                                 ),
                               ],
                             ],

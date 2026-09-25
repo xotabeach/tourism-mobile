@@ -357,8 +357,13 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                       SizedBox(height: u(19)),
                                       RouteDifficultySelector(
                                         u: u,
-                                        value: state.draft.difficulty,
+                                        value: state.draft.shownDifficulty,
+                                        manual: state.draft.difficultyManual,
+                                        estimate:
+                                            state.draft.difficultyEstimate,
+                                        lowest: state.draft.lowestDifficulty,
                                         onChanged: controller.setDifficulty,
+                                        onAuto: controller.setDifficultyAuto,
                                       ),
                                       SizedBox(height: u(18)),
                                       PublishRouteActions(
@@ -2713,34 +2718,69 @@ class RouteDifficultySelector extends StatelessWidget {
     required this.u,
     required this.value,
     required this.onChanged,
+    this.manual = true,
+    this.estimate,
+    this.lowest = 1,
+    this.onAuto,
     super.key,
   });
 
   final double Function(double) u;
+
+  /// The level shown: the author's rating, or the estimate on «Авто».
   final int value;
   final ValueChanged<int> onChanged;
+
+  /// Spec 17: false while the route takes the server's estimate.
+  final bool manual;
+  final int? estimate;
+
+  /// Ratings below this are not allowed (one step under the estimate).
+  final int lowest;
+  final VoidCallback? onAuto;
+
+  String get _hint {
+    final estimate = this.estimate;
+    if (estimate == null) {
+      return manual
+          ? 'Своя оценка. Расчёт появится, когда построится маршрут'
+          : 'Авто: рассчитаем по маршруту';
+    }
+    return manual
+        ? 'По расчёту $estimate из 5, своя оценка не ниже $lowest'
+        : 'Авто: по расчёту $estimate из 5';
+  }
 
   @override
   Widget build(BuildContext context) {
     const widths = [76.0, 76.0, 76.0, 75.0, 76.0];
+    final onAuto = this.onAuto;
     return Semantics(
       label:
-          'Сложность маршрута, $value из 5${value == 5 ? ', очень сложный' : ''}',
+          'Сложность маршрута, $value из 5${manual ? '' : ', автоматически'}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _FixedText(
-            height: u(23),
-            text: value == 5
-                ? 'Сложность: очень сложный'
-                : 'Сложность маршрута:',
-            style: _style(
-              u,
-              20,
-              FontWeight.w600,
-              PublishRouteDesignTokens.dark,
-              1.15,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _FixedText(
+                  height: u(23),
+                  text: value == 5
+                      ? 'Сложность: очень сложный'
+                      : 'Сложность маршрута:',
+                  style: _style(
+                    u,
+                    20,
+                    FontWeight.w600,
+                    PublishRouteDesignTokens.dark,
+                    1.15,
+                  ),
+                ),
+              ),
+              if (onAuto != null)
+                _AutoChip(u: u, selected: !manual, onTap: onAuto),
+            ],
           ),
           SizedBox(height: u(14)),
           Row(
@@ -2751,6 +2791,8 @@ class RouteDifficultySelector extends StatelessWidget {
                   u: u,
                   width: widths[index],
                   selected: index < value,
+                  auto: !manual,
+                  enabled: index + 1 >= lowest,
                   onTap: () {
                     unawaited(AppHaptics.selectionClick());
                     onChanged(index + 1);
@@ -2759,7 +2801,76 @@ class RouteDifficultySelector extends StatelessWidget {
               ],
             ],
           ),
+          SizedBox(height: u(8)),
+          Text(
+            _hint,
+            style: _style(
+              u,
+              13,
+              FontWeight.w400,
+              PublishRouteDesignTokens.mediumText,
+              1.25,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// «Авто» next to the difficulty title (spec 17): back to the estimate.
+class _AutoChip extends StatelessWidget {
+  const _AutoChip({
+    required this.u,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final double Function(double) u;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Сложность автоматически',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () {
+          unawaited(AppHaptics.selectionClick());
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
+          height: u(30),
+          padding: EdgeInsets.symmetric(horizontal: u(14)),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected
+                ? PublishRouteDesignTokens.primaryBlue
+                : PublishRouteDesignTokens.background,
+            borderRadius: BorderRadius.circular(u(15)),
+            border: Border.all(
+              color: selected
+                  ? PublishRouteDesignTokens.primaryBlue
+                  : PublishRouteDesignTokens.border,
+              width: u(1),
+            ),
+          ),
+          child: Text(
+            'Авто',
+            style: _style(
+              u,
+              14,
+              FontWeight.w500,
+              selected ? Colors.white : PublishRouteDesignTokens.dark,
+              1.1,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2771,6 +2882,8 @@ class _DifficultySegment extends StatelessWidget {
     required this.width,
     required this.selected,
     required this.onTap,
+    this.auto = false,
+    this.enabled = true,
   });
 
   final double Function(double) u;
@@ -2778,33 +2891,43 @@ class _DifficultySegment extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  /// Drawn lighter while the level is the estimate, not the author's.
+  final bool auto;
+
+  /// Below the lowest allowed rating: not selectable.
+  final bool enabled;
+
   @override
   Widget build(BuildContext context) {
+    final fill = selected
+        ? (auto
+              ? PublishRouteDesignTokens.primaryBlue.withValues(alpha: 0.55)
+              : PublishRouteDesignTokens.primaryBlue)
+        : PublishRouteDesignTokens.background;
     return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: AppMotion.fast,
-        curve: AppMotion.standard,
-        width: u(width),
-        height: u(44),
-        decoration: BoxDecoration(
-          color: selected
-              ? PublishRouteDesignTokens.primaryBlue
-              : PublishRouteDesignTokens.background,
-          borderRadius: BorderRadius.circular(u(5)),
-          border: Border.all(
-            color: selected
-                ? PublishRouteDesignTokens.primaryBlue
-                : PublishRouteDesignTokens.border,
-            width: u(1),
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: AnimatedContainer(
+          duration: AppMotion.fast,
+          curve: AppMotion.standard,
+          width: u(width),
+          height: u(44),
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(u(5)),
+            border: Border.all(
+              color: selected ? fill : PublishRouteDesignTokens.border,
+              width: u(1),
+            ),
           ),
-        ),
-        child: Icon(
-          Icons.bolt_rounded,
-          size: u(21),
-          color: selected
-              ? Colors.white
-              : PublishRouteDesignTokens.disabledIcon,
+          child: Icon(
+            Icons.bolt_rounded,
+            size: u(21),
+            color: selected
+                ? Colors.white
+                : PublishRouteDesignTokens.disabledIcon,
+          ),
         ),
       ),
     );
