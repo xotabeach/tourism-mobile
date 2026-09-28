@@ -133,6 +133,10 @@ void main() {
     // from the phone.
     expect(find.text('весь участок 3,5 км'), findsOneWidget);
     expect(find.bySemanticsLabel('Завершить маршрут'), findsOneWidget);
+    // FRONTEND-22: the leg being walked is named above the map and its
+    // target row is marked as the next one.
+    expect(find.text('Сейчас в пути · участок 1–2'), findsOneWidget);
+    expect(find.text('Следующая • 3,5 км • ≈ 40 мин'), findsOneWidget);
     // The separate «Пауза» button and the old «Готово» buttons are gone.
     expect(find.text('Готово'), findsNothing);
 
