@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/notifications/push_sync.dart';
 import 'package:tourism_mobile/core/startup/startup_config.dart';
 import 'package:tourism_mobile/core/startup/startup_gate.dart';
 import 'package:tourism_mobile/core/theme/app_theme.dart';
+import 'package:tourism_mobile/features/app_update/presentation/app_update_host.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
@@ -131,6 +132,8 @@ class _TourismAppState extends ConsumerState<TourismApp> {
             children: [
               child ?? const SizedBox.shrink(),
               const AchievementCelebrationHost(),
+              // Last, so the update prompt and block sit above everything.
+              const AppUpdateHost(),
             ],
           );
           return StartupGate(
