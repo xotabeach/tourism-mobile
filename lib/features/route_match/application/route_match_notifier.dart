@@ -506,6 +506,7 @@ class RouteMatchNotifier extends StateNotifier<RouteMatchChatState> {
       proposalCard: card,
       placeChips: placeChipsFromBlocks(result.blocks),
       catalogMatch: catalogMatchFromBlocks(result.blocks),
+      comparison: comparisonFromBlocks(result.blocks),
       actions: card == null ? actionsFromBlocks(result.blocks) : const [],
       actionsLayout: actionsLayoutFromBlocks(result.blocks),
       actionsSheetTitle: actionsSheetTitleFromBlocks(result.blocks),
@@ -614,6 +615,15 @@ List<RouteChatPlaceChipData> placeChipsFromBlocks(List<RouteChatBlock> blocks) {
 List<CatalogRouteItem> catalogMatchFromBlocks(List<RouteChatBlock> blocks) {
   for (final block in blocks) {
     if (block is CatalogMatchBlock) {
+      return block.routes;
+    }
+  }
+  return const [];
+}
+
+List<ComparisonRouteItem> comparisonFromBlocks(List<RouteChatBlock> blocks) {
+  for (final block in blocks) {
+    if (block is RouteComparisonBlock && block.routes.length >= 2) {
       return block.routes;
     }
   }

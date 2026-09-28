@@ -328,6 +328,77 @@ void main() {
     );
   });
 
+  testWidgets('golden comparison answer — bars instead of a wall of text', (
+    tester,
+  ) async {
+    // FRONTEND-46: the comparison used to be one long paragraph of figures.
+    await _pumpGolden(
+      tester,
+      Material(
+        color: const Color(0xFFF7F7F7),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: SingleChildScrollView(
+            child: AgentMessageBubble(
+              px: (value) => value,
+              message: const RouteChatMessage(
+                fromAgent: true,
+                text:
+                    'Алуштинские короче и проще, ялтинские про дворцы и '
+                    'занимают весь день. Что важнее: море или горы?',
+                time: '00:44',
+                comparison: [
+                  ComparisonRouteItem(
+                    routeId: 'a',
+                    title: 'Алушта • пляж с детьми',
+                    distanceKm: 6.5,
+                    durationMinutes: 240,
+                    transportLabel: 'Пешком',
+                    difficultyLabel: 'Лёгкий',
+                    difficultyLevel: 1,
+                    stopsCount: 2,
+                    badges: ['Быстрее всех', 'Короче всех', 'Легче всех'],
+                  ),
+                  ComparisonRouteItem(
+                    routeId: 'b',
+                    title: 'Алушта: от гор к набережной',
+                    distanceKm: 23.2,
+                    durationMinutes: 270,
+                    transportLabel: 'На машине',
+                    difficultyLabel: 'Средний',
+                    difficultyLevel: 2,
+                    stopsCount: 2,
+                  ),
+                  ComparisonRouteItem(
+                    routeId: 'c',
+                    title: 'Ялта • три дня у моря',
+                    distanceKm: 51,
+                    durationMinutes: 1440,
+                    transportLabel: 'Смешанный',
+                    difficultyLabel: 'Сложный',
+                    difficultyLevel: 3,
+                    stopsCount: 4,
+                  ),
+                ],
+                actions: [
+                  {'id': 'reply', 'label': 'Предложи варианты'},
+                ],
+              ),
+              onOpenCatalogRoute: (_) {},
+              onChatAction: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+      size: const Size(393, 760),
+    );
+    await expectLater(
+      find.byKey(_goldenKey),
+      matchesGoldenFile('goldens/chat_route_comparison.png'),
+      skip: _skipPixelGoldens,
+    );
+  });
+
   testWidgets('golden city select — collapsed and open', (tester) async {
     await _pumpGolden(
       tester,

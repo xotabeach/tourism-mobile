@@ -498,6 +498,7 @@ sealed class RouteChatBlock {
       'place_chip' => PlaceChipBlock.fromJson(json),
       'route_proposal_card' => RouteProposalCardBlock.fromJson(json),
       'catalog_match' => CatalogMatchBlock.fromJson(json),
+      'route_comparison' => RouteComparisonBlock.fromJson(json),
       'actions' => ActionsBlock.fromJson(json),
       'slider' => SliderBlock.fromJson(json),
       'toggle' => ToggleBlock.fromJson(json),
@@ -612,6 +613,68 @@ final class CatalogMatchBlock extends RouteChatBlock {
       routes: raw
           .whereType<Map<String, dynamic>>()
           .map(CatalogRouteItem.fromJson)
+          .where((item) => item.routeId.isNotEmpty && item.title.isNotEmpty)
+          .toList(growable: false),
+    );
+  }
+}
+
+/// One route of a side-by-side comparison; all figures come from the
+/// catalogue, the badges («Короче всех») are computed by the server.
+class ComparisonRouteItem {
+  const ComparisonRouteItem({
+    required this.routeId,
+    required this.title,
+    this.distanceKm,
+    this.durationMinutes,
+    this.transportLabel,
+    this.difficultyLabel,
+    this.difficultyLevel,
+    this.stopsCount,
+    this.badges = const [],
+  });
+
+  final String routeId;
+  final String title;
+  final double? distanceKm;
+  final int? durationMinutes;
+  final String? transportLabel;
+  final String? difficultyLabel;
+
+  /// 1 easy .. 4 extreme.
+  final int? difficultyLevel;
+  final int? stopsCount;
+  final List<String> badges;
+
+  factory ComparisonRouteItem.fromJson(Map<String, dynamic> json) {
+    return ComparisonRouteItem(
+      routeId: json['route_id'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      distanceKm: (json['distance_km'] as num?)?.toDouble(),
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt(),
+      transportLabel: json['transport_label'] as String?,
+      difficultyLabel: json['difficulty_label'] as String?,
+      difficultyLevel: (json['difficulty_level'] as num?)?.toInt(),
+      stopsCount: (json['stops_count'] as num?)?.toInt(),
+      badges: (json['badges'] as List<dynamic>? ?? const [])
+          .whereType<String>()
+          .toList(growable: false),
+    );
+  }
+}
+
+/// Visual comparison of the catalogue routes shown earlier (FRONTEND-46).
+final class RouteComparisonBlock extends RouteChatBlock {
+  const RouteComparisonBlock({required this.routes});
+
+  final List<ComparisonRouteItem> routes;
+
+  factory RouteComparisonBlock.fromJson(Map<String, dynamic> json) {
+    final raw = json['routes'] as List<dynamic>? ?? const [];
+    return RouteComparisonBlock(
+      routes: raw
+          .whereType<Map<String, dynamic>>()
+          .map(ComparisonRouteItem.fromJson)
           .where((item) => item.routeId.isNotEmpty && item.title.isNotEmpty)
           .toList(growable: false),
     );

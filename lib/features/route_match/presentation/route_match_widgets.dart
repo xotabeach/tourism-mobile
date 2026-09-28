@@ -12,6 +12,8 @@ import 'package:tourism_mobile/features/route_match/presentation/route_builder_d
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_catalog_match_carousel.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_comparison.dart'
+    show ChatRouteComparison;
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 typedef RoutePx = double Function(double);
@@ -43,6 +45,7 @@ class RouteChatMessage {
     this.proposalCoverUrl,
     this.proposalCard,
     this.catalogMatch = const [],
+    this.comparison = const [],
     this.placeChips = const [],
     this.actions = const [],
     this.actionsLayout = ChatActionsLayout.wrap,
@@ -69,6 +72,9 @@ class RouteChatMessage {
 
   final List<CatalogRouteItem> catalogMatch;
 
+  /// Figures of a «сравни» answer, drawn as bars under the text.
+  final List<ComparisonRouteItem> comparison;
+
   final List<RouteChatPlaceChipData> placeChips;
   final List<Map<String, String>> actions;
   final ChatActionsLayout actionsLayout;
@@ -88,6 +94,7 @@ class RouteChatMessage {
   bool get hasInteractiveBlocks =>
       hasProposalCard ||
       catalogMatch.isNotEmpty ||
+      comparison.isNotEmpty ||
       actions.isNotEmpty ||
       recommendations.isNotEmpty ||
       sliders.isNotEmpty ||
@@ -867,8 +874,10 @@ class TravelTypeSelector extends StatelessWidget {
     ),
     (
       RouteTripType.active,
-      'Активный',
-      'Спорт, движение,\nадреналин',
+      // Не «Активный»: так называется темп, и два одинаковых пункта
+      // на одном экране путали (FRONTEND-46).
+      'Спорт и экстрим',
+      'Движение\nи адреналин',
       AppIconography.play,
     ),
     (
@@ -1862,6 +1871,10 @@ extension RouteDayKindJson on RouteDayKind {
   String get apiValue => name;
 }
 
+/// Budget the API matches against; any larger amount means the same, so
+/// the form sends at most this (FRONTEND-46).
+const maxRouteBudget = 1000000;
+
 class AdvancedMatchOptions extends StatelessWidget {
   const AdvancedMatchOptions({
     required this.px,
@@ -1931,7 +1944,10 @@ class AdvancedMatchOptions extends StatelessWidget {
             child: TextField(
               controller: budgetController,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(9),
+              ],
               // expands + center: isCollapsed прижимает текст к верхней
               // кромке, и в поле высотой 48 плейсхолдер висел под самым
               // краем вместо середины (скрин 2026-09-04).
@@ -2746,7 +2762,9 @@ class AgentMessageBubble extends StatelessWidget {
                           padding: EdgeInsets.only(
                             // A route card sits a little further from the
                             // text than buttons do (catalog mockup).
-                            bottom: message.catalogMatch.isNotEmpty
+                            bottom:
+                                message.catalogMatch.isNotEmpty ||
+                                    message.comparison.isNotEmpty
                                 ? px(12)
                                 : message.hasInteractiveBlocks
                                 ? px(8)
@@ -2761,6 +2779,14 @@ class AgentMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (message.comparison.isNotEmpty) ...[
+                          ChatRouteComparison(
+                            px: px,
+                            routes: message.comparison,
+                            onOpenRoute: onOpenCatalogRoute,
+                          ),
+                          SizedBox(height: px(10)),
+                        ],
                         if (message.catalogMatch.isNotEmpty &&
                             onOpenCatalogRoute != null) ...[
                           ChatCatalogMatchCarousel(
