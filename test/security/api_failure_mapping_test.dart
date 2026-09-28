@@ -63,6 +63,37 @@ void main() {
     );
   });
 
+  test('a validation error is shown in Russian, not the envelope text', () async {
+    // FRONTEND-46: a 100 000 000 ₽ budget surfaced «Request validation failed».
+    final options = RequestOptions(path: '/api/v1/route-match');
+
+    await expectLater(
+      guardApiCall<void>(
+        () => throw DioException(
+          requestOptions: options,
+          response: Response<Map<String, dynamic>>(
+            requestOptions: options,
+            statusCode: 422,
+            data: const {
+              'error': {
+                'code': 'validation_error',
+                'message': 'Request validation failed',
+              },
+            },
+          ),
+          type: DioExceptionType.badResponse,
+        ),
+      ),
+      throwsA(
+        isA<UnexpectedFailure>().having(
+          (failure) => failure.message,
+          'message',
+          validationFailureMessage,
+        ),
+      ),
+    );
+  });
+
   test('a final rejection is distinguishable from a retryable error', () async {
     final options = RequestOptions(
       path: '/api/v1/route-executions/secret/cancel',

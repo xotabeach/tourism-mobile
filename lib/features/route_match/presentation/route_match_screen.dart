@@ -82,9 +82,16 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
   final _paramsScroll = ScrollController();
   final _aiScroll = ScrollController();
   final _modeSwitcherKey = GlobalKey();
+  final _brandBarKey = GlobalKey();
 
   bool _composerDirty = false;
   double _appBarProgress = 0;
+
+  /// The in-list mode switcher has scrolled under the brand bar, so a pinned
+  /// copy is shown instead: going back from a long chat to the form took a
+  /// scroll to the very top (FRONTEND-46).
+  bool _switcherPinned = false;
+  bool _pinnedSyncScheduled = false;
   double _lastViewInset = 0;
   List<RouteChatMessage> _pixelMessages = const [];
 
@@ -285,10 +292,49 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     final controller = _mode == RouteMatchMode.ai ? _aiScroll : _paramsScroll;
     final offset = controller.hasClients ? controller.offset : 0.0;
     final progress = ((offset - 20) / 64).clamp(0.0, 1.0);
+    _schedulePinnedSwitcherSync();
     if ((progress - _appBarProgress).abs() < 0.001) {
       return;
     }
     setState(() => _appBarProgress = progress);
+  }
+
+  /// The scroll listener fires before the list is laid out at the new
+  /// offset, so positions are read after the frame, not in the listener.
+  void _schedulePinnedSwitcherSync() {
+    if (_pinnedSyncScheduled) {
+      return;
+    }
+    _pinnedSyncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pinnedSyncScheduled = false;
+      if (!mounted) {
+        return;
+      }
+      final controller = _mode == RouteMatchMode.ai ? _aiScroll : _paramsScroll;
+      final offset = controller.hasClients ? controller.offset : 0.0;
+      final pinned = _switcherScrolledAway(offset);
+      if (pinned != _switcherPinned) {
+        setState(() => _switcherPinned = pinned);
+      }
+    });
+  }
+
+  bool _switcherScrolledAway(double offset) {
+    final switcher = _modeSwitcherKey.currentContext?.findRenderObject();
+    final bar = _brandBarKey.currentContext?.findRenderObject();
+    if (switcher is! RenderBox || !switcher.attached) {
+      // A lazy list drops the header once it is far off screen.
+      return offset > 0;
+    }
+    if (bar is! RenderBox || !bar.attached) {
+      return false;
+    }
+    final barBottom = bar.localToGlobal(Offset(0, bar.size.height)).dy;
+    final switcherMiddle = switcher
+        .localToGlobal(Offset(0, switcher.size.height / 2))
+        .dy;
+    return switcherMiddle < barBottom;
   }
 
   void _goBack() {
@@ -411,7 +457,10 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
     final session = ref.read(sessionProvider);
     final advanced = session.advancedFiltersEnabled || session.travelPlusActive;
     final budgetRaw = _budgetController.text.trim();
-    final budget = budgetRaw.isEmpty ? null : int.tryParse(budgetRaw);
+    final budget = (budgetRaw.isEmpty ? null : int.tryParse(budgetRaw))?.clamp(
+      0,
+      maxRouteBudget,
+    );
     final startQuery = _startQuery?.trim();
     final hasStart = startQuery != null && startQuery.isNotEmpty;
     final selected = _selectedStartLocation;
@@ -742,10 +791,17 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
                   left: 0,
                   right: 0,
                   top: 0,
-                  child: AppScrollBrandBar(
-                    topInset: top,
-                    progress: _appBarProgress,
-                    onBack: _goBack,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AppScrollBrandBar(
+                        key: _brandBarKey,
+                        topInset: top,
+                        progress: _appBarProgress,
+                        onBack: _goBack,
+                      ),
+                      if (_switcherPinned) _buildPinnedSwitcher(px),
+                    ],
                   ),
                 ),
               ],
@@ -971,6 +1027,28 @@ class _RouteMatchScreenState extends ConsumerState<RouteMatchScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildPinnedSwitcher(RoutePx px) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: RouteBuilderDesignTokens.maxContentWidth,
+        ),
+        child: ColoredBox(
+          color: RouteBuilderDesignTokens.background,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(px(16), px(8), px(16), px(8)),
+            child: RouteModeSwitcher(
+              key: const ValueKey('route-mode-switcher-pinned'),
+              px: px,
+              mode: _mode,
+              onChanged: _setMode,
+            ),
+          ),
+        ),
+      ),
     );
   }
 

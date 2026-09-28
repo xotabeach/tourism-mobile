@@ -2,6 +2,12 @@ import 'package:dio/dio.dart';
 
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 
+/// `error.code` of FastAPI request validation failures.
+const validationErrorCode = 'validation_error';
+
+const validationFailureMessage =
+    'Некоторые значения не подходят. Проверьте заполненные поля и попробуйте ещё раз.';
+
 Future<T> guardApiCall<T>(Future<T> Function() operation) async {
   try {
     return await operation();
@@ -29,6 +35,14 @@ AppFailure _mapDioFailure(DioException error) {
   }
   if (status == 404) {
     return NotFoundFailure(apiMessage ?? 'Resource not found', apiCode);
+  }
+  if (status == 422 && apiCode == validationErrorCode) {
+    // The envelope text is a generic English line for developers; people
+    // saw «Request validation failed» when a field was out of range.
+    return const UnexpectedFailure(
+      validationFailureMessage,
+      validationErrorCode,
+    );
   }
   if (_isFinalRejection(error)) {
     return RejectedFailure(apiMessage ?? 'Request rejected', apiCode);

@@ -867,8 +867,10 @@ class TravelTypeSelector extends StatelessWidget {
     ),
     (
       RouteTripType.active,
-      'Активный',
-      'Спорт, движение,\nадреналин',
+      // Не «Активный»: так называется темп, и два одинаковых пункта
+      // на одном экране путали (FRONTEND-46).
+      'Спорт и экстрим',
+      'Движение\nи адреналин',
       AppIconography.play,
     ),
     (
@@ -1862,6 +1864,32 @@ extension RouteDayKindJson on RouteDayKind {
   String get apiValue => name;
 }
 
+/// Upper budget the API accepts (`budget_amount` le=1_000_000).
+const maxRouteBudget = 1000000;
+
+/// Keeps the budget field within what the API accepts: a larger number is
+/// replaced with the maximum instead of failing the whole match request
+/// with a validation error (FRONTEND-46).
+class MaxBudgetFormatter extends TextInputFormatter {
+  const MaxBudgetFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final value = int.tryParse(newValue.text);
+    if (newValue.text.isEmpty || (value != null && value <= maxRouteBudget)) {
+      return newValue;
+    }
+    const capped = '$maxRouteBudget';
+    return const TextEditingValue(
+      text: capped,
+      selection: TextSelection.collapsed(offset: capped.length),
+    );
+  }
+}
+
 class AdvancedMatchOptions extends StatelessWidget {
   const AdvancedMatchOptions({
     required this.px,
@@ -1931,7 +1959,10 @@ class AdvancedMatchOptions extends StatelessWidget {
             child: TextField(
               controller: budgetController,
               keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                const MaxBudgetFormatter(),
+              ],
               // expands + center: isCollapsed прижимает текст к верхней
               // кромке, и в поле высотой 48 плейсхолдер висел под самым
               // краем вместо середины (скрин 2026-09-04).
@@ -1949,7 +1980,7 @@ class AdvancedMatchOptions extends StatelessWidget {
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: px(14)),
-                hintText: 'Например, 15000',
+                hintText: 'Например, 15000 (до 1 000 000)',
                 hintStyle: RouteBuilderDesignTokens.rubik(
                   fontSize: px(14),
                   color: RouteBuilderDesignTokens.textSecondary,

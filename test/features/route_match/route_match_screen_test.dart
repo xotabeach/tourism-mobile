@@ -93,6 +93,45 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the mode switcher stays reachable after scrolling', (
+    tester,
+  ) async {
+    // FRONTEND-46: getting back from a long chat to the form took a scroll
+    // all the way up, the switcher lived only at the top of the list.
+    await tester.binding.setSurfaceSize(const Size(333, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          builder: (context, child) {
+            return MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                size: const Size(333, 800),
+                padding: const EdgeInsets.only(top: 47, bottom: 34),
+                textScaler: TextScaler.noScaling,
+              ),
+              child: child!,
+            );
+          },
+          home: const RouteMatchScreen(),
+        ),
+      ),
+    );
+    await tester.pump();
+    const pinned = ValueKey('route-mode-switcher-pinned');
+    expect(find.byKey(pinned), findsNothing);
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -600));
+    await tester.pumpAndSettle();
+    expect(find.byKey(pinned), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 900));
+    await tester.pumpAndSettle();
+    expect(find.byKey(pinned), findsNothing);
+  });
+
   testWidgets('start search accepts a concrete place and remains optional', (
     tester,
   ) async {
@@ -298,5 +337,18 @@ void _advancedOptionsTests() {
     await tester.tap(find.text('Платный вход — ок'));
     await tester.pump();
     expect(toggled['paid'], isTrue);
+  });
+
+  test('the budget field stops at what the API accepts', () {
+    // FRONTEND-46: 100000000 failed the whole match with a validation error.
+    const formatter = MaxBudgetFormatter();
+    String typed(String text) => formatter
+        .formatEditUpdate(TextEditingValue.empty, TextEditingValue(text: text))
+        .text;
+
+    expect(typed(''), '');
+    expect(typed('15000'), '15000');
+    expect(typed('1000000'), '1000000');
+    expect(typed('100000000'), '1000000');
   });
 }
