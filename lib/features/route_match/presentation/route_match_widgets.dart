@@ -12,6 +12,8 @@ import 'package:tourism_mobile/features/route_match/presentation/route_builder_d
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_action_chips.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_catalog_match_carousel.dart';
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_interactive_controls.dart';
+import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_comparison.dart'
+    show ChatRouteComparison;
 import 'package:tourism_mobile/features/route_match/presentation/widgets/chat_route_proposal_card.dart';
 
 typedef RoutePx = double Function(double);
@@ -43,6 +45,7 @@ class RouteChatMessage {
     this.proposalCoverUrl,
     this.proposalCard,
     this.catalogMatch = const [],
+    this.comparison = const [],
     this.placeChips = const [],
     this.actions = const [],
     this.actionsLayout = ChatActionsLayout.wrap,
@@ -69,6 +72,9 @@ class RouteChatMessage {
 
   final List<CatalogRouteItem> catalogMatch;
 
+  /// Figures of a «сравни» answer, drawn as bars under the text.
+  final List<ComparisonRouteItem> comparison;
+
   final List<RouteChatPlaceChipData> placeChips;
   final List<Map<String, String>> actions;
   final ChatActionsLayout actionsLayout;
@@ -88,6 +94,7 @@ class RouteChatMessage {
   bool get hasInteractiveBlocks =>
       hasProposalCard ||
       catalogMatch.isNotEmpty ||
+      comparison.isNotEmpty ||
       actions.isNotEmpty ||
       recommendations.isNotEmpty ||
       sliders.isNotEmpty ||
@@ -1864,31 +1871,9 @@ extension RouteDayKindJson on RouteDayKind {
   String get apiValue => name;
 }
 
-/// Upper budget the API accepts (`budget_amount` le=1_000_000).
+/// Budget the API matches against; any larger amount means the same, so
+/// the form sends at most this (FRONTEND-46).
 const maxRouteBudget = 1000000;
-
-/// Keeps the budget field within what the API accepts: a larger number is
-/// replaced with the maximum instead of failing the whole match request
-/// with a validation error (FRONTEND-46).
-class MaxBudgetFormatter extends TextInputFormatter {
-  const MaxBudgetFormatter();
-
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) {
-    final value = int.tryParse(newValue.text);
-    if (newValue.text.isEmpty || (value != null && value <= maxRouteBudget)) {
-      return newValue;
-    }
-    const capped = '$maxRouteBudget';
-    return const TextEditingValue(
-      text: capped,
-      selection: TextSelection.collapsed(offset: capped.length),
-    );
-  }
-}
 
 class AdvancedMatchOptions extends StatelessWidget {
   const AdvancedMatchOptions({
@@ -1961,7 +1946,7 @@ class AdvancedMatchOptions extends StatelessWidget {
               keyboardType: TextInputType.number,
               inputFormatters: [
                 FilteringTextInputFormatter.digitsOnly,
-                const MaxBudgetFormatter(),
+                LengthLimitingTextInputFormatter(9),
               ],
               // expands + center: isCollapsed прижимает текст к верхней
               // кромке, и в поле высотой 48 плейсхолдер висел под самым
@@ -1980,7 +1965,7 @@ class AdvancedMatchOptions extends StatelessWidget {
                 enabledBorder: InputBorder.none,
                 focusedBorder: InputBorder.none,
                 contentPadding: EdgeInsets.symmetric(horizontal: px(14)),
-                hintText: 'Например, 15000 (до 1 000 000)',
+                hintText: 'Например, 15000',
                 hintStyle: RouteBuilderDesignTokens.rubik(
                   fontSize: px(14),
                   color: RouteBuilderDesignTokens.textSecondary,
@@ -2777,7 +2762,9 @@ class AgentMessageBubble extends StatelessWidget {
                           padding: EdgeInsets.only(
                             // A route card sits a little further from the
                             // text than buttons do (catalog mockup).
-                            bottom: message.catalogMatch.isNotEmpty
+                            bottom:
+                                message.catalogMatch.isNotEmpty ||
+                                    message.comparison.isNotEmpty
                                 ? px(12)
                                 : message.hasInteractiveBlocks
                                 ? px(8)
@@ -2792,6 +2779,14 @@ class AgentMessageBubble extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (message.comparison.isNotEmpty) ...[
+                          ChatRouteComparison(
+                            px: px,
+                            routes: message.comparison,
+                            onOpenRoute: onOpenCatalogRoute,
+                          ),
+                          SizedBox(height: px(10)),
+                        ],
                         if (message.catalogMatch.isNotEmpty &&
                             onOpenCatalogRoute != null) ...[
                           ChatCatalogMatchCarousel(

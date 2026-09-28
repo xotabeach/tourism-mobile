@@ -338,17 +338,4 @@ void _advancedOptionsTests() {
     await tester.pump();
     expect(toggled['paid'], isTrue);
   });
-
-  test('the budget field stops at what the API accepts', () {
-    // FRONTEND-46: 100000000 failed the whole match with a validation error.
-    const formatter = MaxBudgetFormatter();
-    String typed(String text) => formatter
-        .formatEditUpdate(TextEditingValue.empty, TextEditingValue(text: text))
-        .text;
-
-    expect(typed(''), '');
-    expect(typed('15000'), '15000');
-    expect(typed('1000000'), '1000000');
-    expect(typed('100000000'), '1000000');
-  });
 }
