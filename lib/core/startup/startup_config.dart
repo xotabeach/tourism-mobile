@@ -13,6 +13,7 @@ class StartupTiming {
     this.coversLimit = const Duration(seconds: 1),
     this.fade = const Duration(milliseconds: 350),
     this.routerSettle = const Duration(seconds: 1),
+    this.hardLimit = const Duration(seconds: 13),
   });
 
   /// Shortest time the animation plays, so a fast start does not flicker.
@@ -33,6 +34,10 @@ class StartupTiming {
 
   /// Safety net: close anyway if the router never reaches the target screen.
   final Duration routerSettle;
+
+  /// Independent safety net for the whole gate, including platform calls and
+  /// the fade callback. The screen underneath must remain reachable.
+  final Duration hardLimit;
 }
 
 final Provider<StartupTiming> startupTimingProvider = Provider<StartupTiming>(

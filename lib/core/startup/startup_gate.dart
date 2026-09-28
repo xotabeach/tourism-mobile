@@ -59,6 +59,7 @@ class _StartupGateState extends ConsumerState<StartupGate>
   final _reachedDay = Completer<void>();
 
   Ticker? _ticker;
+  Timer? _watchdog;
   double _milestone = 0;
 
   /// How far loading lets the sunrise go; see [sunriseAllowance].
@@ -68,6 +69,7 @@ class _StartupGateState extends ConsumerState<StartupGate>
   late final StartupTiming _timing;
   var _active = false;
   var _closing = false;
+  var _finished = false;
 
   @override
   void initState() {
@@ -79,6 +81,7 @@ class _StartupGateState extends ConsumerState<StartupGate>
       return;
     }
     _timing = ref.read(startupTimingProvider);
+    _watchdog = Timer(_timing.hardLimit, _finish);
     _reduceMotion =
         AppMotion.reduceMotion ||
         WidgetsBinding
@@ -97,6 +100,7 @@ class _StartupGateState extends ConsumerState<StartupGate>
 
   @override
   void dispose() {
+    _watchdog?.cancel();
     _ticker?.dispose();
     _scene?.dispose();
     _dayFrame?.dispose();
@@ -133,7 +137,7 @@ class _StartupGateState extends ConsumerState<StartupGate>
   /// which is what the native launch screen already looks like.
   Future<void> _loadScene() async {
     final day = await LoadedFrame.load(SplashFrames.day);
-    if (!mounted) {
+    if (!mounted || _finished) {
       day?.dispose();
       return;
     }
@@ -143,7 +147,7 @@ class _StartupGateState extends ConsumerState<StartupGate>
       return;
     }
     final scene = await LoadedScene.load();
-    if (!mounted) {
+    if (!mounted || _finished) {
       scene?.dispose();
       return;
     }
@@ -234,12 +238,12 @@ class _StartupGateState extends ConsumerState<StartupGate>
       await Future.any<void>([_reachedDay.future, cutoff.future]);
       timer.cancel();
     }
-    if (!mounted) {
+    if (!mounted || _finished) {
       return;
     }
     _progress.value = 1;
     await _waitForRouter(result.authenticated);
-    if (!mounted) {
+    if (!mounted || _finished) {
       return;
     }
     setState(() => _closing = true);
@@ -285,9 +289,11 @@ class _StartupGateState extends ConsumerState<StartupGate>
   Duration get _fadeDuration => _reduceMotion ? Duration.zero : _timing.fade;
 
   void _finish() {
-    if (!mounted) {
+    if (!mounted || _finished) {
       return;
     }
+    _finished = true;
+    _watchdog?.cancel();
     _ticker?.stop();
     // The layers (~11 MB decoded) go; «day» stays held for Welcome.
     _scene?.dispose();

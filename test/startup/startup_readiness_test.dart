@@ -15,6 +15,8 @@ class _Fake {
   final settled = Completer<void>();
   final catalog = Completer<void>();
   final covers = Completer<void>();
+  final provisional = Completer<bool>();
+  var stallProvisional = false;
   var provisionalCalls = 0;
 
   StartupDeps get deps => StartupDeps(
@@ -23,6 +25,7 @@ class _Fake {
     sessionSettled: () => settled.future,
     enterProvisional: () async {
       provisionalCalls++;
+      if (stallProvisional) return provisional.future;
       return provisionalAvailable;
     },
     catalogReady: () => catalog.future,
@@ -149,6 +152,20 @@ void main() {
     expect(result, isNull);
 
     await _pump(tester, const Duration(seconds: 1));
+    expect(result?.authenticated, isFalse);
+    expect(fake.slowHint, isFalse);
+  });
+
+  _t('a stalled cache read cannot keep the preloader open', (tester) async {
+    final fake = _Fake()..stallProvisional = true;
+    StartupResult? result;
+    unawaited(fake.run(timing).then((r) => result = r));
+
+    await _pump(tester, const Duration(milliseconds: 4100));
+    expect(fake.provisionalCalls, 1);
+    expect(result, isNull);
+
+    await _pump(tester, const Duration(seconds: 6));
     expect(result?.authenticated, isFalse);
     expect(fake.slowHint, isFalse);
   });

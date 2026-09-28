@@ -66,6 +66,7 @@ Future<StartupResult> runStartup({
 
   try {
     final ceiling = after(timing.ceiling);
+    final noCacheDeadline = after(timing.noCacheCeiling);
     onMilestone(0.3);
 
     if (!deps.isHydrated()) {
@@ -74,14 +75,20 @@ Future<StartupResult> runStartup({
         ceiling,
       ]);
       if (!settled) {
-        if (await deps.enterProvisional()) {
+        // Secure storage and the identity cache are platform calls. If either
+        // stalls, the start-up gate must still leave the screen by its limit.
+        final provisional = await Future.any<bool>([
+          deps.enterProvisional().catchError((Object _) => false),
+          noCacheDeadline,
+        ]);
+        if (provisional) {
           onMilestone(1);
           return const StartupResult(authenticated: true, provisional: true);
         }
         onSlowHint(true);
         await Future.any<bool>([
           deps.sessionSettled().then((_) => true),
-          after(timing.noCacheCeiling - timing.ceiling),
+          noCacheDeadline,
         ]);
         onSlowHint(false);
       }

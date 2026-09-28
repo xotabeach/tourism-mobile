@@ -240,4 +240,35 @@ void main() {
     expect(find.byType(KrymtripLogo), findsNothing);
     expect(log, ['init'], reason: 'the subtree must survive the gate closing');
   });
+
+  testWidgets('the hard limit removes the gate when session never settles', (
+    tester,
+  ) async {
+    final log = <String>[];
+    final controller = SessionController(
+      authRepository: MockAuthRepository(),
+      secureStorage: MemorySecureStorage(),
+      identityCache: MemorySessionIdentityCache(),
+      useMockData: true,
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          startupTimingProvider.overrideWithValue(
+            const StartupTiming(hardLimit: Duration(milliseconds: 200)),
+          ),
+          sessionProvider.overrideWith((ref) => controller),
+        ],
+        child: MaterialApp(home: StartupGate(child: _Probe(log))),
+      ),
+    );
+    expect(find.byType(KrymtripLogo), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 250));
+    await tester.pump();
+
+    expect(find.byType(KrymtripLogo), findsNothing);
+    expect(log, ['init']);
+    await _elapse(tester, const Duration(seconds: 12));
+  });
 }
