@@ -33,6 +33,7 @@ class PlaceSummary {
     this.difficulty,
     this.isPaid = false,
     this.coverImageUrl,
+    this.badge,
   });
 
   final String id;
@@ -44,6 +45,9 @@ class PlaceSummary {
   final String? difficulty;
   final bool isPaid;
   final String? coverImageUrl;
+
+  /// Catalog badge from the server (spec 19): `popular` or `null`.
+  final String? badge;
   final List<PlaceCategory> categories;
 
   factory PlaceSummary.fromJson(Map<String, dynamic> json) {
@@ -58,6 +62,7 @@ class PlaceSummary {
       difficulty: json['difficulty'] as String?,
       isPaid: json['is_paid'] as bool? ?? false,
       coverImageUrl: json['cover_image_url'] as String?,
+      badge: json['badge'] as String?,
       categories: categoriesJson
           .map((item) => PlaceCategory.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -77,6 +82,7 @@ class PlaceDetail extends PlaceSummary {
     super.difficulty,
     super.isPaid,
     super.coverImageUrl,
+    super.badge,
     required this.description,
     required this.address,
     required this.seasonality,
@@ -107,6 +113,7 @@ class PlaceDetail extends PlaceSummary {
       difficulty: summary.difficulty,
       isPaid: summary.isPaid,
       coverImageUrl: summary.coverImageUrl,
+      badge: summary.badge,
       description: json['description'] as String?,
       address: json['address'] as String?,
       seasonality: (json['seasonality'] as List<dynamic>? ?? const [])

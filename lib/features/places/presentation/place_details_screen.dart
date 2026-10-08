@@ -387,7 +387,8 @@ class _PlaceInformationSheet extends ConsumerWidget {
               color: AppColors.primaryInk,
             ),
           ),
-          if (place.categories.isNotEmpty ||
+          if (place.badge == 'popular' ||
+              place.categories.isNotEmpty ||
               place.difficulty != null ||
               place.isPaid) ...[
             const SizedBox(height: 10),
@@ -395,6 +396,8 @@ class _PlaceInformationSheet extends ConsumerWidget {
               spacing: 6,
               runSpacing: 6,
               children: [
+                if (place.badge == 'popular')
+                  const _PlaceInfoTag(label: 'Популярное'),
                 for (final category in place.categories.take(3))
                   _PlaceInfoTag(label: category.name),
                 if (place.difficulty != null)
