@@ -261,6 +261,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           _OwnerRouteStatusBanner(
                             label: statusLabel,
                             status: route.publicationStatus,
+                            rejectionReason: route.rejectionReason,
                           ),
                         ],
                         const _SectionDivider(),
@@ -765,14 +766,27 @@ class _RouteDetailsTab extends StatelessWidget {
 }
 
 class _OwnerRouteStatusBanner extends StatelessWidget {
-  const _OwnerRouteStatusBanner({required this.label, required this.status});
+  const _OwnerRouteStatusBanner({
+    required this.label,
+    required this.status,
+    this.rejectionReason,
+  });
 
   final String label;
   final String? status;
 
+  /// What the moderator asked to fix. Shown while the author still has to
+  /// resend the route: right after it was returned and while they edit it.
+  final String? rejectionReason;
+
   @override
   Widget build(BuildContext context) {
-    final (icon, description) = switch (status) {
+    final reason = rejectionReason?.trim();
+    final hasReason =
+        reason != null &&
+        reason.isNotEmpty &&
+        (status == 'rejected' || status == 'draft');
+    final (icon, statusDescription) = switch (status) {
       'pending_review' => (
         Icons.schedule_rounded,
         'Маршрут проверяет команда модерации. Пока он виден только вам.',
@@ -790,6 +804,9 @@ class _OwnerRouteStatusBanner extends StatelessWidget {
         'Маршрут скрыт от других путешественников.',
       ),
     };
+    final description = hasReason
+        ? 'Что исправить: $reason'
+        : statusDescription;
     return Semantics(
       label: 'Статус маршрута: $label. $description',
       child: Container(
