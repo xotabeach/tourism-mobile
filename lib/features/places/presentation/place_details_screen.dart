@@ -13,7 +13,6 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
-import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/device/external_maps.dart';
@@ -367,11 +366,6 @@ class _PlaceInformationSheet extends ConsumerWidget {
         ? place.description!.trim()
         : place.shortDescription?.trim();
     final routes = ref.watch(routesForPlaceProvider(place.id));
-    final config = ref.watch(appConfigProvider);
-    final cover = AppImages.imageProvider(
-      resolvedUrl: AppImages.resolveMediaUrl(config, place.coverImageUrl),
-      assetFallback: AppImages.coastPineTwilight,
-    );
 
     return Container(
       width: double.infinity,
@@ -422,14 +416,6 @@ class _PlaceInformationSheet extends ConsumerWidget {
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          AudioGuideCard(
-            title: place.name,
-            image: cover,
-            onPlay: () {
-              showAppNotice(context, 'Аудиогид появится позже');
-            },
-          ),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
             child: Divider(height: 1, thickness: 1, color: AppColors.hairline),

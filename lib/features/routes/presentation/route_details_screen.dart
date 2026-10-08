@@ -14,7 +14,6 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
-import 'package:tourism_mobile/core/design/components/audio_guide_card.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/format/rating_format.dart';
@@ -312,13 +311,6 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                         ),
                         const _SectionDivider(),
                         if (_selectedSection == _RouteDetailsSection.about) ...[
-                          AudioGuideCard(
-                            title: route.name,
-                            author: authorName,
-                            image: _routeCover(config, route),
-                            onPlay: () => _showSoon('Аудиогид'),
-                          ),
-                          const SizedBox(height: 16),
                           _RouteTagsRow(tags: routeTagLabels(route)),
                           const SizedBox(height: 16),
                           _RouteFacts(route: route),
@@ -456,10 +448,6 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
 
   void _showMessage(String message) {
     showAppNotice(context, message);
-  }
-
-  void _showSoon(String feature) {
-    _showMessage('$feature появится позже');
   }
 
   String _shareText(RouteDetail route) {

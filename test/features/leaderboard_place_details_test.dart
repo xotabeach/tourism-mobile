@@ -136,8 +136,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Поделитесь впечатлениями о месте'), findsOneWidget);
       expect(find.text('Фото 0/6'), findsOneWidget);
-      expect(find.textContaining('Слушать аудиогид'), findsNothing);
-      expect(find.bySemanticsLabel('Слушать аудиогид'), findsOneWidget);
+      // FRONTEND-49: the audio guide block is hidden until there is real
+      // audio to play.
+      expect(find.bySemanticsLabel('Слушать аудиогид'), findsNothing);
     },
   );
 }

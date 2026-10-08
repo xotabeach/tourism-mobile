@@ -9,7 +9,7 @@ class AudioGuideCard extends StatelessWidget {
     required this.image,
     required this.onPlay,
     this.author = 'КрымТрип',
-    this.durationLabel = '2ч 48м 17с',
+    this.durationLabel,
     super.key,
   });
 
@@ -17,7 +17,10 @@ class AudioGuideCard extends StatelessWidget {
   final ImageProvider image;
   final VoidCallback onPlay;
   final String author;
-  final String durationLabel;
+
+  /// The real length of the recording. There is no default: a made-up
+  /// duration promises audio that does not exist (FRONTEND-49).
+  final String? durationLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -85,17 +88,19 @@ class AudioGuideCard extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Text(
-            durationLabel,
-            style: const TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 12,
-              fontWeight: FontWeight.w400,
-              height: 1.2,
-              color: AppColors.secondaryInk,
+          if (durationLabel != null) ...[
+            const SizedBox(width: 8),
+            Text(
+              durationLabel!,
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                height: 1.2,
+                color: AppColors.secondaryInk,
+              ),
             ),
-          ),
+          ],
           const SizedBox(width: 10),
           Semantics(
             button: true,
