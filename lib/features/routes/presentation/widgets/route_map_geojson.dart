@@ -26,8 +26,19 @@ List<List<double>> _coordinates(Iterable<MapPoint> points) => [
   for (final point in points) [point.lng, point.lat],
 ];
 
-/// The route line: one feature per segment when the route has them (the
-/// walk back to the car left out, it retraces the approach), else the whole
+/// Whether [segment] only walks back along the approach to its stop: the
+/// previous leg walked up to that stop by the same path. The first stop has
+/// no previous leg and a stop the car reached has no approach: there the
+/// walk back is the only line that touches the stop (BACKEND-63).
+bool retracesApproach(RouteSegment segment, List<RouteSegment> segments) =>
+    segment.role == 'return' &&
+    segments.any(
+      (other) =>
+          other.role == 'approach' && other.legIndex == segment.legIndex - 1,
+    );
+
+/// The route line: one feature per segment when the route has them (a walk
+/// back to the car that retraces the approach left out), else the whole
 /// line in the route's own way.
 Map<String, dynamic> routeLinesGeoJson({
   required RouteGeometry? geometry,
@@ -36,7 +47,7 @@ Map<String, dynamic> routeLinesGeoJson({
 }) {
   final drawn = [
     for (final segment in segments)
-      if (segment.role != 'return' &&
+      if (!retracesApproach(segment, segments) &&
           (segment.geometry?.coordinates.length ?? 0) >= 2)
         segment,
   ];

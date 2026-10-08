@@ -10,8 +10,8 @@ RouteGeometry _line(List<(double, double)> points) => RouteGeometry(
   ],
 );
 
-RouteSegment _segment(String mode, String role) => RouteSegment(
-  legIndex: 0,
+RouteSegment _segment(String mode, String role, {int leg = 0}) => RouteSegment(
+  legIndex: leg,
   seq: 0,
   mode: mode,
   role: role,
@@ -25,7 +25,8 @@ void main() {
       segments: [
         _segment('car', 'main'),
         _segment('walk', 'approach'),
-        _segment('walk', 'return'),
+        _segment('walk', 'return', leg: 1),
+        _segment('car', 'main', leg: 1),
       ],
       dashed: false,
     );
@@ -35,7 +36,23 @@ void main() {
     expect(props, [
       {'mode': 'car', 'dashed': false},
       {'mode': 'walk', 'dashed': true},
+      {'mode': 'car', 'dashed': false},
     ]);
+  });
+
+  test('the walk back from the first stop is the only line to it', () {
+    // «Забытые города в скалах»: the route starts on foot at the first
+    // stop, nothing walked up to it (BACKEND-63).
+    final json = routeLinesGeoJson(
+      geometry: null,
+      segments: [
+        _segment('walk', 'return'),
+        _segment('car', 'main'),
+        _segment('walk', 'approach'),
+      ],
+      dashed: false,
+    );
+    expect((json['features'] as List).length, 3);
   });
 
   test('a route without segments is one line in its own way', () {
