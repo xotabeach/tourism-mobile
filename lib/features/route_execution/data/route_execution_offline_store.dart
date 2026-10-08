@@ -79,11 +79,32 @@ class RouteExecutionOutboxEntry {
     'position': position?.toJson(),
   };
 
+  /// Throws [FormatException] for an action this build does not know.
+  ///
+  /// A queue written by a newer build can hold such an entry after a
+  /// downgrade. It must never be read as something else: guessing «complete»
+  /// would finish the person's route behind their back.
   factory RouteExecutionOutboxEntry.fromJson(Map<String, dynamic> json) {
-    final action = RouteExecutionAction.values.firstWhere(
-      (item) => item.name == json['action'],
-      orElse: () => RouteExecutionAction.complete,
-    );
+    final entry = tryFromJson(json);
+    if (entry == null) {
+      throw FormatException('Unknown outbox action: ${json['action']}');
+    }
+    return entry;
+  }
+
+  /// `null` for an action this build does not know.
+  static RouteExecutionOutboxEntry? tryFromJson(Map<String, dynamic> json) {
+    final name = json['action'];
+    RouteExecutionAction? action;
+    for (final item in RouteExecutionAction.values) {
+      if (item.name == name) {
+        action = item;
+        break;
+      }
+    }
+    if (action == null) {
+      return null;
+    }
     return RouteExecutionOutboxEntry(
       id: json['id'] as String,
       executionId: json['execution_id'] as String,
@@ -169,7 +190,8 @@ final class SharedPreferencesRouteExecutionOfflineStore
           entries.add(RouteExecutionOutboxEntry.fromJson(decoded));
         }
       } on Object {
-        // A corrupt entry must not block other pending actions.
+        // A corrupt entry, or one whose action this build does not know,
+        // must not block other pending actions. It stays under its own key.
       }
     }
     entries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
@@ -276,55 +298,66 @@ final class SecureRouteExecutionOfflineStore
   @override
   Future<void> clearSnapshot() => _storage.delete(key: _snapshotKey);
 
-  @override
-  Future<List<RouteExecutionOutboxEntry>> listOutbox() async {
+  /// Every stored item as written, including ones this build cannot read:
+  /// an action from a newer build survives a rewrite of the list untouched.
+  Future<List<Map<String, dynamic>>> _readRaw() async {
     final raw = await _storage.read(key: _outboxKey);
-    if (raw == null) return const [];
+    if (raw == null) return [];
     try {
       final decoded = jsonDecode(raw);
-      if (decoded is! List) return const [];
-      final entries = decoded
+      if (decoded is! List) return [];
+      return decoded
           .whereType<Map<dynamic, dynamic>>()
-          .map(
-            (item) => RouteExecutionOutboxEntry.fromJson(
-              Map<String, dynamic>.from(item),
-            ),
-          )
+          .map(Map<String, dynamic>.from)
           .toList(growable: true);
-      entries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-      return entries;
     } on Object {
-      return const [];
+      return [];
     }
+  }
+
+  Future<void> _writeRaw(List<Map<String, dynamic>> items) async {
+    if (items.isEmpty) {
+      await _storage.delete(key: _outboxKey);
+      return;
+    }
+    await _storage.write(key: _outboxKey, value: jsonEncode(items));
+  }
+
+  static RouteExecutionOutboxEntry? _parse(Map<String, dynamic> item) {
+    try {
+      return RouteExecutionOutboxEntry.tryFromJson(item);
+    } on Object {
+      return null;
+    }
+  }
+
+  @override
+  Future<List<RouteExecutionOutboxEntry>> listOutbox() async {
+    final entries = (await _readRaw())
+        .map(_parse)
+        .nonNulls
+        .toList(growable: true);
+    entries.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return entries;
   }
 
   @override
   Future<void> enqueue(RouteExecutionOutboxEntry entry) async {
-    final entries = await listOutbox();
-    final index = entries.indexWhere((item) => item.id == entry.id);
+    final items = await _readRaw();
+    final index = items.indexWhere((item) => item['id'] == entry.id);
     if (index == -1) {
-      entries.add(entry);
+      items.add(entry.toJson());
     } else {
-      entries[index] = entry;
+      items[index] = entry.toJson();
     }
-    await _storage.write(
-      key: _outboxKey,
-      value: jsonEncode(entries.map((item) => item.toJson()).toList()),
-    );
+    await _writeRaw(items);
   }
 
   @override
   Future<void> removeOutbox(String entryId) async {
-    final entries = await listOutbox()
-      ..removeWhere((entry) => entry.id == entryId);
-    if (entries.isEmpty) {
-      await _storage.delete(key: _outboxKey);
-      return;
-    }
-    await _storage.write(
-      key: _outboxKey,
-      value: jsonEncode(entries.map((item) => item.toJson()).toList()),
-    );
+    final items = await _readRaw()
+      ..removeWhere((item) => item['id'] == entryId);
+    await _writeRaw(items);
   }
 
   @override
