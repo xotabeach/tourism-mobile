@@ -86,11 +86,16 @@ class RouteStaticMap extends StatefulWidget {
     this.completedStopPositions = const {},
     this.activeLeg,
     this.focusOnLeg = false,
+    this.onLegFocusUnavailable,
     this.imageHeaders = const {},
     this.dashedLine = false,
     this.segments = const [],
     super.key,
   });
+
+  /// Called when the zoomed-in leg frame could not be loaded (offline) and
+  /// the whole route is shown instead, so the caller can say so.
+  final VoidCallback? onLegFocusUnavailable;
 
   /// Segments of the route, for the expanded interactive map to draw each
   /// in its own way (spec 12a-9).
@@ -223,6 +228,7 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
           // raster the stylized preview takes over for this session.
           if (frame.focus) {
             _focusFailed = true;
+            widget.onLegFocusUnavailable?.call();
           } else {
             _imageFailed = true;
           }
@@ -569,27 +575,36 @@ class _RouteStaticMapState extends State<RouteStaticMap> {
   }
 
   void _openFullScreen(BuildContext context) {
-    unawaited(
-      Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          fullscreenDialog: true,
-          builder: (_) => _FullScreenRouteMap(
-            staticMapUrl: widget.staticMapUrl,
-            stops: widget.stops,
-            geometry: widget.geometry,
-            config: widget.config,
-            livePosition: widget.livePosition,
-            completedFraction: widget.completedFraction,
-            completedStopPositions: widget.completedStopPositions,
-            activeLeg: widget.activeLeg,
-            imageHeaders: widget.imageHeaders,
-            dashedLine: widget.dashedLine,
-            segments: widget.segments,
-          ),
-        ),
-      ),
-    );
+    unawaited(showRouteMapFullScreen(context, widget));
   }
+}
+
+/// The expanded map for [map]'s route; [focusOnLeg] opens it framed on the
+/// active leg (the run screen's «Участок на карте», FRONTEND-22).
+Future<void> showRouteMapFullScreen(
+  BuildContext context,
+  RouteStaticMap map, {
+  bool focusOnLeg = false,
+}) {
+  return Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      fullscreenDialog: true,
+      builder: (_) => _FullScreenRouteMap(
+        staticMapUrl: map.staticMapUrl,
+        stops: map.stops,
+        geometry: map.geometry,
+        config: map.config,
+        livePosition: map.livePosition,
+        completedFraction: map.completedFraction,
+        completedStopPositions: map.completedStopPositions,
+        activeLeg: map.activeLeg,
+        imageHeaders: map.imageHeaders,
+        dashedLine: map.dashedLine,
+        segments: map.segments,
+        initialFocusOnLeg: focusOnLeg && map.activeLeg != null,
+      ),
+    ),
+  );
 }
 
 /// Accent line over the active stretch, drawn above the walked-so-far line.
@@ -879,7 +894,11 @@ class _FullScreenRouteMap extends StatefulWidget {
     this.imageHeaders = const {},
     this.dashedLine = false,
     this.segments = const [],
+    this.initialFocusOnLeg = false,
   });
+
+  /// Opened framed on the active leg rather than the whole route.
+  final bool initialFocusOnLeg;
 
   /// Backend preview endpoint for this route, or null when the server does
   /// not offer one — then the stylized fallback is used instead of a raster.
@@ -908,7 +927,10 @@ class _FullScreenRouteMap extends StatefulWidget {
 }
 
 class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
-  var _focusLeg = false;
+  late var _focusLeg = widget.initialFocusOnLeg;
+
+  /// The leg frame could not be loaded: the whole route is on screen.
+  var _legFocusUnavailable = false;
 
   /// The interactive map could not load (offline): the picture instead.
   var _interactiveFailed = false;
@@ -935,79 +957,227 @@ class _FullScreenRouteMapState extends State<_FullScreenRouteMap> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(8),
-          child: Column(
+          child: Stack(
             children: [
-              if (hasLeg) ...[
-                SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: const [
-                    ButtonSegment(value: true, label: Text('Участок')),
-                    ButtonSegment(value: false, label: Text('Весь маршрут')),
-                  ],
-                  selected: {_focusLeg},
-                  onSelectionChanged: (value) => setState(() {
-                    _focusLeg = value.first;
-                    _zoom.value = Matrix4.identity();
-                  }),
-                ),
-                const SizedBox(height: 8),
-              ],
-              if (debugInteractiveRouteMap && !_interactiveFailed)
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(18),
-                    child: RouteInteractiveMap(
-                      config: widget.config,
-                      stops: widget.stops,
-                      geometry: widget.geometry,
-                      segments: widget.segments,
-                      dashedLine: widget.dashedLine,
-                      livePosition: widget.livePosition,
-                      completedStopPositions: widget.completedStopPositions,
-                      activeLeg: widget.activeLeg?.line,
-                      focusOnLeg: _focusLeg,
-                      // The same place card as on the picture map.
-                      calloutBuilder: (stop, anchor, viewport, onClose) =>
-                          _StopCallout(
-                            stop: stop,
+              Column(
+                children: [
+                  if (debugInteractiveRouteMap && !_interactiveFailed)
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: RouteInteractiveMap(
+                          config: widget.config,
+                          stops: widget.stops,
+                          geometry: widget.geometry,
+                          segments: widget.segments,
+                          dashedLine: widget.dashedLine,
+                          livePosition: widget.livePosition,
+                          completedStopPositions: widget.completedStopPositions,
+                          activeLeg: widget.activeLeg?.line,
+                          focusOnLeg: _focusLeg,
+                          // The same place card as on the picture map.
+                          calloutBuilder: (stop, anchor, viewport, onClose) =>
+                              _StopCallout(
+                                stop: stop,
+                                config: widget.config,
+                                anchor: anchor,
+                                viewport: viewport,
+                                onClose: onClose,
+                              ),
+                          onUnavailable: () =>
+                              setState(() => _interactiveFailed = true),
+                        ),
+                      ),
+                    )
+                  else
+                    Expanded(
+                      child: InteractiveViewer(
+                        transformationController: _zoom,
+                        minScale: 1,
+                        maxScale: 6,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => RouteStaticMap(
+                            staticMapUrl: widget.staticMapUrl,
+                            stops: widget.stops,
+                            geometry: widget.geometry,
                             config: widget.config,
-                            anchor: anchor,
-                            viewport: viewport,
-                            onClose: onClose,
+                            height: constraints.maxHeight,
+                            livePosition: widget.livePosition,
+                            completedFraction: widget.completedFraction,
+                            completedStopPositions:
+                                widget.completedStopPositions,
+                            activeLeg: widget.activeLeg,
+                            focusOnLeg: _focusLeg,
+                            onLegFocusUnavailable: () {
+                              if (mounted && !_legFocusUnavailable) {
+                                setState(() => _legFocusUnavailable = true);
+                              }
+                            },
+                            imageHeaders: widget.imageHeaders,
+                            dashedLine: widget.dashedLine,
+                            // Already full screen: tapping should not stack another one.
+                            interactive: false,
                           ),
-                      onUnavailable: () =>
-                          setState(() => _interactiveFailed = true),
-                    ),
-                  ),
-                )
-              else
-                Expanded(
-                  child: InteractiveViewer(
-                    transformationController: _zoom,
-                    minScale: 1,
-                    maxScale: 6,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) => RouteStaticMap(
-                        staticMapUrl: widget.staticMapUrl,
-                        stops: widget.stops,
-                        geometry: widget.geometry,
-                        config: widget.config,
-                        height: constraints.maxHeight,
-                        livePosition: widget.livePosition,
-                        completedFraction: widget.completedFraction,
-                        completedStopPositions: widget.completedStopPositions,
-                        activeLeg: widget.activeLeg,
-                        focusOnLeg: _focusLeg,
-                        imageHeaders: widget.imageHeaders,
-                        dashedLine: widget.dashedLine,
-                        // Already full screen: tapping should not stack another one.
-                        interactive: false,
+                        ),
                       ),
                     ),
+                ],
+              ),
+              if (hasLeg)
+                Positioned(
+                  top: 12,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: LegFocusToggle(
+                      focusOnLeg: _focusLeg,
+                      onChanged: (value) => setState(() {
+                        _focusLeg = value;
+                        _legFocusUnavailable = false;
+                        _zoom.value = Matrix4.identity();
+                      }),
+                    ),
+                  ),
+                ),
+              if (hasLeg && _focusLeg && _legFocusUnavailable)
+                const Positioned(
+                  left: 12,
+                  right: 12,
+                  bottom: 12,
+                  child: _MapNotice(
+                    text:
+                        'Без сети участок не приблизить. Показан весь маршрут, '
+                        'участок выделен.',
                   ),
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// «Участок / Весь маршрут» over the expanded map (FRONTEND-22). A floating
+/// pill so the map keeps the whole screen; the active side is filled.
+class LegFocusToggle extends StatelessWidget {
+  const LegFocusToggle({
+    required this.focusOnLeg,
+    required this.onChanged,
+    super.key,
+  });
+
+  final bool focusOnLeg;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.elevatedSurface.withValues(alpha: 0.94),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x26000000),
+            blurRadius: 12,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ToggleSide(
+              label: 'Весь маршрут',
+              selected: !focusOnLeg,
+              onTap: () => onChanged(false),
+            ),
+            _ToggleSide(
+              label: 'Участок',
+              selected: focusOnLeg,
+              onTap: () => onChanged(true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ToggleSide extends StatelessWidget {
+  const _ToggleSide({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: selected ? null : onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: selected ? Colors.white : AppColors.primaryInk,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A short note over the map, e.g. why the leg is not zoomed in.
+class _MapNotice extends StatelessWidget {
+  const _MapNotice({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.primaryInk.withValues(alpha: 0.86),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 18, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 13,
+                  height: 1.25,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
 import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
 import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
 import 'package:tourism_mobile/features/route_execution/application/live_location_provider.dart';
@@ -25,6 +26,7 @@ import 'package:tourism_mobile/features/route_execution/data/route_execution_off
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/mark_confirm_dialog.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/route_execution_summary_screen.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_leg_card.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -1016,6 +1018,26 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         : nextStop?.legDistanceMeters == null
         ? null
         : 'весь участок ${formatStopDistance(nextStop!.legDistanceMeters!)}';
+    final legInfo = activeLegInfo(execution);
+    final map = route == null
+        ? null
+        : RouteStaticMap(
+            staticMapUrl: route.staticMapUrl,
+            stops: route.stops,
+            geometry: route.geometry,
+            config: ref.watch(appConfigProvider),
+            height: 342,
+            footerLabel: execution.completedStops > 0
+                ? 'Вы на ${execution.completedStops} точке'
+                : routePointsLabel(route.stops.length),
+            pillFooter: true,
+            livePosition: mapLivePosition,
+            completedFraction: completedFraction,
+            completedStopPositions: completedStopPositions,
+            activeLeg: _activeLeg(execution, route),
+            dashedLine: isWalkingMode(route.transportMode),
+            segments: route.segments,
+          );
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return ListView(
       padding: EdgeInsets.fromLTRB(16, 16, 16, bottomInset + 24),
@@ -1063,26 +1085,18 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             onRetry: _retryPending,
           ),
         ],
-        if (route != null) ...[
+        if (legInfo != null) ...[
           const SizedBox(height: 12),
-          RouteStaticMap(
-            staticMapUrl: route.staticMapUrl,
-            stops: route.stops,
-            geometry: route.geometry,
-            config: ref.watch(appConfigProvider),
-            height: 342,
-            footerLabel: execution.completedStops > 0
-                ? 'Вы на ${execution.completedStops} точке'
-                : routePointsLabel(route.stops.length),
-            pillFooter: true,
-            livePosition: mapLivePosition,
-            completedFraction: completedFraction,
-            completedStopPositions: completedStopPositions,
-            activeLeg: _activeLeg(execution, route),
-            dashedLine: isWalkingMode(route.transportMode),
-            segments: route.segments,
+          ActiveLegCard(
+            leg: legInfo,
+            onShowOnMap: map?.activeLeg == null
+                ? null
+                : () => unawaited(
+                    showRouteMapFullScreen(context, map!, focusOnLeg: true),
+                  ),
           ),
         ],
+        if (map != null) ...[const SizedBox(height: 12), map],
         const SizedBox(height: 8),
         _InfoRow(
           iconAsset: AppIconography.execAlarm,
@@ -1119,6 +1133,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           for (final stop in execution.stops)
             _StopRow(
               stop: stop,
+              isNext: execution.isActive && stop.id == nextStop?.id,
               travelSummary: legTravelSummary(
                 route?.segmentsTo(stop.position - 1) ?? const [],
               ),
@@ -1647,6 +1662,7 @@ class _OfflineBanner extends StatelessWidget {
 class _StopRow extends StatelessWidget {
   const _StopRow({
     required this.stop,
+    this.isNext = false,
     required this.busy,
     required this.enabled,
     required this.onComplete,
@@ -1655,6 +1671,10 @@ class _StopRow extends StatelessWidget {
   });
 
   final RouteExecutionStop stop;
+
+  /// The stop being walked to now: drawn with the accent of the leg line
+  /// (FRONTEND-22).
+  final bool isNext;
 
   /// «на машине 3,3 км · пешком 1,4 км от парковки» for a leg that is not
   /// one plain way (spec 14b).
@@ -1676,6 +1696,7 @@ class _StopRow extends StatelessWidget {
       ?travelSummary,
       if (stop.isOptional) 'Можно пропустить',
     ];
+    if (isNext) parts.insert(0, 'Следующая');
     return parts.join(' • ');
   }
 
@@ -1686,16 +1707,25 @@ class _StopRow extends StatelessWidget {
     // cross in place of the ring and a short red note, tap marks it again.
     final undelivered = stop.undelivered && !done;
     final subtitle = _subtitle;
-    return SizedBox(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
       height: 47,
+      // No inset: the tint runs from the number circle to the mark ring as
+      // one pill, and the row keeps the full width its content needs.
+      decoration: BoxDecoration(
+        color: isNext
+            ? AppColors.accentBlue.withValues(alpha: 0.08)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: Row(
         children: [
           Container(
             width: 32,
             height: 32,
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primaryInk,
+              color: isNext ? AppColors.accentBlue : AppColors.primaryInk,
             ),
             alignment: Alignment.center,
             child: Text(
@@ -1733,12 +1763,14 @@ class _StopRow extends StatelessWidget {
                     subtitle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontFamily: AppFonts.rubik,
                       fontSize: 13,
-                      fontWeight: FontWeight.w400,
+                      fontWeight: isNext ? FontWeight.w500 : FontWeight.w400,
                       height: 1.2,
-                      color: _ExecutionColors.muted,
+                      color: isNext
+                          ? AppColors.accentBlue
+                          : _ExecutionColors.muted,
                     ),
                   ),
                 ],
