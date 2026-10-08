@@ -107,6 +107,7 @@ class RouteSummary {
     this.visibility,
     this.lifecycleStatus,
     this.publicationStatus,
+    this.rejectionReason,
   });
 
   final String id;
@@ -165,6 +166,10 @@ class RouteSummary {
   final String? lifecycleStatus;
   final String? publicationStatus;
 
+  /// What the moderator asked to fix when the route was returned to its
+  /// author (BACKEND-34). Only the author's own unpublished route has it.
+  final String? rejectionReason;
+
   factory RouteSummary.fromJson(Map<String, dynamic> json) {
     return RouteSummary(
       id: json['id'] as String,
@@ -200,6 +205,7 @@ class RouteSummary {
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,
       publicationStatus: json['publication_status'] as String?,
+      rejectionReason: json['rejection_reason'] as String?,
     );
   }
 
@@ -235,6 +241,7 @@ class RouteSummary {
     'visibility': visibility,
     'lifecycle_status': lifecycleStatus,
     'publication_status': publicationStatus,
+    'rejection_reason': rejectionReason,
   };
 }
 
@@ -522,6 +529,7 @@ class RouteDetail extends RouteSummary {
     super.visibility,
     super.lifecycleStatus,
     super.publicationStatus,
+    super.rejectionReason,
     required this.description,
     required this.stops,
     this.media = const [],
@@ -596,6 +604,7 @@ class RouteDetail extends RouteSummary {
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,
       publicationStatus: json['publication_status'] as String?,
+      rejectionReason: json['rejection_reason'] as String?,
       description: json['description'] as String?,
       stops: stopsJson
           .map((item) => RouteStop.fromJson(item as Map<String, dynamic>))
