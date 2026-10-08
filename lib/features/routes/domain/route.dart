@@ -95,6 +95,7 @@ class RouteSummary {
     this.suitableForChildren,
     this.petsAllowed,
     this.isSeaside,
+    this.badge,
     this.seasonality = const [],
     this.authorLabel,
     this.coverImageUrl,
@@ -146,6 +147,10 @@ class RouteSummary {
 
   /// Editor's «Море» tag (BACKEND-19). `null` from a server that predates it.
   final bool? isSeaside;
+
+  /// Catalog badge from the server (spec 19): `popular`, `editors_choice`
+  /// or `null`. Kept as the raw value so an unknown one is simply not shown.
+  final String? badge;
   final List<String> seasonality;
   final String? authorLabel;
 
@@ -181,6 +186,7 @@ class RouteSummary {
       suitableForChildren: json['suitable_for_children'] as bool?,
       petsAllowed: json['pets_allowed'] as bool?,
       isSeaside: json['is_seaside'] as bool?,
+      badge: json['badge'] as String?,
       seasonality: (json['seasonality'] as List<dynamic>? ?? const [])
           .whereType<String>()
           .toList(growable: false),
@@ -217,6 +223,7 @@ class RouteSummary {
     'suitable_for_children': suitableForChildren,
     'pets_allowed': petsAllowed,
     'is_seaside': isSeaside,
+    'badge': badge,
     'seasonality': seasonality,
     'author_label': authorLabel,
     'cover_image_url': coverImageUrl,
@@ -503,6 +510,7 @@ class RouteDetail extends RouteSummary {
     super.suitableForChildren,
     super.petsAllowed,
     super.isSeaside,
+    super.badge,
     super.seasonality,
     super.authorLabel,
     super.coverImageUrl,
@@ -574,6 +582,7 @@ class RouteDetail extends RouteSummary {
       suitableForChildren: json['suitable_for_children'] as bool?,
       petsAllowed: json['pets_allowed'] as bool?,
       isSeaside: json['is_seaside'] as bool?,
+      badge: json['badge'] as String?,
       seasonality: (json['seasonality'] as List<dynamic>? ?? const [])
           .whereType<String>()
           .toList(growable: false),

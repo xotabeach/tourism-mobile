@@ -83,13 +83,26 @@ String transportLabel(String? mode) {
 /// place categories — a separate change, not a label.
 List<String> routeTagLabels(RouteSummary route) {
   final season = seasonalityLabel(route.seasonality);
+  final badge = routeBadgeLabel(route.badge);
   return [
+    ?badge,
     transportLabel(route.transportMode),
     routeDifficultyText(route),
     if (route.suitableForChildren ?? false) 'С детьми',
     if (route.petsAllowed ?? false) 'С питомцем',
     ?season,
   ];
+}
+
+/// «Популярное» and «Выбор редакции» (spec 19). `null` for no badge and for
+/// a value this build does not know. Temporary look: the badge is the first
+/// chip of the card until the design lands.
+String? routeBadgeLabel(String? badge) {
+  return switch (badge) {
+    'popular' => 'Популярное',
+    'editors_choice' => 'Выбор редакции',
+    _ => null,
+  };
 }
 
 /// `null` when the season list says nothing useful (empty, or so broad it
