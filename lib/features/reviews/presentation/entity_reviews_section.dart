@@ -1149,12 +1149,43 @@ class _ReviewGalleryDialogState extends State<_ReviewGalleryDialog> {
 /// «Прошёл маршрут» under the author's rank: this person finished the route,
 /// so the review comes from someone who has been there (FRONTEND-42).
 class _WalkedBadge extends StatelessWidget {
-  const _WalkedBadge();
+  const _WalkedBadge({this.partial = false});
+
+  /// «Прошёл частично»: the author's runs ended below the share that
+  /// counts, so the review speaks for a part of the route only.
+  final bool partial;
 
   static const _green = Color(0xFF34C759);
 
   @override
   Widget build(BuildContext context) {
+    if (partial) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.timelapse_rounded,
+              size: 12,
+              color: AppColors.secondaryInk,
+            ),
+            SizedBox(width: 3),
+            Text(
+              'Прошёл частично',
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                height: 1.3,
+                color: AppColors.secondaryInk,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return const Padding(
       padding: EdgeInsets.only(top: 2),
       child: Row(
@@ -1279,7 +1310,10 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                           color: AppColors.secondaryInk,
                         ),
                       ),
-                      if (review.authorCompletedRoute) const _WalkedBadge(),
+                      if (review.authorWalkedPartially)
+                        const _WalkedBadge(partial: true)
+                      else if (review.authorCompletedRoute)
+                        const _WalkedBadge(),
                     ],
                   ),
                 ),

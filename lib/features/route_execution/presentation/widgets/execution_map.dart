@@ -16,11 +16,12 @@ ActiveLeg? executionActiveLeg(RouteExecution execution, RouteDetail? route) {
     for (final stop in execution.stops)
       if (stop.lat != null && stop.lng != null) stop,
   ]..sort((a, b) => a.position.compareTo(b.position));
-  final nextIndex = located.indexWhere((stop) => !stop.isCompleted);
+  // A skipped stop is behind the walker just like a marked one.
+  final nextIndex = located.indexWhere((stop) => !stop.isSettled);
   if (nextIndex <= 0) return null;
   final to = located[nextIndex];
   final from = located[nextIndex - 1];
-  if (!from.isCompleted) return null;
+  if (!from.isSettled) return null;
   final line = sliceLegPolyline(
     [
       for (final point

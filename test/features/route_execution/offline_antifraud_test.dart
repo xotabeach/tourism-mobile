@@ -74,6 +74,23 @@ class _Repo implements RouteExecutionRepository {
   }
 
   @override
+  Future<RouteExecution> skipStop(
+    String executionId,
+    String stopId, {
+    required StopSkipReason reason,
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => execution;
+
+  @override
+  Future<RouteExecution> unskipStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async => execution;
+
+  @override
   Future<RouteExecution> uncompleteStop(
     String executionId,
     String stopId, {

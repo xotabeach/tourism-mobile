@@ -305,6 +305,126 @@ void main() {
     expect(await store.listOutbox(), isEmpty);
   });
 
+  test(
+    'a skip and its take-back queued offline replay with the reason',
+    () async {
+      final repository = _StubExecutionRepository(failures: const {});
+      final store = MemoryRouteExecutionOfflineStore();
+      final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+      await coordinator.enqueue(
+        executionId: 'execution-1',
+        action: RouteExecutionAction.skipStop,
+        stopId: 'stop-b',
+        skipReason: StopSkipReason.noTime,
+      );
+      // The reason survives the trip through the stored queue.
+      expect(
+        (await store.listOutbox()).single.skipReason,
+        StopSkipReason.noTime,
+      );
+      await coordinator.enqueue(
+        executionId: 'execution-1',
+        action: RouteExecutionAction.unskipStop,
+        stopId: 'stop-b',
+      );
+
+      await coordinator.replayPending();
+
+      expect(repository.delivered, ['skip:stop-b:no_time', 'unskip:stop-b']);
+      expect(await store.listOutbox(), isEmpty);
+    },
+  );
+
+  test('a skip without its reason is dropped, never guessed', () async {
+    final repository = _StubExecutionRepository(failures: const {});
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    await coordinator.enqueue(
+      executionId: 'execution-1',
+      action: RouteExecutionAction.skipStop,
+      stopId: 'stop-b',
+    );
+
+    await coordinator.replayPending();
+
+    expect(repository.delivered, isEmpty);
+    expect(await store.listOutbox(), isEmpty);
+  });
+
+  test('taking back a skip that was never sent needs no request', () async {
+    final repository = _StubExecutionRepository(failures: const {});
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    await coordinator.enqueue(
+      executionId: 'execution-1',
+      action: RouteExecutionAction.skipStop,
+      stopId: 'stop-b',
+      skipReason: StopSkipReason.closed,
+    );
+
+    expect(
+      await coordinator.withdrawQueuedSkip('execution-1', 'stop-b'),
+      isTrue,
+    );
+    expect(await store.listOutbox(), isEmpty);
+    expect(
+      await coordinator.withdrawQueuedSkip('execution-1', 'stop-b'),
+      isFalse,
+    );
+    expect(repository.delivered, isEmpty);
+  });
+
+  test('a run started offline replays its skipped stops', () async {
+    const route = RouteDetail(
+      id: 'route-offline-start',
+      name: 'Оффлайн маршрут',
+      slug: 'offline-route',
+      shortDescription: 'Описание',
+      stopsCount: 2,
+      description: 'Подробное описание',
+      stops: [
+        RouteStop(
+          id: 'stop-a',
+          position: 1,
+          placeId: 'place-a',
+          placeName: 'Точка A',
+          placeSlug: 'point-a',
+        ),
+        RouteStop(
+          id: 'stop-b',
+          position: 2,
+          placeId: 'place-b',
+          placeName: 'Точка B',
+          placeSlug: 'point-b',
+          isOptional: true,
+        ),
+      ],
+    );
+    final repository = _StartReconcileRepository();
+    final store = MemoryRouteExecutionOfflineStore();
+    final coordinator = RouteExecutionOfflineCoordinator(store, repository);
+    final local = await coordinator.startOffline(route);
+    await store.saveSnapshot(
+      local.copyWith(
+        stops: [
+          for (final stop in local.stops)
+            stop.id == 'stop-b'
+                ? stop.skipped(
+                    StopSkipReason.closed,
+                    DateTime.utc(2026, 9, 6, 11, 58),
+                  )
+                : stop,
+        ],
+      ),
+    );
+
+    await coordinator.replayPending();
+
+    expect(repository.startedRouteIds, ['route-offline-start']);
+    expect(repository.skipped, ['srv-stop-b:closed']);
+    expect(await store.listOutbox(), isEmpty);
+  });
+
   test('taking back a mark that was never sent needs no request', () async {
     final repository = _StubExecutionRepository(failures: const {});
     final store = MemoryRouteExecutionOfflineStore();
@@ -391,6 +511,29 @@ class _StubExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
+  Future<RouteExecution> skipStop(
+    String executionId,
+    String stopId, {
+    required StopSkipReason reason,
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    delivered.add('skip:$stopId:${reason.apiName}');
+    return _execution;
+  }
+
+  @override
+  Future<RouteExecution> unskipStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    delivered.add('unskip:$stopId');
+    return _execution;
+  }
+
+  @override
   Future<RouteExecution> uncompleteStop(
     String executionId,
     String stopId, {
@@ -454,6 +597,29 @@ class _StartReconcileRepository implements RouteExecutionRepository {
   final startedRouteIds = <String>[];
   final completedStopServerIds = <String>[];
   final completedExecutionIds = <String>[];
+  final skipped = <String>[];
+
+  @override
+  Future<RouteExecution> skipStop(
+    String executionId,
+    String stopId, {
+    required StopSkipReason reason,
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    skipped.add('$stopId:${reason.apiName}');
+    final real = await start('route-offline-start');
+    startedRouteIds.removeLast();
+    return real;
+  }
+
+  @override
+  Future<RouteExecution> unskipStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) => throw UnimplementedError();
 
   @override
   Future<RouteExecution> uncompleteStop(

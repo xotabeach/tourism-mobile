@@ -26,6 +26,7 @@ import 'package:tourism_mobile/features/route_execution/domain/route_execution.d
 import 'package:tourism_mobile/features/route_execution/presentation/mark_confirm_dialog.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/route_execution_summary_screen.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/run_confirm_dialogs.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/skip_stop_sheet.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_leg_card.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/execution_actions.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/execution_chrome.dart';
@@ -461,6 +462,98 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     }
   }
 
+  Future<void> _skipStop(RouteExecutionStop stop) async {
+    final execution = _execution;
+    if (execution == null || !execution.isActive || _busyStopId != null) return;
+    final reason = await showSkipStopSheet(context, placeName: stop.placeName);
+    if (reason == null || !mounted) return;
+    setState(() => _busyStopId = stop.id);
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
+    final updated = skipStopLocally(execution, stop.id, reason, occurredAt);
+    Future<void> queue() => _queueOfflineAction(
+      executionId: execution.id,
+      action: RouteExecutionAction.skipStop,
+      stopId: stop.id,
+      clientEventId: clientEventId,
+      occurredAt: occurredAt,
+      skipReason: reason,
+      updated: updated,
+    );
+    try {
+      if (_isLocalPendingStart) {
+        await queue();
+        return;
+      }
+      final saved = await ref
+          .read(routeExecutionRepositoryProvider)
+          .skipStop(
+            execution.id,
+            stop.id,
+            reason: reason,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
+      await ref.read(routeExecutionOfflineCoordinatorProvider).save(saved);
+      if (mounted) setState(() => _execution = saved);
+    } on NetworkFailure catch (error) {
+      await queue();
+      if (mounted) _showError(_friendlyError(error));
+    } on Object catch (error) {
+      if (mounted) _showError(_friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _busyStopId = null);
+    }
+  }
+
+  Future<void> _unskipStop(RouteExecutionStop stop) async {
+    final execution = _execution;
+    if (execution == null || !execution.isActive || _busyStopId != null) return;
+    setState(() => _busyStopId = stop.id);
+    final clientEventId = newClientEventId();
+    final occurredAt = DateTime.now();
+    final updated = unskipStopLocally(execution, stop.id);
+    final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
+    Future<void> queue() => _queueOfflineAction(
+      executionId: execution.id,
+      action: RouteExecutionAction.unskipStop,
+      stopId: stop.id,
+      clientEventId: clientEventId,
+      occurredAt: occurredAt,
+      updated: updated,
+    );
+    try {
+      if (_isLocalPendingStart) {
+        await queue();
+        return;
+      }
+      // A skip still waiting to be sent is simply withdrawn.
+      if (await coordinator.withdrawQueuedSkip(execution.id, stop.id)) {
+        await coordinator.save(updated);
+        await _refreshPendingActions();
+        if (mounted) setState(() => _execution = updated);
+        return;
+      }
+      final saved = await ref
+          .read(routeExecutionRepositoryProvider)
+          .unskipStop(
+            execution.id,
+            stop.id,
+            clientEventId: clientEventId,
+            occurredAt: occurredAt,
+          );
+      await coordinator.save(saved);
+      if (mounted) setState(() => _execution = saved);
+    } on NetworkFailure catch (error) {
+      await queue();
+      if (mounted) _showError(_friendlyError(error));
+    } on Object catch (error) {
+      if (mounted) _showError(_friendlyError(error));
+    } finally {
+      if (mounted) setState(() => _busyStopId = null);
+    }
+  }
+
   Future<void> _completeRoute() async {
     final execution = _execution;
     if (execution == null || !execution.isActive || _finishing) return;
@@ -721,6 +814,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
     required DateTime occurredAt,
     String? stopId,
     MarkPosition? position,
+    StopSkipReason? skipReason,
   }) async {
     final coordinator = ref.read(routeExecutionOfflineCoordinatorProvider);
     await coordinator.save(updated);
@@ -740,6 +834,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         clientEventId: clientEventId,
         occurredAt: occurredAt,
         position: position,
+        skipReason: skipReason,
       );
     }
     await _refreshPendingActions();
@@ -860,7 +955,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         execution.status == RouteExecutionStatus.completed ||
             execution.status == RouteExecutionStatus.cancelled
         ? null
-        : execution.stops.where((stop) => !stop.isCompleted).firstOrNull;
+        : execution.stops.where((stop) => !stop.isSettled).firstOrNull;
     // To the next stop from where the phone is, as the crow flies; without a
     // plausible fix, the length of the whole leg that leads there along the
     // way. The two are different numbers, so the row says which one it shows
@@ -974,7 +1069,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (execution.stops.isEmpty)
           const ExecutionEmptyStopsCard()
         else
-          for (final stop in execution.stops)
+          for (final stop in execution.stops) ...[
             ExecutionStopRow(
               stop: stop,
               isNext: execution.isActive && stop.id == nextStop?.id,
@@ -988,7 +1083,18 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
                   execution.isActive && stop.id == lastMarkedStopId(execution)
                   ? () => unawaited(_uncompleteStop(stop))
                   : null,
+              onUnskip: execution.isActive
+                  ? () => unawaited(_unskipStop(stop))
+                  : null,
             ),
+            if (execution.isActive && stop.id == nextStop?.id)
+              ExecutionSkipLink(
+                placeName: stop.placeName,
+                onPressed: _busyStopId == null
+                    ? () => unawaited(_skipStop(stop))
+                    : null,
+              ),
+          ],
         ...executionActions(
           execution: execution,
           finishing: _finishing,
@@ -1015,6 +1121,12 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       return 'Сначала заверши текущий маршрут';
     }
     final message = error.toString();
+    if (error is AppFailure && error.code == 'required_stops_incomplete') {
+      return 'Отметь или пропусти обязательные точки, чтобы завершить';
+    }
+    if (error is AppFailure && error.code == 'no_stops_marked') {
+      return 'Отметь хотя бы одну точку, чтобы завершить';
+    }
     if (message.contains('route_execution_stop_not_last')) {
       return 'Снять можно только последнюю отметку';
     }

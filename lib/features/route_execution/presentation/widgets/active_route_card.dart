@@ -273,9 +273,11 @@ _RunStatus _status(HomeActiveRun state, DateTime now) {
 
 String _nextStopName(RouteExecution run) {
   for (final stop in run.stops) {
-    if (!stop.isCompleted) return 'Дальше: ${stop.placeName}';
+    if (!stop.isSettled) return 'Дальше: ${stop.placeName}';
   }
-  return 'Все точки отмечены';
+  return run.hasSkippedStops
+      ? 'Все точки отмечены или пропущены'
+      : 'Все точки отмечены';
 }
 
 /// «3 из 7 точек • 1,8 из 4,2 км»: the kilometres are the planned legs up to

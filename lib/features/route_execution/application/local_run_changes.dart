@@ -21,37 +21,49 @@ RouteExecution completeStopLocally(
   RouteExecution execution,
   String stopId,
   DateTime completedAt,
-) {
-  final stops = [
-    for (final stop in execution.stops)
-      stop.id == stopId && !stop.isCompleted
-          ? stop.copyWith(completedAt: completedAt)
-          : stop,
-  ];
-  final completed = stops.where((stop) => stop.isCompleted).length;
-  final required = stops
-      .where((stop) => stop.isCompleted && !stop.isOptional)
-      .length;
-  return execution.copyWith(
-    stops: stops,
-    completedStops: completed,
-    completedRequiredStops: required,
-  );
-}
+) => _withStops(execution, [
+  for (final stop in execution.stops)
+    stop.id == stopId && !stop.isCompleted
+        ? stop.copyWith(completedAt: completedAt)
+        : stop,
+]);
 
-RouteExecution uncompleteStopLocally(RouteExecution execution, String stopId) {
-  final stops = [
-    for (final stop in execution.stops)
-      stop.id == stopId ? stop.withoutCompletion() : stop,
-  ];
-  return execution.copyWith(
-    stops: stops,
-    completedStops: stops.where((stop) => stop.isCompleted).length,
-    completedRequiredStops: stops
-        .where((stop) => stop.isCompleted && !stop.isOptional)
-        .length,
-  );
-}
+RouteExecution uncompleteStopLocally(RouteExecution execution, String stopId) =>
+    _withStops(execution, [
+      for (final stop in execution.stops)
+        stop.id == stopId ? stop.withoutCompletion() : stop,
+    ]);
+
+/// A stop passed by before the server knows: a marked stop stays marked.
+RouteExecution skipStopLocally(
+  RouteExecution execution,
+  String stopId,
+  StopSkipReason reason,
+  DateTime at,
+) => _withStops(execution, [
+  for (final stop in execution.stops)
+    stop.id == stopId && !stop.isCompleted ? stop.skipped(reason, at) : stop,
+]);
+
+RouteExecution unskipStopLocally(RouteExecution execution, String stopId) =>
+    _withStops(execution, [
+      for (final stop in execution.stops)
+        stop.id == stopId ? stop.withoutSkip() : stop,
+    ]);
+
+RouteExecution _withStops(
+  RouteExecution execution,
+  List<RouteExecutionStop> stops,
+) => execution.copyWith(
+  stops: stops,
+  completedStops: stops.where((stop) => stop.isCompleted).length,
+  completedRequiredStops: stops
+      .where((stop) => stop.isCompleted && !stop.isOptional)
+      .length,
+  skippedRequiredStops: stops
+      .where((stop) => stop.isSkipped && !stop.isOptional)
+      .length,
+);
 
 /// Offline pause/resume keep the timer honest until the server answers:
 /// a pause freezes it, a resume folds the pause into the paused total.
