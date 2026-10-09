@@ -361,6 +361,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     pages: pageUnlockedAchievements([
                       for (final page in profile.achievementPages) ...page,
                     ]),
+                    isOwn: isOwn,
                     pageIndex: _achievementPage,
                     onPageChanged: (index) {
                       setState(() => _achievementPage = index);
@@ -1494,18 +1495,25 @@ class _FollowersStatIconPainter extends CustomPainter {
 class _AchievementsCarousel extends StatelessWidget {
   const _AchievementsCarousel({
     required this.pages,
+    required this.isOwn,
     required this.pageIndex,
     required this.onPageChanged,
     required this.onAchievementTap,
   });
 
   final List<List<ProfileAchievement>> pages;
+
+  /// Чей профиль: от этого зависит подпись, когда достижений нет.
+  final bool isOwn;
   final int pageIndex;
   final ValueChanged<int> onPageChanged;
   final ValueChanged<ProfileAchievement> onAchievementTap;
 
   @override
   Widget build(BuildContext context) {
+    // Без достижений карусель оставляла пустое место на три плитки: раздел
+    // выглядел незагрузившимся (FRONTEND-66).
+    if (pages.isEmpty) return _NoAchievements(isOwn: isOwn);
     return Column(
       children: [
         SizedBox(
@@ -1539,6 +1547,74 @@ class _AchievementsCarousel extends StatelessWidget {
         const SizedBox(height: 12),
         _PageDots(count: pages.length, index: pageIndex),
       ],
+    );
+  }
+}
+
+/// Раздел достижений, когда ни одного ещё нет: одна приглушённая плитка
+/// того же вида, что и закрытое достижение.
+class _NoAchievements extends StatelessWidget {
+  const _NoAchievements({required this.isOwn});
+
+  final bool isOwn;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.page),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0x59E7E7E7),
+          borderRadius: BorderRadius.circular(AppRadii.card),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFCFCFD2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.emoji_events_outlined,
+                  size: 24,
+                  color: AppColors.secondaryInk,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      isOwn
+                          ? 'У вас пока нет достижений'
+                          : 'У пользователя пока нет достижений',
+                      style: AppTypography.chip.copyWith(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.secondaryInk,
+                      ),
+                    ),
+                    if (isOwn) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Проходите маршруты, чтобы открывать их',
+                        style: AppTypography.routeMetadata.copyWith(
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

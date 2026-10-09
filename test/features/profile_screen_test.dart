@@ -7,12 +7,58 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
+import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 import '../support/test_overrides.dart';
 
 void main() {
+  testWidgets('a profile without achievements shows a short note, not a gap', (
+    tester,
+  ) async {
+    tester.view
+      ..devicePixelRatio = 1
+      ..physicalSize = const Size(393, 1600);
+    addTearDown(() {
+      tester.view
+        ..resetDevicePixelRatio()
+        ..resetPhysicalSize();
+    });
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...testSessionOverrides(onboardingCompleted: true),
+          publicProfileProvider.overrideWith((ref, userId) async {
+            final base = ref.watch(profileProvider);
+            return ProfileSnapshot(
+              displayName: 'КРЫМТРИП',
+              rank: base.rank,
+              coverImageAsset: base.coverImageAsset,
+              avatarImageAsset: base.avatarImageAsset,
+              achievementPages: const [],
+              publishedRoutes: const [],
+            );
+          }),
+        ],
+        child: const MaterialApp(home: ProfileScreen(userId: 'editorial')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Достижения:'), findsOneWidget);
+    final note = find.text('У пользователя пока нет достижений');
+    expect(note, findsOneWidget);
+    // The next section follows the note closely: the empty carousel used to
+    // leave room for three tiles (FRONTEND-66).
+    final gap =
+        tester.getTopLeft(find.text('Опубликованные маршруты')).dy -
+        tester.getTopLeft(find.text('Достижения:')).dy;
+    expect(gap, lessThan(160));
+  });
+
   testWidgets('profile tab shows mock rank, achievements and routes', (
     tester,
   ) async {
