@@ -72,6 +72,7 @@ class RouteReview {
     this.replyTo,
     this.authorCompletedRoute = false,
     this.authorWalkedPartially = false,
+    this.beforeRouteUpdate = false,
   });
 
   final String id;
@@ -93,6 +94,10 @@ class RouteReview {
   /// The author only walked a part of the route: their runs ended below
   /// the share that counts («Прошёл частично»).
   final bool authorWalkedPartially;
+
+  /// Written before an approved edit changed the route («до обновления
+  /// маршрута»): it speaks about the previous version.
+  final bool beforeRouteUpdate;
 
   /// Stars left right after the run, without any text (FRONTEND-42).
   bool get isRatingOnly => body.trim().isEmpty && replyTo == null;
@@ -123,6 +128,7 @@ class RouteReview {
       },
       authorCompletedRoute: json['author_completed_route'] as bool? ?? false,
       authorWalkedPartially: json['author_walk'] == 'partial',
+      beforeRouteUpdate: json['before_route_update'] as bool? ?? false,
     );
   }
 }

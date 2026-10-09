@@ -191,6 +191,96 @@ void main() {
     },
   );
 
+  test('a published route is saved and sent as an edit, then the edit can '
+      'be dropped', () async {
+    const start = RouteLocation(
+      id: 'start-id',
+      name: 'Старт',
+      subtitle: 'Крым',
+      lat: 44.5,
+      lng: 34,
+    );
+    const finish = RouteLocation(
+      id: 'finish-id',
+      name: 'Финиш',
+      subtitle: 'Крым',
+      lat: 44.6,
+      lng: 34.1,
+    );
+    final drafts = _MemoryDraftRepository()
+      ..value = const RouteDraft(
+        serverId: 'route-id',
+        publicationStatus: RoutePublicationStatus.published,
+        title: 'Новая версия',
+        unsynced: true,
+        media: [
+          RouteMediaItem(
+            id: 'photo',
+            path: '/tmp/photo.jpg',
+            kind: RouteMediaKind.image,
+          ),
+        ],
+        start: start,
+        finish: finish,
+      );
+    final publication = _NoopPublicationRepository()..published = true;
+    final syncStore = _MemoryMediaStore();
+    final controller = RoutePublishController(
+      mode: RoutePublishMode.production,
+      userId: 'test-user',
+      editingExisting: true,
+      drafts: drafts,
+      mediaPicker: _NoopMediaPicker(),
+      mediaStore: syncStore,
+      publication: publication,
+      sync: RouteDraftSyncService(
+        drafts: drafts,
+        publication: publication,
+        mediaStore: syncStore,
+        storage: MemorySecureStorage(),
+      ),
+      routes: MockRoutesRepository(),
+    );
+    addTearDown(controller.dispose);
+    await Future<void>.delayed(Duration.zero);
+    if (controller.state.availableDraft != null) controller.continueDraft();
+    expect(controller.state.draft.editsPublished, isTrue);
+
+    // «Сохранить правку»: a draft of the version, the route stays published.
+    await controller.saveDraft();
+    expect(publication.saved, 1);
+    expect(publication.submitted, 0);
+    expect(
+      controller.state.draft.publicationStatus,
+      RoutePublicationStatus.published,
+    );
+    expect(controller.state.draft.revisionStatus, RouteRevisionStatus.draft);
+    expect(
+      controller.state.message,
+      'Правка сохранена. В каталоге пока прежняя версия',
+    );
+
+    // «Отправить на проверку».
+    final id = await controller.publish();
+    expect(id, 'route-id');
+    expect(publication.submitted, 1);
+    expect(
+      controller.state.draft.revisionStatus,
+      RouteRevisionStatus.pendingReview,
+    );
+    expect(
+      controller.state.message,
+      'Правка отправлена на проверку. В каталоге пока прежняя версия',
+    );
+
+    // «Отменить правку»: the form goes back to what is in the catalogue.
+    publication.published = true;
+    await controller.discardRevision();
+    expect(publication.revisionsDiscarded, ['route-id']);
+    expect(controller.state.draft.title, 'Опубликованная версия');
+    expect(controller.state.draft.revisionStatus, isNull);
+  });
+
   test('controller clears the local draft after publication', () async {
     const start = RouteLocation(
       id: 'start-id',
@@ -435,9 +525,18 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
   @override
   Future<void> discardDraft(String routeId) async => discarded.add(routeId);
 
+  /// The route on the form is a published one: the server keeps its edits
+  /// as a version beside it.
+  bool published = false;
+
   @override
-  Future<RouteDraft> loadForEdit(String routeId) async =>
-      RouteDraft(serverId: routeId);
+  Future<RouteDraft> loadForEdit(String routeId) async => RouteDraft(
+    serverId: routeId,
+    title: published ? 'Опубликованная версия' : '',
+    publicationStatus: published
+        ? RoutePublicationStatus.published
+        : RoutePublicationStatus.draft,
+  );
 
   @override
   Future<RoutePublicationReceipt> saveDraft(
@@ -447,7 +546,10 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
     saved++;
     return RoutePublicationReceipt(
       id: 'route-id',
-      status: RoutePublicationStatus.draft,
+      status: published
+          ? RoutePublicationStatus.published
+          : RoutePublicationStatus.draft,
+      revisionStatus: published ? RouteRevisionStatus.draft : null,
       updatedAt: DateTime.utc(2026),
     );
   }
@@ -457,10 +559,19 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
     submitted++;
     return RoutePublicationReceipt(
       id: 'route-id',
-      status: RoutePublicationStatus.pendingReview,
+      status: published
+          ? RoutePublicationStatus.published
+          : RoutePublicationStatus.pendingReview,
+      revisionStatus: published ? RouteRevisionStatus.pendingReview : null,
       updatedAt: DateTime.utc(2026),
     );
   }
+
+  final revisionsDiscarded = <String>[];
+
+  @override
+  Future<void> discardRevision(String routeId) async =>
+      revisionsDiscarded.add(routeId);
 
   @override
   Future<RoutePublicationReceipt> withdraw(String routeId) async {

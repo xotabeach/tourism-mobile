@@ -1340,6 +1340,19 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                 ),
               ],
             ),
+            if (review.beforeRouteUpdate) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Отзыв оставлен до обновления маршрута',
+                style: TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  height: 1.3,
+                  color: AppColors.secondaryInk,
+                ),
+              ),
+            ],
             if (!review.isRatingOnly) const SizedBox(height: 10),
             if (review.replyTo case final reply?) ...[
               _PublishedReplyContext(reply: reply),

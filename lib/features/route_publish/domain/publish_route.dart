@@ -20,6 +20,24 @@ enum RoutePublicationStatus {
   }
 }
 
+/// State of an edit waiting beside a published route (spec 15, D5): the
+/// catalogue shows the published version until the edit is approved.
+enum RouteRevisionStatus {
+  draft('draft'),
+  pendingReview('pending_review'),
+  rejected('rejected');
+
+  const RouteRevisionStatus(this.apiValue);
+  final String apiValue;
+
+  static RouteRevisionStatus? fromApi(Object? value) {
+    for (final status in values) {
+      if (status.apiValue == value) return status;
+    }
+    return null;
+  }
+}
+
 class RouteMediaItem {
   const RouteMediaItem({
     required this.id,
@@ -161,6 +179,8 @@ class RouteDraft {
   const RouteDraft({
     this.serverId,
     this.publicationStatus = RoutePublicationStatus.draft,
+    this.revisionStatus,
+    this.revisionRejection,
     this.title = '',
     this.description = '',
     this.media = const [],
@@ -217,6 +237,18 @@ class RouteDraft {
 
   final String? serverId;
   final RoutePublicationStatus publicationStatus;
+
+  /// Set while a published route has an edit beside it; the form then
+  /// holds that edit, not the published version.
+  final RouteRevisionStatus? revisionStatus;
+
+  /// What the moderator asked to fix in a returned edit.
+  final String? revisionRejection;
+
+  /// A published route: saving keeps a draft of the new version, and the
+  /// catalogue shows the old one until the edit is approved.
+  bool get editsPublished =>
+      publicationStatus == RoutePublicationStatus.published;
   final String title;
   final String description;
   final List<RouteMediaItem> media;
@@ -427,8 +459,17 @@ class RouteDraft {
     bool clearBlocked = false,
     bool clearServer = false,
     List<String>? dayBreaks,
+    RouteRevisionStatus? revisionStatus,
+    String? revisionRejection,
+    bool clearRevision = false,
   }) {
     return RouteDraft(
+      revisionStatus: clearRevision || clearServer
+          ? null
+          : revisionStatus ?? this.revisionStatus,
+      revisionRejection: clearRevision || clearServer
+          ? null
+          : revisionRejection ?? this.revisionRejection,
       dayBreaks: dayBreaks ?? this.dayBreaks,
       serverUpdatedAt: clearServer
           ? null
@@ -468,6 +509,8 @@ class RouteDraft {
     'server_updated_at': serverUpdatedAt?.toIso8601String(),
     'server_id': serverId,
     'publication_status': publicationStatus.apiValue,
+    'revision_status': revisionStatus?.apiValue,
+    'revision_rejection': revisionRejection,
     'title': title,
     'description': description,
     'media': media.map((item) => item.toJson()).toList(),
@@ -500,6 +543,8 @@ class RouteDraft {
       publicationStatus: RoutePublicationStatus.fromApi(
         json['publication_status'] as String?,
       ),
+      revisionStatus: RouteRevisionStatus.fromApi(json['revision_status']),
+      revisionRejection: json['revision_rejection'] as String?,
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
       media: (json['media'] as List? ?? const [])

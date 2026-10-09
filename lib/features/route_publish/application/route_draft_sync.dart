@@ -358,6 +358,10 @@ class RouteDraftSyncService {
     final saved = stored.copyWith(
       serverId: receipt.id,
       publicationStatus: receipt.status,
+      // A saved edit of a published route is a draft of the new version;
+      // whatever the moderator said about the previous attempt is answered.
+      revisionStatus: receipt.revisionStatus,
+      clearRevision: receipt.revisionStatus == null,
       serverUpdatedAt: receipt.updatedAt,
       lastSyncedAt: DateTime.now().toUtc(),
       unsynced: editedMeanwhile,

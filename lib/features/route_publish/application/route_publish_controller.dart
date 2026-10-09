@@ -524,7 +524,11 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     switch (outcome) {
       case RouteDraftSyncOutcome.synced || RouteDraftSyncOutcome.upToDate:
         if (explicit) {
-          _message('Черновик сохранён');
+          _message(
+            state.draft.editsPublished
+                ? 'Правка сохранена. В каталоге пока прежняя версия'
+                : 'Черновик сохранён',
+          );
         }
       case RouteDraftSyncOutcome.notReady ||
           RouteDraftSyncOutcome.offline ||
@@ -581,6 +585,8 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
             draft: state.draft.copyWith(
               serverId: draft.serverId,
               publicationStatus: draft.publicationStatus,
+              revisionStatus: draft.revisionStatus,
+              clearRevision: draft.revisionStatus == null,
               serverUpdatedAt: draft.serverUpdatedAt,
               lastSyncedAt: draft.lastSyncedAt,
               unsynced: draft.unsynced || _dirty,
@@ -1213,13 +1219,19 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
             draft: prepared.copyWith(
               serverId: submittedReceipt.id,
               publicationStatus: submittedReceipt.status,
+              revisionStatus: submittedReceipt.revisionStatus,
+              clearRevision: submittedReceipt.revisionStatus == null,
               serverUpdatedAt: submittedReceipt.updatedAt,
               unsynced: false,
             ),
             clearAvailableDraft: true,
           );
         });
-        _message('Маршрут отправлен на модерацию');
+        _message(
+          submittedReceipt.revisionStatus == null
+              ? 'Маршрут отправлен на модерацию'
+              : 'Правка отправлена на проверку. В каталоге пока прежняя версия',
+        );
       }
       return submittedReceipt.id;
     } on AppFailure catch (error) {
@@ -1231,6 +1243,45 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     } finally {
       if (mounted) {
         state = state.copyWith(isPublishing: false);
+      }
+    }
+  }
+
+  /// «Отменить правку» of a published route: the edit is dropped on the
+  /// server and the form goes back to the published version.
+  Future<void> discardRevision() async {
+    final routeId = state.draft.serverId;
+    if (routeId == null || state.isSaving || state.isPublishing) {
+      return;
+    }
+    state = state.copyWith(isSaving: true);
+    try {
+      _autosave?.cancel();
+      await _publication.discardRevision(routeId);
+      final published = await _publication.loadForEdit(routeId);
+      if (!mounted) {
+        return;
+      }
+      final current = state.draft;
+      final draft = (await _withExistingMedia(published)).copyWith(
+        ownerUserId: current.ownerUserId,
+        clientDraftId: current.clientDraftId,
+        unsynced: false,
+      );
+      if (!mounted) {
+        return;
+      }
+      _quiet(() => state = state.copyWith(draft: draft));
+      _dirty = false;
+      await _drafts.save(draft);
+      _refreshRoutePreview();
+      _refreshStatus();
+      _message('Правка отменена. Маршрут остался как был');
+    } on Object {
+      _message('Не удалось отменить правку. Попробуйте ещё раз.');
+    } finally {
+      if (mounted) {
+        state = state.copyWith(isSaving: false);
       }
     }
   }

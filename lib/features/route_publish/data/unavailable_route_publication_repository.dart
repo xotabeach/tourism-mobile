@@ -50,6 +50,11 @@ final class UnavailableRoutePublicationRepository
     return _unavailable();
   }
 
+  @override
+  Future<void> discardRevision(String routeId) async {
+    await _unavailable();
+  }
+
   Future<RoutePublicationReceipt> _unavailable() {
     throw const UnexpectedFailure(
       'Сервис публикации ещё не подключён. Черновик сохранён — попробуйте позже.',
