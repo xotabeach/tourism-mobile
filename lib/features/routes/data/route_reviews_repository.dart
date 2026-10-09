@@ -71,6 +71,7 @@ class RouteReview {
     this.media = const [],
     this.replyTo,
     this.authorCompletedRoute = false,
+    this.authorWalkedPartially = false,
   });
 
   final String id;
@@ -88,6 +89,10 @@ class RouteReview {
 
   /// The author finished this route at least once («Прошёл маршрут»).
   final bool authorCompletedRoute;
+
+  /// The author only walked a part of the route: their runs ended below
+  /// the share that counts («Прошёл частично»).
+  final bool authorWalkedPartially;
 
   /// Stars left right after the run, without any text (FRONTEND-42).
   bool get isRatingOnly => body.trim().isEmpty && replyTo == null;
@@ -117,6 +122,7 @@ class RouteReview {
         _ => null,
       },
       authorCompletedRoute: json['author_completed_route'] as bool? ?? false,
+      authorWalkedPartially: json['author_walk'] == 'partial',
     );
   }
 }

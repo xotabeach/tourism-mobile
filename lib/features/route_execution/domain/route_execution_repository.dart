@@ -26,6 +26,24 @@ abstract interface class RouteExecutionRepository {
     DateTime? occurredAt,
   });
 
+  /// Passes a stop by with a reason (spec 15). A marked stop cannot be
+  /// skipped; skipping again only changes the reason.
+  Future<RouteExecution> skipStop(
+    String executionId,
+    String stopId, {
+    required StopSkipReason reason,
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
+
+  /// Takes a skip back while the run is in progress.
+  Future<RouteExecution> unskipStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  });
+
   Future<RouteExecution> complete(
     String executionId, {
     String? clientEventId,

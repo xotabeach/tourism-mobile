@@ -26,7 +26,7 @@ Map<String, dynamic> _raw(String id, String action, {String? stopId}) => {
 
 void main() {
   test('an unknown action is not an entry, and never «complete»', () {
-    final json = _raw('1', 'skipStop', stopId: 's2');
+    final json = _raw('1', 'teleport', stopId: 's2');
 
     expect(RouteExecutionOutboxEntry.tryFromJson(json), isNull);
     expect(
@@ -54,7 +54,7 @@ void main() {
         key: _outboxKey,
         value: jsonEncode([
           _raw('1', 'completeStop', stopId: 's1'),
-          _raw('2', 'skipStop', stopId: 's2'),
+          _raw('2', 'teleport', stopId: 's2'),
           _raw('3', 'pause'),
         ]),
       );
@@ -84,7 +84,7 @@ void main() {
         RouteExecutionOutboxEntry.fromJson(_raw('4', 'resume')),
       );
 
-      expect(await storedActions(), ['skipStop', 'pause', 'resume']);
+      expect(await storedActions(), ['teleport', 'pause', 'resume']);
     });
 
     test('does not delete the list while an unknown entry remains', () async {
@@ -92,7 +92,7 @@ void main() {
       await store.removeOutbox('3');
 
       expect(await store.listOutbox(), isEmpty);
-      expect(await storedActions(), ['skipStop']);
+      expect(await storedActions(), ['teleport']);
     });
   });
 
@@ -104,7 +104,7 @@ void main() {
           _raw('1', 'completeStop'),
         ),
         'crimeatrip.offline.execution.outbox.v1.2': jsonEncode(
-          _raw('2', 'skipStop'),
+          _raw('2', 'teleport'),
         ),
       });
       final store = SharedPreferencesRouteExecutionOfflineStore();

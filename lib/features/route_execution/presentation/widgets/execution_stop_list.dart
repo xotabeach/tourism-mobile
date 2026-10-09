@@ -17,6 +17,7 @@ class ExecutionStopRow extends StatelessWidget {
     required this.enabled,
     required this.onComplete,
     this.onUndo,
+    this.onUnskip,
     this.travelSummary,
   });
 
@@ -36,7 +37,15 @@ class ExecutionStopRow extends StatelessWidget {
   /// Set only for the latest marked stop: tapping its tick takes it back.
   final VoidCallback? onUndo;
 
+  /// Set for a skipped stop while the run is going: tapping its mark takes
+  /// the skip back.
+  final VoidCallback? onUnskip;
+
   String get _subtitle {
+    if (stop.isSkipped) {
+      final reason = stop.skipReason?.label;
+      return reason == null ? 'Пропущена' : 'Пропущена • $reason';
+    }
     final parts = [
       // Leg length, with the expected time when there is one.
       ?formatLegLabel(stop.legDistanceMeters, stop.legEstimateSeconds) ??
@@ -53,6 +62,7 @@ class ExecutionStopRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final done = stop.isCompleted;
+    final skipped = stop.isSkipped;
     // A mark made offline that the server never got (DESIGN-4, №3): a red
     // cross in place of the ring and a short red note, tap marks it again.
     final undelivered = stop.undelivered && !done;
@@ -75,7 +85,11 @@ class ExecutionStopRow extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isNext ? AppColors.accentBlue : AppColors.primaryInk,
+              color: skipped
+                  ? ExecutionColors.muted
+                  : isNext
+                  ? AppColors.accentBlue
+                  : AppColors.primaryInk,
             ),
             alignment: Alignment.center,
             child: Text(
@@ -99,12 +113,14 @@ class ExecutionStopRow extends StatelessWidget {
                   stop.placeName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontFamily: AppFonts.rubik,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                     height: 1.2,
-                    color: AppColors.primaryInk,
+                    color: skipped
+                        ? ExecutionColors.muted
+                        : AppColors.primaryInk,
                   ),
                 ),
                 if (subtitle.isNotEmpty) ...[
@@ -145,11 +161,14 @@ class ExecutionStopRow extends StatelessWidget {
           ],
           ExecutionStopMark(
             done: done,
+            skipped: skipped,
             undelivered: undelivered,
             busy: busy,
             placeName: stop.placeName,
             onTap: busy
                 ? null
+                : skipped
+                ? onUnskip
                 : done
                 ? onUndo
                 : enabled
@@ -163,7 +182,8 @@ class ExecutionStopRow extends StatelessWidget {
 }
 
 /// The round mark on the right of a stop: an empty ring to tap when the
-/// stop is reached, filled with a tick once it is.
+/// stop is reached, filled with a tick once it is, grey with a «next»
+/// glyph when the stop was skipped.
 class ExecutionStopMark extends StatelessWidget {
   const ExecutionStopMark({
     super.key,
@@ -172,10 +192,12 @@ class ExecutionStopMark extends StatelessWidget {
     required this.placeName,
     required this.onTap,
     this.undelivered = false,
+    this.skipped = false,
   });
 
   final bool done;
   final bool undelivered;
+  final bool skipped;
   final bool busy;
   final String placeName;
   final VoidCallback? onTap;
@@ -187,7 +209,11 @@ class ExecutionStopMark extends StatelessWidget {
       button: !done || onTap != null,
       checked: done,
       enabled: onTap != null,
-      label: undelivered
+      label: skipped
+          ? onTap != null
+                ? '«$placeName» пропущена, вернуть'
+                : '«$placeName» пропущена'
+          : undelivered
           ? 'Отметка «$placeName» не доставлена, отметить заново'
           : !done
           ? 'Отметить «$placeName»'
@@ -212,8 +238,12 @@ class ExecutionStopMark extends StatelessWidget {
                     height: 31,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: done ? AppColors.primaryInk : Colors.transparent,
-                      border: done
+                      color: skipped
+                          ? ExecutionColors.ring
+                          : done
+                          ? AppColors.primaryInk
+                          : Colors.transparent,
+                      border: done || skipped
                           ? null
                           : Border.all(color: ExecutionColors.ring, width: 1.2),
                     ),
@@ -222,6 +252,12 @@ class ExecutionStopMark extends StatelessWidget {
                         ? const SizedBox.square(
                             dimension: 14,
                             child: CircularProgressIndicator(strokeWidth: 1.6),
+                          )
+                        : skipped
+                        ? const Icon(
+                            Icons.skip_next_rounded,
+                            size: 18,
+                            color: Colors.white,
                           )
                         : done
                         ? const Icon(
@@ -232,6 +268,48 @@ class ExecutionStopMark extends StatelessWidget {
                         : null,
                   ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// «Пропустить точку» under the stop being walked to: a quiet link, since
+/// skipping is the exception.
+class ExecutionSkipLink extends StatelessWidget {
+  const ExecutionSkipLink({
+    super.key,
+    required this.placeName,
+    required this.onPressed,
+  });
+
+  final String placeName;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Semantics(
+        container: true,
+        button: true,
+        enabled: onPressed != null,
+        label: 'Пропустить «$placeName»',
+        excludeSemantics: true,
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 32),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            foregroundColor: ExecutionColors.muted,
+            textStyle: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          child: const Text('Пропустить точку'),
         ),
       ),
     );

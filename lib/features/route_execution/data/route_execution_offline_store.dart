@@ -9,6 +9,8 @@ enum RouteExecutionAction {
   start,
   completeStop,
   uncompleteStop,
+  skipStop,
+  unskipStop,
   complete,
   cancel,
   pause,
@@ -26,6 +28,7 @@ class RouteExecutionOutboxEntry {
     this.routeId,
     this.attempts = 0,
     this.position,
+    this.skipReason,
   });
 
   final String id;
@@ -53,6 +56,9 @@ class RouteExecutionOutboxEntry {
   /// older than [maxPositionAge].
   final MarkPosition? position;
 
+  /// Only set for [RouteExecutionAction.skipStop].
+  final StopSkipReason? skipReason;
+
   static const maxPositionAge = Duration(hours: 24);
 
   RouteExecutionOutboxEntry incrementAttempt() => RouteExecutionOutboxEntry(
@@ -65,6 +71,7 @@ class RouteExecutionOutboxEntry {
     createdAt: createdAt,
     attempts: attempts + 1,
     position: position,
+    skipReason: skipReason,
   );
 
   Map<String, dynamic> toJson() => {
@@ -77,6 +84,7 @@ class RouteExecutionOutboxEntry {
     'created_at': createdAt.toUtc().toIso8601String(),
     'attempts': attempts,
     'position': position?.toJson(),
+    'skip_reason': skipReason?.apiName,
   };
 
   /// Throws [FormatException] for an action this build does not know.
@@ -117,6 +125,7 @@ class RouteExecutionOutboxEntry {
           DateTime.now(),
       attempts: (json['attempts'] as num?)?.toInt() ?? 0,
       position: MarkPosition.tryParse(json['position']),
+      skipReason: StopSkipReason.tryParse(json['skip_reason']),
     );
   }
 }

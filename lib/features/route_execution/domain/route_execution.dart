@@ -9,6 +9,27 @@ RouteExecutionStatus routeExecutionStatusFromJson(Object? value) {
   };
 }
 
+/// Why a stop was passed by, picked in one tap (spec 15). «closed» means
+/// the walker got there and it was shut: the way to it is still paid.
+enum StopSkipReason {
+  closed('closed', 'Закрыто'),
+  noTime('no_time', 'Не успеваю'),
+  hard('hard', 'Трудно или опасно'),
+  other('other', 'Другое');
+
+  const StopSkipReason(this.apiName, this.label);
+
+  final String apiName;
+  final String label;
+
+  static StopSkipReason? tryParse(Object? value) {
+    for (final reason in values) {
+      if (reason.apiName == value) return reason;
+    }
+    return null;
+  }
+}
+
 class RouteExecutionStop {
   const RouteExecutionStop({
     required this.id,
@@ -20,6 +41,8 @@ class RouteExecutionStop {
     this.lat,
     this.lng,
     this.completedAt,
+    this.skippedAt,
+    this.skipReason,
     this.legDistanceMeters,
     this.legEstimateSeconds,
     this.legEstimateSource,
@@ -37,6 +60,11 @@ class RouteExecutionStop {
   final double? lng;
   final DateTime? completedAt;
 
+  /// Passed by instead of marked: when and why. Never set together with
+  /// [completedAt].
+  final DateTime? skippedAt;
+  final StopSkipReason? skipReason;
+
   /// Length of the leg that ends at this stop (from the previous one).
   final int? legDistanceMeters;
 
@@ -53,6 +81,10 @@ class RouteExecutionStop {
   final bool undelivered;
 
   bool get isCompleted => completedAt != null;
+  bool get isSkipped => skippedAt != null && completedAt == null;
+
+  /// Marked or skipped: nothing left to decide about this stop.
+  bool get isSettled => isCompleted || isSkipped;
 
   RouteExecutionStop copyWith({
     DateTime? completedAt,
@@ -72,6 +104,9 @@ class RouteExecutionStop {
     lat: lat,
     lng: lng,
     completedAt: completedAt ?? this.completedAt,
+    // A mark replaces a skip.
+    skippedAt: completedAt == null ? skippedAt : null,
+    skipReason: completedAt == null ? skipReason : null,
     legDistanceMeters: legDistanceMeters ?? this.legDistanceMeters,
     legEstimateSeconds: legEstimateSeconds ?? this.legEstimateSeconds,
     legEstimateSource: legEstimateSource ?? this.legEstimateSource,
@@ -97,6 +132,43 @@ class RouteExecutionStop {
     paceWarnBelowSeconds: paceWarnBelowSeconds,
   );
 
+  /// The same stop passed by with [reason]; an earlier mark is dropped.
+  RouteExecutionStop skipped(StopSkipReason reason, DateTime at) =>
+      RouteExecutionStop(
+        id: id,
+        position: position,
+        placeName: placeName,
+        isOptional: isOptional,
+        routeStopId: routeStopId,
+        placeId: placeId,
+        lat: lat,
+        lng: lng,
+        skippedAt: at,
+        skipReason: reason,
+        legDistanceMeters: legDistanceMeters,
+        legEstimateSeconds: legEstimateSeconds,
+        legEstimateSource: legEstimateSource,
+        paceWarnBelowSeconds: paceWarnBelowSeconds,
+      );
+
+  /// The same stop with its skip taken back; a mark, if any, stays.
+  RouteExecutionStop withoutSkip() => RouteExecutionStop(
+    id: id,
+    position: position,
+    placeName: placeName,
+    isOptional: isOptional,
+    routeStopId: routeStopId,
+    placeId: placeId,
+    lat: lat,
+    lng: lng,
+    completedAt: completedAt,
+    legDistanceMeters: legDistanceMeters,
+    legEstimateSeconds: legEstimateSeconds,
+    legEstimateSource: legEstimateSource,
+    paceWarnBelowSeconds: paceWarnBelowSeconds,
+    undelivered: undelivered,
+  );
+
   Map<String, dynamic> toJson() => {
     'id': id,
     'route_stop_id': routeStopId,
@@ -107,6 +179,8 @@ class RouteExecutionStop {
     'lng': lng,
     'is_optional': isOptional,
     'completed_at': completedAt?.toUtc().toIso8601String(),
+    'skipped_at': skippedAt?.toUtc().toIso8601String(),
+    'skip_reason': skipReason?.apiName,
     'leg_distance_meters': legDistanceMeters,
     'leg_estimate_seconds': legEstimateSeconds,
     'leg_estimate_source': legEstimateSource,
@@ -125,6 +199,8 @@ class RouteExecutionStop {
       lng: (json['lng'] as num?)?.toDouble(),
       isOptional: json['is_optional'] as bool? ?? false,
       completedAt: _date(json['completed_at']),
+      skippedAt: _date(json['skipped_at']),
+      skipReason: StopSkipReason.tryParse(json['skip_reason']),
       legDistanceMeters: (json['leg_distance_meters'] as num?)?.toInt(),
       legEstimateSeconds: (json['leg_estimate_seconds'] as num?)?.toInt(),
       legEstimateSource: json['leg_estimate_source'] as String?,
@@ -297,6 +373,10 @@ class RouteExecution {
     this.currentDay = 1,
     this.nightPaused = false,
     this.endedEarly = false,
+    this.skippedRequiredStops = 0,
+    this.counted = true,
+    this.completedSharePercent,
+    this.countedThresholdPercent = 70,
   });
 
   final String id;
@@ -356,6 +436,23 @@ class RouteExecution {
 
   bool get isMultiDay => plannedDays > 1 || currentDay > 1;
 
+  /// Required stops passed by. The run can be finished once every required
+  /// stop is marked or skipped.
+  final int skippedRequiredStops;
+
+  /// Whether the finished run counts as «прошёл маршрут». A partial run is
+  /// still paid for what was walked.
+  final bool counted;
+
+  /// Share of required stops marked, fixed by the server when the run ended;
+  /// null while it is going or before the server answered.
+  final int? completedSharePercent;
+
+  /// The share a run needs to count.
+  final int countedThresholdPercent;
+
+  bool get hasSkippedStops => stops.any((stop) => stop.isSkipped);
+
   final int totalStops;
   final int completedStops;
   final int requiredStops;
@@ -396,6 +493,7 @@ class RouteExecution {
     List<RouteExecutionStop>? stops,
     int? completedStops,
     int? completedRequiredStops,
+    int? skippedRequiredStops,
     int? awardedPoints,
     int? pausedDurationSeconds,
     RoutePointsStatus? pointsStatus,
@@ -440,6 +538,10 @@ class RouteExecution {
     currentDay: currentDay ?? this.currentDay,
     nightPaused: nightPaused ?? this.nightPaused,
     endedEarly: endedEarly,
+    skippedRequiredStops: skippedRequiredStops ?? this.skippedRequiredStops,
+    counted: counted,
+    completedSharePercent: completedSharePercent,
+    countedThresholdPercent: countedThresholdPercent,
   );
 
   Map<String, dynamic> toJson() => {
@@ -460,6 +562,10 @@ class RouteExecution {
     'current_day': currentDay,
     'night_paused': nightPaused,
     'ended_early': endedEarly,
+    'skipped_required_stops': skippedRequiredStops,
+    'counted': counted,
+    'completed_share_percent': completedSharePercent,
+    'counted_threshold_percent': countedThresholdPercent,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -507,6 +613,12 @@ class RouteExecution {
       currentDay: (json['current_day'] as num?)?.toInt() ?? 1,
       nightPaused: json['night_paused'] as bool? ?? false,
       endedEarly: json['ended_early'] as bool? ?? false,
+      skippedRequiredStops:
+          (json['skipped_required_stops'] as num?)?.toInt() ?? 0,
+      counted: json['counted'] as bool? ?? true,
+      completedSharePercent: (json['completed_share_percent'] as num?)?.toInt(),
+      countedThresholdPercent:
+          (json['counted_threshold_percent'] as num?)?.toInt() ?? 70,
       antifraud: json['antifraud'] is Map
           ? RouteExecutionAntiFraud.fromJson(
               Map<String, dynamic>.from(json['antifraud'] as Map),

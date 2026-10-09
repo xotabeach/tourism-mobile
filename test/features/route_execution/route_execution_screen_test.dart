@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -19,8 +21,45 @@ class _Repo extends MockRouteExecutionRepository {
   /// A stop whose offline mark never reached the server (DESIGN-4, №3).
   final String? undeliveredStopId;
   final unmarked = <String>[];
+  final skipped = <String>[];
+  final unskipped = <String>[];
   var starts = 0;
   RouteExecution? _run;
+
+  @override
+  Future<RouteExecution> skipStop(
+    String executionId,
+    String stopId, {
+    required StopSkipReason reason,
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    skipped.add('$stopId:${reason.apiName}');
+    final run = _run!;
+    return _run = run.copyWith(
+      stops: [
+        for (final stop in run.stops)
+          stop.id == stopId ? stop.skipped(reason, DateTime.now()) : stop,
+      ],
+    );
+  }
+
+  @override
+  Future<RouteExecution> unskipStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    unskipped.add(stopId);
+    final run = _run!;
+    return _run = run.copyWith(
+      stops: [
+        for (final stop in run.stops)
+          stop.id == stopId ? stop.withoutSkip() : stop,
+      ],
+    );
+  }
 
   @override
   Future<RouteExecution> uncompleteStop(
@@ -167,6 +206,68 @@ void main() {
     expect(repo.unmarked, ['s0']);
     expect(find.text('0/4'), findsOneWidget);
     expect(find.bySemanticsLabel('Отметить «Точка 1»'), findsOneWidget);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('the next stop is skipped with a reason and can be taken back', (
+    tester,
+  ) async {
+    final repo = _Repo();
+    await _openRunScreen(tester, repo);
+    Future<void> settle() async {
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    // Only the stop being walked to offers the skip.
+    expect(find.text('Пропустить точку'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Пропустить «Точка 2»'));
+    await tester.pumpAndSettle();
+    expect(find.text('Пропустить «Точка 2»?'), findsOneWidget);
+    for (final reason in StopSkipReason.values) {
+      expect(find.text(reason.label), findsOneWidget);
+    }
+    await tester.tap(find.text('Закрыто'));
+    await tester.pumpAndSettle();
+    await settle();
+
+    expect(repo.skipped, ['s1:closed']);
+    expect(find.text('Пропущена • Закрыто'), findsOneWidget);
+    // The walk moves on: the next stop is the one after the skipped.
+    expect(find.bySemanticsLabel('Пропустить «Точка 3»'), findsOneWidget);
+    expect(find.text('Сейчас в пути · участок 2–3'), findsOneWidget);
+
+    await tester.tap(find.bySemanticsLabel('«Точка 2» пропущена, вернуть'));
+    await settle();
+
+    expect(repo.unskipped, ['s1']);
+    expect(find.text('Пропущена • Закрыто'), findsNothing);
+    expect(find.bySemanticsLabel('Отметить «Точка 2»'), findsOneWidget);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('closing the reason sheet skips nothing', (tester) async {
+    final repo = _Repo();
+    await _openRunScreen(tester, repo);
+
+    await tester.tap(find.bySemanticsLabel('Пропустить «Точка 2»'));
+    await tester.pumpAndSettle();
+    Navigator.of(
+      tester.element(find.text('Пропустить «Точка 2»?')),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
+
+    expect(repo.skipped, isEmpty);
+    expect(find.bySemanticsLabel('Отметить «Точка 2»'), findsOneWidget);
 
     GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
     await tester.pump(const Duration(seconds: 1));

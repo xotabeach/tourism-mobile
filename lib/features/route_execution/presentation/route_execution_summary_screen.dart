@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/route_execution/application/points_status_text.dart';
+import 'package:tourism_mobile/features/route_execution/application/run_outcome.dart';
 import 'package:tourism_mobile/features/route_execution/data/difficulty_feedback_api.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -181,6 +182,7 @@ class _FinishedCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final notice = pointsNotice(execution);
+    final outcome = RunOutcome.of(execution);
     final String? badge;
     if (notice != null && notice.replacesBadge) {
       badge = notice.badge;
@@ -219,10 +221,10 @@ class _FinishedCard extends StatelessWidget {
               const SizedBox(height: 10),
               const _Hairline(),
               const SizedBox(height: 10),
-              const Text(
-                'Маршрут пройден!',
+              Text(
+                outcome.title,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontFamily: AppFonts.rubik,
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -271,6 +273,22 @@ class _FinishedCard extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ],
+              // A run with skipped stops: what was marked and whether it
+              // counts.
+              if (outcome.note case final note?) ...[
+                const SizedBox(height: 6),
+                Text(
+                  note,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w400,
+                    height: 1.3,
+                    color: _muted,
                   ),
                 ),
               ],

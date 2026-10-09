@@ -23,6 +23,13 @@ class RouteExecutionOfflineCoordinator {
   /// id exists yet" for the screen and for [replayPending]'s reconciliation.
   static const localExecutionPrefix = 'local-';
 
+  static const _stopActions = {
+    RouteExecutionAction.completeStop,
+    RouteExecutionAction.uncompleteStop,
+    RouteExecutionAction.skipStop,
+    RouteExecutionAction.unskipStop,
+  };
+
   final RouteExecutionOfflineStore store;
   final RouteExecutionRepository repository;
 
@@ -88,9 +95,11 @@ class RouteExecutionOfflineCoordinator {
     final handled = <String>{};
     for (final entry in outbox) {
       if (handled.contains(entry.id)) continue;
-      if ((entry.action == RouteExecutionAction.completeStop ||
-              entry.action == RouteExecutionAction.uncompleteStop) &&
-          entry.stopId == null) {
+      // A stop action without its stop, or a skip without its reason, can
+      // never be delivered.
+      if ((_stopActions.contains(entry.action) && entry.stopId == null) ||
+          (entry.action == RouteExecutionAction.skipStop &&
+              entry.skipReason == null)) {
         await store.removeOutbox(entry.id);
         continue;
       }
@@ -183,6 +192,21 @@ class RouteExecutionOfflineCoordinator {
     return withdrawn;
   }
 
+  /// Drops a skip that is still waiting in the queue, so taking it back needs
+  /// no request at all. False when the skip already reached the server.
+  Future<bool> withdrawQueuedSkip(String executionId, String stopId) async {
+    var withdrawn = false;
+    for (final entry in await store.listOutbox()) {
+      if (entry.action == RouteExecutionAction.skipStop &&
+          entry.executionId == executionId &&
+          entry.stopId == stopId) {
+        await store.removeOutbox(entry.id);
+        withdrawn = true;
+      }
+    }
+    return withdrawn;
+  }
+
   /// [clientEventId] should be the key of the request that failed, so a
   /// mutation the server already applied is deduped rather than repeated.
   Future<void> enqueue({
@@ -192,6 +216,7 @@ class RouteExecutionOfflineCoordinator {
     String? clientEventId,
     DateTime? occurredAt,
     MarkPosition? position,
+    StopSkipReason? skipReason,
   }) {
     final id = '${executionId}_${DateTime.now().microsecondsSinceEpoch}';
     return store.enqueue(
@@ -203,6 +228,7 @@ class RouteExecutionOfflineCoordinator {
         action: action,
         createdAt: occurredAt ?? DateTime.now(),
         position: position,
+        skipReason: skipReason,
       ),
     );
   }
@@ -210,7 +236,8 @@ class RouteExecutionOfflineCoordinator {
   /// Starts the route for real, then catches the now-real execution up to
   /// whatever was recorded against the local snapshot while offline —
   /// completed stops (matched by the stable `routeStopId`, since the local
-  /// and server stop ids differ) and a final complete/cancel, in that order.
+  /// and server stop ids differ), skipped stops and a final complete/cancel,
+  /// in that order.
   Future<RouteExecution> _deliverStart(
     RouteExecutionOutboxEntry entry,
     RouteExecution? localSnapshot,
@@ -248,6 +275,19 @@ class RouteExecutionOfflineCoordinator {
         );
       }
     }
+    for (final localStop in local.stops.where((stop) => stop.isSkipped)) {
+      final match = real.stops
+          .where((stop) => stop.routeStopId == localStop.routeStopId)
+          .firstOrNull;
+      if (match != null && !match.isSettled) {
+        real = await repository.skipStop(
+          real.id,
+          match.id,
+          reason: localStop.skipReason ?? StopSkipReason.other,
+          occurredAt: localStop.skippedAt,
+        );
+      }
+    }
     if (local.status == RouteExecutionStatus.completed) {
       real = await repository.complete(real.id, occurredAt: local.completedAt);
     } else if (local.status == RouteExecutionStatus.cancelled) {
@@ -271,6 +311,19 @@ class RouteExecutionOfflineCoordinator {
         position: _freshPosition(entry),
       ),
       RouteExecutionAction.uncompleteStop => repository.uncompleteStop(
+        entry.executionId,
+        entry.stopId ?? '',
+        clientEventId: entry.clientEventId,
+        occurredAt: entry.createdAt,
+      ),
+      RouteExecutionAction.skipStop => repository.skipStop(
+        entry.executionId,
+        entry.stopId ?? '',
+        reason: entry.skipReason ?? StopSkipReason.other,
+        clientEventId: entry.clientEventId,
+        occurredAt: entry.createdAt,
+      ),
+      RouteExecutionAction.unskipStop => repository.unskipStop(
         entry.executionId,
         entry.stopId ?? '',
         clientEventId: entry.clientEventId,

@@ -28,9 +28,10 @@ ActiveLegInfo? activeLegInfo(RouteExecution execution) {
   if (!execution.isActive) return null;
   final stops = [...execution.stops]
     ..sort((a, b) => a.position.compareTo(b.position));
-  final nextIndex = stops.indexWhere((stop) => !stop.isCompleted);
+  // A skipped stop is behind the walker just like a marked one.
+  final nextIndex = stops.indexWhere((stop) => !stop.isSettled);
   if (nextIndex <= 0) return null;
   final from = stops[nextIndex - 1];
-  if (!from.isCompleted) return null;
+  if (!from.isSettled) return null;
   return ActiveLegInfo(from: from, to: stops[nextIndex]);
 }
