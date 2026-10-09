@@ -54,6 +54,12 @@ final class ApiRoutePublicationRepository
       publicationStatus: RoutePublicationStatus.fromApi(
         json['publication_status'] as String?,
       ),
+      revisionStatus: RouteRevisionStatus.fromApi(json['revision_status']),
+      revisionRejection:
+          RouteRevisionStatus.fromApi(json['revision_status']) ==
+              RouteRevisionStatus.rejected
+          ? json['rejection_reason'] as String?
+          : null,
       title: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       start: places.isNotEmpty ? places.first : null,
@@ -211,6 +217,13 @@ final class ApiRoutePublicationRepository
     });
   }
 
+  @override
+  Future<void> discardRevision(String routeId) {
+    return guardApiCall(() async {
+      await _dio.delete<void>('/api/v1/routes/$routeId/revision');
+    });
+  }
+
   Map<String, Object?> _payload(RouteDraft draft) {
     final knownOnServer = draft.serverId != null;
     return {
@@ -248,6 +261,7 @@ final class ApiRoutePublicationRepository
         json['publication_status'] as String?,
       ),
       updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
+      revisionStatus: RouteRevisionStatus.fromApi(json['revision_status']),
     );
   }
 }
@@ -311,4 +325,7 @@ final class InMemoryRoutePublicationRepository
       updatedAt: DateTime.now().toUtc(),
     );
   }
+
+  @override
+  Future<void> discardRevision(String routeId) async {}
 }

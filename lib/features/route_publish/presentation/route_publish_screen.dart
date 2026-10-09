@@ -366,10 +366,27 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                         onAuto: controller.setDifficultyAuto,
                                       ),
                                       SizedBox(height: u(18)),
+                                      if (state.draft.editsPublished) ...[
+                                        PublishedRouteEditNotice(
+                                          u: u,
+                                          status: state.draft.revisionStatus,
+                                          rejection:
+                                              state.draft.revisionRejection,
+                                          onDiscard:
+                                              state.draft.revisionStatus == null
+                                              ? null
+                                              : () => _discardRevision(
+                                                  controller,
+                                                ),
+                                        ),
+                                        SizedBox(height: u(12)),
+                                      ],
                                       PublishRouteActions(
                                         u: u,
                                         publishing: state.isPublishing,
                                         saving: state.isSaving,
+                                        editsPublished:
+                                            state.draft.editsPublished,
                                         onPublish: () => _publish(controller),
                                         onSave: () => _save(controller, state),
                                       ),
@@ -455,35 +472,38 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
         : content;
   }
 
-  /// A route already through review goes back on moderation when saved.
+  /// Saving is always safe: a route waiting for review stays in the queue,
+  /// and a published one keeps its catalogue version while the edit is a
+  /// draft (spec 15, D5), so there is nothing to warn about.
   Future<void> _save(
     RoutePublishController controller,
     RoutePublishState state,
-  ) async {
-    if (state.draft.isLiveRoute) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Сохранить изменения?'),
-          content: const Text(
-            'Маршрут уже опубликован или на проверке. После сохранения он '
-            'вернётся на модерацию.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Отмена'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: const Text('Сохранить'),
-            ),
-          ],
+  ) => controller.saveDraft();
+
+  Future<void> _discardRevision(RoutePublishController controller) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Отменить правку?'),
+        content: const Text(
+          'Несохранённые и неодобренные изменения пропадут. Маршрут '
+          'останется в каталоге таким, как сейчас.',
         ),
-      );
-      if (confirmed != true) return;
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Оставить'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Отменить правку'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await controller.discardRevision();
     }
-    await controller.saveDraft();
   }
 
   Future<void> _confirmStartNew(RoutePublishController controller) async {
@@ -2934,6 +2954,108 @@ class _DifficultySegment extends StatelessWidget {
   }
 }
 
+/// What happens to a published route while it is being edited: the
+/// catalogue keeps the published version until the edit is approved.
+class PublishedRouteEditNotice extends StatelessWidget {
+  const PublishedRouteEditNotice({
+    required this.u,
+    required this.status,
+    this.rejection,
+    this.onDiscard,
+    super.key,
+  });
+
+  final double Function(double) u;
+  final RouteRevisionStatus? status;
+  final String? rejection;
+
+  /// Null while there is no edit on the server to drop.
+  final VoidCallback? onDiscard;
+
+  static String titleFor(RouteRevisionStatus? status) => switch (status) {
+    RouteRevisionStatus.pendingReview =>
+      'Правка на проверке, в каталоге прежняя версия',
+    RouteRevisionStatus.rejected => 'Правку вернули на доработку',
+    RouteRevisionStatus.draft => 'Правка сохранена, но ещё не отправлена',
+    null => 'Маршрут опубликован',
+  };
+
+  String get _body {
+    final reason = rejection?.trim();
+    return switch (status) {
+      RouteRevisionStatus.pendingReview =>
+        'Когда модератор одобрит правку, она заменит маршрут в каталоге. '
+            'Если изменить что-то сейчас, правку нужно будет отправить заново.',
+      RouteRevisionStatus.rejected =>
+        '${reason == null || reason.isEmpty ? 'Исправьте замечания' : reason}. '
+            'Исправьте и отправьте снова: в каталоге осталась прежняя версия.',
+      RouteRevisionStatus.draft =>
+        'В каталоге прежняя версия. Нажмите «Отправить на проверку», когда '
+            'закончите.',
+      null =>
+        'Изменения сохранятся как правка. Маршрут останется в каталоге, а '
+            'правка заменит его после проверки.',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final returned = status == RouteRevisionStatus.rejected;
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(u(14)),
+      decoration: BoxDecoration(
+        color: PublishRouteDesignTokens.surface,
+        borderRadius: BorderRadius.circular(u(16)),
+        border: Border.all(
+          color: returned
+              ? const Color(0xFFFF383C)
+              : PublishRouteDesignTokens.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            titleFor(status),
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: u(15),
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: PublishRouteDesignTokens.dark,
+            ),
+          ),
+          SizedBox(height: u(4)),
+          Text(
+            _body,
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: u(13),
+              fontWeight: FontWeight.w400,
+              height: 1.3,
+              color: PublishRouteDesignTokens.dark,
+            ),
+          ),
+          if (onDiscard != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: onDiscard,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  minimumSize: Size(0, u(36)),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Отменить правку'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class PublishRouteActions extends StatelessWidget {
   const PublishRouteActions({
     required this.u,
@@ -2941,12 +3063,17 @@ class PublishRouteActions extends StatelessWidget {
     required this.saving,
     required this.onPublish,
     required this.onSave,
+    this.editsPublished = false,
     super.key,
   });
 
   final double Function(double) u;
   final bool publishing;
   final bool saving;
+
+  /// A published route is on the form: the buttons save and send an edit
+  /// of it, the route itself stays in the catalogue.
+  final bool editsPublished;
   final VoidCallback onPublish;
   final VoidCallback onSave;
 
@@ -2957,9 +3084,13 @@ class PublishRouteActions extends StatelessWidget {
         _RouteActionButton(
           u: u,
           height: 62,
-          label: 'Опубликовать маршрут',
-          busyLabel: 'Публикуем…',
-          semanticsLabel: 'Опубликовать маршрут',
+          label: editsPublished
+              ? 'Отправить на проверку'
+              : 'Опубликовать маршрут',
+          busyLabel: editsPublished ? 'Отправляем…' : 'Публикуем…',
+          semanticsLabel: editsPublished
+              ? 'Отправить на проверку'
+              : 'Опубликовать маршрут',
           loading: publishing,
           background: PublishRouteDesignTokens.dark,
           foreground: Colors.white,
@@ -2969,9 +3100,11 @@ class PublishRouteActions extends StatelessWidget {
         _RouteActionButton(
           u: u,
           height: 63,
-          label: 'Сохранить черновик',
+          label: editsPublished ? 'Сохранить правку' : 'Сохранить черновик',
           busyLabel: 'Сохраняем…',
-          semanticsLabel: 'Сохранить черновик',
+          semanticsLabel: editsPublished
+              ? 'Сохранить правку'
+              : 'Сохранить черновик',
           loading: saving,
           background: PublishRouteDesignTokens.surface,
           foreground: PublishRouteDesignTokens.dark,

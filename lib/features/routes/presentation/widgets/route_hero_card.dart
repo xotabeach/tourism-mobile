@@ -153,6 +153,13 @@ String? routeStatusLabel(RouteSummary route) {
     'rejected' => 'Нужны правки',
     'published' when route.visibility != null && route.visibility != 'public' =>
       'Скрыт',
+    // Still in the catalogue: the label is about the edit beside it.
+    'published' => switch (route.revisionStatus) {
+      'pending_review' => 'Правка на проверке',
+      'rejected' => 'Правку вернули',
+      'draft' => 'Правка не отправлена',
+      _ => null,
+    },
     _ => null,
   };
 }

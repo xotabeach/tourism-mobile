@@ -108,6 +108,7 @@ class RouteSummary {
     this.lifecycleStatus,
     this.publicationStatus,
     this.rejectionReason,
+    this.revisionStatus,
   });
 
   final String id;
@@ -170,6 +171,11 @@ class RouteSummary {
   /// author (BACKEND-34). Only the author's own unpublished route has it.
   final String? rejectionReason;
 
+  /// The author's own published route with an edit beside it (spec 15,
+  /// D5): `draft`, `pending_review` or `rejected`. The catalogue shows the
+  /// published version meanwhile; [rejectionReason] is then about the edit.
+  final String? revisionStatus;
+
   factory RouteSummary.fromJson(Map<String, dynamic> json) {
     return RouteSummary(
       id: json['id'] as String,
@@ -206,6 +212,7 @@ class RouteSummary {
       lifecycleStatus: json['lifecycle_status'] as String?,
       publicationStatus: json['publication_status'] as String?,
       rejectionReason: json['rejection_reason'] as String?,
+      revisionStatus: json['revision_status'] as String?,
     );
   }
 
@@ -242,6 +249,7 @@ class RouteSummary {
     'lifecycle_status': lifecycleStatus,
     'publication_status': publicationStatus,
     'rejection_reason': rejectionReason,
+    'revision_status': revisionStatus,
   };
 }
 
@@ -530,6 +538,7 @@ class RouteDetail extends RouteSummary {
     super.lifecycleStatus,
     super.publicationStatus,
     super.rejectionReason,
+    super.revisionStatus,
     required this.description,
     required this.stops,
     this.media = const [],
@@ -605,6 +614,7 @@ class RouteDetail extends RouteSummary {
       lifecycleStatus: json['lifecycle_status'] as String?,
       publicationStatus: json['publication_status'] as String?,
       rejectionReason: json['rejection_reason'] as String?,
+      revisionStatus: json['revision_status'] as String?,
       description: json['description'] as String?,
       stops: stopsJson
           .map((item) => RouteStop.fromJson(item as Map<String, dynamic>))

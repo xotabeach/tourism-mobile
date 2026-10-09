@@ -134,6 +134,9 @@ final class _Publication implements RoutePublicationRepository {
   );
 
   @override
+  Future<void> discardRevision(String routeId) async {}
+
+  @override
   Future<RoutePublicationReceipt> withdraw(String routeId) async =>
       throw UnimplementedError();
 

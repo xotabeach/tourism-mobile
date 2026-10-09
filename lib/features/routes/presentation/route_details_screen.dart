@@ -261,6 +261,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             label: statusLabel,
                             status: route.publicationStatus,
                             rejectionReason: route.rejectionReason,
+                            revisionStatus: route.revisionStatus,
                           ),
                         ],
                         const _SectionDivider(),
@@ -761,10 +762,15 @@ class _OwnerRouteStatusBanner extends StatelessWidget {
     required this.label,
     required this.status,
     this.rejectionReason,
+    this.revisionStatus,
   });
 
   final String label;
   final String? status;
+
+  /// State of the edit beside a published route; the route itself stays in
+  /// the catalogue.
+  final String? revisionStatus;
 
   /// What the moderator asked to fix. Shown while the author still has to
   /// resend the route: right after it was returned and while they edit it.
@@ -776,8 +782,23 @@ class _OwnerRouteStatusBanner extends StatelessWidget {
     final hasReason =
         reason != null &&
         reason.isNotEmpty &&
-        (status == 'rejected' || status == 'draft');
+        (status == 'rejected' ||
+            status == 'draft' ||
+            revisionStatus == 'rejected');
     final (icon, statusDescription) = switch (status) {
+      'published' when revisionStatus == 'pending_review' => (
+        Icons.schedule_rounded,
+        'Правку проверяет команда модерации. В каталоге пока прежняя версия.',
+      ),
+      'published' when revisionStatus == 'rejected' => (
+        Icons.info_outline_rounded,
+        'Правке нужны исправления. В каталоге осталась прежняя версия.',
+      ),
+      'published' when revisionStatus == 'draft' => (
+        Icons.edit_note_rounded,
+        'Правка сохранена, но не отправлена на проверку. В каталоге прежняя '
+            'версия.',
+      ),
       'pending_review' => (
         Icons.schedule_rounded,
         'Маршрут проверяет команда модерации. Пока он виден только вам.',

@@ -35,6 +35,10 @@ abstract interface class RoutePublicationRepository {
   /// can be edited again; the route is unlisted from the public catalog.
   Future<RoutePublicationReceipt> withdraw(String routeId);
 
+  /// «Отменить правку» of a published route: the edit is dropped and the
+  /// route stays in the catalogue as it is.
+  Future<void> discardRevision(String routeId);
+
   /// Road geometry for points the author has placed but not saved yet.
   ///
   /// The static map endpoint needs a route id, so before this the publish
@@ -92,9 +96,13 @@ class RoutePublicationReceipt {
     required this.id,
     required this.status,
     required this.updatedAt,
+    this.revisionStatus,
   });
 
   final String id;
   final RoutePublicationStatus status;
+
+  /// Set when what was saved or sent is an edit of a published route.
+  final RouteRevisionStatus? revisionStatus;
   final DateTime updatedAt;
 }
