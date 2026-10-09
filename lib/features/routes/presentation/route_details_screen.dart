@@ -354,7 +354,10 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                                 route.segmentsTo(index),
                               ),
                               selected: _selectedStop == index,
-                              showDivider: index != route.stops.length - 1,
+                              // The overnight tile closes a day by itself.
+                              showDivider:
+                                  index != route.stops.length - 1 &&
+                                  !_endsDayWithNight(route, index),
                               onNumberTap: () => _selectStop(index),
                               onOpen: () => _openPlace(route.stops[index]),
                             ),
@@ -1745,35 +1748,89 @@ class _DayHeading extends StatelessWidget {
   }
 }
 
-/// «Ночлег в районе: …» under the last stop of a day.
+bool _endsDayWithNight(RouteDetail route, int index) =>
+    route.days.length > 1 &&
+    route.days.any(
+      (day) =>
+          day.lastStopId == route.stops[index].id && day.overnightNote != null,
+    );
+
+/// Where the night is spent, between two days of the stop list. A tile of
+/// its own, lined up with the stop rows: as a grey caption under the last
+/// stop it was lost between the days (FRONTEND-67).
 class _OvernightNote extends StatelessWidget {
   const _OvernightNote({required this.text});
 
+  /// «Ночлег: Симферополь» or «Ночлег в районе: Судак».
   final String text;
 
   @override
   Widget build(BuildContext context) {
+    final colon = text.indexOf(':');
+    final label = colon > 0 ? text.substring(0, colon).trim() : 'Ночлег';
+    final place = colon > 0 ? text.substring(colon + 1).trim() : text.trim();
     return Padding(
-      padding: const EdgeInsets.fromLTRB(44, 2, 6, 6),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.bedtime_outlined,
-            size: 14,
-            color: Color(0xFF6B7280),
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Semantics(
+        label: text,
+        excludeSemantics: true,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F2F4),
+            borderRadius: BorderRadius.circular(14),
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 12,
-                color: Color(0xFF6B7280),
-              ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            child: Row(
+              children: [
+                // Same size and column as the stop numbers above it.
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: const BoxDecoration(
+                    color: AppColors.elevatedSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.bedtime_outlined,
+                    size: 18,
+                    color: AppColors.primaryInk,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 12,
+                          height: 1.2,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        place,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
