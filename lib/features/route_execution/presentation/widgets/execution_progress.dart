@@ -234,3 +234,70 @@ class ExecutionWarningCard extends StatelessWidget {
     );
   }
 }
+
+/// «Вы рядом с точкой»: offered when the phone is within reach of a stop
+/// that is not marked yet, so the mark is not forgotten.
+class NearbyStopHint extends StatelessWidget {
+  const NearbyStopHint({
+    super.key,
+    required this.placeName,
+    required this.onMark,
+    required this.onDismiss,
+    this.busy = false,
+  });
+
+  final String placeName;
+  final VoidCallback onMark;
+  final VoidCallback onDismiss;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey('nearby-stop-hint'),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 8),
+      decoration: BoxDecoration(
+        color: AppColors.accentBlue.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Вы рядом с точкой «$placeName»',
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.2,
+              color: AppColors.primaryInk,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              FilledButton(
+                onPressed: busy ? null : onMark,
+                style: FilledButton.styleFrom(
+                  backgroundColor: AppColors.primaryInk,
+                  minimumSize: const Size(0, 38),
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('Отметить'),
+              ),
+              TextButton(
+                onPressed: onDismiss,
+                style: TextButton.styleFrom(
+                  foregroundColor: ExecutionColors.muted,
+                ),
+                child: const Text('Не сейчас'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

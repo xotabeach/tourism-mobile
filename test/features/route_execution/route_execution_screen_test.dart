@@ -1,12 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
+import 'package:tourism_mobile/features/route_execution/application/live_location_provider.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/data/mock_route_execution_repository.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
@@ -16,7 +17,31 @@ import 'package:tourism_mobile/routing/app_router.dart';
 import '../../support/test_overrides.dart';
 
 class _Repo extends MockRouteExecutionRepository {
-  _Repo({this.undeliveredStopId});
+  _Repo({this.undeliveredStopId, this.located = false});
+
+  /// Stops carry coordinates, a few hundred metres apart.
+  final bool located;
+  final marked = <String>[];
+
+  @override
+  Future<RouteExecution> completeStop(
+    String executionId,
+    String stopId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+    MarkPosition? position,
+  }) async {
+    marked.add(stopId);
+    final run = _run!;
+    final stops = [
+      for (final stop in run.stops)
+        stop.id == stopId ? stop.copyWith(completedAt: DateTime.now()) : stop,
+    ];
+    return _run = run.copyWith(
+      stops: stops,
+      completedStops: stops.where((stop) => stop.isCompleted).length,
+    );
+  }
 
   /// A stop whose offline mark never reached the server (DESIGN-4, №3).
   final String? undeliveredStopId;
@@ -101,6 +126,8 @@ class _Repo extends MockRouteExecutionRepository {
             position: i + 1,
             placeName: 'Точка ${i + 1}',
             isOptional: false,
+            lat: located ? 44.60 + i * 0.01 : null,
+            lng: located ? 34.40 : null,
             legDistanceMeters: i == 0 ? null : 3500,
             legEstimateSeconds: i == 0 ? null : 2400,
             completedAt: i == 0 ? now : null,
@@ -115,6 +142,7 @@ Future<void> _openRunScreen(
   WidgetTester tester,
   _Repo repo, {
   bool openOnly = false,
+  List<Override> overrides = const [],
 }) async {
   for (final channel in [
     'flutter.baseflow.com/geolocator',
@@ -135,7 +163,10 @@ Future<void> _openRunScreen(
   addTearDown(tester.view.reset);
   await pumpTourismAppAtHome(
     tester,
-    overrides: [routeExecutionRepositoryProvider.overrideWithValue(repo)],
+    overrides: [
+      routeExecutionRepositoryProvider.overrideWithValue(repo),
+      ...overrides,
+    ],
   );
   unawaited(
     GoRouter.of(tester.element(find.byType(HomeScreen))).pushNamed(
@@ -271,6 +302,89 @@ void main() {
     ).pop();
     await tester.pumpAndSettle();
     expect(find.text('Точка 3'), findsOneWidget);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('near a stop the screen offers to mark it', (tester) async {
+    final repo = _Repo(located: true);
+    Position at(double lat) => Position(
+      latitude: lat,
+      longitude: 34.40,
+      timestamp: DateTime.now(),
+      accuracy: 12,
+      altitude: 0,
+      altitudeAccuracy: 0,
+      heading: 0,
+      headingAccuracy: 0,
+      speed: 0,
+      speedAccuracy: 0,
+    );
+    await _openRunScreen(
+      tester,
+      repo,
+      overrides: [
+        // ~55 m from «Точка 2».
+        liveLocationProvider.overrideWith((ref) => Stream.value(at(44.6105))),
+      ],
+    );
+    Future<void> settle() async {
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+    }
+
+    await settle();
+    expect(find.text('Вы рядом с точкой «Точка 2»'), findsOneWidget);
+
+    await tester.tap(find.text('Отметить'));
+    await settle();
+
+    expect(repo.marked, ['s1']);
+    expect(find.text('2/4'), findsOneWidget);
+    // Marked: nothing left to offer here.
+    expect(find.textContaining('Вы рядом с точкой'), findsNothing);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
+  testWidgets('«не сейчас» puts the hint away for that stop', (tester) async {
+    final repo = _Repo(located: true);
+    await _openRunScreen(
+      tester,
+      repo,
+      overrides: [
+        liveLocationProvider.overrideWith(
+          (ref) => Stream.value(
+            Position(
+              latitude: 44.6105,
+              longitude: 34.40,
+              timestamp: DateTime.now(),
+              accuracy: 12,
+              altitude: 0,
+              altitudeAccuracy: 0,
+              heading: 0,
+              headingAccuracy: 0,
+              speed: 0,
+              speedAccuracy: 0,
+            ),
+          ),
+        ),
+      ],
+    );
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.text('Вы рядом с точкой «Точка 2»'), findsOneWidget);
+
+    await tester.tap(find.text('Не сейчас'));
+    await tester.pump(const Duration(milliseconds: 200));
+
+    expect(find.textContaining('Вы рядом с точкой'), findsNothing);
+    expect(repo.marked, isEmpty);
 
     GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
     await tester.pump(const Duration(seconds: 1));
