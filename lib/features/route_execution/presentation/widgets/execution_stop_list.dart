@@ -18,6 +18,7 @@ class ExecutionStopRow extends StatelessWidget {
     required this.onComplete,
     this.onUndo,
     this.onUnskip,
+    this.onOpen,
     this.travelSummary,
   });
 
@@ -40,6 +41,9 @@ class ExecutionStopRow extends StatelessWidget {
   /// Set for a skipped stop while the run is going: tapping its mark takes
   /// the skip back.
   final VoidCallback? onUnskip;
+
+  /// Tapping the name opens the card of the place.
+  final VoidCallback? onOpen;
 
   String get _subtitle {
     if (stop.isSkipped) {
@@ -105,42 +109,46 @@ class ExecutionStopRow extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  stop.placeName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontFamily: AppFonts.rubik,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    height: 1.2,
-                    color: skipped
-                        ? ExecutionColors.muted
-                        : AppColors.primaryInk,
-                  ),
-                ),
-                if (subtitle.isNotEmpty) ...[
-                  const SizedBox(height: 2),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: onOpen,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    subtitle,
+                    stop.placeName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontFamily: AppFonts.rubik,
-                      fontSize: 13,
-                      fontWeight: isNext ? FontWeight.w500 : FontWeight.w400,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                       height: 1.2,
-                      color: isNext
-                          ? AppColors.accentBlue
-                          : ExecutionColors.muted,
+                      color: skipped
+                          ? ExecutionColors.muted
+                          : AppColors.primaryInk,
                     ),
                   ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: AppFonts.rubik,
+                        fontSize: 13,
+                        fontWeight: isNext ? FontWeight.w500 : FontWeight.w400,
+                        height: 1.2,
+                        color: isNext
+                            ? AppColors.accentBlue
+                            : ExecutionColors.muted,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
           const SizedBox(width: 8),
@@ -274,43 +282,80 @@ class ExecutionStopMark extends StatelessWidget {
   }
 }
 
-/// «Пропустить точку» under the stop being walked to: a quiet link, since
-/// skipping is the exception.
-class ExecutionSkipLink extends StatelessWidget {
-  const ExecutionSkipLink({
+/// Under the stop being walked to: «Проложить до точки» hands it to the
+/// device's maps, «Пропустить точку» is a quiet link, since skipping is the
+/// exception.
+class ExecutionNextStopActions extends StatelessWidget {
+  const ExecutionNextStopActions({
     super.key,
     required this.placeName,
-    required this.onPressed,
+    required this.onSkip,
+    this.onNavigate,
   });
 
   final String placeName;
-  final VoidCallback? onPressed;
+  final VoidCallback? onSkip;
+
+  /// Null for a stop without coordinates: there is nowhere to lead to.
+  final VoidCallback? onNavigate;
+
+  static const _textStyle = TextStyle(
+    fontFamily: AppFonts.rubik,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+  );
+
+  Widget _link({
+    required String label,
+    required String semantics,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    return Semantics(
+      container: true,
+      button: true,
+      enabled: onPressed != null,
+      label: semantics,
+      excludeSemantics: true,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: color,
+          textStyle: _textStyle,
+        ),
+        child: Text(label),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Semantics(
-        container: true,
-        button: true,
-        enabled: onPressed != null,
-        label: 'Пропустить «$placeName»',
-        excludeSemantics: true,
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, 32),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: ExecutionColors.muted,
-            textStyle: const TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+    // A wrap, not a row: on a narrow phone or with large text the two
+    // links go one under the other instead of overflowing.
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: onNavigate == null
+            ? WrapAlignment.end
+            : WrapAlignment.spaceBetween,
+        children: [
+          if (onNavigate != null)
+            _link(
+              label: 'Проложить до точки',
+              semantics: 'Проложить до «$placeName»',
+              color: AppColors.accentBlue,
+              onPressed: onNavigate,
             ),
+          _link(
+            label: 'Пропустить точку',
+            semantics: 'Пропустить «$placeName»',
+            color: ExecutionColors.muted,
+            onPressed: onSkip,
           ),
-          child: const Text('Пропустить точку'),
-        ),
+        ],
       ),
     );
   }
