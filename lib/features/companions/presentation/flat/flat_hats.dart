@@ -62,7 +62,7 @@ void paintHat(
   Rect body, {
   required Color bodyColor,
   required double alpha,
-  double lookX = 0,
+  bool facingRight = true,
   double sway = 0,
 }) {
   Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
@@ -145,7 +145,8 @@ void paintHat(
         w * 0.05,
         fill(_shade(cap, 0.2)),
       );
-      final dir = lookX >= 0 ? 1.0 : -1.0;
+      // The peak points where the bean faces, never flipping with a glance.
+      final dir = facingRight ? 1.0 : -1.0;
       canvas.drawPath(
         Path()
           ..moveTo(cx, brimY - w * 0.04)

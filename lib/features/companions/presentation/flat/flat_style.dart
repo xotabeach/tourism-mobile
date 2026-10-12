@@ -501,14 +501,22 @@ void paintBean(
   }
   final hat = look.accessory ?? pose.accessory;
   if (hat != null) {
+    // The hat keeps its size while the body breathes: sized by the body
+    // at rest and only riding up and down with its top, or it pulses.
+    final restWidth = height * shapeW;
     paintHat(
       canvas,
       hat,
-      body,
+      Rect.fromLTWH(
+        body.center.dx - restWidth / 2,
+        body.top,
+        restWidth,
+        height * shapeH,
+      ),
       bodyColor: color,
       alpha: alpha,
-      lookX: pose.lookX,
-      sway: pose.breath,
+      facingRight: pose.stickToRight,
+      sway: pose.breath * 0.5,
     );
   }
 

@@ -297,13 +297,12 @@ class _CampPainter extends CustomPainter {
       final towardFire = (fire.dx - feet.dx).sign * 0.8;
       // Now and then a bean looks at you, or round at the night.
       final glance = (t * 2 + phase) % 1;
+      // Eyes glide between targets instead of jumping.
+      final atYou = _window(glance, 0.05, 0.17);
+      final away = _window(glance, 0.55, 0.63);
       final look = leaving
           ? 1.0
-          : glance < 0.12
-          ? 0.0
-          : glance > 0.55 && glance < 0.63
-          ? -towardFire
-          : towardFire;
+          : towardFire * (1 - atYou - away) - towardFire * away;
       // Those not ready yet wave at the others from time to time.
       final waveBeat = (t * 2 + phase * 0.7) % 1;
       final wave = leaving
@@ -495,4 +494,15 @@ class _CampPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CampPainter old) =>
       old.t != t || old.depart != depart || old.members != members;
+}
+
+/// 1 inside [from]..[to] on the 0..1 loop, 0 outside, with soft edges.
+double _window(double x, double from, double to) {
+  const ramp = 0.03;
+  double smooth(double a, double b, double v) {
+    final t = ((v - a) / (b - a)).clamp(0.0, 1.0);
+    return t * t * (3 - 2 * t);
+  }
+
+  return smooth(from - ramp, from, x) * (1 - smooth(to, to + ramp, x));
 }
