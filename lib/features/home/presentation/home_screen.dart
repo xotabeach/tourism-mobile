@@ -24,15 +24,14 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
-import 'package:tourism_mobile/features/companions/presentation/home_lobby_card.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
+import 'package:tourism_mobile/features/home/presentation/home_top_card.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/places/presentation/widgets/place_hero_card.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
-import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_route_card.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/route_catalog_filter.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -767,18 +766,10 @@ class _HomeHeader extends ConsumerWidget {
           const SizedBox(height: 18)
         else ...[
           const SizedBox(height: AppSpacing.xl),
-          // A run in progress takes the banner's place (FRONTEND-34), and
-          // without one a group gathering at the fire does (FRONTEND-73);
-          // the banner stays while they load, so people with neither never
-          // see it blink.
-          switch ((
-            ref.watch(homeActiveRunProvider).valueOrNull,
-            ref.watch(homeLobbyProvider).valueOrNull,
-          )) {
-            (final run?, _) => ActiveRouteCard(state: run),
-            (null, final lobby?) => HomeLobbyCard(group: lobby),
-            (null, null) => const BuildRouteBanner(),
-          },
+          homeTopCard(
+            run: ref.watch(homeActiveRunProvider).valueOrNull,
+            lobby: ref.watch(homeLobbyProvider).valueOrNull,
+          ),
           const SizedBox(height: 25),
           Row(
             children: [
