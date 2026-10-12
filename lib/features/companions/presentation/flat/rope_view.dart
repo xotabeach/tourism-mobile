@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -32,7 +33,7 @@ class _RopeViewState extends State<RopeView>
     if (MediaQuery.disableAnimationsOf(context)) {
       _idle.stop();
     } else if (!_idle.isAnimating) {
-      _idle.repeat();
+      unawaited(_idle.repeat());
     }
   }
 
@@ -99,7 +100,7 @@ class _RopePainter extends CustomPainter {
     final h = size.height;
     // Room on the left for those who have not started yet.
     const start = 30.0;
-    final left = 84.0;
+    const left = 84.0;
     final right = size.width - 30;
     final y = h * 0.66;
     final step = stops.length == 1 ? 0.0 : (right - left) / (stops.length - 1);

@@ -53,6 +53,19 @@ class AppRelease {
 
 /// Новые версии добавляются сверху.
 const appChangelog = <AppRelease>[
+  AppRelease(
+    version: '0.3.3',
+    inProgress: true,
+    entries: [
+      ChangelogEntry(
+        ChangeKind.added,
+        'Маршрут можно пройти вместе с друзьями: на странице маршрута '
+        '«Пройти вместе». Группа собирается у костра, каждый отмечает точки '
+        'сам, а в пути видно, кто где и кто первым дошёл. В конце остаётся '
+        'открытка группы, ей можно поделиться.',
+      ),
+    ],
+  ),
   // 0.3.1 was never published: its changes went out with 0.3.2.
   AppRelease(
     version: '0.3.2',

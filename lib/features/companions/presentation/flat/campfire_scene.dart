@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -65,7 +66,7 @@ class _CampfireSceneState extends State<CampfireScene>
     if (MediaQuery.disableAnimationsOf(context)) {
       _idle.stop();
     } else if (!_idle.isAnimating) {
-      _idle.repeat();
+      unawaited(_idle.repeat());
     }
   }
 
@@ -76,7 +77,11 @@ class _CampfireSceneState extends State<CampfireScene>
       if (MediaQuery.disableAnimationsOf(context)) {
         widget.onDeparted?.call();
       } else {
-        _depart.forward(from: 0).whenComplete(() => widget.onDeparted?.call());
+        unawaited(
+          _depart
+              .forward(from: 0)
+              .whenComplete(() => widget.onDeparted?.call()),
+        );
       }
     }
   }

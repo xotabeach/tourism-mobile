@@ -97,6 +97,18 @@ void handlePushOpened(GoRouter router, RemoteMessage message) {
     );
     return;
   }
+  if (targetType == 'companion_group' &&
+      targetId is String &&
+      targetId.isNotEmpty) {
+    // An invitation, the group's start or news of a companion (spec 11b).
+    unawaited(
+      router.pushNamed(
+        AppRouteNames.companionGroup,
+        pathParameters: {'groupId': targetId},
+      ),
+    );
+    return;
+  }
   if (targetType == 'inbox') {
     // Anti-fraud notices: the message lives in the inbox.
     unawaited(router.pushNamed(AppRouteNames.settingsNotificationsInbox));

@@ -580,7 +580,11 @@ class _StubExecutionRepository implements RouteExecutionRepository {
       const [];
 
   @override
-  Future<RouteExecution> start(String routeId) async => _execution;
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async => _execution;
 }
 
 /// Simulates the server side of an offline-start reconciliation: `start`
@@ -630,7 +634,11 @@ class _StartReconcileRepository implements RouteExecutionRepository {
   }) => throw UnimplementedError();
 
   @override
-  Future<RouteExecution> start(String routeId) async {
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async {
     startedRouteIds.add(routeId);
     return RouteExecution(
       id: 'srv-execution',

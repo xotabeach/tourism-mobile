@@ -42,7 +42,11 @@ class _Offline extends MockRouteExecutionRepository {
   Future<RouteExecution?> getActive() async => throw const NetworkFailure();
 
   @override
-  Future<RouteExecution> start(String routeId) async {
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async {
     starts += 1;
     throw const NetworkFailure();
   }
@@ -61,11 +65,14 @@ class _Raced extends MockRouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution> start(String routeId) async =>
-      throw const UnexpectedFailure(
-        'Finish or cancel the active route first',
-        activeRunConflictCode,
-      );
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async => throw const UnexpectedFailure(
+    'Finish or cancel the active route first',
+    activeRunConflictCode,
+  );
 }
 
 Future<void> _open(

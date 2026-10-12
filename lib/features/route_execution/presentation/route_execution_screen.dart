@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/companions/presentation/run_group_strip.dart';
 import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
 import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
 import 'package:tourism_mobile/features/route_execution/application/execution_error_text.dart';
@@ -1071,6 +1072,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
                   ),
           ),
         ],
+        // Walking with companions: the «связка» of the group (spec 11b).
+        if (execution.isActive && execution.routeId != null)
+          RunGroupStrip(routeId: execution.routeId!),
         if (map != null) ...[const SizedBox(height: 12), map],
         const SizedBox(height: 8),
         ExecutionInfoRow(

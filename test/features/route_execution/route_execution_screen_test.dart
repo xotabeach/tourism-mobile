@@ -106,7 +106,11 @@ class _Repo extends MockRouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution> start(String routeId) async {
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async {
     starts += 1;
     final now = DateTime.now();
     return _run = RouteExecution(
