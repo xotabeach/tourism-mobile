@@ -123,25 +123,20 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
               label: here.isInvitation ? 'Посмотреть приглашение' : 'К группе',
               onPressed: () => _open(here),
             )
-          else
-            Row(
-              children: [
-                Expanded(
-                  child: _FlatButton(
-                    label: 'Собрать группу',
-                    onPressed: _busy ? null : _create,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _FlatButton(
-                    label: 'У меня есть код',
-                    secondary: true,
-                    onPressed: _code,
-                  ),
-                ),
-              ],
+          else ...[
+            // One under the other: side by side the labels were cut on a
+            // phone-wide screen.
+            _FlatButton(
+              label: 'Собрать группу',
+              onPressed: _busy ? null : _create,
             ),
+            const SizedBox(height: 8),
+            _FlatButton(
+              label: 'У меня есть код',
+              secondary: true,
+              onPressed: _code,
+            ),
+          ],
         ],
       ),
     );
