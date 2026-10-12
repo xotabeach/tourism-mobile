@@ -49,7 +49,11 @@ class CompanionMember {
     this.joinedLate = false,
     this.started = false,
     this.inviteExpiresAt,
+    this.beanHat,
   });
+
+  /// The hat on this person's character; null is the default one.
+  final String? beanHat;
 
   final String userId;
   final String displayName;
@@ -75,6 +79,7 @@ class CompanionMember {
         ready: json['ready'] as bool? ?? false,
         joinedLate: json['joined_late'] as bool? ?? false,
         started: json['started'] as bool? ?? false,
+        beanHat: json['bean_hat'] as String?,
         inviteExpiresAt: DateTime.tryParse(
           json['invite_expires_at'] as String? ?? '',
         ),
@@ -227,7 +232,10 @@ class CompanionMemberProgress {
     this.marks = const [],
     this.reached = false,
     this.finishedAt,
+    this.beanHat,
   });
+
+  final String? beanHat;
 
   final String userId;
   final String displayName;
@@ -254,6 +262,7 @@ class CompanionMemberProgress {
             CompanionStopMark.fromJson(Map<String, dynamic>.from(item as Map)),
         ],
         reached: json['reached'] as bool? ?? false,
+        beanHat: json['bean_hat'] as String?,
         finishedAt: DateTime.tryParse(json['finished_at'] as String? ?? ''),
       );
 }

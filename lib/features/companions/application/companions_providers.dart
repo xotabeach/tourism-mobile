@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/features/companions/data/api_companions_repository.dart';
+import 'package:tourism_mobile/features/companions/data/bean_hats_repository.dart';
 import 'package:tourism_mobile/features/companions/data/mock_companions_repository.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -44,3 +45,10 @@ final invitablePeopleProvider =
 final myUserIdProvider = Provider<String?>(
   (ref) => ref.watch(sessionProvider.select((s) => s.userId)),
 );
+
+final beanHatsRepositoryProvider = Provider<BeanHatsRepository>((ref) {
+  if (ref.watch(appConfigProvider).useMockData) {
+    return MockBeanHatsRepository();
+  }
+  return ApiBeanHatsRepository(ref.watch(dioProvider));
+});

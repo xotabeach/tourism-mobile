@@ -292,6 +292,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
           ready: member.ready || member.isOrganizer && _departing,
           organizer: member.isOrganizer,
           waiting: member.state != CompanionMemberState.joined,
+          hat: member.beanHat,
         ),
   ];
 

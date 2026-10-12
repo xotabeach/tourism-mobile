@@ -13,9 +13,13 @@ class CampMember {
     this.ready = false,
     this.organizer = false,
     this.waiting = false,
+    this.hat,
   });
 
   final String userId;
+
+  /// The chosen hat's slug; null draws the account's own.
+  final String? hat;
   final String name;
 
   /// «Готов»: holds a marshmallow over the fire.
@@ -35,8 +39,12 @@ class CampfireScene extends StatefulWidget {
     this.departing = false,
     this.onDeparted,
     this.height = 300,
+    this.closeUp = false,
     super.key,
   });
+
+  /// One person, drawn large beside the fire: «Мой персонаж».
+  final bool closeUp;
 
   final List<CampMember> members;
 
@@ -108,6 +116,7 @@ class _CampfireSceneState extends State<CampfireScene>
             animation: Listenable.merge([_idle, _depart]),
             builder: (context, _) => CustomPaint(
               painter: _CampPainter(
+                closeUp: widget.closeUp,
                 members: widget.members,
                 t: _idle.value,
                 depart: _depart.value,
@@ -121,7 +130,14 @@ class _CampfireSceneState extends State<CampfireScene>
 }
 
 class _CampPainter extends CustomPainter {
-  _CampPainter({required this.members, required this.t, required this.depart});
+  _CampPainter({
+    required this.members,
+    required this.t,
+    required this.depart,
+    this.closeUp = false,
+  });
+
+  final bool closeUp;
 
   final List<CampMember> members;
   final double t;
@@ -240,7 +256,7 @@ class _CampPainter extends CustomPainter {
       for (final m in members)
         if (m.waiting) m,
     ];
-    final beanHeight = h * 0.2;
+    final beanHeight = closeUp ? h * 0.42 : h * 0.2;
 
     // Half the group on each side of the fire, the further ones a little
     // higher up the slope, as if sitting round it.
@@ -248,10 +264,12 @@ class _CampPainter extends CustomPainter {
     for (var i = 0; i < seated.length; i++) {
       final side = i.isEven ? -1.0 : 1.0;
       final rank = i ~/ 2;
-      final feet = Offset(
-        fire.dx + side * (h * 0.24 + rank * beanHeight * 0.82),
-        fire.dy + h * 0.03 - rank * h * 0.045,
-      );
+      final feet = closeUp
+          ? Offset(fire.dx - h * 0.42, fire.dy + h * 0.1)
+          : Offset(
+              fire.dx + side * (h * 0.24 + rank * beanHeight * 0.82),
+              fire.dy + h * 0.03 - rank * h * 0.045,
+            );
       placed.add((feet, seated[i], i));
     }
     placed.sort((a, b) => a.$1.dy.compareTo(b.$1.dy));
@@ -279,13 +297,12 @@ class _CampPainter extends CustomPainter {
       final towardFire = (fire.dx - feet.dx).sign * 0.8;
       // Now and then a bean looks at you, or round at the night.
       final glance = (t * 2 + phase) % 1;
+      // Eyes glide between targets instead of jumping.
+      final atYou = _window(glance, 0.05, 0.17);
+      final away = _window(glance, 0.55, 0.63);
       final look = leaving
           ? 1.0
-          : glance < 0.12
-          ? 0.0
-          : glance > 0.55 && glance < 0.63
-          ? -towardFire
-          : towardFire;
+          : towardFire * (1 - atYou - away) - towardFire * away;
       // Those not ready yet wave at the others from time to time.
       final waveBeat = (t * 2 + phase * 0.7) % 1;
       final wave = leaving
@@ -313,7 +330,7 @@ class _CampPainter extends CustomPainter {
           organizer: member.organizer,
           flutter: t * 6,
           stickToRight: feet.dx < fire.dx,
-          look: BeanLook.forUser(member.userId),
+          look: BeanLook.forUser(member.userId, hat: member.hat),
         ),
       );
       if (!leaving) {
@@ -345,7 +362,7 @@ class _CampPainter extends CustomPainter {
           // On their way: waving to those at the fire.
           wave: 0.6 + 0.4 * math.sin((t * 6 + i * 0.3) * math.pi * 2),
           step: math.sin((t * 6 + i) * math.pi * 2),
-          look: BeanLook.forUser(waiting[i].userId),
+          look: BeanLook.forUser(waiting[i].userId, hat: waiting[i].hat),
         ),
       );
     }
@@ -477,4 +494,15 @@ class _CampPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CampPainter old) =>
       old.t != t || old.depart != depart || old.members != members;
+}
+
+/// 1 inside [from]..[to] on the 0..1 loop, 0 outside, with soft edges.
+double _window(double x, double from, double to) {
+  const ramp = 0.03;
+  double smooth(double a, double b, double v) {
+    final t = ((v - a) / (b - a)).clamp(0.0, 1.0);
+    return t * t * (3 - 2 * t);
+  }
+
+  return smooth(from - ramp, from, x) * (1 - smooth(to, to + ramp, x));
 }
