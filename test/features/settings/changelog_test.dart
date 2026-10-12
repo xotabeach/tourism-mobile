@@ -96,7 +96,8 @@ void main() {
       unreleased.isEmpty ? findsNothing : findsOneWidget,
     );
     if (unreleased.isEmpty) {
-      expect(find.text(appChangelog.first.date!), findsOneWidget);
+      // Two releases may go out on the same day (0.3.2 and 0.3.3 did).
+      expect(find.text(appChangelog.first.date!), findsWidgets);
     }
     expect(find.text('Новое'), findsWidgets);
     expect(find.text('Исправлено'), findsWidgets);
