@@ -19,6 +19,7 @@ import 'package:tourism_mobile/features/route_execution/application/live_locatio
 import 'package:tourism_mobile/features/route_execution/application/local_run_changes.dart';
 import 'package:tourism_mobile/features/route_execution/application/location_sharing.dart';
 import 'package:tourism_mobile/features/route_execution/application/mark_advice.dart';
+import 'package:tourism_mobile/features/route_execution/application/nearby_stop.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_offline_coordinator.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_execution_providers.dart';
 import 'package:tourism_mobile/features/route_execution/application/route_start_block.dart';
@@ -80,6 +81,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   var _pendingActions = 0;
   // After a confirmed prompt, further marks within a minute are not asked again.
   DateTime? _promptConfirmedAt;
+
+  // Stops whose «вы рядом» hint was answered «не сейчас»: not offered again
+  // while the screen is open.
+  final _nearbyDismissed = <String>{};
 
   /// Ticks «Всего в пути» over while the screen is open.
   Timer? _clock;
@@ -967,6 +972,19 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ? null
         : 'весь участок ${formatStopDistance(nextStop!.legDistanceMeters!)}';
     final legInfo = activeLegInfo(execution);
+    final nearbyStop = nearbyStopToMark(
+      execution: execution,
+      fix: livePosition == null
+          ? null
+          : PositionFix(
+              lat: livePosition.latitude,
+              lng: livePosition.longitude,
+              accuracyMeters: livePosition.accuracy,
+              takenAt: livePosition.timestamp,
+            ),
+      now: DateTime.now(),
+      dismissed: _nearbyDismissed,
+    );
     final map = route == null
         ? null
         : executionMap(
@@ -1013,6 +1031,16 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
               fontWeight: FontWeight.w600,
               color: AppColors.primaryInk,
             ),
+          ),
+        ],
+        if (nearbyStop != null) ...[
+          const SizedBox(height: 12),
+          NearbyStopHint(
+            placeName: nearbyStop.placeName,
+            busy: _busyStopId != null,
+            onMark: () => unawaited(_completeStop(nearbyStop)),
+            onDismiss: () =>
+                setState(() => _nearbyDismissed.add(nearbyStop.id)),
           ),
         ],
         if (_offline) ...[
