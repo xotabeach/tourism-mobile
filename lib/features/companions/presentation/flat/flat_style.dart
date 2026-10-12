@@ -413,24 +413,33 @@ void paintBean(
       fill(FlatPalette.white),
     );
   } else {
-    // A wide white crescent: a gently curved top, a deep round bottom.
-    final half = width * (pose.happy ? 0.25 : 0.23);
+    // A white crescent: a gently curved top, a deep round bottom. Drawn a
+    // little short and traced with a round stroke so its ends come out
+    // rounded instead of pointed.
     final depth = bodyH * (pose.happy ? 0.1 : 0.085);
+    final round = depth * 0.42;
+    final half = width * (pose.happy ? 0.25 : 0.23) - round / 2;
     final cx = body.center.dx + gaze;
+    final top = mouthY + round * 0.2;
+    final smile = Path()
+      ..moveTo(cx - half, top)
+      ..quadraticBezierTo(cx, top + depth * 0.6, cx + half, top)
+      ..cubicTo(
+        cx + half * 0.95,
+        top + depth * 1.25,
+        cx - half * 0.95,
+        top + depth * 1.25,
+        cx - half,
+        top,
+      )
+      ..close();
+    canvas.drawPath(smile, fill(FlatPalette.white));
     canvas.drawPath(
-      Path()
-        ..moveTo(cx - half, mouthY)
-        ..quadraticBezierTo(cx, mouthY + depth * 0.7, cx + half, mouthY)
-        ..cubicTo(
-          cx + half * 0.95,
-          mouthY + depth * 1.45,
-          cx - half * 0.95,
-          mouthY + depth * 1.45,
-          cx - half,
-          mouthY,
-        )
-        ..close(),
-      fill(FlatPalette.white),
+      smile,
+      fill(FlatPalette.white)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = round
+        ..strokeJoin = StrokeJoin.round,
     );
   }
 
