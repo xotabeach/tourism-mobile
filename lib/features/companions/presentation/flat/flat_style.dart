@@ -361,109 +361,75 @@ void paintBean(
 
   if (pose.wave > 0.15) freeArm(canvas);
 
-  // Eyes with pupils and a shine, looking where the bean looks.
-  final eyeY = body.top + bodyH * 0.28;
-  final eyeGap = width * 0.15;
+  // The face of the reference (owner, 2026-10-12): solid black upright
+  // eyes with a white shine, and a wide white smile. No whites, no cheeks.
+  final eyeY = body.top + bodyH * 0.3;
+  final eyeGap = width * 0.17;
+  final eyeW = width * 0.17;
+  final eyeH = bodyH * 0.2;
+  // The whole eye shifts a touch toward where the bean looks.
+  final gaze = pose.lookX.clamp(-1.0, 1.0) * width * 0.035;
   for (final side in const [-1.0, 1.0]) {
-    final eye = Offset(body.center.dx + side * eyeGap, eyeY);
+    final eye = Offset(body.center.dx + side * eyeGap + gaze, eyeY);
     if (pose.blink || pose.happy) {
       final path = Path()
-        ..moveTo(eye.dx - width * 0.11, eyeY)
+        ..moveTo(eye.dx - eyeW * 0.6, eyeY)
         ..quadraticBezierTo(
           eye.dx,
-          eyeY + (pose.happy ? -height * 0.07 : height * 0.02),
-          eye.dx + width * 0.11,
+          eyeY + (pose.happy ? -eyeH * 0.45 : eyeH * 0.12),
+          eye.dx + eyeW * 0.6,
           eyeY,
         );
       canvas.drawPath(
         path,
         fill(FlatPalette.ink)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = height * 0.032
+          ..strokeWidth = height * 0.035
           ..strokeCap = StrokeCap.round,
       );
       continue;
     }
     canvas.drawOval(
-      Rect.fromCenter(center: eye, width: width * 0.2, height: bodyH * 0.17),
-      fill(FlatPalette.white),
-    );
-    final pupil = eye.translate(pose.lookX * width * 0.05, height * 0.02);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: pupil,
-        width: height * 0.07,
-        height: height * 0.085,
-      ),
+      Rect.fromCenter(center: eye, width: eyeW, height: eyeH),
       fill(FlatPalette.ink),
     );
     canvas.drawCircle(
-      pupil.translate(-height * 0.016, -height * 0.018),
-      height * 0.016,
+      eye.translate(eyeW * 0.18, -eyeH * 0.2),
+      eyeW * 0.2,
       fill(FlatPalette.white),
     );
   }
-  // Pink cheeks.
-  for (final side in const [-1.0, 1.0]) {
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(
-          body.center.dx + side * width * 0.3,
-          eyeY + bodyH * 0.13,
-        ),
-        width: width * 0.17,
-        height: bodyH * 0.07,
-      ),
-      fill(const Color(0x66FF6F91)),
-    );
-  }
-  final mouthY = eyeY + bodyH * 0.16;
+  final mouthY = eyeY + bodyH * 0.17;
   if (pose.mouthOpen) {
+    // «О!»: a white open mouth.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(body.center.dx, mouthY + bodyH * 0.03),
-        width: width * 0.18,
-        height: bodyH * 0.1,
+        center: Offset(body.center.dx + gaze, mouthY + bodyH * 0.04),
+        width: width * 0.22,
+        height: bodyH * 0.13,
       ),
-      fill(FlatPalette.ink),
+      fill(FlatPalette.white),
     );
   } else {
-    // The sketch's wide open smile: a crescent with a little tongue.
-    final half = width * (pose.happy ? 0.27 : 0.24);
-    final depth = bodyH * (pose.happy ? 0.12 : 0.095);
-    final smile = Path()
-      ..moveTo(body.center.dx - half, mouthY)
-      ..quadraticBezierTo(
-        body.center.dx,
-        mouthY + depth * 0.25,
-        body.center.dx + half,
-        mouthY,
-      )
-      ..quadraticBezierTo(
-        body.center.dx + half * 0.6,
-        mouthY + depth * 1.3,
-        body.center.dx,
-        mouthY + depth * 1.2,
-      )
-      ..quadraticBezierTo(
-        body.center.dx - half * 0.6,
-        mouthY + depth * 1.3,
-        body.center.dx - half,
-        mouthY,
-      )
-      ..close();
-    canvas.drawPath(smile, fill(FlatPalette.ink));
-    canvas.save();
-    canvas.clipPath(smile);
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(body.center.dx, mouthY + depth * 1.15),
-        width: half * 1.1,
-        height: depth * 0.9,
-      ),
-      fill(const Color(0xFFFF6F91)),
+    // A wide white crescent: a gently curved top, a deep round bottom.
+    final half = width * (pose.happy ? 0.33 : 0.3);
+    final depth = bodyH * (pose.happy ? 0.13 : 0.11);
+    final cx = body.center.dx + gaze;
+    canvas.drawPath(
+      Path()
+        ..moveTo(cx - half, mouthY)
+        ..quadraticBezierTo(cx, mouthY + depth * 0.35, cx + half, mouthY)
+        ..cubicTo(
+          cx + half * 1.02,
+          mouthY + depth * 1.2,
+          cx - half * 1.02,
+          mouthY + depth * 1.2,
+          cx - half,
+          mouthY,
+        )
+        ..close(),
+      fill(FlatPalette.white),
     );
-    canvas.restore();
   }
 
   if (look.extra == BeanExtra.glasses && !pose.blink && !pose.happy) {
@@ -473,13 +439,13 @@ void paintBean(
     for (final side in const [-1.0, 1.0]) {
       canvas.drawCircle(
         Offset(body.center.dx + side * eyeGap, eyeY),
-        width * 0.17,
+        width * 0.15,
         rim,
       );
     }
     canvas.drawLine(
-      Offset(body.center.dx - eyeGap + width * 0.17, eyeY),
-      Offset(body.center.dx + eyeGap - width * 0.17, eyeY),
+      Offset(body.center.dx - eyeGap + width * 0.15, eyeY),
+      Offset(body.center.dx + eyeGap - width * 0.15, eyeY),
       rim,
     );
   }

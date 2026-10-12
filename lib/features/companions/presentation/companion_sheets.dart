@@ -53,28 +53,27 @@ class _FacePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final r = size.width / 2;
     canvas.drawCircle(Offset(r, r), r, Paint()..color = color);
+    // The same face as the characters: black eyes with a shine and a
+    // white smile.
     for (final side in const [-1.0, 1.0]) {
-      final eye = Offset(r + side * r * 0.32, r * 0.86);
+      final eye = Offset(r + side * r * 0.3, r * 0.82);
       canvas.drawOval(
-        Rect.fromCenter(center: eye, width: r * 0.42, height: r * 0.5),
-        Paint()..color = FlatPalette.white,
-      );
-      canvas.drawCircle(
-        eye.translate(0, r * 0.06),
-        r * 0.11,
+        Rect.fromCenter(center: eye, width: r * 0.3, height: r * 0.48),
         Paint()..color = FlatPalette.ink,
       );
+      canvas.drawCircle(
+        eye.translate(r * 0.05, -r * 0.1),
+        r * 0.07,
+        Paint()..color = FlatPalette.white,
+      );
     }
-    final smile = Path()
-      ..moveTo(r * 0.7, r * 1.36)
-      ..quadraticBezierTo(r, r * 1.58, r * 1.3, r * 1.36);
     canvas.drawPath(
-      smile,
-      Paint()
-        ..color = FlatPalette.ink
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = r * 0.09
-        ..strokeCap = StrokeCap.round,
+      Path()
+        ..moveTo(r * 0.5, r * 1.26)
+        ..quadraticBezierTo(r, r * 1.36, r * 1.5, r * 1.26)
+        ..cubicTo(r * 1.5, r * 1.72, r * 0.5, r * 1.72, r * 0.5, r * 1.26)
+        ..close(),
+      Paint()..color = FlatPalette.white,
     );
   }
 
