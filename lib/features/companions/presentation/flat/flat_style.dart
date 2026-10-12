@@ -53,7 +53,10 @@ abstract final class FlatPalette {
   }
 }
 
-enum BeanShape { bean, round, pear, tall, bear }
+/// The designer's character (DESIGN-20, sketch 2026-10-12): a drop like a
+/// map pin, round on top and narrowing to a point it stands on. Everyone
+/// shares it; the proportions vary a little.
+enum BeanShape { pin, pinWide, pinTall }
 
 enum BeanPattern { plain, belly, spots, stripes }
 
@@ -63,7 +66,7 @@ enum BeanExtra { none, glasses, scarf, backpack }
 /// what it wears. Derived from the person's id, so it never changes.
 class BeanLook {
   const BeanLook({
-    this.shape = BeanShape.bean,
+    this.shape = BeanShape.pin,
     this.pattern = BeanPattern.plain,
     this.extra = BeanExtra.none,
     this.accessory,
@@ -174,17 +177,14 @@ void paintBean(
   final look = pose.look ?? const BeanLook();
   final squash = 1 + pose.breath * 0.035;
   final (shapeW, shapeH) = switch (look.shape) {
-    BeanShape.bean => (0.6, 0.86),
-    BeanShape.round => (0.76, 0.74),
-    BeanShape.pear => (0.68, 0.84),
-    BeanShape.tall => (0.48, 0.94),
-    BeanShape.bear => (0.64, 0.8),
+    BeanShape.pin => (0.62, 0.95),
+    BeanShape.pinWide => (0.7, 0.9),
+    BeanShape.pinTall => (0.55, 1.0),
   };
   final bodyH = height * shapeH * squash;
   final width = height * shapeW / math.sqrt(squash);
   final lift = pose.bob * height;
-  final legH = height * 0.12;
-  final bodyBottom = feet.dy - legH * 0.55 - lift;
+  final bodyBottom = feet.dy - lift;
   final body = Rect.fromLTWH(
     feet.dx - width / 2,
     bodyBottom - bodyH,
@@ -197,39 +197,26 @@ void paintBean(
   canvas.drawOval(
     Rect.fromCenter(
       center: feet.translate(0, 1),
-      width: width * (1.05 - pose.bob * 0.9),
-      height: height * 0.09,
+      width: width * (0.7 - pose.bob * 0.5),
+      height: height * 0.07,
     ),
     fill(const Color(0x33000000)),
   );
 
-  // Feet: two dark ovals, stepping when walking.
-  for (final side in const [-1.0, 1.0]) {
-    final forward = pose.step * side;
-    final footLift = forward > 0 ? forward * height * 0.06 : 0.0;
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(
-            feet.dx + side * width * 0.2 + forward * width * 0.12,
-            feet.dy - legH * 0.3 - lift - footLift,
-          ),
-          width: width * 0.32,
-          height: legH * 0.75,
-        ),
-        Radius.circular(legH * 0.4),
-      ),
-      fill(dark),
-    );
-  }
+  // No feet: it stands on its point, and walks by rocking side to side.
+  canvas.save();
+  canvas.translate(feet.dx, feet.dy - lift);
+  canvas.rotate(pose.step * 0.12);
+  canvas.translate(-feet.dx, -(feet.dy - lift));
 
   final dir = pose.stickToRight ? 1.0 : -1.0;
-  final shoulderY = body.top + bodyH * 0.55;
+  // Arms come out where the head is still wide, above the band.
+  final shoulderY = body.top + bodyH * 0.46;
 
   // The arm holding the stick, or resting, on the fire side.
   final holdHand = Offset(
-    body.center.dx + dir * width * 0.52,
-    shoulderY + bodyH * (pose.ready ? 0.02 : 0.12),
+    body.center.dx + dir * width * 0.6,
+    shoulderY + bodyH * (pose.ready ? 0.0 : 0.1),
   );
   if (pose.ready) {
     final tip = holdHand.translate(dir * height * 0.6, -height * 0.2);
@@ -258,7 +245,7 @@ void paintBean(
     );
   }
   canvas.drawLine(
-    Offset(body.center.dx + dir * width * 0.38, shoulderY),
+    Offset(body.center.dx + dir * width * 0.36, shoulderY),
     holdHand,
     fill(color)
       ..strokeWidth = height * 0.085
@@ -266,8 +253,8 @@ void paintBean(
   );
 
   // The other arm hangs down-out at rest and swings up-out to wave.
-  final shoulder = Offset(body.center.dx - dir * width * 0.44, shoulderY);
-  final arm = width * 0.4 + height * 0.08;
+  final shoulder = Offset(body.center.dx - dir * width * 0.4, shoulderY);
+  final arm = width * 0.3 + height * 0.05;
   final theta = 1.25 + (-1.0 - 1.25) * pose.wave.clamp(0.0, 1.0);
   final hand = shoulder.translate(
     -dir * arm * math.cos(theta),
@@ -299,22 +286,29 @@ void paintBean(
       fill(const Color(0xFF8A5A33)),
     );
   }
-  if (look.shape == BeanShape.bear) {
-    for (final side in const [-1.0, 1.0]) {
-      final ear = Offset(
-        body.center.dx + side * width * 0.32,
-        body.top + width * 0.06,
-      );
-      canvas.drawCircle(ear, width * 0.16, fill(color));
-      canvas.drawCircle(ear, width * 0.08, fill(dark));
-    }
-  }
   canvas.drawPath(bodyPath, fill(color));
   canvas.save();
   canvas.clipPath(bodyPath);
-  canvas.drawRect(
-    Rect.fromLTWH(body.left, body.bottom - bodyH * 0.18, width, bodyH * 0.18),
-    fill(dark),
+  // The curved line of the sketch: below it the point is another tone.
+  final bandY = body.top + bodyH * 0.6;
+  final lower = Path()
+    ..moveTo(body.left - width * 0.1, bandY - bodyH * 0.03)
+    ..quadraticBezierTo(
+      body.center.dx,
+      bandY + bodyH * 0.07,
+      body.right + width * 0.1,
+      bandY - bodyH * 0.03,
+    )
+    ..lineTo(body.right + width * 0.1, body.bottom + 2)
+    ..lineTo(body.left - width * 0.1, body.bottom + 2)
+    ..close();
+  canvas.drawPath(
+    lower,
+    fill(
+      look.pattern == BeanPattern.belly
+          ? Color.lerp(color, Colors.white, 0.5)!
+          : dark,
+    ),
   );
   // A light patch on the side catches the light.
   canvas.drawOval(
@@ -330,20 +324,14 @@ void paintBean(
     case BeanPattern.plain:
       break;
     case BeanPattern.belly:
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(body.center.dx, body.top + bodyH * 0.72),
-          width: width * 0.62,
-          height: bodyH * 0.38,
-        ),
-        fill(Color.lerp(color, Colors.white, 0.45)!),
-      );
+      // The light point is drawn with the band above.
+      break;
     case BeanPattern.spots:
       for (final (dx, dy, rr) in const [
-        (-0.28, 0.62, 0.09),
-        (0.24, 0.7, 0.07),
-        (0.05, 0.84, 0.06),
-        (0.32, 0.5, 0.05),
+        (-0.16, 0.7, 0.07),
+        (0.14, 0.76, 0.06),
+        (0.0, 0.88, 0.05),
+        (-0.3, 0.42, 0.05),
       ]) {
         canvas.drawCircle(
           Offset(body.center.dx + dx * width, body.top + dy * bodyH),
@@ -352,10 +340,10 @@ void paintBean(
         );
       }
     case BeanPattern.stripes:
-      for (final y in const [0.6, 0.72]) {
+      for (final y in const [0.72, 0.82]) {
         canvas.drawRect(
           Rect.fromLTWH(body.left, body.top + y * bodyH, width, bodyH * 0.055),
-          fill(Color.lerp(color, Colors.white, 0.4)!),
+          fill(color),
         );
       }
   }
@@ -374,8 +362,8 @@ void paintBean(
   if (pose.wave > 0.15) freeArm(canvas);
 
   // Eyes with pupils and a shine, looking where the bean looks.
-  final eyeY = body.top + bodyH * 0.34;
-  final eyeGap = width * 0.21;
+  final eyeY = body.top + bodyH * 0.28;
+  final eyeGap = width * 0.15;
   for (final side in const [-1.0, 1.0]) {
     final eye = Offset(body.center.dx + side * eyeGap, eyeY);
     if (pose.blink || pose.happy) {
@@ -397,11 +385,18 @@ void paintBean(
       continue;
     }
     canvas.drawOval(
-      Rect.fromCenter(center: eye, width: width * 0.28, height: bodyH * 0.24),
+      Rect.fromCenter(center: eye, width: width * 0.2, height: bodyH * 0.17),
       fill(FlatPalette.white),
     );
     final pupil = eye.translate(pose.lookX * width * 0.05, height * 0.02);
-    canvas.drawCircle(pupil, height * 0.048, fill(FlatPalette.ink));
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: pupil,
+        width: height * 0.07,
+        height: height * 0.085,
+      ),
+      fill(FlatPalette.ink),
+    );
     canvas.drawCircle(
       pupil.translate(-height * 0.016, -height * 0.018),
       height * 0.016,
@@ -413,8 +408,8 @@ void paintBean(
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(
-          body.center.dx + side * width * 0.33,
-          eyeY + bodyH * 0.17,
+          body.center.dx + side * width * 0.3,
+          eyeY + bodyH * 0.13,
         ),
         width: width * 0.17,
         height: bodyH * 0.07,
@@ -422,32 +417,53 @@ void paintBean(
       fill(const Color(0x66FF6F91)),
     );
   }
-  final mouthY = eyeY + bodyH * 0.2;
+  final mouthY = eyeY + bodyH * 0.16;
   if (pose.mouthOpen) {
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(body.center.dx, mouthY + bodyH * 0.03),
-        width: width * 0.16,
-        height: bodyH * 0.11,
+        width: width * 0.18,
+        height: bodyH * 0.1,
       ),
       fill(FlatPalette.ink),
     );
   } else {
-    final mouth = Path()
-      ..moveTo(body.center.dx - width * 0.12, mouthY)
+    // The sketch's wide open smile: a crescent with a little tongue.
+    final half = width * (pose.happy ? 0.27 : 0.24);
+    final depth = bodyH * (pose.happy ? 0.12 : 0.095);
+    final smile = Path()
+      ..moveTo(body.center.dx - half, mouthY)
       ..quadraticBezierTo(
         body.center.dx,
-        mouthY + bodyH * (pose.happy ? 0.12 : 0.08),
-        body.center.dx + width * 0.12,
+        mouthY + depth * 0.25,
+        body.center.dx + half,
         mouthY,
-      );
-    canvas.drawPath(
-      mouth,
-      fill(FlatPalette.ink)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = height * 0.03
-        ..strokeCap = StrokeCap.round,
+      )
+      ..quadraticBezierTo(
+        body.center.dx + half * 0.6,
+        mouthY + depth * 1.3,
+        body.center.dx,
+        mouthY + depth * 1.2,
+      )
+      ..quadraticBezierTo(
+        body.center.dx - half * 0.6,
+        mouthY + depth * 1.3,
+        body.center.dx - half,
+        mouthY,
+      )
+      ..close();
+    canvas.drawPath(smile, fill(FlatPalette.ink));
+    canvas.save();
+    canvas.clipPath(smile);
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(body.center.dx, mouthY + depth * 1.15),
+        width: half * 1.1,
+        height: depth * 0.9,
+      ),
+      fill(const Color(0xFFFF6F91)),
     );
+    canvas.restore();
   }
 
   if (look.extra == BeanExtra.glasses && !pose.blink && !pose.happy) {
@@ -500,6 +516,14 @@ void paintBean(
     );
   }
   final hat = look.accessory ?? pose.accessory;
+  if (hat == null || hat == BeanHat.tuft || hat == BeanHat.headband) {
+    // The little knob on top of the sketch.
+    canvas.drawCircle(
+      Offset(body.center.dx, body.top - height * 0.012),
+      width * 0.06,
+      fill(dark),
+    );
+  }
   if (hat != null) {
     // The hat keeps its size while the body breathes: sized by the body
     // at rest and only riding up and down with its top, or it pulses.
@@ -544,51 +568,36 @@ void paintBean(
       ..close();
     canvas.drawPath(flag, fill(FlatPalette.flameOuter));
   }
+  canvas.restore();
 }
 
 Path _bodyPath(BeanShape shape, Rect body) {
+  // A drop: a round head that narrows to a softly rounded point.
   final w = body.width;
   final h = body.height;
-  switch (shape) {
-    case BeanShape.bean:
-    case BeanShape.tall:
-      return Path()
-        ..addRRect(RRect.fromRectAndRadius(body, Radius.circular(w / 2)));
-    case BeanShape.round:
-      return Path()..addOval(body);
-    case BeanShape.bear:
-      return Path()
-        ..addRRect(RRect.fromRectAndRadius(body, Radius.circular(w * 0.3)));
-    case BeanShape.pear:
-      // Narrow shoulders, a wide bottom.
-      return Path()
-        ..moveTo(body.center.dx, body.top)
-        ..cubicTo(
-          body.left + w * 0.12,
-          body.top,
-          body.left + w * 0.14,
-          body.top + h * 0.42,
-          body.left,
-          body.top + h * 0.72,
-        )
-        ..cubicTo(
-          body.left - w * 0.02,
-          body.bottom + h * 0.02,
-          body.right + w * 0.02,
-          body.bottom + h * 0.02,
-          body.right,
-          body.top + h * 0.72,
-        )
-        ..cubicTo(
-          body.right - w * 0.14,
-          body.top + h * 0.42,
-          body.right - w * 0.12,
-          body.top,
-          body.center.dx,
-          body.top,
-        )
-        ..close();
-  }
+  final cx = body.center.dx;
+  final r = w / 2;
+  final tip = body.bottom;
+  return Path()
+    ..moveTo(cx, body.top)
+    ..cubicTo(
+      cx + r * 1.12,
+      body.top,
+      cx + r * 1.1,
+      body.top + h * 0.52,
+      cx + r * 0.22,
+      tip - h * 0.04,
+    )
+    ..quadraticBezierTo(cx, tip + h * 0.012, cx - r * 0.22, tip - h * 0.04)
+    ..cubicTo(
+      cx - r * 1.1,
+      body.top + h * 0.52,
+      cx - r * 1.12,
+      body.top,
+      cx,
+      body.top,
+    )
+    ..close();
 }
 
 /// A name label under a bean, drawn on the canvas.

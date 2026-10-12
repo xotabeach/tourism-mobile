@@ -191,7 +191,7 @@ class _TwoBeans extends CustomPainter {
       const BeanPose(
         lookX: 1,
         look: BeanLook(
-          shape: BeanShape.bear,
+          shape: BeanShape.pinWide,
           pattern: BeanPattern.belly,
           extra: BeanExtra.backpack,
           accessory: BeanHat.cap,
@@ -208,7 +208,7 @@ class _TwoBeans extends CustomPainter {
         happy: true,
         wave: 0.9,
         look: BeanLook(
-          shape: BeanShape.pear,
+          shape: BeanShape.pinTall,
           pattern: BeanPattern.spots,
           extra: BeanExtra.scarf,
           accessory: BeanHat.beanie,
