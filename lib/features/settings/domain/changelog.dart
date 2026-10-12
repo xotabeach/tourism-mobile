@@ -55,7 +55,7 @@ class AppRelease {
 const appChangelog = <AppRelease>[
   AppRelease(
     version: '0.3.3',
-    inProgress: true,
+    date: '12 октября 2026',
     entries: [
       ChangelogEntry(
         ChangeKind.added,
@@ -77,6 +77,16 @@ const appChangelog = <AppRelease>[
         '«Соавторство». Соавтору приходит предложение, он может поправить '
         'маршрут, а на проверку маршрут уходит, когда «Опубликовать» нажмут '
         'все авторы. На карточке видно, например, «Никита и Андрей».',
+      ),
+      ChangelogEntry(
+        ChangeKind.changed,
+        'Пока экран загружается, на его месте видны очертания будущих '
+        'карточек и строк, а не серые пятна.',
+      ),
+      ChangelogEntry(
+        ChangeKind.fixed,
+        'На карте прохождения участок до следующей точки снова виден '
+        'целиком, даже если дорога начинается в стороне от точки.',
       ),
     ],
   ),
