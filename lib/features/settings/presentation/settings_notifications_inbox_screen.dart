@@ -48,7 +48,14 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
           skipError: true,
           loading: () => const Padding(
             padding: EdgeInsets.symmetric(vertical: 32),
-            child: AppListSkeleton(rows: 5),
+            child: AppListSkeleton(
+              rows: 5,
+              rowHeight: SettingsMetrics.rowHeight,
+              tiles: true,
+              roundLeading: true,
+              gap: SettingsMetrics.rowGap,
+              padding: EdgeInsets.zero,
+            ),
           ),
           error: (_, _) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,

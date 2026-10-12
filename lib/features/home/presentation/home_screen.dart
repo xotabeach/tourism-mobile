@@ -16,7 +16,6 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_brand_bar.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/offline_banner.dart';
 import 'package:tourism_mobile/core/network/connectivity_provider.dart';
@@ -869,14 +868,7 @@ class _TopTravelersRow extends ConsumerWidget {
       skipLoadingOnReload: true,
       skipLoadingOnRefresh: true,
       skipError: true,
-      loading: () => const SizedBox(
-        height: 116,
-        child: AppListSkeleton(
-          rows: 1,
-          rowHeight: 88,
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        ),
-      ),
+      loading: () => const _TopTravelersSkeleton(),
       error: (_, _) => const SizedBox(
         height: 116,
         child: Center(child: Text('Не удалось загрузить топ')),
@@ -914,6 +906,53 @@ class _TopTravelersRow extends ConsumerWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// Three white cards, avatar and two lines each, as the podium they stand in
+/// for (FRONTEND-71).
+class _TopTravelersSkeleton extends StatelessWidget {
+  const _TopTravelersSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        for (var i = 0; i < 3; i++) ...[
+          if (i > 0) const SizedBox(width: 10),
+          Expanded(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppRadii.tile),
+                boxShadow: AppShadows.tile,
+              ),
+              child: const SizedBox(
+                height: 116,
+                child: AppShimmer(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(6, 12, 6, 10),
+                    child: Column(
+                      children: [
+                        AppSkeleton(
+                          width: 54,
+                          height: 54,
+                          shape: BoxShape.circle,
+                        ),
+                        SizedBox(height: 9),
+                        AppSkeleton(width: 46, height: 12, borderRadius: 6),
+                        SizedBox(height: 6),
+                        AppSkeleton(width: 62, height: 10, borderRadius: 5),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

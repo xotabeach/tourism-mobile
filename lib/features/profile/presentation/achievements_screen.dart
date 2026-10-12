@@ -10,7 +10,7 @@ import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/achievements_repository.dart';
@@ -153,16 +153,13 @@ class _AchievementsListSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AppShimmer(
-      child: Column(
-        children: [
-          AppSkeleton(width: double.infinity, height: 72),
-          SizedBox(height: 6),
-          AppSkeleton(width: double.infinity, height: 72),
-          SizedBox(height: 6),
-          AppSkeleton(width: double.infinity, height: 72),
-        ],
-      ),
+    // White cards, medal and two lines each, like the badges they stand for.
+    return const AppListSkeleton(
+      rows: 4,
+      rowHeight: 72,
+      tiles: true,
+      gap: 6,
+      padding: EdgeInsets.zero,
     );
   }
 }
