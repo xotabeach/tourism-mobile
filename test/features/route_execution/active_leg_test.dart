@@ -1,107 +1,88 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
-import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_leg_card.dart';
-import 'package:tourism_mobile/features/routes/presentation/widgets/route_static_map.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/widgets/execution_map.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 
-/// FRONTEND-22: the stretch being walked right now.
-void main() {
-  final marked = DateTime.utc(2026, 9, 28, 10);
+// FRONTEND-70, from «Балаклава и мыс Фиолент»: the road starts 165 m from
+// stop 1 and runs 16 m to stop 2, so the highlight on the road alone was
+// next to invisible.
 
-  RouteExecution run({
-    required Set<int> done,
-    RouteExecutionStatus status = RouteExecutionStatus.active,
-  }) => RouteExecution(
-    id: 'run',
-    routeId: 'route',
-    routeName: 'Ялта',
-    status: status,
-    startedAt: DateTime.utc(2026, 9, 28, 9),
-    totalStops: 3,
-    completedStops: done.length,
-    requiredStops: 3,
-    completedRequiredStops: done.length,
-    stops: [
-      for (final (position, name) in [
-        (1, 'Набережная'),
-        (2, 'Ливадийский дворец'),
-        (3, 'Ласточкино гнездо'),
-      ])
-        RouteExecutionStop(
-          id: 'stop-$position',
-          position: position,
-          placeName: name,
-          isOptional: false,
-          completedAt: done.contains(position) ? marked : null,
-          legDistanceMeters: 1200,
-          legEstimateSeconds: 25 * 60,
-        ),
+const _stop1 = (lat: 44.5, lng: 33.595);
+const _stop2 = (lat: 44.501043, lng: 33.5964841);
+const _stop3 = (lat: 44.4947842, lng: 33.600155);
+
+RouteExecution _execution() => RouteExecution.fromJson({
+  'id': 'run-1',
+  'route_id': 'route-1',
+  'route_name': 'Балаклава и мыс Фиолент',
+  'status': 'active',
+  'started_at': '2026-10-12T09:00:00Z',
+  'total_stops': 3,
+  'completed_stops': 1,
+  'required_stops': 3,
+  'completed_required_stops': 1,
+  'stops': [
+    for (final (index, point) in [_stop1, _stop2, _stop3].indexed)
+      {
+        'id': 's${index + 1}',
+        'position': index + 1,
+        'place_name': 'Точка ${index + 1}',
+        'is_optional': false,
+        'lat': point.lat,
+        'lng': point.lng,
+        'completed_at': index == 0 ? '2026-10-12T09:10:00Z' : null,
+      },
+  ],
+});
+
+Map<String, dynamic> _line(List<List<double>> coordinates) => {
+  'type': 'LineString',
+  'coordinates': coordinates,
+};
+
+RouteDetail _route({bool withSegments = true}) => RouteDetail.fromJson({
+  'id': 'route-1',
+  'name': 'Балаклава и мыс Фиолент',
+  'slug': 'balaklava',
+  'stops_count': 3,
+  'stops': const <Map<String, dynamic>>[],
+  'geometry': _line([
+    [33.596648, 44.500908],
+    [33.596633, 44.501051],
+    [33.5985, 44.4980],
+    [33.600155, 44.4949],
+  ]),
+  if (withSegments)
+    'segments': [
+      {
+        'leg_index': 0,
+        'seq': 0,
+        'mode': 'car',
+        'role': 'main',
+        'distance_meters': 16,
+        'geometry': _line([
+          [33.596648, 44.500908],
+          [33.596633, 44.501051],
+        ]),
+      },
     ],
-  );
+});
 
-  group('activeLegInfo', () {
-    test('runs from the last marked stop to the next one', () {
-      final leg = activeLegInfo(run(done: {1}))!;
-      expect(leg.title, 'участок 1–2');
-      expect(leg.to.placeName, 'Ливадийский дворец');
-      expect(leg.meta, '1,2 км • ≈ 25 мин');
-    });
-
-    test('none before the first mark, after the last or while paused', () {
-      expect(activeLegInfo(run(done: {})), isNull);
-      expect(activeLegInfo(run(done: {1, 2, 3})), isNull);
-      expect(
-        activeLegInfo(run(done: {1}, status: RouteExecutionStatus.paused)),
-        isNull,
-      );
-    });
+void main() {
+  test('the highlighted leg runs from the marked stop to the next one', () {
+    final leg = executionActiveLeg(_execution(), _route(withSegments: false))!;
+    expect(leg.line.first, _stop1);
+    expect(leg.line.last, _stop2);
+    expect(leg.line.length, greaterThan(2));
   });
 
-  testWidgets('the card names the leg and opens it on the map', (tester) async {
-    var opened = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ActiveLegCard(
-            leg: activeLegInfo(run(done: {1, 2}))!,
-            onShowOnMap: () => opened = true,
-          ),
-        ),
-      ),
-    );
-    expect(find.text('Сейчас в пути · участок 2–3'), findsOneWidget);
-    expect(find.text('Ласточкино гнездо'), findsOneWidget);
-    expect(find.text('от «Ливадийский дворец»'), findsOneWidget);
-    expect(find.text('1,2 км • ≈ 25 мин'), findsOneWidget);
-    await tester.tap(find.byTooltip('Участок на карте'));
-    expect(opened, isTrue);
-  });
-
-  testWidgets('the map toggle switches between the leg and the route', (
-    tester,
-  ) async {
-    var focus = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: StatefulBuilder(
-          builder: (context, setState) => Scaffold(
-            body: Center(
-              child: LegFocusToggle(
-                focusOnLeg: focus,
-                onChanged: (value) => setState(() => focus = value),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.tap(find.text('Участок'));
-    await tester.pumpAndSettle();
-    expect(focus, isTrue);
-    await tester.tap(find.text('Весь маршрут'));
-    await tester.pumpAndSettle();
-    expect(focus, isFalse);
+  test('a leg drawn by its segments is anchored to both stops too', () {
+    final leg = executionActiveLeg(_execution(), _route())!;
+    expect(leg.pieces, hasLength(1));
+    expect(leg.pieces.single.line.first, _stop1);
+    expect(leg.pieces.single.line.last, _stop2);
+    // The road between them is kept.
+    expect(leg.pieces.single.line, contains((lat: 44.501051, lng: 33.596633)));
   });
 }
