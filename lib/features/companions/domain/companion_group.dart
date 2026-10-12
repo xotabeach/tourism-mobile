@@ -369,6 +369,7 @@ class InvitablePerson {
     required this.displayName,
     this.avatarUrl,
     this.rankTitle,
+    this.coverUrl,
   });
 
   final String userId;
@@ -376,12 +377,16 @@ class InvitablePerson {
   final String? avatarUrl;
   final String? rankTitle;
 
+  /// The profile cover: the background of a person's card (DESIGN-19).
+  final String? coverUrl;
+
   factory InvitablePerson.fromJson(Map<String, dynamic> json) =>
       InvitablePerson(
         userId: json['id'] as String,
         displayName: json['display_name'] as String? ?? '',
         avatarUrl: json['avatar_url'] as String?,
         rankTitle: json['rank_title'] as String?,
+        coverUrl: json['cover_url'] as String?,
       );
 }
 

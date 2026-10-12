@@ -74,6 +74,51 @@ enum RouteCatalogSort {
   final String apiValue;
 }
 
+/// A co-author of a user route (spec 11c D7): shown on the card as
+/// «Никита и Андрей».
+class RouteCoauthor {
+  const RouteCoauthor({
+    required this.userId,
+    required this.displayName,
+    this.avatarUrl,
+    this.state = 'joined',
+    this.consented = false,
+  });
+
+  final String userId;
+  final String displayName;
+  final String? avatarUrl;
+
+  /// `invited`, `joined`; the server lists only these two.
+  final String state;
+
+  /// Pressed «Опубликовать» on the route as it is now.
+  final bool consented;
+
+  bool get invited => state == 'invited';
+
+  factory RouteCoauthor.fromJson(Map<String, dynamic> json) => RouteCoauthor(
+    userId: json['user_id'] as String,
+    displayName: json['display_name'] as String? ?? '',
+    avatarUrl: json['avatar_url'] as String?,
+    state: json['state'] as String? ?? 'joined',
+    consented: json['consented'] as bool? ?? false,
+  );
+
+  Map<String, dynamic> toJson() => {
+    'user_id': userId,
+    'display_name': displayName,
+    'avatar_url': avatarUrl,
+    'state': state,
+    'consented': consented,
+  };
+
+  static List<RouteCoauthor> listFrom(Object? raw) => [
+    for (final item in raw as List<dynamic>? ?? const [])
+      if (item is Map) RouteCoauthor.fromJson(Map<String, dynamic>.from(item)),
+  ];
+}
+
 class RouteSummary {
   const RouteSummary({
     required this.id,
@@ -103,6 +148,7 @@ class RouteSummary {
     this.authorAvatarUrl,
     this.authorIsExpert = false,
     this.authorRankTitle,
+    this.coauthors = const [],
     this.source,
     this.visibility,
     this.lifecycleStatus,
@@ -176,6 +222,9 @@ class RouteSummary {
   /// published version meanwhile; [rejectionReason] is then about the edit.
   final String? revisionStatus;
 
+  /// Joined co-authors besides the owner (spec 11c D7).
+  final List<RouteCoauthor> coauthors;
+
   factory RouteSummary.fromJson(Map<String, dynamic> json) {
     return RouteSummary(
       id: json['id'] as String,
@@ -207,6 +256,7 @@ class RouteSummary {
       authorAvatarUrl: json['author_avatar_url'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
       authorRankTitle: json['author_rank_title'] as String?,
+      coauthors: RouteCoauthor.listFrom(json['coauthors']),
       source: json['source'] as String?,
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,
@@ -244,6 +294,7 @@ class RouteSummary {
     'author_avatar_url': authorAvatarUrl,
     'author_is_expert': authorIsExpert,
     'author_rank_title': authorRankTitle,
+    'coauthors': [for (final coauthor in coauthors) coauthor.toJson()],
     'source': source,
     'visibility': visibility,
     'lifecycle_status': lifecycleStatus,
@@ -533,6 +584,7 @@ class RouteDetail extends RouteSummary {
     super.authorAvatarUrl,
     super.authorIsExpert,
     super.authorRankTitle,
+    super.coauthors,
     super.source,
     super.visibility,
     super.lifecycleStatus,
@@ -609,6 +661,7 @@ class RouteDetail extends RouteSummary {
       authorAvatarUrl: json['author_avatar_url'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
       authorRankTitle: json['author_rank_title'] as String?,
+      coauthors: RouteCoauthor.listFrom(json['coauthors']),
       source: json['source'] as String?,
       visibility: json['visibility'] as String?,
       lifecycleStatus: json['lifecycle_status'] as String?,

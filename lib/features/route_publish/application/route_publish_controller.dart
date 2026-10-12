@@ -1188,7 +1188,12 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     }
   }
 
-  Future<String?> publish() async {
+  /// [beforeSubmit] runs once the route is on the server and has its id,
+  /// right before it is sent: the publish page applies the chosen
+  /// co-authors there (spec 11c D7).
+  Future<String?> publish({
+    Future<void> Function(String routeId)? beforeSubmit,
+  }) async {
     if (state.isPublishing || !_validate()) {
       return null;
     }
@@ -1210,6 +1215,10 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       }
       // The send brought the stored draft up to date (server id, photo ids).
       final prepared = await _drafts.load() ?? state.draft;
+      final preparedId = prepared.serverId;
+      if (beforeSubmit != null && preparedId != null) {
+        await beforeSubmit(preparedId);
+      }
       final submittedReceipt = await _publication.submit(prepared);
       await _drafts.delete();
       _dirty = false;
@@ -1228,7 +1237,10 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
           );
         });
         _message(
-          submittedReceipt.revisionStatus == null
+          submittedReceipt.awaitingCoauthors
+              ? 'Ждём согласия соавторов: маршрут уйдёт на проверку, когда '
+                    'все нажмут «Опубликовать»'
+              : submittedReceipt.revisionStatus == null
               ? 'Маршрут отправлен на модерацию'
               : 'Правка отправлена на проверку. В каталоге пока прежняя версия',
         );
