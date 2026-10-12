@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
@@ -13,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_favorite_icon.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/collapsing_hero_header.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/device/external_maps.dart';
@@ -59,7 +59,10 @@ class PlaceDetailsScreen extends ConsumerWidget {
         skipLoadingOnReload: true,
         skipLoadingOnRefresh: true,
         data: (place) => _PlaceDetailsBody(place: place),
-        loading: () => DetailsHeroLoadingView(onBack: () => context.pop()),
+        loading: () => DetailsHeroLoadingView(
+          kind: DetailsSkeletonKind.place,
+          onBack: () => context.pop(),
+        ),
         error: (_, _) => AppAsyncErrorView(
           onRetry: () => ref.invalidate(placeDetailProvider(placeId)),
         ),
@@ -692,20 +695,20 @@ class _RelatedRoutesLoading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        for (var i = 0; i < 3; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: AppColors.controlSurface,
-                borderRadius: BorderRadius.circular(AppRadii.tile),
+    return AppShimmer(
+      child: Column(
+        children: [
+          for (var i = 0; i < 3; i++)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: AppSkeleton(
+                width: double.infinity,
+                height: 48,
+                borderRadius: AppRadii.tile,
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }

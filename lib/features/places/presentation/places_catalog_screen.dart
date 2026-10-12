@@ -10,7 +10,7 @@ import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
-import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_colors.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -269,9 +269,8 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                       ),
                     );
                   },
-                  loading: () => const SliverToBoxAdapter(
-                    child: AppListSkeleton(rows: 5, rowHeight: 96),
-                  ),
+                  loading: () =>
+                      const SliverToBoxAdapter(child: _PlaceCatalogSkeleton()),
                   error: (_, _) => SliverFillRemaining(
                     hasScrollBody: false,
                     child: AppAsyncErrorView(onRetry: _retry),
@@ -279,6 +278,75 @@ class _PlacesCatalogScreenState extends ConsumerState<PlacesCatalogScreen> {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Cards in the shape of [_PlaceCatalogCard]: photo on the left, name,
+/// tags and a short text on the right (FRONTEND-71).
+class _PlaceCatalogSkeleton extends StatelessWidget {
+  const _PlaceCatalogSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return AppShimmer(
+      child: Padding(
+        // The same gutters as the list it stands in for.
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Column(
+          children: [
+            for (var i = 0; i < 4; i++) ...[
+              if (i > 0) const SizedBox(height: 14),
+              Container(
+                height: 142,
+                decoration: BoxDecoration(
+                  color: AppColors.mist,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const Row(
+                  children: [
+                    AppSkeleton(width: 116, height: 142, borderRadius: 24),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(0, 16, 16, 16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppSkeleton(
+                              width: double.infinity,
+                              height: 16,
+                              borderRadius: 7,
+                            ),
+                            SizedBox(height: 10),
+                            AppSkeleton(
+                              width: 90,
+                              height: 22,
+                              borderRadius: 11,
+                            ),
+                            SizedBox(height: 12),
+                            AppSkeleton(
+                              width: double.infinity,
+                              height: 11,
+                              borderRadius: 6,
+                            ),
+                            SizedBox(height: 6),
+                            AppSkeleton(
+                              width: 110,
+                              height: 11,
+                              borderRadius: 6,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );

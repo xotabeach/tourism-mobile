@@ -14,6 +14,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/format/rating_format.dart';
@@ -1045,11 +1046,10 @@ class _SimilarRoutesSkeleton extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: 2,
       separatorBuilder: (context, _) => const SizedBox(width: 10),
-      itemBuilder: (context, _) => Container(
-        width: _SimilarRoutesSection.cardWidth,
-        decoration: BoxDecoration(
-          color: AppColors.controlSurface,
-          borderRadius: BorderRadius.circular(AppRadii.card),
+      itemBuilder: (context, _) => const AppShimmer(
+        child: AppSkeleton(
+          width: _SimilarRoutesSection.cardWidth,
+          height: double.infinity,
         ),
       ),
     );

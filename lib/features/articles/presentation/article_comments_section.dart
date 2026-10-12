@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
+import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
-import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
@@ -152,15 +151,13 @@ class _CommentsLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AppShimmer(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AppSkeleton(width: double.infinity, height: 64, borderRadius: 14),
-          SizedBox(height: 10),
-          AppSkeleton(width: double.infinity, height: 64, borderRadius: 14),
-        ],
-      ),
+    // White cards with an avatar, like the comments themselves.
+    return const AppListSkeleton(
+      rows: 2,
+      tiles: true,
+      roundLeading: true,
+      gap: 10,
+      padding: EdgeInsets.zero,
     );
   }
 }

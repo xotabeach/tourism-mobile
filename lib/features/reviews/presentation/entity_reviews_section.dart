@@ -379,6 +379,8 @@ class _ReviewsLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Rating, the white composer card, sorting and a review card: grey only
+    // where text and stars will be (FRONTEND-71).
     return const AppShimmer(
       child: Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
@@ -393,13 +395,90 @@ class _ReviewsLoadingSkeleton extends StatelessWidget {
               ],
             ),
             SizedBox(height: 14),
-            AppSkeleton(width: double.infinity, height: 222, borderRadius: 16),
+            _SkeletonCard(
+              height: 222,
+              children: [
+                AppSkeleton(width: 150, height: 16, borderRadius: 7),
+                SizedBox(height: 14),
+                AppSkeleton(width: 180, height: 28, borderRadius: 8),
+                SizedBox(height: 16),
+                Expanded(
+                  child: AppSkeleton(
+                    width: double.infinity,
+                    height: double.infinity,
+                    borderRadius: 12,
+                  ),
+                ),
+              ],
+            ),
             SizedBox(height: 14),
-            AppSkeleton(width: double.infinity, height: 36, borderRadius: 18),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AppSkeleton(width: 150, height: 36, borderRadius: 18),
+            ),
             SizedBox(height: 14),
-            AppSkeleton(width: double.infinity, height: 170, borderRadius: 16),
+            _SkeletonCard(
+              height: 170,
+              children: [
+                Row(
+                  children: [
+                    AppSkeleton(width: 34, height: 34, shape: BoxShape.circle),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          AppSkeleton(width: 120, height: 13, borderRadius: 6),
+                          SizedBox(height: 6),
+                          AppSkeleton(width: 80, height: 10, borderRadius: 5),
+                        ],
+                      ),
+                    ),
+                    AppSkeleton(width: 76, height: 14, borderRadius: 6),
+                  ],
+                ),
+                SizedBox(height: 16),
+                AppSkeleton(
+                  width: double.infinity,
+                  height: 12,
+                  borderRadius: 6,
+                ),
+                SizedBox(height: 7),
+                AppSkeleton(
+                  width: double.infinity,
+                  height: 12,
+                  borderRadius: 6,
+                ),
+                SizedBox(height: 7),
+                AppSkeleton(width: 190, height: 12, borderRadius: 6),
+              ],
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard({required this.height, required this.children});
+
+  final double height;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: height,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.elevatedSurface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEDEDEE)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
       ),
     );
   }
