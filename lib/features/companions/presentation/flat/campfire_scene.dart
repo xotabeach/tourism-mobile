@@ -162,6 +162,20 @@ class _CampPainter extends CustomPainter {
       Paint()..color = FlatPalette.night,
     );
 
+    // Once a cycle a star falls across the sky.
+    final fall = (t - 0.3) / 0.08;
+    if (fall > 0 && fall < 1) {
+      final from = Offset(w * (0.15 + fall * 0.35), h * (0.06 + fall * 0.16));
+      canvas.drawLine(
+        from,
+        from.translate(-w * 0.07, -h * 0.03),
+        Paint()
+          ..color = FlatPalette.star.withValues(alpha: 1 - fall)
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
     final far = Path()
       ..moveTo(0, h * 0.58)
       ..quadraticBezierTo(w * 0.2, h * 0.36, w * 0.42, h * 0.55)
@@ -183,6 +197,24 @@ class _CampPainter extends CustomPainter {
       Rect.fromLTWH(0, h * 0.74, w, h * 0.26),
       Paint()..color = FlatPalette.ground,
     );
+
+    // Fireflies blink in the grass.
+    for (var i = 0; i < 7; i++) {
+      final phase = (t * 3 + seeded(i + 300)) % 1;
+      final glow = math.max(0.0, math.sin(phase * math.pi * 2));
+      if (glow <= 0) continue;
+      final x =
+          w * (0.05 + seeded(i + 310) * 0.9) +
+          math.sin((t * 2 + seeded(i)) * math.pi * 2) * w * 0.02;
+      final y =
+          h * (0.78 + seeded(i + 320) * 0.18) +
+          math.cos((t * 3 + seeded(i)) * math.pi * 2) * h * 0.015;
+      canvas.drawCircle(
+        Offset(x, y),
+        2.2,
+        Paint()..color = FlatPalette.flameCore.withValues(alpha: glow),
+      );
+    }
 
     // The trail the group leaves by, to the right.
     final trail = Path()
@@ -225,35 +257,66 @@ class _CampPainter extends CustomPainter {
     placed.sort((a, b) => a.$1.dy.compareTo(b.$1.dy));
 
     for (final (feet, member, index) in placed) {
-      final offsetT = (t + index * 0.17) % 1;
-      final hop = depart > 0
-          ? (math.sin(depart * math.pi * 10 + index).abs() * 0.18)
-          : (math.sin(offsetT * math.pi * 2) * 0.025).abs();
+      final phase = seeded(index + 40);
+      final breath = math.sin((t * 3 + phase) * math.pi * 2);
+      final leaving = depart > 0;
       // Walking off: each bean leaves a little after the one before.
-      final leave = depart <= 0
+      final leave = leaving
+          ? ((depart * 1.4 - index * 0.08).clamp(0.0, 1.0))
+          : 0.0;
+      // Round the front of the fire, never through it, then up the trail.
+      final k = Curves.easeIn.transform(leave);
+      final end = Offset(w + beanHeight, h * 0.8);
+      final control = Offset(fire.dx, h * 1.02);
+      final position = Offset(
+        (1 - k) * (1 - k) * feet.dx +
+            2 * (1 - k) * k * control.dx +
+            k * k * end.dx,
+        (1 - k) * (1 - k) * feet.dy +
+            2 * (1 - k) * k * control.dy +
+            k * k * end.dy,
+      );
+      final towardFire = (fire.dx - feet.dx).sign * 0.8;
+      // Now and then a bean looks at you, or round at the night.
+      final glance = (t * 2 + phase) % 1;
+      final look = leaving
+          ? 1.0
+          : glance < 0.12
           ? 0.0
-          : ((depart * 1.4 - index * 0.08).clamp(0.0, 1.0));
-      final position = Offset.lerp(
-        feet,
-        Offset(w + beanHeight, h * 0.78),
-        Curves.easeIn.transform(leave),
-      )!;
-      final blink = ((t * 6 + index * 0.37) % 1) < 0.04;
+          : glance > 0.55 && glance < 0.63
+          ? -towardFire
+          : towardFire;
+      // Those not ready yet wave at the others from time to time.
+      final waveBeat = (t * 2 + phase * 0.7) % 1;
+      final wave = leaving
+          ? 0.7
+          : !member.ready && waveBeat < 0.2
+          ? 0.65 + 0.35 * math.sin(waveBeat / 0.2 * math.pi * 6)
+          : 0.0;
       paintBean(
         canvas,
         position,
         beanHeight,
         FlatPalette.beanFor(member.userId),
         BeanPose(
-          bob: hop,
-          blink: blink,
-          lookX: depart > 0 ? 1 : (fire.dx - feet.dx).sign * 0.8,
-          ready: member.ready && depart <= 0,
+          bob: leaving
+              ? (math.sin(depart * math.pi * 14 + index).abs() * 0.08)
+              : 0,
+          breath: leaving ? 0 : breath,
+          step: leaving ? math.sin(depart * math.pi * 14 + index) : 0,
+          blink: ((t * 6 + index * 0.37) % 1) < 0.04,
+          lookX: look,
+          ready: member.ready && !leaving,
+          toast: (t * 2 + phase) % 1,
+          wave: wave,
+          mouthOpen: leaving && leave < 0.6,
           organizer: member.organizer,
+          flutter: t * 6,
           stickToRight: feet.dx < fire.dx,
+          look: BeanLook.forUser(member.userId),
         ),
       );
-      if (depart <= 0) {
+      if (!leaving) {
         paintLabel(
           canvas,
           position.translate(0, 4),
@@ -275,7 +338,15 @@ class _CampPainter extends CustomPainter {
         feet,
         beanHeight * 0.42,
         FlatPalette.beanFor(waiting[i].userId),
-        BeanPose(dim: true, lookX: 1, blink: ((t * 5 + i) % 1) < 0.05),
+        BeanPose(
+          dim: true,
+          lookX: 1,
+          blink: ((t * 5 + i) % 1) < 0.05,
+          // On their way: waving to those at the fire.
+          wave: 0.6 + 0.4 * math.sin((t * 6 + i * 0.3) * math.pi * 2),
+          step: math.sin((t * 6 + i) * math.pi * 2),
+          look: BeanLook.forUser(waiting[i].userId),
+        ),
       );
     }
     canvas.restore();
@@ -291,6 +362,18 @@ class _CampPainter extends CustomPainter {
       ),
       Paint()..color = FlatPalette.firelight,
     );
+    // Smoke rises in soft flat puffs, drifting with the night air.
+    for (var i = 0; i < 4; i++) {
+      final rise = (t * 2 + i / 4) % 1;
+      canvas.drawCircle(
+        base.translate(
+          rise * h * 0.12 + math.sin(rise * math.pi * 2) * h * 0.02,
+          -h * 0.2 - rise * h * 0.5,
+        ),
+        h * (0.03 + rise * 0.06),
+        Paint()..color = Colors.white.withValues(alpha: 0.12 * (1 - rise)),
+      );
+    }
     final logW = h * 0.2;
     for (final tilt in const [-0.35, 0.35]) {
       canvas.save();
@@ -303,6 +386,19 @@ class _CampPainter extends CustomPainter {
         ),
         Paint()..color = tilt < 0 ? FlatPalette.log : FlatPalette.logDark,
       );
+      // The cut ends show their rings.
+      for (final end in const [-1.0, 1.0]) {
+        canvas.drawCircle(
+          Offset(end * logW / 2, 0),
+          h * 0.024,
+          Paint()..color = const Color(0xFFE3B47A),
+        );
+        canvas.drawCircle(
+          Offset(end * logW / 2, 0),
+          h * 0.011,
+          Paint()..color = FlatPalette.log,
+        );
+      }
       canvas.restore();
     }
     // Three flames, each flickering on its own beat.
@@ -332,6 +428,49 @@ class _CampPainter extends CustomPainter {
         )
         ..close();
       canvas.drawPath(flame, Paint()..color = color);
+    }
+    // Two small tongues lick up at the sides.
+    for (final side in const [-1.0, 1.0]) {
+      final lick = 0.5 + 0.5 * math.sin((t * 9 + side) * math.pi * 2);
+      final tongueBase = base.translate(side * h * 0.07, -h * 0.01);
+      final tall = h * (0.05 + 0.06 * lick);
+      canvas.drawPath(
+        Path()
+          ..moveTo(tongueBase.dx - h * 0.025, tongueBase.dy)
+          ..quadraticBezierTo(
+            tongueBase.dx - h * 0.02,
+            tongueBase.dy - tall * 0.6,
+            tongueBase.dx + side * h * 0.02,
+            tongueBase.dy - tall,
+          )
+          ..quadraticBezierTo(
+            tongueBase.dx + h * 0.02,
+            tongueBase.dy - tall * 0.5,
+            tongueBase.dx + h * 0.025,
+            tongueBase.dy,
+          )
+          ..close(),
+        Paint()..color = FlatPalette.flameMid,
+      );
+    }
+    // Sparks fly up, wobble and go out.
+    for (var i = 0; i < 14; i++) {
+      final life = (t * 2 + seeded(i + 200)) % 1;
+      final x =
+          base.dx +
+          (seeded(i + 210) - 0.5) * h * 0.16 +
+          math.sin((life * 3 + seeded(i)) * math.pi) * h * 0.04;
+      final y = base.dy - h * 0.12 - life * h * 0.42;
+      canvas.drawCircle(
+        Offset(x, y),
+        h * 0.011 * (1 - life) + 0.6,
+        Paint()
+          ..color = Color.lerp(
+            FlatPalette.flameCore,
+            FlatPalette.flameOuter,
+            life,
+          )!.withValues(alpha: 1 - life),
+      );
     }
   }
 

@@ -297,6 +297,8 @@ class _SummitPainter extends CustomPainter {
         beanHeight,
         FlatPalette.beanFor(userIds[i]),
         BeanPose(
+          look: BeanLook.forUser(userIds[i]),
+          wave: finished.contains(userIds[i]) && i.isEven ? 0.9 : 0,
           happy: finished.contains(userIds[i]),
           lookX: x < w / 2 ? 1 : -1,
         ),
