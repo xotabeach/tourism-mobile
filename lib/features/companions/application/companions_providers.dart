@@ -36,6 +36,28 @@ final myCompanionGroupsProvider =
       (ref) => ref.watch(companionsRepositoryProvider).myGroups(),
     );
 
+/// The live group a person is in or invited to, the one the home card and
+/// «Перейти в активное лобби» lead to (FRONTEND-73). A request to join is
+/// not one yet: the organizer has not let them in.
+CompanionGroup? activeLobbyOf(List<CompanionGroup> groups) => groups
+    .where((g) => g.status.isLive && (g.isInside || g.isInvitation))
+    .firstOrNull;
+
+/// The lobby the home screen shows in place of the «Подбери маршрут»
+/// banner. Any failure means no card: the banner is never worse.
+final homeLobbyProvider = FutureProvider.autoDispose<CompanionGroup?>((
+  ref,
+) async {
+  if (!ref.watch(sessionProvider.select((s) => s.isAuthenticated))) {
+    return null;
+  }
+  try {
+    return activeLobbyOf(await ref.watch(myCompanionGroupsProvider.future));
+  } on Object {
+    return null;
+  }
+});
+
 final invitablePeopleProvider =
     FutureProvider.autoDispose<List<InvitablePerson>>(
       (ref) => ref.watch(companionsRepositoryProvider).invitable(),

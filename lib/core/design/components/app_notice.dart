@@ -144,6 +144,7 @@ class _AppNoticeState extends State<_AppNotice>
     final actionLabel = widget.actionLabel;
     final onAction = widget.onAction;
     final hasAction = actionLabel != null && onAction != null;
+    final longAction = (actionLabel?.length ?? 0) > 12;
     final curved = CurvedAnimation(
       parent: _controller,
       curve: AppMotion.emphasizedCurve,
@@ -177,27 +178,50 @@ class _AppNoticeState extends State<_AppNotice>
                     horizontal: 14,
                     vertical: 12,
                   ),
-                  child: Row(
-                    children: [
-                      Icon(icon, size: 20, color: accent),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          widget.message,
-                          style: AppTypography.settingsRowTitle.copyWith(
-                            fontSize: 13.5,
-                            height: 1.35,
+                  child: Builder(
+                    builder: (context) {
+                      final message = Row(
+                        children: [
+                          Icon(icon, size: 20, color: accent),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              widget.message,
+                              style: AppTypography.settingsRowTitle.copyWith(
+                                fontSize: 13.5,
+                                height: 1.35,
+                              ),
+                            ),
                           ),
-                        ),
-                      ),
-                      if (hasAction) ...[
-                        const SizedBox(width: 8),
-                        TextButton(
-                          onPressed: onAction,
-                          child: Text(actionLabel),
-                        ),
-                      ],
-                    ],
+                          if (hasAction && !longAction) ...[
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: onAction,
+                              child: Text(actionLabel),
+                            ),
+                          ],
+                        ],
+                      );
+                      if (!hasAction || !longAction) return message;
+                      // A long action («Перейти в активное лобби») gets a
+                      // line of its own instead of squeezing the message.
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          message,
+                          const SizedBox(height: 10),
+                          FilledButton(
+                            onPressed: onAction,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.primaryInk,
+                              minimumSize: const Size.fromHeight(44),
+                              shape: const StadiumBorder(),
+                            ),
+                            child: Text(actionLabel),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
