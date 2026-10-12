@@ -36,14 +36,19 @@ void main() {
   });
 }
 
-RouteSegment _segment(int leg, int seq, String mode, String role, int meters) =>
-    RouteSegment(
-      legIndex: leg,
-      seq: seq,
-      mode: mode,
-      role: role,
-      distanceMeters: meters,
-    );
+RouteSegment _segment(
+  int leg,
+  int seq,
+  String mode,
+  String role,
+  int? meters,
+) => RouteSegment(
+  legIndex: leg,
+  seq: seq,
+  mode: mode,
+  role: role,
+  distanceMeters: meters,
+);
 
 void segmentTests() {
   test('a drive with a walk up reads as both, in order', () {
@@ -67,6 +72,20 @@ void segmentTests() {
     expect(legTravelSummary([_segment(0, 0, 'walk', 'main', 900)]), isNull);
     expect(legTravelSummary([_segment(0, 0, 'car', 'main', 9000)]), isNull);
     expect(legTravelSummary(const []), isNull);
+  });
+
+  test('a stop row shows the length of the leg to it', () {
+    expect(legLengthLabel([_segment(0, 0, 'walk', 'main', 1730)]), '1,7 км');
+    expect(
+      legLengthLabel([
+        _segment(0, 0, 'car', 'main', 3000),
+        _segment(0, 1, 'walk', 'approach', 400),
+      ]),
+      '3,4 км',
+    );
+    expect(legLengthLabel([_segment(0, 0, 'walk', 'main', 650)]), '650 м');
+    expect(legLengthLabel([_segment(0, 0, 'walk', 'main', null)]), isNull);
+    expect(legLengthLabel(const []), isNull);
   });
 
   test('route detail parses segments and keeps them for offline', () {

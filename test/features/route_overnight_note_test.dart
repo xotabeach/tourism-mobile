@@ -8,7 +8,7 @@ import 'package:tourism_mobile/features/routes/presentation/route_details_screen
 
 import '../support/test_overrides.dart';
 
-// FRONTEND-67: the night between two days is a tile of its own.
+// FRONTEND-67, FRONTEND-68: the night between two days is a row of its own.
 
 RouteStop _stop(int position, String name) => RouteStop(
   id: 's$position',
@@ -50,9 +50,7 @@ final _route = RouteDetail(
 );
 
 void main() {
-  testWidgets('the night is a tile between the days, place in bold', (
-    tester,
-  ) async {
+  testWidgets('the night is a blue row between the days', (tester) async {
     tester.view
       ..devicePixelRatio = 1
       ..physicalSize = const Size(393, 2400);
@@ -74,11 +72,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final label = find.text('Ночлег');
+    final label = find.text('Ночлег:');
     final place = find.text('Симферополь');
     expect(label, findsOneWidget);
     expect(place, findsOneWidget);
-    expect(tester.widget<Text>(place).style?.fontWeight, FontWeight.w600);
+    expect(tester.widget<Text>(label).style?.color, const Color(0xFF1E71CA));
     expect(find.text('Ночлег: Симферополь'), findsNothing);
 
     // Between the last stop of day one and the heading of day two.
@@ -88,8 +86,10 @@ void main() {
       greaterThan(tester.getCenter(find.text('Екатерининский сад')).dy),
     );
     expect(y, lessThan(tester.getCenter(find.textContaining('День 2')).dy));
-    // The moon sits in the column of the stop numbers.
-    final moon = tester.getCenter(find.byIcon(Icons.bedtime_outlined)).dx;
+    // The house sits in the column of the stop numbers.
+    final moon = tester
+        .getCenter(find.byKey(const ValueKey('route-overnight-mark')))
+        .dx;
     final numbers = [
       for (final element in find.text('2').evaluate())
         tester.getCenter(find.byElementPredicate((e) => e == element)).dx,

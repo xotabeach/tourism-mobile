@@ -37,6 +37,10 @@ abstract final class AppIconography {
   /// Filled blue alarm on the «too fast» mark sheet (DESIGN-4, own colours).
   static const String execAlarmBold = '$_root/exec_alarm_bold.png';
 
+  /// White Solar «home-angle-2» in the blue overnight circle of a route's
+  /// stop list (FRONTEND-68, own colours).
+  static const String routeOvernightHome = '$_root/route_overnight_home.png';
+
   /// Red circled cross on a stop whose mark was not delivered (DESIGN-4,
   /// own colours).
   static const String execUndelivered = '$_root/exec_undelivered.png';
