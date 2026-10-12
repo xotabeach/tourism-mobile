@@ -37,6 +37,10 @@ abstract final class AppIconography {
   /// Filled blue alarm on the «too fast» mark sheet (DESIGN-4, own colours).
   static const String execAlarmBold = '$_root/exec_alarm_bold.png';
 
+  /// Blue Solar «siren» of the «clear notifications» dialog (DESIGN-8, own
+  /// colours).
+  static const String inboxClearSiren = '$_root/inbox_clear_siren.png';
+
   /// White Solar «home-angle-2» in the blue overnight circle of a route's
   /// stop list (FRONTEND-68, own colours).
   static const String routeOvernightHome = '$_root/route_overnight_home.png';

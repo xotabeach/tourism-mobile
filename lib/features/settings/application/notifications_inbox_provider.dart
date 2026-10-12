@@ -38,7 +38,19 @@ class NotificationsInboxController
   final Map<String, InboxNotification> _pending = {};
   Timer? _flushTimer;
 
+  DateTime? _flushAt;
+
   int get pendingCount => _pending.length;
+
+  /// Rows waiting out their undo window, shown in place as «Удалить
+  /// уведомление?» (DESIGN-8).
+  Set<String> get pendingIds => Set.unmodifiable(_pending.keys);
+
+  List<InboxNotification> get pendingItems =>
+      List.unmodifiable(_pending.values);
+
+  /// When the pending rows go to the server; every new swipe moves it.
+  DateTime? get flushAt => _pending.isEmpty ? null : _flushAt;
 
   List<InboxNotification> _visible(List<InboxNotification> items) => [
     for (final item in items)
@@ -78,9 +90,24 @@ class NotificationsInboxController
     }
     state = AsyncData(_visible(state.valueOrNull ?? const []));
     _flushTimer?.cancel();
+    _flushAt = DateTime.now().add(notificationsUndoWindow);
     _flushTimer = Timer(notificationsUndoWindow, () {
       unawaited(flushPending());
     });
+  }
+
+  /// Brings one row back; the others keep their countdown.
+  void undoOne(String id) {
+    final item = _pending.remove(id);
+    if (item == null) {
+      return;
+    }
+    if (_pending.isEmpty) {
+      _flushTimer?.cancel();
+    }
+    final merged = <InboxNotification>[...(state.valueOrNull ?? const []), item]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    state = AsyncData(merged);
   }
 
   /// Cancels every pending delete and brings the rows back.
@@ -113,8 +140,10 @@ class NotificationsInboxController
         );
       }
       _pending.removeWhere((id, _) => batch.containsKey(id));
+      _settled();
     } on NotFoundFailure {
       _pending.removeWhere((id, _) => batch.containsKey(id));
+      _settled();
     } on Object {
       _pending.removeWhere((id, _) => batch.containsKey(id));
       final merged = <InboxNotification>[
@@ -123,6 +152,15 @@ class NotificationsInboxController
       ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       state = AsyncData(merged);
       ref.read(notificationsDeleteFailedProvider.notifier).state++;
+    }
+  }
+
+  /// The rows are gone for good: let the list drop their «Удалить
+  /// уведомление?» rows.
+  void _settled() {
+    final current = state.valueOrNull;
+    if (current != null) {
+      state = AsyncData(List.of(current));
     }
   }
 

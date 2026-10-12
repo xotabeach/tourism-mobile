@@ -5,6 +5,7 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
@@ -63,9 +64,26 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
               ),
             ],
           ),
-          data: (items) {
+          data: (visible) {
+            final notifier = ref.read(notificationsInboxProvider.notifier);
+            // A deleted row stays in its place as «Удалить уведомление?»
+            // until its undo window ends (DESIGN-8).
+            final pendingIds = notifier.pendingIds;
+            final items = [...visible, ...notifier.pendingItems]
+              ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
             final unread = items.where((n) => n.isUnread).toList();
             final read = items.where((n) => !n.isUnread).toList();
+            Widget row(InboxNotification item) => pendingIds.contains(item.id)
+                ? _PendingDeleteTile(
+                    key: ValueKey('inbox-pending-${item.id}'),
+                    flushAt: notifier.flushAt,
+                    onUndo: () => notifier.undoOne(item.id),
+                  )
+                : _InboxTile(
+                    item: item,
+                    onTap: () => _openNotification(context, ref, item),
+                    onDelete: () => _deleteOne(ref, item),
+                  );
             if (items.isEmpty) {
               return const Padding(
                 padding: EdgeInsets.only(top: 12),
@@ -88,11 +106,7 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   for (var i = 0; i < unread.length; i++) ...[
                     if (i > 0) const SizedBox(height: SettingsMetrics.rowGap),
-                    _InboxTile(
-                      item: unread[i],
-                      onTap: () => _openNotification(context, ref, unread[i]),
-                      onDelete: () => _deleteOne(context, ref, unread[i]),
-                    ),
+                    row(unread[i]),
                   ],
                   const SizedBox(height: 18),
                   const SettingsHairline(),
@@ -111,11 +125,7 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
                 else
                   for (var i = 0; i < read.length; i++) ...[
                     if (i > 0) const SizedBox(height: SettingsMetrics.rowGap),
-                    _InboxTile(
-                      item: read[i],
-                      onTap: () => _openNotification(context, ref, read[i]),
-                      onDelete: () => _deleteOne(context, ref, read[i]),
-                    ),
+                    row(read[i]),
                   ],
                 const SizedBox(height: 120),
               ],
@@ -126,23 +136,9 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
     );
   }
 
-  static void _deleteOne(
-    BuildContext context,
-    WidgetRef ref,
-    InboxNotification item,
-  ) {
+  static void _deleteOne(WidgetRef ref, InboxNotification item) {
     unawaited(AppHaptics.selectionClick());
-    final notifier = ref.read(notificationsInboxProvider.notifier)
-      ..queueDelete([item]);
-    final count = notifier.pendingCount;
-    final label = count == 1 ? 'Уведомление удалено' : 'Удалено: $count';
-    showAppNotice(
-      context,
-      label,
-      duration: notificationsUndoWindow,
-      actionLabel: 'Отменить',
-      onAction: notifier.undoPending,
-    );
+    ref.read(notificationsInboxProvider.notifier).queueDelete([item]);
   }
 
   static Future<void> _openNotification(
@@ -301,7 +297,11 @@ class _InboxTile extends StatelessWidget {
                         height: 48,
                       ),
                       onPressed: onDelete,
-                      icon: const Icon(Icons.close_rounded, size: 20),
+                      icon: const Icon(
+                        Icons.close_rounded,
+                        size: 26,
+                        color: AppColors.primaryInk,
+                      ),
                     )
                   else
                     const Icon(Icons.chevron_right_rounded, size: 20),
@@ -346,7 +346,8 @@ class _SwipeToDelete extends StatefulWidget {
   final VoidCallback onDelete;
   final Widget child;
 
-  static const deleteRed = Color(0xFFE5484D);
+  // Sampled from the DESIGN-8 mockup.
+  static const deleteRed = Color(0xFFFF383C);
   static const gap = 8.0;
 
   @override
@@ -388,16 +389,15 @@ class _SwipeToDeleteState extends State<_SwipeToDelete> {
                     color: _SwipeToDelete.deleteRed,
                     borderRadius: widget.radius,
                   ),
+                  // The bin sits in the middle of the plate, as on the
+                  // mockup of a card swiped all the way.
                   child: const ClipRect(
                     child: OverflowBox(
-                      alignment: Alignment.centerRight,
                       maxWidth: double.infinity,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Icon(
-                          Icons.delete_outline_rounded,
-                          color: Colors.white,
-                        ),
+                      child: Icon(
+                        Icons.delete_outline_rounded,
+                        size: 30,
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -432,8 +432,7 @@ class _InboxLifecycleGuardState extends ConsumerState<_InboxLifecycleGuard> {
 
   @override
   void dispose() {
-    // Leaving sends the pending deletes, so their «Отменить» must go too.
-    dismissAppNotice();
+    // Leaving sends the pending deletes: they are not coming back.
     unawaited(_notifier.flushPending());
     super.dispose();
   }
@@ -460,17 +459,18 @@ class _ClearActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final hasRead = items.any((n) => !n.isUnread);
     return Wrap(
-      spacing: 8,
+      spacing: 12,
+      runSpacing: 8,
       children: [
         if (hasRead)
-          TextButton(
+          _ClearChip(
+            label: 'Очистить прочитанные',
             onPressed: () =>
                 _confirm(context, ref, NotificationsClearScope.read),
-            child: const Text('Очистить прочитанные'),
           ),
-        TextButton(
+        _ClearChip(
+          label: 'Очистить все',
           onPressed: () => _confirm(context, ref, NotificationsClearScope.all),
-          child: const Text('Очистить все'),
         ),
       ],
     );
@@ -513,27 +513,13 @@ class _ClearActions extends ConsumerWidget {
       }
       return;
     }
-    final what = scope == NotificationsClearScope.read
-        ? 'прочитанные уведомления'
-        : 'все уведомления';
     final ok = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Удалить $what?'),
-        content: Text(
-          'Будет удалено: $count. Восстановить их не получится. '
-          'Уведомления, пришедшие позже, останутся.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Удалить'),
-          ),
-        ],
+      builder: (context) => _ClearConfirmDialog(
+        title: scope == NotificationsClearScope.read
+            ? 'Удалить прочитанные уведомления?'
+            : 'Удалить все уведомления?',
+        count: count,
       ),
     );
     if (ok != true) {
@@ -557,5 +543,246 @@ class _ClearActions extends ConsumerWidget {
         );
       }
     }
+  }
+}
+
+/// Grey capsule above the list (DESIGN-8): quieter than the screen's own
+/// «Сохранить», since both clear actions are destructive.
+class _ClearChip extends StatelessWidget {
+  const _ClearChip({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        backgroundColor: const Color(0xFFEDEDED),
+        foregroundColor: AppColors.primaryInk,
+        minimumSize: const Size(0, 44),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        shape: const StadiumBorder(),
+        textStyle: const TextStyle(
+          fontFamily: AppFonts.rubik,
+          fontSize: 15,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      child: Text(label),
+    );
+  }
+}
+
+/// A deleted card waiting out its undo window, in the card's own place
+/// (DESIGN-8). The cross brings the notification back.
+class _PendingDeleteTile extends StatefulWidget {
+  const _PendingDeleteTile({
+    required this.flushAt,
+    required this.onUndo,
+    super.key,
+  });
+
+  final DateTime? flushAt;
+  final VoidCallback onUndo;
+
+  static const red = Color(0xFFFF383C);
+  static const plate = Color(0xFFF8D7D8);
+
+  @override
+  State<_PendingDeleteTile> createState() => _PendingDeleteTileState();
+}
+
+class _PendingDeleteTileState extends State<_PendingDeleteTile> {
+  Timer? _tick;
+  late int _secondsLeft;
+
+  @override
+  void initState() {
+    super.initState();
+    _restart();
+  }
+
+  @override
+  void didUpdateWidget(_PendingDeleteTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Another swipe moved the shared deadline.
+    if (oldWidget.flushAt != widget.flushAt) _restart();
+  }
+
+  /// Counts down by its own ticks from the deadline it was given, so the
+  /// figure steps once a second whatever the frame rate.
+  void _restart() {
+    _tick?.cancel();
+    final at = widget.flushAt;
+    final left = at == null
+        ? notificationsUndoWindow.inMilliseconds
+        : at.difference(DateTime.now()).inMilliseconds;
+    _secondsLeft = (left / 1000).ceil().clamp(
+      1,
+      notificationsUndoWindow.inSeconds,
+    );
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _secondsLeft <= 1) return;
+      setState(() => _secondsLeft--);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AppRadii.settingsTile);
+    return Container(
+      height: SettingsMetrics.rowHeight,
+      decoration: BoxDecoration(
+        color: _PendingDeleteTile.plate,
+        borderRadius: radius,
+      ),
+      padding: const EdgeInsets.only(left: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Удалить уведомление?',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: _PendingDeleteTile.red,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Автоматическое удаление через $_secondsLeftс',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 13,
+                    color: _PendingDeleteTile.red.withValues(alpha: 0.75),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Не удалять',
+            constraints: const BoxConstraints.tightFor(width: 56, height: 56),
+            onPressed: widget.onUndo,
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 26,
+              color: _PendingDeleteTile.red,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// «Удалить прочитанные уведомления?» with the siren (DESIGN-8). True only
+/// for «Всё равно удалить».
+class _ClearConfirmDialog extends StatelessWidget {
+  const _ClearConfirmDialog({required this.title, required this.count});
+
+  final String title;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                ExcludeSemantics(
+                  child: Image.asset(
+                    AppIconography.inboxClearSiren,
+                    width: 36,
+                    height: 36,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.rubik,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                      height: 1.25,
+                      color: AppColors.primaryInk,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFE6E6E6)),
+            const SizedBox(height: 14),
+            Text(
+              'Будет удалено: $count. Восстановить их не получится. '
+              'Уведомления, пришедшие позже, останутся.',
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 15,
+                height: 1.35,
+                color: AppColors.secondaryInk,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF212121),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(52),
+                shape: const StadiumBorder(),
+                textStyle: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              child: const Text('Всё равно удалить'),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.primaryInk,
+                minimumSize: const Size.fromHeight(48),
+                textStyle: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              child: const Text('Отменить'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
