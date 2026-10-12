@@ -74,6 +74,11 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
       }
       if (!mounted) return;
       final wasGathering = _group?.status == CompanionGroupStatus.gathering;
+      if (_group != null &&
+          (_group!.status != group.status ||
+              _group!.myState != group.myState)) {
+        ref.invalidate(myCompanionGroupsProvider);
+      }
       setState(() {
         _group = group;
         _progress = progress ?? _progress;
@@ -110,6 +115,8 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
     setState(() => _busy = true);
     try {
       final group = await action();
+      // The home card and «Мои группы» follow what was done here.
+      ref.invalidate(myCompanionGroupsProvider);
       if (!mounted) return;
       if (group == null) {
         unawaited(Navigator.of(context).maybePop());
@@ -118,13 +125,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
       setState(() => _group = group);
       if (done != null) showAppNotice(context, done);
     } on Object catch (error) {
-      if (mounted) {
-        showAppNotice(
-          context,
-          companionErrorText(error),
-          kind: AppNoticeKind.error,
-        );
-      }
+      if (mounted) await showCompanionError(context, ref, error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

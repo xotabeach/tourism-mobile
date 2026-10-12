@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
+import 'package:tourism_mobile/routing/app_router.dart';
 
 /// The words for a refused group action: the server already says it in
 /// Russian; only a dropped connection needs our own.
@@ -17,6 +21,52 @@ String companionErrorText(Object error) {
     return error.message;
   }
   return 'Не получилось. Попробуйте ещё раз';
+}
+
+/// The server's code for «you are already in another live group».
+const companionBusyCode = 'companion_already_in_group';
+
+void openCompanionGroup(BuildContext context, String groupId) => unawaited(
+  context.pushNamed(
+    AppRouteNames.companionGroup,
+    pathParameters: {'groupId': groupId},
+  ),
+);
+
+/// Shows why a group action was refused. Already being in another group
+/// is not a dead end: the notice offers to go to that group (FRONTEND-73).
+Future<void> showCompanionError(
+  BuildContext context,
+  WidgetRef ref,
+  Object error,
+) async {
+  final busy = error is AppFailure && error.code == companionBusyCode;
+  if (!busy) {
+    showAppNotice(
+      context,
+      companionErrorText(error),
+      kind: AppNoticeKind.error,
+    );
+    return;
+  }
+  ref.invalidate(myCompanionGroupsProvider);
+  CompanionGroup? lobby;
+  try {
+    lobby = activeLobbyOf(await ref.read(myCompanionGroupsProvider.future));
+  } on Object {
+    lobby = null;
+  }
+  if (!context.mounted) return;
+  showAppNotice(
+    context,
+    companionErrorText(error),
+    kind: AppNoticeKind.error,
+    duration: const Duration(seconds: 6),
+    actionLabel: lobby == null ? null : 'Перейти в активное лобби',
+    onAction: lobby == null
+        ? null
+        : () => openCompanionGroup(context, lobby!.id),
+  );
 }
 
 const _sheetShape = RoundedRectangleBorder(
@@ -250,6 +300,10 @@ class _JoinCodeSheetState extends ConsumerState<_JoinCodeSheet> {
   var _busy = false;
   String? _error;
 
+  /// Set when the code is refused because the person is already in a live
+  /// group: the sheet then offers to go there (FRONTEND-73).
+  String? _lobbyId;
+
   @override
   void dispose() {
     _controller.dispose();
@@ -269,13 +323,36 @@ class _JoinCodeSheetState extends ConsumerState<_JoinCodeSheet> {
           .joinByCode(code);
       if (mounted) Navigator.of(context).pop(group);
     } on Object catch (error) {
+      String? lobbyId;
+      if (error is AppFailure && error.code == companionBusyCode) {
+        ref.invalidate(myCompanionGroupsProvider);
+        try {
+          lobbyId = activeLobbyOf(
+            await ref.read(myCompanionGroupsProvider.future),
+          )?.id;
+        } on Object {
+          lobbyId = null;
+        }
+      }
       if (mounted) {
         setState(() {
           _busy = false;
           _error = companionErrorText(error);
+          _lobbyId = lobbyId;
         });
       }
     }
+  }
+
+  void _goToLobby(String id) {
+    final router = GoRouter.of(context);
+    Navigator.of(context).pop();
+    unawaited(
+      router.pushNamed(
+        AppRouteNames.companionGroup,
+        pathParameters: {'groupId': id},
+      ),
+    );
   }
 
   @override
@@ -331,6 +408,17 @@ class _JoinCodeSheetState extends ConsumerState<_JoinCodeSheet> {
             ),
             child: const Text('Попроситься в группу'),
           ),
+          if (_lobbyId case final id?) ...[
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => _goToLobby(id),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size.fromHeight(50),
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Перейти в активное лобби'),
+            ),
+          ],
         ],
       ),
     );

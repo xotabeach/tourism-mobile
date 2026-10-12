@@ -21,6 +21,8 @@ import 'package:tourism_mobile/core/network/connectivity_provider.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
+import 'package:tourism_mobile/features/companions/presentation/my_groups_list.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/widgets/section_dropdown.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -40,7 +42,7 @@ import 'package:tourism_mobile/features/search/presentation/universal_search_pan
 import 'package:tourism_mobile/routing/app_router.dart';
 import 'package:tourism_mobile/routing/shell/tab_scroll_to_top.dart';
 
-enum MyRoutesTab { favorites, history, places, subscriptions, articles }
+enum MyRoutesTab { favorites, history, places, subscriptions, articles, groups }
 
 /// 4-й раздел nav bar: маршруты / места / статьи / подписки / история.
 /// Разделы переключаются выпадающим списком — чипами их было бы уже пять.
@@ -83,6 +85,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     MyRoutesTab.articles => SearchFilterSections.articles,
     MyRoutesTab.subscriptions => SearchFilterSections.profiles,
     MyRoutesTab.history => SearchFilterSections.history,
+    // Groups are few; their search and filters are the routes'.
+    MyRoutesTab.groups => SearchFilterSections.routes,
   };
 
   Future<void> _openFilters() async {
@@ -180,6 +184,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
     final historyAsync = ref.watch(routeExecutionHistoryProvider);
     final savedArticlesAsync = ref.watch(savedArticlesProvider);
     final savedArticles = savedArticlesAsync.valueOrNull?.items ?? const [];
+    final groupsAsync = ref.watch(myCompanionGroupsProvider);
     final routes = routesAsync.valueOrNull?.items ?? const <RouteSummary>[];
     final favoriteRoutes = routes
         .where((r) => favorites.routeIds.contains(r.id))
@@ -195,6 +200,7 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
       MyRoutesTab.places => const <RouteSummary>[],
       MyRoutesTab.subscriptions => const <RouteSummary>[],
       MyRoutesTab.articles => const <RouteSummary>[],
+      MyRoutesTab.groups => const <RouteSummary>[],
     }, _filters);
 
     return ColoredBox(
@@ -272,6 +278,14 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                           icon: Icons.history_rounded,
                           count: historyAsync.valueOrNull?.length,
                         ),
+                        SectionOption(
+                          value: MyRoutesTab.groups,
+                          // Groups walking a route together (FRONTEND-73):
+                          // the way back to a lobby left for later.
+                          label: 'Мои группы',
+                          icon: Icons.local_fire_department_rounded,
+                          count: groupsAsync.valueOrNull?.length,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -291,14 +305,16 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                       MyRoutesTab.places => SearchScope.places,
                       MyRoutesTab.favorites ||
                       MyRoutesTab.history ||
-                      MyRoutesTab.articles => SearchScope.routes,
+                      MyRoutesTab.articles ||
+                      MyRoutesTab.groups => SearchScope.routes,
                     },
                     localRoutes: switch (_tab) {
                       MyRoutesTab.favorites => favoriteRoutes,
                       MyRoutesTab.history => null,
                       MyRoutesTab.places ||
                       MyRoutesTab.subscriptions ||
-                      MyRoutesTab.articles => null,
+                      MyRoutesTab.articles ||
+                      MyRoutesTab.groups => null,
                     },
                     localPlaces: _tab == MyRoutesTab.places
                         ? favoritePlaces
@@ -328,6 +344,8 @@ class _MyRoutesScreenState extends ConsumerState<MyRoutesScreen> {
                   (items) => applyExecutionFilters(items, _filters),
                 ),
               )
+            else if (_tab == MyRoutesTab.groups)
+              ...companionGroupsSlivers(groupsAsync)
             else if (_tab == MyRoutesTab.articles)
               ..._savedArticleSlivers(
                 savedArticlesAsync.whenData(

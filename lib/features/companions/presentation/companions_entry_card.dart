@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_typography.dart';
-import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/companions/presentation/companion_sheets.dart';
@@ -43,13 +42,7 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
       ref.invalidate(myCompanionGroupsProvider);
       if (mounted) _open(group);
     } on Object catch (error) {
-      if (mounted) {
-        showAppNotice(
-          context,
-          companionErrorText(error),
-          kind: AppNoticeKind.error,
-        );
-      }
+      if (mounted) await showCompanionError(context, ref, error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

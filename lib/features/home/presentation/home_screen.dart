@@ -23,6 +23,8 @@ import 'package:tourism_mobile/core/performance/app_perf.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
+import 'package:tourism_mobile/features/companions/presentation/home_lobby_card.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
@@ -765,12 +767,17 @@ class _HomeHeader extends ConsumerWidget {
           const SizedBox(height: 18)
         else ...[
           const SizedBox(height: AppSpacing.xl),
-          // A run in progress takes the banner's place (FRONTEND-34); the
-          // banner stays while it loads, so people without a run never see
-          // it blink.
-          switch (ref.watch(homeActiveRunProvider).valueOrNull) {
-            final run? => ActiveRouteCard(state: run),
-            null => const BuildRouteBanner(),
+          // A run in progress takes the banner's place (FRONTEND-34), and
+          // without one a group gathering at the fire does (FRONTEND-73);
+          // the banner stays while they load, so people with neither never
+          // see it blink.
+          switch ((
+            ref.watch(homeActiveRunProvider).valueOrNull,
+            ref.watch(homeLobbyProvider).valueOrNull,
+          )) {
+            (final run?, _) => ActiveRouteCard(state: run),
+            (null, final lobby?) => HomeLobbyCard(group: lobby),
+            (null, null) => const BuildRouteBanner(),
           },
           const SizedBox(height: 25),
           Row(

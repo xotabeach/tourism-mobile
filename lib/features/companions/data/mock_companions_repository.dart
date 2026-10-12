@@ -1,3 +1,4 @@
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 
 /// In-memory groups for the demo build and tests: the same rules as the
@@ -65,6 +66,13 @@ class MockCompanionsRepository implements CompanionsRepository {
 
   @override
   Future<CompanionGroup> create(String routeId) async {
+    // As the server: one live group at a time.
+    if (_groups.values.any((g) => g.status.isLive && g.isInside)) {
+      throw const RejectedFailure(
+        'Вы уже в другой группе. Сначала выйдите из неё.',
+        'companion_already_in_group',
+      );
+    }
     final id = 'group-${++_seq}';
     return _put(
       CompanionGroup(
