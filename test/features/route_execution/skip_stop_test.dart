@@ -15,6 +15,7 @@ RouteExecution _run({
   int? share,
   RouteExecutionStatus status = RouteExecutionStatus.active,
   String? routeId = 'route-1',
+  int? paidMeters,
 }) {
   final started = DateTime.utc(2026, 10, 9, 8);
   return RouteExecution.fromJson({
@@ -34,6 +35,8 @@ RouteExecution _run({
     'counted': counted,
     'completed_share_percent': share,
     'counted_threshold_percent': 70,
+    'paid_distance_meters': paidMeters,
+    'routing': {'distance_meters': 8400},
     'awarded_points': 40,
     'points_status': 'awarded',
     'stops': [
@@ -130,6 +133,45 @@ void main() {
     expect(leg?.to.id, 's2');
   });
 
+  group('summary distance', () {
+    test('a whole run shows the length of the route, never «пройдено»', () {
+      final distance = RunDistance.of(
+        _run(marked: 4, status: RouteExecutionStatus.completed),
+      );
+
+      expect(distance.label, 'Длина маршрута');
+      expect(distance.meters, 8400);
+    });
+
+    test('a run with skips shows the part of the way that was paid', () {
+      final run = _run(
+        skipReasons: [null, null, 'no_time', null],
+        marked: 2,
+        status: RouteExecutionStatus.completed,
+        paidMeters: 5100,
+      );
+
+      final distance = RunDistance.of(run);
+      expect(distance.label, 'Засчитано км.');
+      expect(distance.meters, 5100);
+      // The figure survives the local cache.
+      expect(RouteExecution.fromJson(run.toJson()).paidDistanceMeters, 5100);
+    });
+
+    test('before the server answered, a run with skips shows the length', () {
+      final distance = RunDistance.of(
+        _run(
+          skipReasons: [null, null, 'no_time', null],
+          marked: 2,
+          status: RouteExecutionStatus.completed,
+        ),
+      );
+
+      expect(distance.label, 'Длина маршрута');
+      expect(distance.meters, 8400);
+    });
+  });
+
   group('run outcome', () {
     test('a run below the threshold is partial and says why', () {
       final outcome = RunOutcome.of(
@@ -205,6 +247,8 @@ void main() {
     expect(find.text('Маршрут пройден!'), findsNothing);
     expect(find.textContaining('в зачёт идёт от 70%'), findsOneWidget);
     expect(find.text('+40 ТП'), findsOneWidget);
+    expect(find.text('Пройдено км.'), findsNothing);
+    expect(find.text('Длина маршрута'), findsOneWidget);
   });
 
   test('a review knows its author walked only a part of the route', () {
