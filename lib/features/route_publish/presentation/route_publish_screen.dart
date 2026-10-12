@@ -23,6 +23,7 @@ import 'package:tourism_mobile/features/route_publish/data/route_media_picker.da
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/publish_route_design_tokens.dart';
+import 'package:tourism_mobile/features/route_publish/presentation/route_coauthors_section.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_place_picker_sheet.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_map_preview.dart';
@@ -47,6 +48,10 @@ class RoutePublishScreen extends ConsumerStatefulWidget {
 
 class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
     with WidgetsBindingObserver {
+  /// The owner's choice of co-authors, sent right before publishing; null
+  /// until changed on this page (spec 11c D7).
+  Set<String>? _coauthors;
+
   late final TextEditingController _titleController;
   late final TextEditingController _descriptionController;
   final _titleFocus = FocusNode();
@@ -366,6 +371,20 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                         onAuto: controller.setDifficultyAuto,
                                       ),
                                       SizedBox(height: u(18)),
+                                      // Spec 11c D7, drawn by DESIGN-19.
+                                      if (_mode ==
+                                          RoutePublishMode.production) ...[
+                                        RouteCoauthorsSection(
+                                          u: u,
+                                          routeId: state.draft.serverId,
+                                          selected: _coauthors,
+                                          onChanged: (ids) =>
+                                              setState(() => _coauthors = ids),
+                                          onLeft: () =>
+                                              context.go('/my-routes'),
+                                        ),
+                                        SizedBox(height: u(18)),
+                                      ],
                                       if (state.draft.editsPublished) ...[
                                         PublishedRouteEditNotice(
                                           u: u,
@@ -604,7 +623,17 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
 
   Future<void> _publish(RoutePublishController controller) async {
     FocusManager.instance.primaryFocus?.unfocus();
-    final id = await controller.publish();
+    final chosen = _coauthors;
+    final id = await controller.publish(
+      beforeSubmit: chosen == null
+          ? null
+          : (routeId) async {
+              await ref
+                  .read(routeCoauthorsRepositoryProvider)
+                  .set(routeId, chosen.toList());
+              ref.invalidate(routeCoauthorsInfoProvider(routeId));
+            },
+    );
     if (id != null && mounted) {
       final userId = ref.read(sessionProvider).userId;
       if (userId != null && userId.isNotEmpty) {

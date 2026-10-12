@@ -21,6 +21,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/coauthor_avatars.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 enum RouteCardVariant { list, deck }
@@ -483,24 +484,39 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: EdgeInsets.all(
-                                    authorIsExpert ? 2 : 1.5,
+                                if (route.coauthors.isNotEmpty)
+                                  CoauthorAvatars(
+                                    people: [
+                                      AvatarPerson(
+                                        userId: route.ownerUserId,
+                                        avatarUrl: route.authorAvatarUrl,
+                                      ),
+                                      for (final coauthor in route.coauthors)
+                                        AvatarPerson(
+                                          userId: coauthor.userId,
+                                          avatarUrl: coauthor.avatarUrl,
+                                        ),
+                                    ],
+                                  )
+                                else
+                                  Container(
+                                    padding: EdgeInsets.all(
+                                      authorIsExpert ? 2 : 1.5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: authorIsExpert
+                                          ? null
+                                          : Colors.white.withValues(alpha: 0.9),
+                                      gradient: authorIsExpert
+                                          ? AppExpertStyle.gradient
+                                          : null,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: CircleAvatar(
+                                      radius: 18.5,
+                                      backgroundImage: authorAvatar,
+                                    ),
                                   ),
-                                  decoration: BoxDecoration(
-                                    color: authorIsExpert
-                                        ? null
-                                        : Colors.white.withValues(alpha: 0.9),
-                                    gradient: authorIsExpert
-                                        ? AppExpertStyle.gradient
-                                        : null,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: CircleAvatar(
-                                    radius: 18.5,
-                                    backgroundImage: authorAvatar,
-                                  ),
-                                ),
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
@@ -511,7 +527,17 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                                         children: [
                                           Flexible(
                                             child: Text(
-                                              route.authorLabel ?? 'Никита',
+                                              route.coauthors.isEmpty
+                                                  ? route.authorLabel ??
+                                                        'Никита'
+                                                  : CoauthorAvatars.names(
+                                                      route.authorLabel ?? '',
+                                                      [
+                                                        for (final c
+                                                            in route.coauthors)
+                                                          c.displayName,
+                                                      ],
+                                                    ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: AppTypography.chip
@@ -530,7 +556,9 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                                       ),
                                       const SizedBox(height: 1),
                                       Text(
-                                        authorSubtitle(route),
+                                        route.coauthors.isEmpty
+                                            ? authorSubtitle(route)
+                                            : 'Маршрут в соавторстве',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: AppTypography.routeMetadata
