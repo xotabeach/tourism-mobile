@@ -13,6 +13,7 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
 import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
+import 'package:tourism_mobile/features/route_execution/application/execution_error_text.dart';
 import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
 import 'package:tourism_mobile/features/route_execution/application/live_location_provider.dart';
 import 'package:tourism_mobile/features/route_execution/application/local_run_changes.dart';
@@ -57,10 +58,6 @@ class RouteExecutionScreen extends ConsumerStatefulWidget {
   ConsumerState<RouteExecutionScreen> createState() =>
       _RouteExecutionScreenState();
 }
-
-/// API code of a start refused because another run is in progress.
-@visibleForTesting
-const activeRunConflictCode = 'active_route_execution_exists';
 
 /// Offline, the previous run's start has not reached the server yet.
 @visibleForTesting
@@ -170,7 +167,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (mounted) {
           setState(() => _blockingExecution = active);
         }
-        throw StateError('Сначала заверши текущий маршрут');
+        throw const AnotherRunInProgress();
       }
       if (mounted && _blockingExecution != null) {
         setState(() => _blockingExecution = null);
@@ -326,7 +323,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = _friendlyError(error);
+        _error = executionErrorText(error);
       });
     }
   }
@@ -394,7 +391,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
-        if (mounted) _showError(_friendlyError(error));
+        if (mounted) _showError(executionErrorText(error));
         return;
       }
       final updated = completeStopLocally(execution, stop.id, occurredAt);
@@ -407,7 +404,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         position: position,
         updated: updated,
       );
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } finally {
       if (mounted) setState(() => _busyStopId = null);
     }
@@ -454,9 +451,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         occurredAt: occurredAt,
         updated: updated,
       );
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } on Object catch (error) {
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } finally {
       if (mounted) setState(() => _busyStopId = null);
     }
@@ -498,9 +495,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted) setState(() => _execution = saved);
     } on NetworkFailure catch (error) {
       await queue();
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } on Object catch (error) {
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } finally {
       if (mounted) setState(() => _busyStopId = null);
     }
@@ -546,9 +543,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted) setState(() => _execution = saved);
     } on NetworkFailure catch (error) {
       await queue();
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } on Object catch (error) {
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } finally {
       if (mounted) setState(() => _busyStopId = null);
     }
@@ -594,7 +591,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
-        if (mounted) _showError(_friendlyError(error));
+        if (mounted) _showError(executionErrorText(error));
         return;
       }
       final updated = execution.copyWith(
@@ -608,7 +605,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         occurredAt: occurredAt,
         updated: updated,
       );
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     } finally {
       if (mounted) setState(() => _finishing = false);
     }
@@ -662,7 +659,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
-        if (mounted) _showError(_friendlyError(error));
+        if (mounted) _showError(executionErrorText(error));
         return;
       }
       final updated = execution.copyWith(
@@ -676,7 +673,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         occurredAt: occurredAt,
         updated: updated,
       );
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     }
   }
 
@@ -710,7 +707,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted) setState(() => _execution = updated);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
-        if (mounted) _showError(_friendlyError(error));
+        if (mounted) _showError(executionErrorText(error));
         return;
       }
       final updated = pausedLocally(execution, occurredAt);
@@ -721,7 +718,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         occurredAt: occurredAt,
         updated: updated,
       );
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     }
   }
 
@@ -739,7 +736,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       await ref.read(routeExecutionOfflineCoordinatorProvider).save(updated);
       if (mounted) setState(() => _execution = updated);
     } on Object catch (error) {
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     }
   }
 
@@ -757,7 +754,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted) setState(() => _execution = updated);
       ref.invalidate(routeExecutionHistoryProvider);
     } on Object catch (error) {
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     }
   }
 
@@ -791,7 +788,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       if (mounted) setState(() => _execution = updated);
     } on Object catch (error) {
       if (error is! NetworkFailure) {
-        if (mounted) _showError(_friendlyError(error));
+        if (mounted) _showError(executionErrorText(error));
         return;
       }
       final updated = resumedLocally(execution, occurredAt);
@@ -802,7 +799,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         occurredAt: occurredAt,
         updated: updated,
       );
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     }
   }
 
@@ -869,7 +866,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         _showError('Прогресс синхронизирован');
       }
     } on Object catch (error) {
-      if (mounted) _showError(_friendlyError(error));
+      if (mounted) _showError(executionErrorText(error));
     }
   }
 
@@ -1114,30 +1111,6 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
 
   void _showError(String message) {
     showAppNotice(context, message);
-  }
-
-  static String _friendlyError(Object error) {
-    if (error is AppFailure && error.code == activeRunConflictCode) {
-      return 'Сначала заверши текущий маршрут';
-    }
-    final message = error.toString();
-    if (error is AppFailure && error.code == 'required_stops_incomplete') {
-      return 'Отметь или пропусти обязательные точки, чтобы завершить';
-    }
-    if (error is AppFailure && error.code == 'no_stops_marked') {
-      return 'Отметь хотя бы одну точку, чтобы завершить';
-    }
-    if (message.contains('route_execution_stop_not_last')) {
-      return 'Снять можно только последнюю отметку';
-    }
-    if (message.contains('текущий маршрут')) {
-      return 'Сначала заверши текущий маршрут';
-    }
-    if (message.contains('409')) return 'Маршрут нельзя начать сейчас';
-    if (message.contains('Network') || message.contains('connection')) {
-      return 'Нет соединения. Попробуй ещё раз';
-    }
-    return 'Не удалось обновить прохождение';
   }
 
   static String _statusLabel(RouteExecutionStatus status) {
