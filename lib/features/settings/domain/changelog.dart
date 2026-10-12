@@ -54,6 +54,17 @@ class AppRelease {
 /// Новые версии добавляются сверху.
 const appChangelog = <AppRelease>[
   AppRelease(
+    version: '0.3.4',
+    date: '12 октября 2026',
+    entries: [
+      ChangelogEntry(
+        ChangeKind.changed,
+        'Персонажи в совместных маршрутах нарисованы заново по эскизу '
+        'дизайнера: голова шире, глаза аккуратнее, улыбка мягче.',
+      ),
+    ],
+  ),
+  AppRelease(
     version: '0.3.3',
     date: '12 октября 2026',
     entries: [
