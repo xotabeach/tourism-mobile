@@ -43,39 +43,49 @@ Future<void> _pumpInbox(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('deleting shows the app notice with «Отменить», which brings '
-      'the notification back', (tester) async {
+  testWidgets('a deleted card turns into «Удалить уведомление?» in its place, '
+      'and its cross brings the notification back', (tester) async {
     await _pumpInbox(tester);
     expect(find.text('Ответ поддержки'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('inbox-delete-n1')));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.byType(SnackBar), findsNothing);
-    expect(find.text('Уведомление удалено'), findsOneWidget);
+    expect(find.text('Удалить уведомление?'), findsOneWidget);
+    expect(find.text('Автоматическое удаление через 5с'), findsOneWidget);
     expect(find.text('Ответ поддержки'), findsNothing);
 
-    await tester.tap(find.text('Отменить'));
+    await tester.pump(const Duration(seconds: 2));
+    expect(find.text('Автоматическое удаление через 3с'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Не удалять'));
     await tester.pumpAndSettle();
-    expect(find.text('Уведомление удалено'), findsNothing);
+    expect(find.text('Удалить уведомление?'), findsNothing);
     expect(find.text('Ответ поддержки'), findsOneWidget);
   });
 
-  testWidgets('leaving the screen takes the undo notice with it', (
-    tester,
-  ) async {
+  testWidgets('after the undo window the row is gone for good', (tester) async {
     await _pumpInbox(tester);
     await tester.tap(find.byKey(const ValueKey('inbox-delete-n1')));
-    await tester.pump(const Duration(milliseconds: 400));
-    expect(find.text('Уведомление удалено'), findsOneWidget);
+    await tester.pump();
+    expect(find.text('Удалить уведомление?'), findsOneWidget);
 
-    Navigator.of(
-      tester.element(find.byType(SettingsNotificationsInboxScreen)),
-    ).pop();
+    await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
-    expect(find.text('Уведомление удалено'), findsNothing);
-    expect(find.text('Отменить'), findsNothing);
+    expect(find.text('Удалить уведомление?'), findsNothing);
+    expect(find.text('Ответ поддержки'), findsNothing);
+  });
+
+  testWidgets('the clear dialog is the DESIGN-8 one', (tester) async {
+    await _pumpInbox(tester);
+    await tester.tap(find.text('Очистить все'));
+    await tester.pumpAndSettle();
+    expect(find.text('Удалить все уведомления?'), findsOneWidget);
+    expect(find.text('Всё равно удалить'), findsOneWidget);
+    await tester.tap(find.text('Отменить'));
+    await tester.pumpAndSettle();
+    expect(find.text('Удалить все уведомления?'), findsNothing);
   });
 
   test('the app has no stock SnackBar left', () {
