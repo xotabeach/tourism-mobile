@@ -245,12 +245,6 @@ class SettingsAppearanceScreen extends ConsumerWidget {
       barTitle: 'Настройка приложения',
       children: [
         SettingsNavTile(
-          title: 'Мой персонаж',
-          subtitle: 'Шапка для совместных маршрутов',
-          icon: Icons.face_retouching_natural_rounded,
-          onTap: () => context.pushNamed(AppRouteNames.settingsCharacter),
-        ),
-        SettingsNavTile(
           title: 'Иконка приложения',
           subtitle: 'Оформление на домашнем экране',
           iconAsset: AppIconography.settingsAppIcon,

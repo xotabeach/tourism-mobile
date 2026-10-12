@@ -504,6 +504,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                                 ),
                           ),
                           GoRoute(
+                            name: AppRouteNames.settingsCharacter,
+                            path: CharacterScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const CharacterScreen(),
+                                ),
+                          ),
+                          GoRoute(
                             name: AppRouteNames.settingsAppIcon,
                             path: SettingsAppIconScreen.routePath,
                             pageBuilder: (context, state) =>
@@ -567,17 +576,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           key: state.pageKey,
                           child: const SettingsAppearanceScreen(),
                         ),
-                        routes: [
-                          GoRoute(
-                            name: AppRouteNames.settingsCharacter,
-                            path: CharacterScreen.routePath,
-                            pageBuilder: (context, state) =>
-                                CupertinoPage<void>(
-                                  key: state.pageKey,
-                                  child: const CharacterScreen(),
-                                ),
-                          ),
-                        ],
                       ),
                       GoRoute(
                         name: AppRouteNames.settingsAbout,
