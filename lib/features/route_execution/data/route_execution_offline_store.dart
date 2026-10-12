@@ -29,6 +29,7 @@ class RouteExecutionOutboxEntry {
     this.attempts = 0,
     this.position,
     this.skipReason,
+    this.companionGroupId,
   });
 
   final String id;
@@ -59,6 +60,10 @@ class RouteExecutionOutboxEntry {
   /// Only set for [RouteExecutionAction.skipStop].
   final StopSkipReason? skipReason;
 
+  /// Only for [RouteExecutionAction.start] of a group's run: the group the
+  /// run joins once it reaches the server (spec 11b D5).
+  final String? companionGroupId;
+
   static const maxPositionAge = Duration(hours: 24);
 
   RouteExecutionOutboxEntry incrementAttempt() => RouteExecutionOutboxEntry(
@@ -72,6 +77,7 @@ class RouteExecutionOutboxEntry {
     attempts: attempts + 1,
     position: position,
     skipReason: skipReason,
+    companionGroupId: companionGroupId,
   );
 
   Map<String, dynamic> toJson() => {
@@ -85,6 +91,7 @@ class RouteExecutionOutboxEntry {
     'attempts': attempts,
     'position': position?.toJson(),
     'skip_reason': skipReason?.apiName,
+    'companion_group_id': companionGroupId,
   };
 
   /// Throws [FormatException] for an action this build does not know.
@@ -126,6 +133,7 @@ class RouteExecutionOutboxEntry {
       attempts: (json['attempts'] as num?)?.toInt() ?? 0,
       position: MarkPosition.tryParse(json['position']),
       skipReason: StopSkipReason.tryParse(json['skip_reason']),
+      companionGroupId: json['companion_group_id'] as String?,
     );
   }
 }

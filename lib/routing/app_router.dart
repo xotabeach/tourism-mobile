@@ -350,6 +350,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                               routeId: routeId,
                               openOnly:
                                   state.uri.queryParameters['open'] == '1',
+                              companionGroupId:
+                                  state.uri.queryParameters['group'],
                             ),
                           );
                         },

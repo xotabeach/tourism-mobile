@@ -5,7 +5,14 @@ abstract interface class RouteExecutionRepository {
 
   Future<RouteExecution?> getActive();
 
-  Future<RouteExecution> start(String routeId);
+  /// [companionGroupId] starts the run as this person's part of a group of
+  /// companions; [startedAt] is when the phone really started it (a start
+  /// made offline). Both are optional for a plain run.
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  });
 
   /// [clientEventId] makes a retry safe and [occurredAt] reports when the
   /// action really happened, which differs from now for a queued offline tap.

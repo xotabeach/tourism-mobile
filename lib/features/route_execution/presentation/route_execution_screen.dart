@@ -47,10 +47,14 @@ class RouteExecutionScreen extends ConsumerStatefulWidget {
   const RouteExecutionScreen({
     required this.routeId,
     this.openOnly = false,
+    this.companionGroupId,
     super.key,
   });
 
   final String routeId;
+
+  /// Started from a group of companions: the run joins that group (11b).
+  final String? companionGroupId;
 
   /// Opened from the home card (FRONTEND-34): show the run in progress, but
   /// never start a new one — it may have been finished on another device.
@@ -184,7 +188,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       }
       final fetched = active?.routeId == widget.routeId
           ? active!
-          : await repository.start(widget.routeId);
+          : await repository.start(
+              widget.routeId,
+              companionGroupId: widget.companionGroupId,
+            );
       // The server does not know about marks that never arrived, so the note
       // travels with the local snapshot and is re-applied to fresh data.
       final execution = fetched.copyWith(
@@ -314,7 +321,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           }
           final execution = await ref
               .read(routeExecutionOfflineCoordinatorProvider)
-              .startOffline(downloaded.route);
+              .startOffline(
+                downloaded.route,
+                companionGroupId: widget.companionGroupId,
+              );
           if (!mounted) return;
           await _refreshPendingActions();
           setState(() {

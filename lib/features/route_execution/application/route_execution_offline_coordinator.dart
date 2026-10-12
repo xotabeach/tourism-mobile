@@ -44,7 +44,10 @@ class RouteExecutionOfflineCoordinator {
   /// this local snapshot directly (see [route_execution_screen.dart]) rather
   /// than queued individually — [replayPending] replays them against the
   /// real execution in one pass, once it exists.
-  Future<RouteExecution> startOffline(RouteDetail route) async {
+  Future<RouteExecution> startOffline(
+    RouteDetail route, {
+    String? companionGroupId,
+  }) async {
     final localId =
         '$localExecutionPrefix${DateTime.now().microsecondsSinceEpoch}';
     final requiredStops = route.stops.where((stop) => !stop.isOptional).length;
@@ -82,6 +85,7 @@ class RouteExecutionOfflineCoordinator {
         clientEventId: newClientEventId(),
         action: RouteExecutionAction.start,
         createdAt: execution.startedAt,
+        companionGroupId: companionGroupId,
       ),
     );
     return execution;
@@ -247,7 +251,13 @@ class RouteExecutionOfflineCoordinator {
     if (routeId == null) {
       throw const RejectedFailure('Missing route id for an offline start');
     }
-    var real = await repository.start(routeId);
+    // The phone's own start time (spec 11b D11): the run began when the
+    // walker tapped, not when the network came back.
+    var real = await repository.start(
+      routeId,
+      companionGroupId: entry.companionGroupId,
+      startedAt: entry.createdAt,
+    );
     final local = localSnapshot;
     if (local == null || local.id != entry.executionId) {
       return real;
