@@ -377,6 +377,7 @@ class RouteExecution {
     this.counted = true,
     this.completedSharePercent,
     this.countedThresholdPercent = 70,
+    this.paidDistanceMeters,
   });
 
   final String id;
@@ -452,6 +453,11 @@ class RouteExecution {
   final int countedThresholdPercent;
 
   bool get hasSkippedStops => stops.any((stop) => stop.isSkipped);
+
+  /// Metres of the way the run was paid for, fixed by the server when it
+  /// ended. Null while it is going, before the server answered, and from
+  /// servers that do not send it.
+  final int? paidDistanceMeters;
 
   final int totalStops;
   final int completedStops;
@@ -542,6 +548,7 @@ class RouteExecution {
     counted: counted,
     completedSharePercent: completedSharePercent,
     countedThresholdPercent: countedThresholdPercent,
+    paidDistanceMeters: paidDistanceMeters,
   );
 
   Map<String, dynamic> toJson() => {
@@ -566,6 +573,7 @@ class RouteExecution {
     'counted': counted,
     'completed_share_percent': completedSharePercent,
     'counted_threshold_percent': countedThresholdPercent,
+    'paid_distance_meters': paidDistanceMeters,
     'route_cover_url': routeCoverUrl,
     'status': status.name,
     'started_at': startedAt.toUtc().toIso8601String(),
@@ -619,6 +627,7 @@ class RouteExecution {
       completedSharePercent: (json['completed_share_percent'] as num?)?.toInt(),
       countedThresholdPercent:
           (json['counted_threshold_percent'] as num?)?.toInt() ?? 70,
+      paidDistanceMeters: (json['paid_distance_meters'] as num?)?.toInt(),
       antifraud: json['antifraud'] is Map
           ? RouteExecutionAntiFraud.fromJson(
               Map<String, dynamic>.from(json['antifraud'] as Map),

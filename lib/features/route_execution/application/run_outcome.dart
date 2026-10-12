@@ -40,3 +40,22 @@ class RunOutcome {
     );
   }
 }
+
+/// The distance tile of the summary. No track is recorded, so the app never
+/// claims kilometres «пройдено»: it shows the route's planned length, or,
+/// for a run with skipped stops, the part of the way that was paid (D16).
+class RunDistance {
+  const RunDistance({required this.meters, required this.label});
+
+  final int? meters;
+  final String label;
+
+  factory RunDistance.of(RouteExecution execution) {
+    final length = execution.routing?.distanceMeters;
+    final paid = execution.paidDistanceMeters;
+    if (execution.hasSkippedStops && paid != null) {
+      return RunDistance(meters: paid, label: 'Засчитано км.');
+    }
+    return RunDistance(meters: length, label: 'Длина маршрута');
+  }
+}

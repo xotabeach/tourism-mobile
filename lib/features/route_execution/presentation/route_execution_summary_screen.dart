@@ -53,6 +53,7 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
         ? null
         : ref.watch(routeDetailProvider(routeId)).asData?.value;
     final elapsed = _elapsed;
+    final distance = RunDistance.of(execution);
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
@@ -99,10 +100,8 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
                       Expanded(
                         child: _StatBox(
                           iconAsset: AppIconography.statDistance,
-                          value: formatDistanceKm(
-                            execution.routing?.distanceMeters,
-                          ),
-                          label: 'Пройдено км.',
+                          value: formatDistanceKm(distance.meters),
+                          label: distance.label,
                         ),
                       ),
                       const SizedBox(width: 5),
