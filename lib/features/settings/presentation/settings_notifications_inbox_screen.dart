@@ -13,10 +13,10 @@ import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
+import 'package:tourism_mobile/core/notifications/notification_target.dart';
 import 'package:tourism_mobile/features/routes/application/route_reviews_providers.dart';
 import 'package:tourism_mobile/features/settings/application/notifications_inbox_provider.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
-import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Server-backed inbox (in-app). System push (FCM) is deferred.
 class SettingsNotificationsInboxScreen extends ConsumerWidget {
@@ -155,27 +155,6 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
   ) async {
     unawaited(AppHaptics.selectionClick());
     unawaited(ref.read(notificationsInboxProvider.notifier).markRead(item.id));
-    if (item.targetType == 'route' &&
-        item.targetId != null &&
-        item.targetId!.isNotEmpty) {
-      // Moderation may have just flipped pending → published; drop stale mine.
-      ref.invalidate(myRouteReviewsProvider);
-      ref.invalidate(routeReviewsProvider(item.targetId!));
-      await context.pushNamed(
-        AppRouteNames.routeDetails,
-        pathParameters: {'id': item.targetId!},
-      );
-      return;
-    }
-    if (item.targetType == 'user' &&
-        item.targetId != null &&
-        item.targetId!.isNotEmpty) {
-      await context.pushNamed(
-        AppRouteNames.userProfile,
-        pathParameters: {'userId': item.targetId!},
-      );
-      return;
-    }
     if (item.kind == InboxNotificationKind.antifraudFlagged ||
         item.kind == InboxNotificationKind.antifraudBlocked ||
         item.kind == InboxNotificationKind.antifraudPointsDecision) {
@@ -196,29 +175,24 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
       );
       return;
     }
-    if (item.kind == InboxNotificationKind.achievementUnlocked ||
-        item.targetType == 'achievement') {
-      await context.pushNamed(
-        AppRouteNames.achievements,
-        queryParameters: {
-          if (item.targetId != null) "achievementId": item.targetId!,
-        },
-      );
-      return;
+    final targetId = item.targetId;
+    if (item.targetType == 'route' && targetId != null && targetId.isNotEmpty) {
+      // Moderation may have just flipped pending → published; drop stale mine.
+      ref.invalidate(myRouteReviewsProvider);
+      ref.invalidate(routeReviewsProvider(targetId));
     }
-    if (item.targetType == 'companion_group' &&
-        item.targetId != null &&
-        item.targetId!.isNotEmpty) {
-      await context.pushNamed(
-        AppRouteNames.companionGroup,
-        pathParameters: {'groupId': item.targetId!},
-      );
-      return;
-    }
-    if (item.kind == InboxNotificationKind.supportReply ||
-        item.targetType == 'support_ticket') {
-      await context.pushNamed(AppRouteNames.settingsChat);
-    }
+    if (!context.mounted) return;
+    // FRONTEND-74: the same way as a push, right to the comment or review.
+    openNotificationTarget(
+      GoRouter.of(context),
+      targetType: switch (item.kind) {
+        InboxNotificationKind.achievementUnlocked => 'achievement',
+        InboxNotificationKind.supportReply => 'support_ticket',
+        _ => item.targetType,
+      },
+      targetId: targetId,
+      anchorId: item.anchorId,
+    );
   }
 
   static String clampText(String value, int max) {

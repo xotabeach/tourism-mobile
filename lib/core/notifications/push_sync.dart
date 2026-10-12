@@ -5,11 +5,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/notifications/app_push.dart';
 import 'package:tourism_mobile/core/notifications/device_token_repository.dart';
+import 'package:tourism_mobile/core/notifications/notification_target.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
-import 'package:tourism_mobile/routing/app_router.dart';
 
 var _tokenRefreshBound = false;
 
@@ -77,56 +76,10 @@ void ensurePushRegistrationForSession(WidgetRef ref, SessionState session) {
 
 void handlePushOpened(GoRouter router, RemoteMessage message) {
   final data = message.data;
-  final targetType = data['target_type'];
-  final targetId = data['target_id'];
-  if (targetType == 'route' && targetId is String && targetId.isNotEmpty) {
-    unawaited(
-      router.pushNamed(
-        AppRouteNames.routeDetails,
-        pathParameters: {'id': targetId},
-      ),
-    );
-    return;
-  }
-  if (targetType == 'user' && targetId is String && targetId.isNotEmpty) {
-    unawaited(
-      router.pushNamed(
-        AppRouteNames.userProfile,
-        pathParameters: {'userId': targetId},
-      ),
-    );
-    return;
-  }
-  if (targetType == 'companion_group' &&
-      targetId is String &&
-      targetId.isNotEmpty) {
-    // An invitation, the group's start or news of a companion (spec 11b).
-    unawaited(
-      router.pushNamed(
-        AppRouteNames.companionGroup,
-        pathParameters: {'groupId': targetId},
-      ),
-    );
-    return;
-  }
-  if (targetType == 'inbox') {
-    // Anti-fraud notices: the message lives in the inbox.
-    unawaited(router.pushNamed(AppRouteNames.settingsNotificationsInbox));
-    return;
-  }
-  if (targetType == 'achievement') {
-    unawaited(
-      router.pushNamed(
-        AppRouteNames.achievements,
-        queryParameters: {
-          if (targetId is String && targetId.isNotEmpty)
-            "achievementId": targetId,
-        },
-      ),
-    );
-    return;
-  }
-  if (targetType == 'support_ticket') {
-    unawaited(router.pushNamed(AppRouteNames.settingsChat));
-  }
+  openNotificationTarget(
+    router,
+    targetType: data['target_type'] as String?,
+    targetId: data['target_id'] as String?,
+    anchorId: data['anchor_id'] as String?,
+  );
 }

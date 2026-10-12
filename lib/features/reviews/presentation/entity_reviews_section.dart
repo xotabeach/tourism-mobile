@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
@@ -13,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/core/design/components/focus_highlight.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -99,12 +99,17 @@ class EntityReviewsSection extends ConsumerStatefulWidget {
     required this.entityId,
     required this.kind,
     this.allowComposer = true,
+    this.focusReviewId,
     super.key,
   });
 
   final String entityId;
   final ReviewEntityKind kind;
   final bool allowComposer;
+
+  /// Scrolled to and lit up once loaded: the review a notification is
+  /// about (FRONTEND-74).
+  final String? focusReviewId;
 
   @override
   ConsumerState<EntityReviewsSection> createState() =>
@@ -299,12 +304,16 @@ class _EntityReviewsSectionState extends ConsumerState<EntityReviewsSection> {
               const SizedBox(height: 12),
             ],
             for (final review in visible) ...[
-              _ReviewCard(
-                kind: widget.kind,
-                review: review,
-                pending: false,
-                canDelete: _canDeleteReview(review, selfUserId),
-                onReply: () => _startReply(review),
+              FocusHighlight(
+                key: ValueKey('review-focus-${review.id}'),
+                active: review.id == widget.focusReviewId,
+                child: _ReviewCard(
+                  kind: widget.kind,
+                  review: review,
+                  pending: false,
+                  canDelete: _canDeleteReview(review, selfUserId),
+                  onReply: () => _startReply(review),
+                ),
               ),
               const SizedBox(height: 12),
             ],
