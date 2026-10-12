@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import 'package:tourism_mobile/core/cache/api_cache.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
+import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/data/api_routes_repository.dart';
@@ -62,6 +62,10 @@ final ownRouteDetailProvider = FutureProvider.autoDispose
 Future<RouteDetail> _getRouteWithOfflineFallback(Ref ref, String id) async {
   try {
     return await ref.watch(routesRepositoryProvider).getRoute(id);
+  } on NotFoundFailure {
+    // Not in the catalogue: a draft one co-authors, opened from the offer
+    // to co-author it (spec 11c D7). The server shows it to its authors only.
+    return ref.watch(routesRepositoryProvider).getMyRoute(id);
   } on Object {
     final cached = await ref.read(offlineRouteStoreProvider).get(id);
     if (cached != null) {

@@ -262,6 +262,7 @@ final class ApiRoutePublicationRepository
       ),
       updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
       revisionStatus: RouteRevisionStatus.fromApi(json['revision_status']),
+      awaitingCoauthors: json['awaiting_coauthors'] as bool? ?? false,
     );
   }
 }

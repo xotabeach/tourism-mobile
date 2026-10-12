@@ -97,9 +97,14 @@ class RoutePublicationReceipt {
     required this.status,
     required this.updatedAt,
     this.revisionStatus,
+    this.awaitingCoauthors = false,
   });
 
   final String id;
+
+  /// «Опубликовать» counted as this author's consent, and the route waits
+  /// for the other authors before it goes to the moderator (spec 11c D7).
+  final bool awaitingCoauthors;
   final RoutePublicationStatus status;
 
   /// Set when what was saved or sent is an edit of a published route.

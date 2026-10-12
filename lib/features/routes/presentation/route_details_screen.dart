@@ -32,6 +32,7 @@ import 'package:tourism_mobile/features/route_publish/presentation/route_publish
 import 'package:tourism_mobile/features/routes/application/offline_routes_provider.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
+import 'package:tourism_mobile/features/routes/presentation/widgets/coauthor_avatars.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/difficulty_breakdown_sheet.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_collapsing_header.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_hero_card.dart';
@@ -143,9 +144,13 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   Widget build(BuildContext context) {
     final initial = widget.initialRoute;
     final session = ref.watch(sessionProvider);
+    // A route not in the catalogue reaches this screen only from the
+    // author's own list: the owner's or a co-author's (spec 11c D7).
     final ownerPreview =
         initial != null &&
-        initial.ownerUserId == session.userId &&
+        (initial.ownerUserId == session.userId ||
+            initial.coauthors.any((c) => c.userId == session.userId) ||
+            initial.publicationStatus != null) &&
         (initial.publicationStatus != 'published' ||
             initial.visibility != 'public');
     final routeAsync = ownerPreview
@@ -246,8 +251,17 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _AuthorRow(
-                          name: authorName,
-                          subtitle: authorSubtitle(route),
+                          // «Никита и Андрей» for a co-written route
+                          // (spec 11c D7, DESIGN-19).
+                          name: route.coauthors.isEmpty
+                              ? authorName
+                              : CoauthorAvatars.names(authorName, [
+                                  for (final c in route.coauthors)
+                                    c.displayName,
+                                ]),
+                          subtitle: route.coauthors.isEmpty
+                              ? authorSubtitle(route)
+                              : 'Маршрут в соавторстве',
                           avatar: AppImages.avatarProvider(
                             config: config,
                             avatarUrl: route.authorAvatarUrl,
@@ -257,6 +271,17 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           menuAnchorKey: _menuAnchorKey,
                           onMore: () => unawaited(_showRouteMenu(route)),
                         ),
+                        if (_coauthorOffer(
+                          route,
+                          ref.watch(sessionProvider).userId,
+                        )) ...[
+                          const SizedBox(height: 12),
+                          _CoauthorOffer(
+                            onEdit: () => unawaited(_editOwnRoute(route)),
+                            onDecline: () =>
+                                unawaited(_leaveCoauthorship(route)),
+                          ),
+                        ],
                         if (statusLabel != null) ...[
                           const SizedBox(height: 12),
                           _OwnerRouteStatusBanner(
@@ -613,9 +638,34 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
     }
   }
 
+  /// Someone else's route this person co-writes or is asked to: in the
+  /// catalogue they are listed on it, outside it only its authors see it.
+  bool _isCoauthor(RouteDetail route, String? me) =>
+      me != null &&
+      route.ownerUserId != me &&
+      (route.coauthors.any((c) => c.userId == me) ||
+          const {'draft', 'rejected'}.contains(route.publicationStatus));
+
+  bool _coauthorOffer(RouteDetail route, String? me) =>
+      _isCoauthor(route, me) &&
+      route.publicationStatus != 'published' &&
+      route.publicationStatus != 'pending_review';
+
+  Future<void> _leaveCoauthorship(RouteDetail route) async {
+    try {
+      await ref.read(routeCoauthorsRepositoryProvider).leave(route.id);
+      if (!mounted) return;
+      _showMessage('Вы больше не соавтор этого маршрута');
+      context.pop();
+    } on Object {
+      if (mounted) _showMessage('Не получилось, попробуйте ещё раз');
+    }
+  }
+
   Future<void> _showRouteMenu(RouteDetail route) async {
     final session = ref.read(sessionProvider);
     final isOwner = route.ownerUserId == session.userId;
+    final isCoauthor = _isCoauthor(route, session.userId);
     final store = ref.read(offlineRouteStoreProvider);
     final downloaded = await store.get(route.id) != null;
     if (!mounted) return;
@@ -647,11 +697,17 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
         ),
         // Править можно и опубликованный маршрут: сохранение вернёт его на
         // проверку, как и у статей.
-        if (isOwner && route.publicationStatus != 'archived')
+        if ((isOwner || isCoauthor) && route.publicationStatus != 'archived')
           RouteMenuAction(
             icon: Icons.edit_outlined,
             label: 'Редактировать',
             onSelected: () => unawaited(_editOwnRoute(route)),
+          ),
+        if (isCoauthor)
+          RouteMenuAction(
+            icon: Icons.person_remove_outlined,
+            label: 'Отказаться от соавторства',
+            onSelected: () => unawaited(_leaveCoauthorship(route)),
           ),
         if (isOwner &&
             (route.publicationStatus == 'pending_review' ||
@@ -1819,4 +1875,62 @@ class _OvernightNote extends StatelessWidget {
       ),
     );
   }
+}
+
+/// «Вас позвали в соавторы» on a route one is asked to co-write (spec 11c).
+class _CoauthorOffer extends StatelessWidget {
+  const _CoauthorOffer({required this.onEdit, required this.onDecline});
+
+  final VoidCallback onEdit;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFFE6EDF4),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Вас позвали в соавторы',
+          style: TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryInk,
+          ),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'Откройте маршрут в редакторе, поправьте, если нужно, и нажмите '
+          '«Опубликовать»: на проверку он уйдёт, когда согласятся все авторы.',
+          style: TextStyle(
+            fontFamily: AppFonts.rubik,
+            fontSize: 13,
+            height: 1.35,
+            color: AppColors.secondaryInk,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            FilledButton(
+              onPressed: onEdit,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.primaryInk,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Открыть в редакторе'),
+            ),
+            TextButton(onPressed: onDecline, child: const Text('Отказаться')),
+          ],
+        ),
+      ],
+    ),
+  );
 }

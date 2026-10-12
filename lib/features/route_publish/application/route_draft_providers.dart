@@ -5,6 +5,7 @@ import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/core/storage/secure_storage_provider.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_draft_sync.dart';
 import 'package:tourism_mobile/features/route_publish/data/api_route_publication_repository.dart';
+import 'package:tourism_mobile/features/route_publish/data/route_coauthors_repository.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_draft_media_store.dart';
 import 'package:tourism_mobile/features/route_publish/data/secure_route_draft_repository.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
@@ -45,3 +46,19 @@ final Provider<RouteDraftSyncService> routeDraftSyncServiceProvider =
       ref.onDispose(service.dispose);
       return service;
     });
+
+final routeCoauthorsRepositoryProvider = Provider<RouteCoauthorsRepository>((
+  ref,
+) {
+  if (ref.watch(appConfigProvider).useMockData) {
+    return MockRouteCoauthorsRepository();
+  }
+  return ApiRouteCoauthorsRepository(ref.watch(dioProvider));
+});
+
+/// The co-authors of a saved route as the publish page shows them.
+final routeCoauthorsInfoProvider = FutureProvider.autoDispose
+    .family<RouteCoauthorsInfo, String>(
+      (ref, routeId) =>
+          ref.watch(routeCoauthorsRepositoryProvider).load(routeId),
+    );
