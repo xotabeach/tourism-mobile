@@ -17,7 +17,11 @@ class MockRouteExecutionRepository implements RouteExecutionRepository {
       _active?.isActive == true ? _active : null;
 
   @override
-  Future<RouteExecution> start(String routeId) async {
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async {
     final current = _active;
     if (current != null && current.isActive) return current;
     _active = RouteExecution(

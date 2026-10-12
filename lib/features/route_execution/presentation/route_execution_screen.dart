@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
+import 'package:tourism_mobile/features/companions/presentation/run_group_strip.dart';
 import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
 import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
 import 'package:tourism_mobile/features/route_execution/application/execution_error_text.dart';
@@ -47,10 +48,14 @@ class RouteExecutionScreen extends ConsumerStatefulWidget {
   const RouteExecutionScreen({
     required this.routeId,
     this.openOnly = false,
+    this.companionGroupId,
     super.key,
   });
 
   final String routeId;
+
+  /// Started from a group of companions: the run joins that group (11b).
+  final String? companionGroupId;
 
   /// Opened from the home card (FRONTEND-34): show the run in progress, but
   /// never start a new one — it may have been finished on another device.
@@ -184,7 +189,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       }
       final fetched = active?.routeId == widget.routeId
           ? active!
-          : await repository.start(widget.routeId);
+          : await repository.start(
+              widget.routeId,
+              companionGroupId: widget.companionGroupId,
+            );
       // The server does not know about marks that never arrived, so the note
       // travels with the local snapshot and is re-applied to fresh data.
       final execution = fetched.copyWith(
@@ -314,7 +322,10 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
           }
           final execution = await ref
               .read(routeExecutionOfflineCoordinatorProvider)
-              .startOffline(downloaded.route);
+              .startOffline(
+                downloaded.route,
+                companionGroupId: widget.companionGroupId,
+              );
           if (!mounted) return;
           await _refreshPendingActions();
           setState(() {
@@ -1061,6 +1072,9 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
                   ),
           ),
         ],
+        // Walking with companions: the «связка» of the group (spec 11b).
+        if (execution.isActive && execution.routeId != null)
+          RunGroupStrip(routeId: execution.routeId!),
         if (map != null) ...[const SizedBox(height: 12), map],
         const SizedBox(height: 8),
         ExecutionInfoRow(

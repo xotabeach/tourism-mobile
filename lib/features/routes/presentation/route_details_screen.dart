@@ -21,6 +21,7 @@ import 'package:tourism_mobile/core/format/rating_format.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/companions/presentation/companions_entry_card.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
@@ -368,6 +369,14 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                                     day.overnightNote != null)
                                   _OvernightNote(text: day.overnightNote!),
                           ],
+                          // Spec 11b: walk a catalogue route with friends.
+                          if (publiclyAvailable &&
+                              ref.watch(
+                                sessionProvider.select(
+                                  (session) => session.isAuthenticated,
+                                ),
+                              ))
+                            CompanionsEntryCard(routeId: route.id),
                           _ArticlesForRouteSection(routeId: route.id),
                           _SimilarRoutesSection(currentRouteId: route.id),
                         ] else ...[

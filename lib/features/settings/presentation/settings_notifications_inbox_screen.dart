@@ -206,6 +206,15 @@ class SettingsNotificationsInboxScreen extends ConsumerWidget {
       );
       return;
     }
+    if (item.targetType == 'companion_group' &&
+        item.targetId != null &&
+        item.targetId!.isNotEmpty) {
+      await context.pushNamed(
+        AppRouteNames.companionGroup,
+        pathParameters: {'groupId': item.targetId!},
+      );
+      return;
+    }
     if (item.kind == InboxNotificationKind.supportReply ||
         item.targetType == 'support_ticket') {
       await context.pushNamed(AppRouteNames.settingsChat);

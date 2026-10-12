@@ -53,7 +53,11 @@ class _Repo implements RouteExecutionRepository {
   );
 
   @override
-  Future<RouteExecution> start(String routeId) async {
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) async {
     final failure = startFailure;
     if (failure != null) throw failure;
     return execution;

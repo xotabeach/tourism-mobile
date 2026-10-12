@@ -40,11 +40,20 @@ class ApiRouteExecutionRepository implements RouteExecutionRepository {
   }
 
   @override
-  Future<RouteExecution> start(String routeId) {
+  Future<RouteExecution> start(
+    String routeId, {
+    String? companionGroupId,
+    DateTime? startedAt,
+  }) {
     return _mutate(
       () => _dio.post<Map<String, dynamic>>(
         '/api/v1/route-executions',
-        data: {'route_id': routeId},
+        data: {
+          'route_id': routeId,
+          'companion_group_id': ?companionGroupId,
+          if (startedAt != null)
+            'occurred_at': startedAt.toUtc().toIso8601String(),
+        },
       ),
     );
   }

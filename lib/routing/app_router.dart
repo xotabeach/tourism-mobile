@@ -7,6 +7,7 @@ import 'package:tourism_mobile/features/articles/presentation/article_details_sc
 import 'package:tourism_mobile/features/articles/presentation/article_editor_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
+import 'package:tourism_mobile/features/companions/presentation/companion_group_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
@@ -62,6 +63,7 @@ abstract final class AppRouteNames {
   static const routeDetailsStandalone = 'route-details-standalone';
   static const userProfileStandalone = 'user-profile-standalone';
   static const placeDetailsStandalone = 'place-details-standalone';
+  static const companionGroup = 'companion-group';
   static const articleEditor = 'article-editor';
   static const chatHistory = 'chat-history';
   static const routePublish = 'route-publish';
@@ -207,6 +209,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
+        // A group of companions (spec 11b): from the route page, an
+        // invitation or a notification.
+        name: AppRouteNames.companionGroup,
+        path: '/companions/:groupId',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => CupertinoPage<void>(
+          key: state.pageKey,
+          child: CompanionGroupScreen(
+            groupId: state.pathParameters['groupId']!,
+          ),
+        ),
+      ),
+      GoRoute(
         // Место, открытое из статьи, — по той же причине, что и маршрут
         // выше: `/home/places/:id` живёт в ветке таба «Главная».
         name: AppRouteNames.placeDetailsStandalone,
@@ -350,6 +365,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                               routeId: routeId,
                               openOnly:
                                   state.uri.queryParameters['open'] == '1',
+                              companionGroupId:
+                                  state.uri.queryParameters['group'],
                             ),
                           );
                         },
