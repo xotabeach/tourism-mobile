@@ -177,9 +177,9 @@ void paintBean(
   final look = pose.look ?? const BeanLook();
   final squash = 1 + pose.breath * 0.035;
   final (shapeW, shapeH) = switch (look.shape) {
-    BeanShape.pin => (0.62, 0.95),
-    BeanShape.pinWide => (0.7, 0.9),
-    BeanShape.pinTall => (0.55, 1.0),
+    BeanShape.pin => (0.6, 0.93),
+    BeanShape.pinWide => (0.66, 0.9),
+    BeanShape.pinTall => (0.54, 0.97),
   };
   final bodyH = height * shapeH * squash;
   final width = height * shapeW / math.sqrt(squash);
@@ -290,7 +290,7 @@ void paintBean(
   canvas.save();
   canvas.clipPath(bodyPath);
   // The curved line of the sketch: below it the point is another tone.
-  final bandY = body.top + bodyH * 0.6;
+  final bandY = body.top + bodyH * 0.58;
   final lower = Path()
     ..moveTo(body.left - width * 0.1, bandY - bodyH * 0.03)
     ..quadraticBezierTo(
@@ -362,11 +362,13 @@ void paintBean(
   if (pose.wave > 0.15) freeArm(canvas);
 
   // The face of the reference (owner, 2026-10-12): solid black upright
-  // eyes with a white shine, and a wide white smile. No whites, no cheeks.
-  final eyeY = body.top + bodyH * 0.3;
-  final eyeGap = width * 0.17;
-  final eyeW = width * 0.17;
-  final eyeH = bodyH * 0.2;
+  // eyes with a white shine, and a white smile. Sized as on the designer's
+  // sketch: small eyes set close at a third of the height, the smile about
+  // half the head wide, sitting just above the band.
+  final eyeY = body.top + bodyH * 0.34;
+  final eyeGap = width * 0.105;
+  final eyeW = width * 0.115;
+  final eyeH = bodyH * 0.115;
   // The whole eye shifts a touch toward where the bean looks.
   final gaze = pose.lookX.clamp(-1.0, 1.0) * width * 0.035;
   for (final side in const [-1.0, 1.0]) {
@@ -399,36 +401,45 @@ void paintBean(
       fill(FlatPalette.white),
     );
   }
-  final mouthY = eyeY + bodyH * 0.17;
+  final mouthY = eyeY + bodyH * 0.135;
   if (pose.mouthOpen) {
     // «О!»: a white open mouth.
     canvas.drawOval(
       Rect.fromCenter(
         center: Offset(body.center.dx + gaze, mouthY + bodyH * 0.04),
-        width: width * 0.22,
-        height: bodyH * 0.13,
+        width: width * 0.17,
+        height: bodyH * 0.1,
       ),
       fill(FlatPalette.white),
     );
   } else {
-    // A wide white crescent: a gently curved top, a deep round bottom.
-    final half = width * (pose.happy ? 0.33 : 0.3);
-    final depth = bodyH * (pose.happy ? 0.13 : 0.11);
+    // A white crescent: a gently curved top, a deep round bottom. Drawn a
+    // little short and traced with a round stroke so its ends come out
+    // rounded instead of pointed.
+    final depth = bodyH * (pose.happy ? 0.1 : 0.085);
+    final round = depth * 0.42;
+    final half = width * (pose.happy ? 0.25 : 0.23) - round / 2;
     final cx = body.center.dx + gaze;
+    final top = mouthY + round * 0.2;
+    final smile = Path()
+      ..moveTo(cx - half, top)
+      ..quadraticBezierTo(cx, top + depth * 0.6, cx + half, top)
+      ..cubicTo(
+        cx + half * 0.95,
+        top + depth * 1.25,
+        cx - half * 0.95,
+        top + depth * 1.25,
+        cx - half,
+        top,
+      )
+      ..close();
+    canvas.drawPath(smile, fill(FlatPalette.white));
     canvas.drawPath(
-      Path()
-        ..moveTo(cx - half, mouthY)
-        ..quadraticBezierTo(cx, mouthY + depth * 0.35, cx + half, mouthY)
-        ..cubicTo(
-          cx + half * 1.02,
-          mouthY + depth * 1.2,
-          cx - half * 1.02,
-          mouthY + depth * 1.2,
-          cx - half,
-          mouthY,
-        )
-        ..close(),
-      fill(FlatPalette.white),
+      smile,
+      fill(FlatPalette.white)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = round
+        ..strokeJoin = StrokeJoin.round,
     );
   }
 
@@ -439,13 +450,13 @@ void paintBean(
     for (final side in const [-1.0, 1.0]) {
       canvas.drawCircle(
         Offset(body.center.dx + side * eyeGap, eyeY),
-        width * 0.15,
+        width * 0.095,
         rim,
       );
     }
     canvas.drawLine(
-      Offset(body.center.dx - eyeGap + width * 0.15, eyeY),
-      Offset(body.center.dx + eyeGap - width * 0.15, eyeY),
+      Offset(body.center.dx - eyeGap + width * 0.095, eyeY),
+      Offset(body.center.dx + eyeGap - width * 0.095, eyeY),
       rim,
     );
   }
@@ -538,31 +549,35 @@ void paintBean(
 }
 
 Path _bodyPath(BeanShape shape, Rect body) {
-  // A drop: a round head that narrows to a softly rounded point.
-  final w = body.width;
+  // Traced from the designer's sketch: a broad egg of a head, widest at a
+  // third of the height and filling the whole width, that narrows to a
+  // softly rounded point.
   final h = body.height;
   final cx = body.center.dx;
-  final r = w / 2;
-  final tip = body.bottom;
+  final r = body.width / 2;
+  final top = body.top;
+  final widest = top + h * 0.35;
   return Path()
-    ..moveTo(cx, body.top)
+    ..moveTo(cx, top)
+    ..cubicTo(cx + r * 0.6, top, cx + r, top + h * 0.15, cx + r, widest)
     ..cubicTo(
-      cx + r * 1.12,
-      body.top,
-      cx + r * 1.1,
-      body.top + h * 0.52,
-      cx + r * 0.22,
-      tip - h * 0.04,
+      cx + r,
+      top + h * 0.52,
+      cx + r * 0.5,
+      top + h * 0.86,
+      cx + r * 0.14,
+      top + h * 0.985,
     )
-    ..quadraticBezierTo(cx, tip + h * 0.012, cx - r * 0.22, tip - h * 0.04)
+    ..quadraticBezierTo(cx, top + h * 1.01, cx - r * 0.14, top + h * 0.985)
     ..cubicTo(
-      cx - r * 1.1,
-      body.top + h * 0.52,
-      cx - r * 1.12,
-      body.top,
-      cx,
-      body.top,
+      cx - r * 0.5,
+      top + h * 0.86,
+      cx - r,
+      top + h * 0.52,
+      cx - r,
+      widest,
     )
+    ..cubicTo(cx - r, top + h * 0.15, cx - r * 0.6, top, cx, top)
     ..close();
 }
 
