@@ -34,24 +34,42 @@ ActiveLeg? executionActiveLeg(RouteExecution execution, RouteDetail? route) {
   );
   final fromPoint = (lat: from.lat!, lng: from.lng!);
   final toPoint = (lat: to.lat!, lng: to.lng!);
+  final pieces = [
+    for (final segment
+        in route?.segmentsTo(to.position - 1) ?? const <RouteSegment>[])
+      if ((segment.geometry?.coordinates.length ?? 0) >= 2)
+        (
+          dashed: segment.isWalk,
+          line: [
+            for (final point in segment.geometry!.coordinates)
+              (lat: point.lat, lng: point.lng),
+          ],
+        ),
+  ];
+  // The road often starts and ends some way off the stops themselves (a
+  // stop in a park, a road along the far side): the highlight is drawn from
+  // stop to stop, or a leg 16 m long on the road was all there was to see
+  // (FRONTEND-70).
+  if (pieces.isNotEmpty) {
+    pieces
+      ..first = (
+        dashed: pieces.first.dashed,
+        line: [fromPoint, ...pieces.first.line],
+      )
+      ..last = (
+        dashed: pieces.last.dashed,
+        line: [...pieces.last.line, toPoint],
+      );
+  }
   return ActiveLeg(
     // Without route geometry the leg is drawn as a straight line.
-    line: line.length >= 2 ? line : [fromPoint, toPoint],
+    line: line.length >= 2
+        ? [fromPoint, ...line, toPoint]
+        : [fromPoint, toPoint],
     from: fromPoint,
     to: toPoint,
     // A drive with walks is drawn part by part: walks dashed (spec 14b).
-    pieces: [
-      for (final segment
-          in route?.segmentsTo(to.position - 1) ?? const <RouteSegment>[])
-        if ((segment.geometry?.coordinates.length ?? 0) >= 2)
-          (
-            dashed: segment.isWalk,
-            line: [
-              for (final point in segment.geometry!.coordinates)
-                (lat: point.lat, lng: point.lng),
-            ],
-          ),
-    ],
+    pieces: pieces,
   );
 }
 
