@@ -8,11 +8,11 @@ import 'package:share_plus/share_plus.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_expert_style.dart';
+import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
 import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
-import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
@@ -351,14 +351,13 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                                   _DayHeading(day: day),
                             _StopRow(
                               stop: route.stops[index],
-                              travelSummary: legTravelSummary(
-                                route.segmentsTo(index),
-                              ),
+                              // A mixed leg says how it is travelled, a plain
+                              // one only how long it is (FRONTEND-68).
+                              travelSummary:
+                                  legTravelSummary(route.segmentsTo(index)) ??
+                                  legLengthLabel(route.segmentsTo(index)),
                               selected: _selectedStop == index,
-                              // The overnight tile closes a day by itself.
-                              showDivider:
-                                  index != route.stops.length - 1 &&
-                                  !_endsDayWithNight(route, index),
+                              showDivider: index != route.stops.length - 1,
                               onNumberTap: () => _selectStop(index),
                               onOpen: () => _openPlace(route.stops[index]),
                             ),
@@ -1528,11 +1527,11 @@ class _StopRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = [
+      ?travelSummary,
       if (stop.visitDurationMinutes != null) '${stop.visitDurationMinutes} мин',
       if (stop.note != null) stop.note!,
       if (stop.isOptional) 'опционально',
-      ?travelSummary,
-    ].join(' · ');
+    ].join(' • ');
 
     return Column(
       children: [
@@ -1618,11 +1617,16 @@ class _StopRow extends StatelessWidget {
                   ],
                 ),
               ),
-              _AdaptiveInlineIconButton(
+              // A plain arrow, as in the list of a route's stops on the
+              // mockup (FRONTEND-68); the whole row is still a 44 pt target.
+              IconButton(
                 onPressed: onOpen,
                 tooltip: 'Открыть место',
-                icon: Icons.chevron_right_rounded,
+                icon: const Icon(Icons.chevron_right_rounded),
                 iconSize: 26,
+                color: AppColors.primaryInk,
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                padding: EdgeInsets.zero,
               ),
             ],
           ),
@@ -1630,48 +1634,6 @@ class _StopRow extends StatelessWidget {
         if (showDivider)
           const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
       ],
-    );
-  }
-}
-
-class _AdaptiveInlineIconButton extends StatelessWidget {
-  const _AdaptiveInlineIconButton({
-    required this.onPressed,
-    required this.tooltip,
-    required this.icon,
-    this.iconSize = 24,
-  });
-
-  final VoidCallback onPressed;
-  final String tooltip;
-  final IconData icon;
-  final double iconSize;
-
-  @override
-  Widget build(BuildContext context) {
-    if (Theme.of(context).platform != TargetPlatform.iOS) {
-      // Bare icon button on Android — no glass background at all, unlike
-      // AppGlassIconButton's fallback (a filled circle). Kept exactly as it
-      // already was rather than folded into the shared component.
-      return IconButton(
-        onPressed: onPressed,
-        tooltip: tooltip,
-        icon: Icon(icon),
-        iconSize: iconSize,
-        color: AppColors.primaryInk,
-        constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-        padding: EdgeInsets.zero,
-      );
-    }
-    return AppGlassIconButton(
-      semanticLabel: tooltip,
-      onPressed: onPressed,
-      icon: icon,
-      dimension: 44,
-      iconSize: iconSize,
-      foregroundColor: AppColors.primaryInk,
-      fillColor: Colors.white.withValues(alpha: 0.5),
-      borderColor: Colors.white.withValues(alpha: 0.8),
     );
   }
 }
@@ -1743,7 +1705,7 @@ class _DayHeading extends StatelessWidget {
               'День ${day.dayIndex}',
               // The day's own estimate (spec 17, temporary until DES-13).
               if (day.difficultyLevel case final level?) 'сложность $level/5',
-            ].join(' · '),
+            ].join(' • '),
             style: const TextStyle(
               fontFamily: AppFonts.rubik,
               fontSize: 15,
@@ -1769,53 +1731,45 @@ class _DayHeading extends StatelessWidget {
   }
 }
 
-bool _endsDayWithNight(RouteDetail route, int index) =>
-    route.days.length > 1 &&
-    route.days.any(
-      (day) =>
-          day.lastStopId == route.stops[index].id && day.overnightNote != null,
-    );
-
-/// Where the night is spent, between two days of the stop list. A tile of
-/// its own, lined up with the stop rows: as a grey caption under the last
-/// stop it was lost between the days (FRONTEND-67).
+/// Where the night is spent, between two days of the stop list: a row in
+/// the column of the stops, the blue house in place of a number
+/// (FRONTEND-67, drawn in FRONTEND-68).
 class _OvernightNote extends StatelessWidget {
   const _OvernightNote({required this.text});
 
   /// «Ночлег: Симферополь» or «Ночлег в районе: Судак».
   final String text;
 
+  static const _blue = Color(0xFF1E71CA);
+
   @override
   Widget build(BuildContext context) {
     final colon = text.indexOf(':');
     final label = colon > 0 ? text.substring(0, colon).trim() : 'Ночлег';
     final place = colon > 0 ? text.substring(colon + 1).trim() : text.trim();
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Semantics(
-        label: text,
-        excludeSemantics: true,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF1F2F4),
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Padding(
+    return Semantics(
+      label: text,
+      excludeSemantics: true,
+      child: Column(
+        children: [
+          Padding(
             padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
             child: Row(
               children: [
                 // Same size and column as the stop numbers above it.
                 Container(
+                  key: const ValueKey('route-overnight-mark'),
                   width: 32,
                   height: 32,
+                  alignment: Alignment.center,
                   decoration: const BoxDecoration(
-                    color: AppColors.elevatedSurface,
+                    color: _blue,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.bedtime_outlined,
-                    size: 18,
-                    color: AppColors.primaryInk,
+                  child: Image.asset(
+                    AppIconography.routeOvernightHome,
+                    width: 18,
+                    height: 18,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -1824,25 +1778,25 @@ class _OvernightNote extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        label,
+                        '$label:',
                         style: const TextStyle(
                           fontFamily: AppFonts.rubik,
-                          fontSize: 12,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                           height: 1.2,
-                          color: AppColors.secondaryInk,
+                          color: _blue,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
                       Text(
                         place,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: AppFonts.rubik,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
                           height: 1.2,
-                          color: AppColors.primaryInk,
+                          color: AppColors.secondaryInk,
                         ),
                       ),
                     ],
@@ -1851,7 +1805,8 @@ class _OvernightNote extends StatelessWidget {
               ],
             ),
           ),
-        ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFF0F0F1)),
+        ],
       ),
     );
   }

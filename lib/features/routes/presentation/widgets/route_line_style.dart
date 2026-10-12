@@ -54,6 +54,19 @@ String? legTravelSummary(List<RouteSegment> leg) {
   return parts.isEmpty ? null : parts.join(' · ');
 }
 
+/// The length of the leg to a stop: «1,7 км». Null for the first stop and for
+/// a leg whose length is not known (FRONTEND-68).
+String? legLengthLabel(List<RouteSegment> leg) {
+  if (leg.isEmpty) return null;
+  var meters = 0;
+  for (final segment in leg) {
+    final part = segment.distanceMeters;
+    if (part == null) return null;
+    meters += part;
+  }
+  return _km(meters);
+}
+
 String _modeWords(String mode) => switch (mode) {
   'walk' => 'пешком',
   'car' => 'на машине',
