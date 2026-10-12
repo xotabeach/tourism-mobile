@@ -254,6 +254,28 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
   });
 
+  testWidgets('tapping a stop opens its card without leaving the run', (
+    tester,
+  ) async {
+    await _openRunScreen(tester, _Repo());
+
+    await tester.tap(find.text('Точка 3'));
+    await tester.pumpAndSettle();
+
+    // The name is now on the row and on the card.
+    expect(find.text('Точка 3'), findsNWidgets(2));
+    expect(find.byType(RouteExecutionScreen), findsOneWidget);
+    Navigator.of(
+      tester.element(find.text('Точка 3').last),
+      rootNavigator: true,
+    ).pop();
+    await tester.pumpAndSettle();
+    expect(find.text('Точка 3'), findsOneWidget);
+
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('closing the reason sheet skips nothing', (tester) async {
     final repo = _Repo();
     await _openRunScreen(tester, repo);

@@ -28,6 +28,7 @@ import 'package:tourism_mobile/features/route_execution/presentation/mark_confir
 import 'package:tourism_mobile/features/route_execution/presentation/route_execution_summary_screen.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/run_confirm_dialogs.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/skip_stop_sheet.dart';
+import 'package:tourism_mobile/features/route_execution/presentation/stop_card_sheet.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/active_leg_card.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/execution_actions.dart';
 import 'package:tourism_mobile/features/route_execution/presentation/widgets/execution_chrome.dart';
@@ -1080,14 +1081,18 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
                   execution.isActive && stop.id == lastMarkedStopId(execution)
                   ? () => unawaited(_uncompleteStop(stop))
                   : null,
+              onOpen: () => unawaited(showStopCardSheet(context, stop: stop)),
               onUnskip: execution.isActive
                   ? () => unawaited(_unskipStop(stop))
                   : null,
             ),
             if (execution.isActive && stop.id == nextStop?.id)
-              ExecutionSkipLink(
+              ExecutionNextStopActions(
                 placeName: stop.placeName,
-                onPressed: _busyStopId == null
+                onNavigate: stop.lat != null && stop.lng != null
+                    ? () => unawaited(navigateToStop(context, stop))
+                    : null,
+                onSkip: _busyStopId == null
                     ? () => unawaited(_skipStop(stop))
                     : null,
               ),
