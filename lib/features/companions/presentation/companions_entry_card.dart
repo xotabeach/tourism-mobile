@@ -194,7 +194,7 @@ class _TwoBeans extends CustomPainter {
           shape: BeanShape.bear,
           pattern: BeanPattern.belly,
           extra: BeanExtra.backpack,
-          accessory: BeanAccessory.cap,
+          accessory: BeanHat.cap,
         ),
       ),
     );
@@ -211,7 +211,7 @@ class _TwoBeans extends CustomPainter {
           shape: BeanShape.pear,
           pattern: BeanPattern.spots,
           extra: BeanExtra.scarf,
-          accessory: BeanAccessory.beanie,
+          accessory: BeanHat.beanie,
         ),
       ),
     );

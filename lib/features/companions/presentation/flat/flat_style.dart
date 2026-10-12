@@ -2,6 +2,11 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:tourism_mobile/features/companions/presentation/flat/flat_hats.dart';
+
+export 'package:tourism_mobile/features/companions/presentation/flat/flat_hats.dart'
+    show BeanHat;
+
 /// The companions' flat world (FRONTEND-63, 64): bold fills, no outlines,
 /// no gradients, round friendly shapes. Everyone in a group is a «bean»
 /// of their own colour, the same colour on every screen.
@@ -48,23 +53,6 @@ abstract final class FlatPalette {
   }
 }
 
-/// What a bean wears on its head: picked by the person, so the same bean
-/// always looks the same.
-enum BeanAccessory {
-  beanie,
-  cap,
-  headband,
-  tuft;
-
-  static BeanAccessory forUser(String userId) {
-    var hash = 7;
-    for (final unit in userId.codeUnits) {
-      hash = (hash * 17 + unit) & 0x7fffffff;
-    }
-    return values[hash % values.length];
-  }
-}
-
 enum BeanShape { bean, round, pear, tall, bear }
 
 enum BeanPattern { plain, belly, spots, stripes }
@@ -84,9 +72,11 @@ class BeanLook {
   final BeanShape shape;
   final BeanPattern pattern;
   final BeanExtra extra;
-  final BeanAccessory? accessory;
+  final BeanHat? accessory;
 
-  factory BeanLook.forUser(String userId) {
+  /// [hat] is the person's chosen hat (its slug); without it, the hat the
+  /// account was given.
+  factory BeanLook.forUser(String userId, {String? hat}) {
     var hash = 11;
     for (final unit in userId.codeUnits) {
       hash = (hash * 131 + unit) & 0x7fffffff;
@@ -97,7 +87,7 @@ class BeanLook {
       shape: BeanShape.values[pick(3, BeanShape.values.length)],
       pattern: BeanPattern.values[pick(7, BeanPattern.values.length)],
       extra: BeanExtra.values[pick(13, BeanExtra.values.length)],
-      accessory: BeanAccessory.forUser(userId),
+      accessory: BeanHat.fromSlug(hat) ?? BeanHat.forUser(userId),
     );
   }
 }
@@ -145,7 +135,7 @@ class BeanPose {
   /// Closed happy eyes, at the finish.
   final bool happy;
   final bool stickToRight;
-  final BeanAccessory? accessory;
+  final BeanHat? accessory;
 
   /// Breathing, -1..1: the body squashes and stretches a little.
   final double breath;
@@ -509,18 +499,18 @@ void paintBean(
       scarf,
     );
   }
-  _paintAccessory(
-    canvas,
-    body,
-    height,
-    color,
-    BeanPose(
-      accessory: look.accessory ?? pose.accessory,
+  final hat = look.accessory ?? pose.accessory;
+  if (hat != null) {
+    paintHat(
+      canvas,
+      hat,
+      body,
+      bodyColor: color,
+      alpha: alpha,
       lookX: pose.lookX,
-      breath: pose.breath,
-    ),
-    fill,
-  );
+      sway: pose.breath,
+    );
+  }
 
   if (pose.organizer) {
     // The leader carries a pennant that flutters.
@@ -590,112 +580,6 @@ Path _bodyPath(BeanShape shape, Rect body) {
           body.top,
         )
         ..close();
-  }
-}
-
-void _paintAccessory(
-  Canvas canvas,
-  Rect body,
-  double height,
-  Color color,
-  BeanPose pose,
-  Paint Function(Color) fill,
-) {
-  final accessory = pose.accessory;
-  if (accessory == null) return;
-  final w = body.width;
-  final top = body.top;
-  final cx = body.center.dx;
-  switch (accessory) {
-    case BeanAccessory.beanie:
-      // A knitted hat in the opposite colour with a pom-pom.
-      final hat = Color.lerp(color, const Color(0xFF1D2B53), 0.55)!;
-      canvas.drawPath(
-        Path()
-          ..moveTo(body.left + w * 0.05, top + w * 0.36)
-          ..quadraticBezierTo(
-            cx,
-            top - w * 0.42,
-            body.right - w * 0.05,
-            top + w * 0.36,
-          )
-          ..close(),
-        fill(hat),
-      );
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            body.left + w * 0.02,
-            top + w * 0.26,
-            w * 0.96,
-            w * 0.17,
-          ),
-          Radius.circular(w * 0.08),
-        ),
-        fill(Color.lerp(hat, Colors.white, 0.25)!),
-      );
-      canvas.drawCircle(
-        Offset(cx, top - w * 0.06),
-        w * 0.12,
-        fill(FlatPalette.paper),
-      );
-    case BeanAccessory.cap:
-      // A cap with its peak toward where the bean looks.
-      final cap = Color.lerp(color, Colors.white, 0.35)!;
-      canvas.drawPath(
-        Path()
-          ..moveTo(body.left + w * 0.08, top + w * 0.3)
-          ..quadraticBezierTo(
-            cx,
-            top - w * 0.2,
-            body.right - w * 0.08,
-            top + w * 0.3,
-          )
-          ..close(),
-        fill(cap),
-      );
-      final dir = pose.lookX >= 0 ? 1.0 : -1.0;
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromCenter(
-            center: Offset(cx + dir * w * 0.42, top + w * 0.28),
-            width: w * 0.5,
-            height: w * 0.1,
-          ),
-          Radius.circular(w * 0.05),
-        ),
-        fill(Color.lerp(cap, Colors.black, 0.15)!),
-      );
-    case BeanAccessory.headband:
-      // A sweatband with a little leaf: the hiker.
-      canvas.drawRect(
-        Rect.fromLTWH(body.left, top + w * 0.2, w, w * 0.12),
-        fill(const Color(0xFFFF6B6B)),
-      );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(body.right - w * 0.1, top + w * 0.12),
-          width: w * 0.16,
-          height: w * 0.3,
-        ),
-        fill(FlatPalette.trail),
-      );
-    case BeanAccessory.tuft:
-      // Three hairs sticking up, swaying with the breath.
-      for (var i = -1; i <= 1; i++) {
-        final base = Offset(cx + i * w * 0.1, top + w * 0.04);
-        final tip = base.translate(
-          i * w * 0.14 + pose.breath * w * 0.05,
-          -height * 0.12,
-        );
-        canvas.drawLine(
-          base,
-          tip,
-          fill(Color.lerp(color, Colors.black, 0.35)!)
-            ..strokeWidth = height * 0.03
-            ..strokeCap = StrokeCap.round,
-        );
-      }
   }
 }
 

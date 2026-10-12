@@ -7,6 +7,7 @@ import 'package:tourism_mobile/features/articles/presentation/article_details_sc
 import 'package:tourism_mobile/features/articles/presentation/article_editor_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
+import 'package:tourism_mobile/features/companions/presentation/character_screen.dart';
 import 'package:tourism_mobile/features/companions/presentation/companion_group_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
@@ -64,6 +65,7 @@ abstract final class AppRouteNames {
   static const userProfileStandalone = 'user-profile-standalone';
   static const placeDetailsStandalone = 'place-details-standalone';
   static const companionGroup = 'companion-group';
+  static const settingsCharacter = 'settings-character';
   static const articleEditor = 'article-editor';
   static const chatHistory = 'chat-history';
   static const routePublish = 'route-publish';
@@ -565,6 +567,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           key: state.pageKey,
                           child: const SettingsAppearanceScreen(),
                         ),
+                        routes: [
+                          GoRoute(
+                            name: AppRouteNames.settingsCharacter,
+                            path: CharacterScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const CharacterScreen(),
+                                ),
+                          ),
+                        ],
                       ),
                       GoRoute(
                         name: AppRouteNames.settingsAbout,
