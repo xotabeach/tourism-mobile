@@ -2473,7 +2473,7 @@ class RouteStopRow extends StatelessWidget {
                         if (stop.location.authorKind case final kind?)
                           'своя точка: ${authorPointKindLabel(kind).toLowerCase()}',
                         if (endsDay) 'конец дня',
-                        if (note != null) '✎ $note',
+                        if (note != null) 'заметка: $note',
                       ].join(' · '),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
