@@ -5,6 +5,8 @@
 # Enable full: CI/CD variable CI_PIPELINE_MODE=full
 # Docs: tourism-platform/docs/ci-and-runners.md
 
+# Branches: task branches merge into `gamma`, `gamma` into `main` in batches
+# (owner's decision 2026-10-13); gamma runs nothing but the notice.
 include:
   - local: ".gitlab-ci.full.yml"
     rules:
@@ -43,7 +45,8 @@ github-mirror:
   rules:
     - if: '$CI_PIPELINE_MODE == "full"'
       when: never
-    - if: '$CI_COMMIT_BRANCH == "gamma" && $GITHUB_MIRROR_TOKEN'
+    # The public mirror follows main only: gamma collects task branches
+    # between batches (2026-10-13).
     - if: '$CI_COMMIT_BRANCH == "main" && $GITHUB_MIRROR_TOKEN'
   needs:
     - ci-lean-notice
