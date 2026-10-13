@@ -14,6 +14,8 @@ import 'package:tourism_mobile/routing/app_router.dart';
 
 String routeMatchDurationLabel(RouteDurationOption option) {
   return switch (option) {
+    RouteDurationOption.h2 => 'Пара часов',
+    RouteDurationOption.halfDay => 'Полдня',
     RouteDurationOption.d1_2 => '1–2 дня',
     RouteDurationOption.d3_5 => '3–5 дней',
     RouteDurationOption.d6_7 => '6–7 дней',

@@ -24,7 +24,26 @@ enum RouteMatchMode { params, ai }
 /// а не интерес «Фото»: он меняет и подбор точек, и порядок обхода.
 enum RouteTripType { romance, rest, adventure, active, photo }
 
-enum RouteDurationOption { d1_2, d3_5, d6_7, d7plus }
+/// How long the trip is: «пара часов» and «полдня» (BACKEND-42), then
+/// whole days.
+enum RouteDurationOption {
+  h2('h2'),
+  halfDay('half_day'),
+  d1_2('d1_2'),
+  d3_5('d3_5'),
+  d6_7('d6_7'),
+  d7plus('d7plus');
+
+  const RouteDurationOption(this.api);
+
+  /// The value the server takes.
+  final String api;
+
+  static RouteDurationOption fromApi(Object? value) => values.firstWhere(
+    (option) => option.api == value,
+    orElse: () => RouteDurationOption.d3_5,
+  );
+}
 
 enum RoutePace { calm, moderate, active }
 
@@ -1047,10 +1066,12 @@ class DurationSelector extends StatefulWidget {
   final ValueChanged<RouteDurationOption> onChanged;
 
   static const _options = <(RouteDurationOption, String)>[
+    (RouteDurationOption.h2, '2 часа'),
+    (RouteDurationOption.halfDay, 'Полдня'),
     (RouteDurationOption.d1_2, '1-2 дня'),
-    (RouteDurationOption.d3_5, '3-5 дней'),
-    (RouteDurationOption.d6_7, '6-7 дней'),
-    (RouteDurationOption.d7plus, '>7 дней'),
+    (RouteDurationOption.d3_5, '3-5 дн.'),
+    (RouteDurationOption.d6_7, '6-7 дн.'),
+    (RouteDurationOption.d7plus, '>7 дн.'),
   ];
 
   @override
@@ -1165,6 +1186,7 @@ class _DurationSelectorState extends State<DurationSelector>
                             motionProgress: _controller.value,
                             color: RouteBuilderDesignTokens.primaryBlue,
                             innerRadius: px(4),
+                            segments: DurationSelector._options.length,
                           ),
                         ),
                         Row(
@@ -1242,23 +1264,27 @@ class _DurationSegment extends StatelessWidget {
           splashColor: Colors.transparent,
           highlightColor: Colors.transparent,
           child: Center(
-            child: Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: RouteBuilderDesignTokens.rubik(
-                fontSize: px(14),
-                weight: FontWeight.lerp(
-                  FontWeight.w400,
-                  FontWeight.w500,
-                  emphasis,
-                )!,
-                color: Color.lerp(
-                  RouteBuilderDesignTokens.chipText,
-                  Colors.white,
-                  emphasis,
+            // Six options share the row: the label shrinks rather than
+            // getting cut.
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                maxLines: 1,
+                style: RouteBuilderDesignTokens.rubik(
+                  fontSize: px(14),
+                  weight: FontWeight.lerp(
+                    FontWeight.w400,
+                    FontWeight.w500,
+                    emphasis,
+                  )!,
+                  color: Color.lerp(
+                    RouteBuilderDesignTokens.chipText,
+                    Colors.white,
+                    emphasis,
+                  ),
+                  height: 1.0,
                 ),
-                height: 1.0,
               ),
             ),
           ),
@@ -1276,8 +1302,11 @@ class _DurationLiquidPainter extends CustomPainter {
     required this.motionProgress,
     required this.color,
     required this.innerRadius,
+    required this.segments,
   });
 
+  /// How many options share the row.
+  final int segments;
   final double position;
   final double fromPosition;
   final double targetPosition;
@@ -1287,7 +1316,6 @@ class _DurationLiquidPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    const segments = 4;
     final segmentWidth = size.width / segments;
     final centerX = (position + 0.5) * segmentWidth;
     final travelDistance = (targetPosition - fromPosition).abs() * segmentWidth;
@@ -1332,7 +1360,8 @@ class _DurationLiquidPainter extends CustomPainter {
         oldDelegate.targetPosition != targetPosition ||
         oldDelegate.motionProgress != motionProgress ||
         oldDelegate.color != color ||
-        oldDelegate.innerRadius != innerRadius;
+        oldDelegate.innerRadius != innerRadius ||
+        oldDelegate.segments != segments;
   }
 }
 

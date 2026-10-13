@@ -191,7 +191,7 @@ void main() {
     tester,
   ) async {
     await _pumpDuration(tester);
-    await tester.tap(find.text('>7 дней'));
+    await tester.tap(find.text('>7 дн.'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 210));
 
