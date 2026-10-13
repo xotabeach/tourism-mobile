@@ -48,6 +48,12 @@ class SettingsAccountScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsChangePhoto),
         ),
         SettingsNavTile(
+          title: 'Мой персонаж',
+          subtitle: 'Шапка для совместных маршрутов',
+          icon: Icons.face_retouching_natural_rounded,
+          onTap: () => context.pushNamed(AppRouteNames.settingsCharacter),
+        ),
+        SettingsNavTile(
           title: 'Приглашения и блокировки',
           subtitle: 'Кто может звать вас в группу и в соавторы',
           icon: Icons.mark_email_unread_outlined,
