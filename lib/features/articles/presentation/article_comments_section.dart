@@ -9,6 +9,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/design/components/focus_highlight.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
@@ -24,9 +25,16 @@ import 'package:tourism_mobile/routing/app_router.dart';
 /// than reusing `EntityReviewsSection` — that widget is tightly coupled to
 /// star ratings and review vocabulary, which articles have neither of.
 class ArticleCommentsSection extends ConsumerStatefulWidget {
-  const ArticleCommentsSection({required this.articleId, super.key});
+  const ArticleCommentsSection({
+    required this.articleId,
+    this.focusCommentId,
+    super.key,
+  });
 
   final String articleId;
+
+  /// Scrolled to and lit up once loaded (FRONTEND-74).
+  final String? focusCommentId;
 
   @override
   ConsumerState<ArticleCommentsSection> createState() =>
@@ -117,13 +125,17 @@ class _ArticleCommentsSectionState
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final comment in page.items) ...[
-                  _ArticleCommentTile(
-                    comment: comment,
-                    repliesTo: byId[comment.replyToCommentId],
-                    isOwn: comment.authorUserId == selfUserId,
-                    canDelete: _canDelete(comment, selfUserId),
-                    onReply: () => _startReply(comment),
-                    onDeleted: _invalidate,
+                  FocusHighlight(
+                    key: ValueKey('comment-focus-${comment.id}'),
+                    active: comment.id == widget.focusCommentId,
+                    child: _ArticleCommentTile(
+                      comment: comment,
+                      repliesTo: byId[comment.replyToCommentId],
+                      isOwn: comment.authorUserId == selfUserId,
+                      canDelete: _canDelete(comment, selfUserId),
+                      onReply: () => _startReply(comment),
+                      onDeleted: _invalidate,
+                    ),
                   ),
                   const SizedBox(height: 12),
                 ],

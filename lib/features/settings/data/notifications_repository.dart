@@ -57,6 +57,7 @@ class InboxNotification {
     this.actorDisplayName,
     this.targetType,
     this.targetId,
+    this.anchorId,
   });
 
   final String id;
@@ -67,6 +68,9 @@ class InboxNotification {
   final String? actorDisplayName;
   final String? targetType;
   final String? targetId;
+
+  /// The comment or review inside the target (BACKEND-67).
+  final String? anchorId;
   final bool isUnread;
   final DateTime createdAt;
 
@@ -96,6 +100,7 @@ class InboxNotification {
       actorDisplayName: actorDisplayName,
       targetType: targetType,
       targetId: targetId,
+      anchorId: anchorId,
       isUnread: isUnread ?? this.isUnread,
       createdAt: createdAt,
     );
@@ -112,6 +117,7 @@ class InboxNotification {
       actorDisplayName: json['actor_display_name'] as String?,
       targetType: json['target_type'] as String?,
       targetId: json['target_id'] as String?,
+      anchorId: json['anchor_id'] as String?,
       isUnread: !(json['is_read'] as bool? ?? false),
       createdAt: DateTime.parse(json['created_at'] as String),
     );

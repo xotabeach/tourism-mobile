@@ -50,6 +50,7 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
     required this.routeId,
     this.initialRoute,
     this.openReviews = false,
+    this.focusReviewId,
     super.key,
   });
 
@@ -60,6 +61,10 @@ class RouteDetailsScreen extends ConsumerStatefulWidget {
 
   /// Open on the reviews tab: the home card's «Оцените маршрут».
   final bool openReviews;
+
+  /// A review to scroll to and light up: a notification about it
+  /// (FRONTEND-74). Opens on the reviews tab.
+  final String? focusReviewId;
 
   @override
   ConsumerState<RouteDetailsScreen> createState() => _RouteDetailsScreenState();
@@ -75,7 +80,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   late final AnimationController _galleryController;
 
   int? _selectedStop;
-  late var _selectedSection = widget.openReviews
+  late var _selectedSection = widget.openReviews || widget.focusReviewId != null
       ? _RouteDetailsSection.comments
       : _RouteDetailsSection.about;
 
@@ -409,6 +414,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             entityId: route.id,
                             kind: ReviewEntityKind.route,
                             allowComposer: publiclyAvailable,
+                            focusReviewId: widget.focusReviewId,
                           ),
                         ],
                       ],

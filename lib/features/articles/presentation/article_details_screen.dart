@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -26,11 +27,19 @@ import 'package:tourism_mobile/features/routes/application/routes_providers.dart
 import 'package:tourism_mobile/routing/app_router.dart';
 
 class ArticleDetailsScreen extends ConsumerWidget {
-  const ArticleDetailsScreen({required this.articleId, super.key});
+  const ArticleDetailsScreen({
+    required this.articleId,
+    this.focusCommentId,
+    super.key,
+  });
 
   static const routePath = '/articles/:id';
 
   final String articleId;
+
+  /// A comment to scroll to and light up: a notification about it
+  /// (FRONTEND-74).
+  final String? focusCommentId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -97,7 +106,7 @@ class ArticleDetailsScreen extends ConsumerWidget {
             ref.invalidate(articleRelatedProvider(articleId));
             await ref.read(articleDetailsProvider(articleId).future);
           },
-          child: _ArticleBody(article: article),
+          child: _ArticleBody(article: article, focusCommentId: focusCommentId),
         ),
       ),
     );
@@ -128,9 +137,10 @@ class _ArticleLoadingSkeleton extends StatelessWidget {
 }
 
 class _ArticleBody extends ConsumerWidget {
-  const _ArticleBody({required this.article});
+  const _ArticleBody({required this.article, this.focusCommentId});
 
   final Article article;
+  final String? focusCommentId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -146,6 +156,11 @@ class _ArticleBody extends ConsumerWidget {
       onTap: () => FocusScope.of(context).unfocus(),
       child: ListView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        // Comments sit at the very end; a lazy list would not build the one
+        // to scroll to, so with a comment to show everything is laid out.
+        scrollCacheExtent: focusCommentId == null
+            ? null
+            : const ScrollCacheExtent.pixels(100000),
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.page,
           0,
@@ -207,7 +222,10 @@ class _ArticleBody extends ConsumerWidget {
           _RelatedArticlesSection(articleId: article.id),
           const Divider(height: 1, color: Color(0xFFEDEDEE)),
           const SizedBox(height: 20),
-          ArticleCommentsSection(articleId: article.id),
+          ArticleCommentsSection(
+            articleId: article.id,
+            focusCommentId: focusCommentId,
+          ),
         ],
       ),
     );

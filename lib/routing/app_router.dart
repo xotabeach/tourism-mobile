@@ -263,7 +263,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return CupertinoPage<void>(
             key: state.pageKey,
-            child: ArticleDetailsScreen(articleId: id),
+            child: ArticleDetailsScreen(
+              articleId: id,
+              focusCommentId: state.uri.queryParameters['comment'],
+            ),
           );
         },
       ),
@@ -347,6 +350,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                           initialRoute: initialRoute,
                           openReviews:
                               state.uri.queryParameters['tab'] == 'reviews',
+                          focusReviewId: state.uri.queryParameters['review'],
                         ),
                       );
                     },
