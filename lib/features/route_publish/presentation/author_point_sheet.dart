@@ -151,6 +151,7 @@ class _AuthorPointSheetState extends State<AuthorPointSheet> {
               fontFamily: AppFonts.rubik,
               fontSize: 20,
               fontWeight: FontWeight.w600,
+              color: PublishRouteDesignTokens.dark,
             ),
           ),
           const SizedBox(height: 4),
@@ -184,6 +185,19 @@ class _AuthorPointSheetState extends State<AuthorPointSheet> {
                   key: ValueKey('author-point-kind-$kind'),
                   label: Text(label),
                   selected: _kind == kind,
+                  showCheckmark: false,
+                  // The app's chip theme is for dark surfaces; this sheet
+                  // is light, so the colours are set here.
+                  labelStyle: TextStyle(
+                    fontFamily: AppFonts.rubik,
+                    fontSize: 14,
+                    color: _kind == kind
+                        ? Colors.white
+                        : PublishRouteDesignTokens.dark,
+                  ),
+                  selectedColor: PublishRouteDesignTokens.dark,
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: Color(0xFFE2E2E6)),
                   onSelected: (_) => setState(() => _kind = kind),
                 ),
             ],
@@ -201,6 +215,7 @@ class _AuthorPointSheetState extends State<AuthorPointSheet> {
               hintText: '44.49520, 34.16630',
               helperText:
                   'Скопируйте из любой карты или нажмите «Где я сейчас»',
+              helperMaxLines: 2,
               border: OutlineInputBorder(),
             ),
           ),
