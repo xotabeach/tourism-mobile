@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/app.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
+import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
 import 'package:tourism_mobile/features/profile/presentation/profile_screen.dart';
@@ -58,6 +59,67 @@ void main() {
         tester.getTopLeft(find.text('Достижения:')).dy;
     expect(gap, lessThan(160));
   });
+
+  for (final count in [1, 2, 3, 5]) {
+    testWidgets('the achievements block fits $count achievements', (
+      tester,
+    ) async {
+      tester.view
+        ..devicePixelRatio = 1
+        ..physicalSize = const Size(393, 1600);
+      addTearDown(() {
+        tester.view
+          ..resetDevicePixelRatio()
+          ..resetPhysicalSize();
+      });
+      final achievements = [
+        for (var i = 0; i < count; i++)
+          ProfileAchievement(
+            id: 'a$i',
+            title: 'Автор тропы $i',
+            description: 'Опубликовать свой маршрут',
+          ),
+      ];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...testSessionOverrides(onboardingCompleted: true),
+            publicProfileProvider.overrideWith((ref, userId) async {
+              final base = ref.watch(profileProvider);
+              return ProfileSnapshot(
+                displayName: 'КРЫМТРИП',
+                rank: base.rank,
+                coverImageAsset: base.coverImageAsset,
+                avatarImageAsset: base.avatarImageAsset,
+                achievementPages: [achievements],
+                publishedRoutes: const [],
+              );
+            }),
+          ],
+          child: const MaterialApp(home: ProfileScreen(userId: 'editorial')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // FRONTEND-76: as tall as the tiles on the fullest page, up to three.
+      final rows = count.clamp(1, 3);
+      final block = tester.getSize(
+        find.byKey(const ValueKey('profile-achievements-pages')),
+      );
+      expect(block.height, rows * achievementTileExtent + (rows - 1) * 8);
+      // Each tile fits its slot.
+      final tile = tester.getSize(
+        find
+            .ancestor(
+              of: find.text('Автор тропы 0'),
+              matching: find.byType(AppPressableScale),
+            )
+            .first,
+      );
+      expect(tile.height, lessThanOrEqualTo(achievementTileExtent));
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('profile tab shows mock rank, achievements and routes', (
     tester,
