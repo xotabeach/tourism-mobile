@@ -120,6 +120,7 @@ class RouteLocation {
     required this.subtitle,
     required this.lat,
     required this.lng,
+    this.authorKind,
   });
 
   final String id;
@@ -128,12 +129,28 @@ class RouteLocation {
   final double lat;
   final double lng;
 
+  /// Set for the author's own point, not a catalogue place (BACKEND-43):
+  /// viewpoint, spring, parking, rest, start or other.
+  final String? authorKind;
+
+  bool get isAuthorPoint => authorKind != null;
+
+  /// What the server takes for an author point.
+  Map<String, Object?> get authorPointJson => {
+    'id': id,
+    'name': name,
+    'kind': authorKind,
+    'lat': lat,
+    'lng': lng,
+  };
+
   Map<String, Object?> toJson() => {
     'id': id,
     'name': name,
     'subtitle': subtitle,
     'lat': lat,
     'lng': lng,
+    if (authorKind != null) 'author_kind': authorKind,
   };
 
   factory RouteLocation.fromJson(Map<String, Object?> json) {
@@ -143,9 +160,30 @@ class RouteLocation {
       subtitle: json['subtitle']! as String,
       lat: (json['lat']! as num).toDouble(),
       lng: (json['lng']! as num).toDouble(),
+      authorKind: json['author_kind'] as String?,
     );
   }
 }
+
+/// The author's own points a route may have (BACKEND-43).
+const authorPointsMax = 5;
+
+/// Kinds of an author point, as the server names them, with their labels.
+const authorPointKinds = <(String, String)>[
+  ('viewpoint', 'Смотровая'),
+  ('spring', 'Родник'),
+  ('parking', 'Парковка'),
+  ('rest', 'Привал'),
+  ('start', 'Старт'),
+  ('other', 'Другое'),
+];
+
+String authorPointKindLabel(String kind) => authorPointKinds
+    .firstWhere(
+      (entry) => entry.$1 == kind,
+      orElse: () => ('other', 'Своя точка'),
+    )
+    .$2;
 
 /// Longest route name the server takes (BACKEND-44; it used to be 30).
 const routeNameMaxLength = 60;
@@ -213,6 +251,20 @@ class RouteDraft {
   /// The author's notes to points by place id («крутой спуск», «вход платный
   /// с 9 до 18»), BACKEND-44. Start and finish included.
   final Map<String, String> stopNotes;
+
+  /// The author's own points on the route, in order (BACKEND-43).
+  List<RouteLocation> get authorPoints => [
+    for (final location in [
+      ?start,
+      for (final stop in stops) stop.location,
+      ?finish,
+    ])
+      if (location.isAuthorPoint) location,
+  ];
+
+  List<Map<String, Object?>> get authorPointsPayload => [
+    for (final point in authorPoints) point.authorPointJson,
+  ];
 
   /// [stopNotes] for points still on the route: what the server accepts.
   Map<String, String> get validStopNotes {
@@ -316,6 +368,8 @@ class RouteDraft {
         stops.length != other.stops.length ||
         filters.length != other.filters.length ||
         validDayBreaks.join('|') != other.validDayBreaks.join('|') ||
+        authorPointsPayload.toString() !=
+            other.authorPointsPayload.toString() ||
         !_sameNotes(validStopNotes, other.validStopNotes)) {
       return false;
     }

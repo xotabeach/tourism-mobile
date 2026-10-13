@@ -1455,6 +1455,7 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
       try {
         final preview = await _publication.previewRoute(
           placeIds: placeIds,
+          authorPoints: state.draft.authorPointsPayload,
           transportMode: state.draft.filters.contains(carRouteTag)
               ? 'car'
               : 'walk',

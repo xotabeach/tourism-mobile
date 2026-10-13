@@ -43,6 +43,7 @@ final class ApiRoutePublicationRepository
             subtitle: item['subtitle'] as String? ?? '',
             lat: (item['lat'] as num?)?.toDouble() ?? 0,
             lng: (item['lng'] as num?)?.toDouble() ?? 0,
+            authorKind: item['author_point_kind'] as String?,
           ),
         )
         .toList();
@@ -115,11 +116,17 @@ final class ApiRoutePublicationRepository
   Future<RouteDraftPreview> previewRoute({
     required List<String> placeIds,
     String transportMode = 'walk',
+    List<Map<String, Object?>> authorPoints = const [],
   }) {
     return guardApiCall(() async {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/routes/drafts/preview',
-        data: {'place_ids': placeIds, 'transport_mode': transportMode},
+        data: {
+          'place_ids': placeIds,
+          'transport_mode': transportMode,
+          // The author's own points, not saved yet (BACKEND-43).
+          if (authorPoints.isNotEmpty) 'author_points': authorPoints,
+        },
       );
       return RouteDraftPreview.fromJson(response.data!);
     });
@@ -260,6 +267,7 @@ final class ApiRoutePublicationRepository
       'day_breaks': draft.validDayBreaks,
       // All of them, empty included: an empty map clears the notes.
       'stop_notes': draft.validStopNotes,
+      'author_points': draft.authorPointsPayload,
     };
   }
 
@@ -293,6 +301,7 @@ final class InMemoryRoutePublicationRepository
   Future<RouteDraftPreview> previewRoute({
     required List<String> placeIds,
     String transportMode = 'walk',
+    List<Map<String, Object?>> authorPoints = const [],
   }) async {
     // No server to route against; the form keeps its own drawing.
     return const RouteDraftPreview(

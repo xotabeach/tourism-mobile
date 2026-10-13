@@ -22,6 +22,7 @@ import 'package:tourism_mobile/features/route_publish/application/route_publish_
 import 'package:tourism_mobile/features/route_publish/data/route_media_picker.dart';
 import 'package:tourism_mobile/features/route_publish/domain/publish_route.dart';
 import 'package:tourism_mobile/features/route_publish/domain/route_publish_repository.dart';
+import 'package:tourism_mobile/features/route_publish/presentation/author_point_sheet.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/publish_route_design_tokens.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_coauthors_section.dart';
 import 'package:tourism_mobile/features/route_publish/presentation/route_place_picker_sheet.dart';
@@ -310,10 +311,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                         dayBreaks: state.draft.dayBreaks,
                                         stopNotes: state.draft.stopNotes,
                                         recalculating: state.isRecalculating,
-                                        onAdd: () => _pickLocation(
-                                          title: 'Добавить остановку',
-                                          onSelected: controller.addStop,
-                                        ),
+                                        onAdd: () => _addStop(controller),
                                         onEdit: (index) =>
                                             _showStopActions(index, controller),
                                         onReorder: controller.reorderStop,
@@ -751,12 +749,81 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
       controller.toggleDayBreak(placeId);
     } else if (action == _StopAction.remove) {
       controller.removeStop(index);
+    } else if (action == _StopAction.edit &&
+        mounted &&
+        draft.stops[index].location.isAuthorPoint) {
+      final changed = await showAuthorPointSheet(
+        context,
+        initial: draft.stops[index].location,
+      );
+      if (changed != null) controller.replaceStop(index, changed);
     } else if (action == _StopAction.edit && mounted) {
       await _pickLocation(
         title: 'Изменить остановку',
         onSelected: (location) => controller.replaceStop(index, location),
       );
     }
+  }
+
+  /// «+» at «Остановки»: a catalogue place, or the author's own point
+  /// (BACKEND-43). The choice sits in a sheet so the form keeps the
+  /// designer's layout.
+  Future<void> _addStop(RoutePublishController controller) async {
+    final ownCount = ref
+        .read(routePublishControllerProvider(_mode))
+        .draft
+        .authorPoints
+        .length;
+    final own = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: PublishRouteDesignTokens.background,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              key: const ValueKey('add-stop-catalogue'),
+              leading: const Icon(Icons.place_outlined),
+              title: const Text('Место из каталога'),
+              onTap: () => Navigator.pop(sheet, false),
+            ),
+            ListTile(
+              key: const ValueKey('add-stop-own'),
+              leading: const Icon(Icons.add_location_alt_outlined),
+              title: const Text('Своя точка'),
+              subtitle: Text(
+                'Родник, смотровая, парковка · $ownCount из $authorPointsMax',
+              ),
+              onTap: () => Navigator.pop(sheet, true),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted || own == null) return;
+    if (own) {
+      await _addAuthorPoint(controller);
+    } else {
+      await _pickLocation(
+        title: 'Добавить остановку',
+        onSelected: controller.addStop,
+      );
+    }
+  }
+
+  /// «Своя точка» (BACKEND-43): a point that is not in the catalogue.
+  Future<void> _addAuthorPoint(RoutePublishController controller) async {
+    final draft = ref.read(routePublishControllerProvider(_mode)).draft;
+    if (draft.authorPoints.length >= authorPointsMax) {
+      showAppNotice(
+        context,
+        'Своих точек в маршруте не больше $authorPointsMax',
+      );
+      return;
+    }
+    final point = await showAuthorPointSheet(context);
+    if (point != null && mounted) controller.addStop(point);
   }
 
   /// The note to a stop (BACKEND-44): what is worth knowing there. Null
@@ -2403,6 +2470,8 @@ class RouteStopRow extends StatelessWidget {
                     Text(
                       [
                         _distance(stop),
+                        if (stop.location.authorKind case final kind?)
+                          'своя точка: ${authorPointKindLabel(kind).toLowerCase()}',
                         if (endsDay) 'конец дня',
                         if (note != null) '✎ $note',
                       ].join(' · '),

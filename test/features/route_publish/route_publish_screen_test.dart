@@ -502,6 +502,7 @@ final class _NoopPublicationRepository implements RoutePublicationRepository {
   Future<RouteDraftPreview> previewRoute({
     required List<String> placeIds,
     String transportMode = 'walk',
+    List<Map<String, Object?>> authorPoints = const [],
   }) async {
     previewCalls++;
     lastPreviewPlaceIds = placeIds;
