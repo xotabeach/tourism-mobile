@@ -136,6 +136,8 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   void _selectStop(int index) => setState(() => _selectedStop = index);
 
   void _openPlace(RouteStop stop) {
+    // The author's own point has no place page (BACKEND-43).
+    if (stop.authorPointKind != null) return;
     unawaited(
       PlaceDetailsScreen.openFromRoute(
         context,

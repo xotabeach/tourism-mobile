@@ -47,6 +47,7 @@ abstract interface class RoutePublicationRepository {
   Future<RouteDraftPreview> previewRoute({
     required List<String> placeIds,
     String transportMode = 'walk',
+    List<Map<String, Object?>> authorPoints = const [],
   });
 }
 

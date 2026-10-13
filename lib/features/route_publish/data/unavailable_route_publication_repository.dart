@@ -26,6 +26,7 @@ final class UnavailableRoutePublicationRepository
   Future<RouteDraftPreview> previewRoute({
     required List<String> placeIds,
     String transportMode = 'walk',
+    List<Map<String, Object?>> authorPoints = const [],
   }) {
     throw const UnexpectedFailure(
       'Сервис публикации ещё не подключён — карту маршрута не построить.',

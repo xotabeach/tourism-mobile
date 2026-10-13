@@ -12,7 +12,12 @@ class RouteStop {
     this.lng,
     this.placeShortDescription,
     this.placeCoverUrl,
+    this.authorPointKind,
   });
+
+  /// The author's own point (BACKEND-43): not a catalogue place, it has no
+  /// page of its own.
+  final String? authorPointKind;
 
   final String id;
   final int position;
@@ -41,6 +46,7 @@ class RouteStop {
       lng: (json['lng'] as num?)?.toDouble(),
       placeShortDescription: json['place_short_description'] as String?,
       placeCoverUrl: json['place_cover_url'] as String?,
+      authorPointKind: json['author_point_kind'] as String?,
     );
   }
 
@@ -57,6 +63,7 @@ class RouteStop {
     'lng': lng,
     'place_short_description': placeShortDescription,
     'place_cover_url': placeCoverUrl,
+    if (authorPointKind != null) 'author_point_kind': authorPointKind,
   };
 }
 
