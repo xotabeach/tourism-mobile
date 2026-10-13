@@ -308,6 +308,7 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
                                         u: u,
                                         stops: state.draft.stops,
                                         dayBreaks: state.draft.dayBreaks,
+                                        stopNotes: state.draft.stopNotes,
                                         recalculating: state.isRecalculating,
                                         onAdd: () => _pickLocation(
                                           title: 'Добавить остановку',
@@ -715,6 +716,16 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
               onTap: () => Navigator.pop(context, _StopAction.edit),
             ),
             ListTile(
+              leading: const Icon(Icons.sticky_note_2_outlined),
+              title: Text(
+                draft.stopNotes.containsKey(placeId)
+                    ? 'Изменить заметку'
+                    : 'Добавить заметку',
+              ),
+              subtitle: const Text('Например, «вход платный с 9 до 18»'),
+              onTap: () => Navigator.pop(context, _StopAction.note),
+            ),
+            ListTile(
               leading: const Icon(Icons.bedtime_outlined),
               title: Text(
                 endsDay ? 'Не заканчивать день здесь' : 'Закончить день здесь',
@@ -730,7 +741,13 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
         ),
       ),
     );
-    if (action == _StopAction.dayBreak) {
+    if (action == _StopAction.note && mounted) {
+      final note = await _askStopNote(
+        draft.stops[index].location.name,
+        draft.stopNotes[placeId] ?? '',
+      );
+      if (note != null) controller.setStopNote(placeId, note);
+    } else if (action == _StopAction.dayBreak) {
       controller.toggleDayBreak(placeId);
     } else if (action == _StopAction.remove) {
       controller.removeStop(index);
@@ -740,6 +757,80 @@ class _RoutePublishScreenState extends ConsumerState<RoutePublishScreen>
         onSelected: (location) => controller.replaceStop(index, location),
       );
     }
+  }
+
+  /// The note to a stop (BACKEND-44): what is worth knowing there. Null
+  /// when the author backs out; empty removes the note.
+  Future<String?> _askStopNote(String placeName, String current) {
+    final text = TextEditingController(text: current);
+    return showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: PublishRouteDesignTokens.background,
+      showDragHandle: true,
+      builder: (sheet) => Padding(
+        padding: EdgeInsets.fromLTRB(
+          18,
+          0,
+          18,
+          MediaQuery.viewInsetsOf(sheet).bottom + 20,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Заметка к точке «$placeName»',
+              style: const TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Её увидят все, кто откроет маршрут: крутой спуск, платный '
+              'вход, где оставить машину',
+              style: TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 13,
+                color: PublishRouteDesignTokens.secondaryText,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              key: const ValueKey('stop-note-field'),
+              controller: text,
+              autofocus: true,
+              maxLength: stopNoteMaxLength,
+              minLines: 2,
+              maxLines: 4,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(
+                hintText: 'Например, вход платный с 9 до 18',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                if (current.isNotEmpty)
+                  TextButton(
+                    onPressed: () => Navigator.pop(sheet, ''),
+                    child: const Text('Удалить'),
+                  ),
+                const Spacer(),
+                FilledButton(
+                  key: const ValueKey('stop-note-save'),
+                  onPressed: () => Navigator.pop(sheet, text.text),
+                  child: const Text('Сохранить'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ).whenComplete(text.dispose);
   }
 
   Future<void> _showFilterPicker(RoutePublishController controller) async {
@@ -1270,7 +1361,7 @@ class _DraftChoiceButton extends StatelessWidget {
   }
 }
 
-enum _StopAction { edit, dayBreak, remove }
+enum _StopAction { edit, note, dayBreak, remove }
 
 TextStyle _style(
   double Function(double) u,
@@ -1712,7 +1803,7 @@ class _RouteTitleFieldState extends State<RouteTitleField> {
     );
     final counterPainter = TextPainter(
       text: TextSpan(
-        text: '${value.characters.length}/30',
+        text: '${value.characters.length}/$routeNameMaxLength',
         style: counterStyle,
       ),
       maxLines: 1,
@@ -1748,7 +1839,9 @@ class _RouteTitleFieldState extends State<RouteTitleField> {
                       child: TextField(
                         controller: widget.controller,
                         focusNode: widget.focusNode,
-                        inputFormatters: [LengthLimitingTextInputFormatter(30)],
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(routeNameMaxLength),
+                        ],
                         maxLines: 1,
                         textAlignVertical: TextAlignVertical.center,
                         textInputAction: TextInputAction.next,
@@ -1803,7 +1896,7 @@ class _RouteTitleFieldState extends State<RouteTitleField> {
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
-                          '${value.characters.length}/30',
+                          '${value.characters.length}/$routeNameMaxLength',
                           style: counterStyle,
                         ),
                       ),
@@ -2155,11 +2248,15 @@ class RouteStopsSection extends StatelessWidget {
     required this.onEdit,
     required this.onReorder,
     this.dayBreaks = const [],
+    this.stopNotes = const {},
     super.key,
   });
 
   final double Function(double) u;
   final List<RouteStopDraft> stops;
+
+  /// The author's notes by place id (BACKEND-44).
+  final Map<String, String> stopNotes;
 
   /// Place ids of the stops that end a day (spec 14a).
   final List<String> dayBreaks;
@@ -2226,6 +2323,7 @@ class RouteStopsSection extends StatelessWidget {
                   index: index + 1,
                   stop: stop,
                   endsDay: dayBreaks.contains(stop.location.id),
+                  note: stopNotes[stop.location.id],
                   onTap: () => onEdit(index),
                 ),
               );
@@ -2243,6 +2341,7 @@ class RouteStopRow extends StatelessWidget {
     required this.stop,
     required this.onTap,
     this.endsDay = false,
+    this.note,
     super.key,
   });
 
@@ -2250,6 +2349,9 @@ class RouteStopRow extends StatelessWidget {
   final int index;
   final RouteStopDraft stop;
   final VoidCallback onTap;
+
+  /// The author's note, shown in place of the distance line's tail.
+  final String? note;
 
   /// «Закончить день здесь» was set on this stop.
   final bool endsDay;
@@ -2299,9 +2401,13 @@ class RouteStopRow extends StatelessWidget {
                     ),
                     SizedBox(height: u(3)),
                     Text(
-                      endsDay
-                          ? '${_distance(stop)} · конец дня'
-                          : _distance(stop),
+                      [
+                        _distance(stop),
+                        if (endsDay) 'конец дня',
+                        if (note != null) '✎ $note',
+                      ].join(' · '),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: _style(
                         u,
                         14,
