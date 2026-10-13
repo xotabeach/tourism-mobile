@@ -1522,10 +1522,17 @@ class _AchievementsCarousel extends StatelessWidget {
     // Без достижений карусель оставляла пустое место на три плитки: раздел
     // выглядел незагрузившимся (FRONTEND-66).
     if (pages.isEmpty) return _NoAchievements(isOwn: isOwn);
+    // As tall as the fullest page, up to three tiles: one achievement does
+    // not leave room for three under it (FRONTEND-76).
+    final rows = pages
+        .map((page) => page.length)
+        .fold(0, (most, length) => length > most ? length : most)
+        .clamp(1, 3);
     return Column(
       children: [
         SizedBox(
-          height: 232,
+          key: const ValueKey('profile-achievements-pages'),
+          height: rows * achievementTileExtent + (rows - 1) * 8,
           child: PageView.builder(
             itemCount: pages.length,
             onPageChanged: onPageChanged,
@@ -1552,12 +1559,19 @@ class _AchievementsCarousel extends StatelessWidget {
             },
           ),
         ),
-        const SizedBox(height: 12),
-        _PageDots(count: pages.length, index: pageIndex),
+        // Dots only when there is something to swipe to.
+        if (pages.length > 1) ...[
+          const SizedBox(height: 12),
+          _PageDots(count: pages.length, index: pageIndex),
+        ],
       ],
     );
   }
 }
+
+/// Height of one achievement tile in the profile carousel.
+@visibleForTesting
+const achievementTileExtent = 72.0;
 
 /// Раздел достижений, когда ни одного ещё нет: одна приглушённая плитка
 /// того же вида, что и закрытое достижение.
