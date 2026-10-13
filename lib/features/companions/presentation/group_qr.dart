@@ -80,8 +80,8 @@ Future<void> showGroupQrSheet(BuildContext context, String code) =>
               ),
               const SizedBox(height: 4),
               const Text(
-                'В приложении: «Пройти вместе» → «У меня есть код» → '
-                '«Сканировать QR»',
+                'В приложении на странице маршрута: «Пройти вместе», затем '
+                '«У меня есть код» и «Сканировать QR»',
                 textAlign: TextAlign.center,
                 style: AppTypography.settingsRowSubtitle,
               ),

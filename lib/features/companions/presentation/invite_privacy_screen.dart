@@ -92,7 +92,7 @@ class _InvitePrivacyScreenState extends ConsumerState<InvitePrivacyScreen> {
               (
                 InvitePolicy.nobody,
                 'Никто',
-                'Приглашения не придут, в группу можно войти по коду',
+                'Приглашения не придут, войти можно по коду',
               ),
             ])
               SettingsNavTile(

@@ -103,7 +103,7 @@ void main() {
     );
     await tester.tap(find.byKey(const ValueKey('profile-block')));
     await tester.pumpAndSettle();
-    expect(find.text('Заблокировать Анна?'), findsOneWidget);
+    expect(find.text('Заблокировать «Анна»?'), findsOneWidget);
     await tester.tap(find.text('Отмена'));
     await tester.pumpAndSettle();
     expect(repo.calls, isEmpty);

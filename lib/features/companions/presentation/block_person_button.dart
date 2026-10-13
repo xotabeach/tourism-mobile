@@ -35,7 +35,7 @@ class _BlockPersonButtonState extends ConsumerState<BlockPersonButton> {
       final sure = await showDialog<bool>(
         context: context,
         builder: (dialog) => AlertDialog(
-          title: Text('Заблокировать ${widget.displayName}?'),
+          title: Text('Заблокировать «${widget.displayName}»?'),
           content: const Text(
             'Вы не сможете звать друг друга в совместное прохождение и в '
             'соавторы маршрута. Человек не узнает о блокировке. Снять её '
