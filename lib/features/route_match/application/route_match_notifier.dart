@@ -587,6 +587,10 @@ RouteMatchParams applyRouteMatchConstraintPatch(
     'transport_public' => current.copyWith(transportMode: 'public'),
     'transport_walk' => current.copyWith(transportMode: 'walk'),
     'transport_mixed' => current.copyWith(transportMode: 'mixed'),
+    'duration_h2' => current.copyWith(duration: RouteDurationOption.h2),
+    'duration_half_day' => current.copyWith(
+      duration: RouteDurationOption.halfDay,
+    ),
     'duration_d1_2' => current.copyWith(duration: RouteDurationOption.d1_2),
     'duration_d3_5' => current.copyWith(duration: RouteDurationOption.d3_5),
     'duration_d6_7' => current.copyWith(duration: RouteDurationOption.d6_7),

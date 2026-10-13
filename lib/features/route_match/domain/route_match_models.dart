@@ -113,7 +113,7 @@ class RouteMatchParams {
       'preferred_localities': preferredLocalities,
     if (flexibleStart) 'flexible_start': true,
     if (tripType != null) 'trip_type': tripType!.name,
-    'duration': duration.name,
+    'duration': duration.api,
     'people': people,
     'interests': interests,
     'pace': pace.name,
@@ -1003,11 +1003,7 @@ class RoutePlanningSession {
                 .whereType<String>()
                 .toList(growable: false),
         flexibleStart: rawConstraints['flexible_start'] as bool? ?? false,
-        duration: RouteDurationOption.values.firstWhere(
-          (item) =>
-              item.name == (rawConstraints['duration'] as String? ?? 'd3_5'),
-          orElse: () => RouteDurationOption.d3_5,
-        ),
+        duration: RouteDurationOption.fromApi(rawConstraints['duration']),
         people: rawConstraints['people'] as int? ?? 2,
         interests: (rawConstraints['interests'] as List<dynamic>? ?? const [])
             .map((item) => item as String)
