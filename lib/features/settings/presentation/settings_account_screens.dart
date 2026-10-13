@@ -54,6 +54,12 @@ class SettingsAccountScreen extends ConsumerWidget {
           onTap: () => context.pushNamed(AppRouteNames.settingsCharacter),
         ),
         SettingsNavTile(
+          title: 'Приглашения и блокировки',
+          subtitle: 'Кто может звать вас в группу и в соавторы',
+          icon: Icons.mark_email_unread_outlined,
+          onTap: () => context.pushNamed(AppRouteNames.settingsInvites),
+        ),
+        SettingsNavTile(
           title: 'Сменить номер телефона',
           subtitle: phone,
           iconAsset: AppIconography.settingsChangePhone,

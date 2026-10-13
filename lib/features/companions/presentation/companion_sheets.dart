@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
+import 'package:tourism_mobile/features/companions/presentation/group_qr.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// The words for a refused group action: the server already says it in
@@ -344,6 +345,14 @@ class _JoinCodeSheetState extends ConsumerState<_JoinCodeSheet> {
     }
   }
 
+  /// Reads the code from the organizer's QR and asks to come in at once.
+  Future<void> _scan() async {
+    final code = await scanGroupQr(context);
+    if (code == null || !mounted) return;
+    _controller.text = code;
+    await _join();
+  }
+
   void _goToLobby(String id) {
     final router = GoRouter.of(context);
     Navigator.of(context).pop();
@@ -407,6 +416,17 @@ class _JoinCodeSheetState extends ConsumerState<_JoinCodeSheet> {
               shape: const StadiumBorder(),
             ),
             child: const Text('Попроситься в группу'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            key: const ValueKey('companion-scan-qr'),
+            onPressed: _busy ? null : () => unawaited(_scan()),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            label: const Text('Сканировать QR'),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(50),
+              shape: const StadiumBorder(),
+            ),
           ),
           if (_lobbyId case final id?) ...[
             const SizedBox(height: 8),

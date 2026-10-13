@@ -16,6 +16,7 @@ class PublicUserProfile {
     this.nextRankPoints = 1000,
     this.leaderboardPlace = 0,
     this.likedByMe = false,
+    this.blockedByMe = false,
     this.isExpert = false,
     this.expertTitle,
     this.followersCount = 0,
@@ -38,6 +39,9 @@ class PublicUserProfile {
   final int nextRankPoints;
   final int leaderboardPlace;
   final bool likedByMe;
+
+  /// I blocked this person (spec 11b D15).
+  final bool blockedByMe;
   final bool isExpert;
   final String? expertTitle;
   final int followersCount;
@@ -66,6 +70,7 @@ class PublicUserProfile {
       nextRankPoints: (json['next_rank_points'] as num?)?.toInt() ?? 1000,
       leaderboardPlace: (json['leaderboard_place'] as num?)?.toInt() ?? 0,
       likedByMe: json['liked_by_me'] as bool? ?? false,
+      blockedByMe: json['blocked_by_me'] as bool? ?? false,
       isExpert: json['is_expert'] as bool? ?? false,
       expertTitle: json['expert_title'] as String?,
       followersCount: _nonNegativeCount(json['followers_count']),

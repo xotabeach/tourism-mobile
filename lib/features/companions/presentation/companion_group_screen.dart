@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
-
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
@@ -19,6 +18,7 @@ import 'package:tourism_mobile/features/companions/presentation/flat/campfire_sc
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/group_postcard.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/rope_view.dart';
+import 'package:tourism_mobile/features/companions/presentation/group_qr.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// One group of companions from invitation to the finish (spec 11b).
@@ -646,7 +646,7 @@ class _CodeCard extends StatelessWidget {
                 ),
               ),
               const Text(
-                'Покажите его тому, кто рядом',
+                'Покажите код или QR тому, кто рядом',
                 style: TextStyle(
                   fontFamily: AppFonts.rubik,
                   fontSize: 12,
@@ -654,6 +654,14 @@ class _CodeCard extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+        GestureDetector(
+          key: const ValueKey('group-qr'),
+          onTap: () => unawaited(showGroupQrSheet(context, code)),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: GroupQrImage(code: code, size: 64),
           ),
         ),
         IconButton(

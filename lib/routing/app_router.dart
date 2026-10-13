@@ -9,6 +9,7 @@ import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.d
 import 'package:tourism_mobile/features/auth/presentation/auth_otp_screen.dart';
 import 'package:tourism_mobile/features/companions/presentation/character_screen.dart';
 import 'package:tourism_mobile/features/companions/presentation/companion_group_screen.dart';
+import 'package:tourism_mobile/features/companions/presentation/invite_privacy_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_screen.dart';
 import 'package:tourism_mobile/features/my_routes/presentation/my_routes_screen.dart';
@@ -81,6 +82,7 @@ abstract final class AppRouteNames {
   static const settingsChangePhoto = 'settings-change-photo';
   static const settingsAppIcon = 'settings-app-icon';
   static const settingsChangePhone = 'settings-change-phone';
+  static const settingsInvites = 'settings-invites';
   static const settingsChangePreferences = 'settings-change-preferences';
   static const settingsNotifications = 'settings-notifications';
   static const settingsNotificationsInbox = 'settings-notifications-inbox';
@@ -523,6 +525,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                                 CupertinoPage<void>(
                                   key: state.pageKey,
                                   child: const SettingsAppIconScreen(),
+                                ),
+                          ),
+                          GoRoute(
+                            // Who may invite me, and whom I blocked
+                            // (FRONTEND-63).
+                            name: AppRouteNames.settingsInvites,
+                            path: InvitePrivacyScreen.routePath,
+                            pageBuilder: (context, state) =>
+                                CupertinoPage<void>(
+                                  key: state.pageKey,
+                                  child: const InvitePrivacyScreen(),
                                 ),
                           ),
                           GoRoute(

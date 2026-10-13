@@ -4,7 +4,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
 import 'package:tourism_mobile/core/cache/app_data_refresh.dart';
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_expert_style.dart';
@@ -26,6 +25,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/companions/presentation/block_person_button.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
@@ -407,6 +407,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     isOwn: isOwn,
                     authorUserId: widget.userId,
                   ),
+                  if (!isOwn && (widget.userId ?? '').isNotEmpty)
+                    // Quietly at the very end, as in most apps: blocking is
+                    // rare and must not compete with the profile itself.
+                    BlockPersonButton(
+                      userId: widget.userId!,
+                      displayName: profile.displayName,
+                      blocked: profile.blockedByMe,
+                    ),
                   const SizedBox(height: AppSpacing.shellBottomContent),
                 ],
               ),
