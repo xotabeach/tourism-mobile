@@ -29,9 +29,13 @@ const _accent = Color(0xFF1E71CA);
 /// A run in progress on the home screen, in place of the «Подбери маршрут»
 /// banner and the same size (FRONTEND-34, spec 13).
 class ActiveRouteCard extends ConsumerStatefulWidget {
-  const ActiveRouteCard({required this.state, super.key});
+  const ActiveRouteCard({required this.state, this.groupId, super.key});
 
   final HomeActiveRun state;
+
+  /// The group this run is walked with, when it is: a «Группа» pill opens
+  /// it (FRONTEND-73).
+  final String? groupId;
 
   @override
   ConsumerState<ActiveRouteCard> createState() => _ActiveRouteCardState();
@@ -116,7 +120,23 @@ class _ActiveRouteCardState extends ConsumerState<ActiveRouteCard> {
                           Expanded(
                             child: Align(
                               alignment: Alignment.centerLeft,
-                              child: _StatusPill(status: status),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(child: _StatusPill(status: status)),
+                                  if (widget.groupId case final groupId?) ...[
+                                    const SizedBox(width: 6),
+                                    _GroupPill(
+                                      onTap: () => unawaited(
+                                        context.pushNamed(
+                                          AppRouteNames.companionGroup,
+                                          pathParameters: {'groupId': groupId},
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -303,6 +323,53 @@ String _km(int meters) {
   final km = meters / 1000;
   final text = km >= 10 ? km.toStringAsFixed(0) : km.toStringAsFixed(1);
   return text.replaceAll('.', ',');
+}
+
+/// Opens the group a run is walked with; the rest of the card opens the run.
+class _GroupPill extends StatelessWidget {
+  const _GroupPill({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    button: true,
+    label: 'Открыть группу',
+    excludeSemantics: true,
+    child: GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        height: 24,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFF7A2F),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.local_fire_department_rounded,
+              size: 14,
+              color: Colors.white,
+            ),
+            SizedBox(width: 4),
+            Text(
+              'Группа',
+              style: TextStyle(
+                fontFamily: AppFonts.rubik,
+                fontSize: 13,
+                height: 1.2,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 class _StatusPill extends StatelessWidget {
