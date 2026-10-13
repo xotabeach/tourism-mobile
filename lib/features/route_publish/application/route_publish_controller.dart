@@ -1128,6 +1128,18 @@ class RoutePublishController extends StateNotifier<RoutePublishState> {
     if (filter == carRouteTag) _refreshRoutePreview();
   }
 
+  /// The author's note to a point; empty removes it (BACKEND-44).
+  void setStopNote(String placeId, String note) {
+    final notes = {...state.draft.stopNotes};
+    final text = note.trim();
+    if (text.isEmpty) {
+      notes.remove(placeId);
+    } else {
+      notes[placeId] = text;
+    }
+    state = state.copyWith(draft: state.draft.copyWith(stopNotes: notes));
+  }
+
   /// «Закончить день здесь» on a stop, or take it back (spec 14a).
   void toggleDayBreak(String placeId) {
     final breaks = [...state.draft.dayBreaks];

@@ -66,7 +66,7 @@ void main() {
       moreOrLessEquals(tester.getSize(titleField).height, epsilon: 1),
     );
     expect(
-      tester.getCenter(find.text('0/30')).dy,
+      tester.getCenter(find.text('0/60')).dy,
       moreOrLessEquals(tester.getCenter(titleField).dy, epsilon: 1),
     );
     _expectRect(tester, 'route-description-field', 18, 600, 399, 102);

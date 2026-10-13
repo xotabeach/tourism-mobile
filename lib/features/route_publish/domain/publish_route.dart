@@ -147,6 +147,12 @@ class RouteLocation {
   }
 }
 
+/// Longest route name the server takes (BACKEND-44; it used to be 30).
+const routeNameMaxLength = 60;
+
+/// Longest note to a point.
+const stopNoteMaxLength = 200;
+
 class RouteStopDraft {
   const RouteStopDraft({required this.location, this.distanceMeters});
 
@@ -201,7 +207,26 @@ class RouteDraft {
     this.blockedFingerprint,
     this.serverUpdatedAt,
     this.dayBreaks = const [],
+    this.stopNotes = const {},
   });
+
+  /// The author's notes to points by place id («крутой спуск», «вход платный
+  /// с 9 до 18»), BACKEND-44. Start and finish included.
+  final Map<String, String> stopNotes;
+
+  /// [stopNotes] for points still on the route: what the server accepts.
+  Map<String, String> get validStopNotes {
+    final ids = {
+      ?start?.id,
+      for (final stop in stops) stop.location.id,
+      ?finish?.id,
+    };
+    return {
+      for (final entry in stopNotes.entries)
+        if (ids.contains(entry.key) && entry.value.trim().isNotEmpty)
+          entry.key: entry.value.trim(),
+    };
+  }
 
   /// Stops (by place id) after which the author ends a day — «Закончить
   /// день здесь» (spec 14a). Empty: the server splits by the route's norms.
@@ -290,7 +315,8 @@ class RouteDraft {
         media.length != other.media.length ||
         stops.length != other.stops.length ||
         filters.length != other.filters.length ||
-        validDayBreaks.join('|') != other.validDayBreaks.join('|')) {
+        validDayBreaks.join('|') != other.validDayBreaks.join('|') ||
+        !_sameNotes(validStopNotes, other.validStopNotes)) {
       return false;
     }
     for (var i = 0; i < media.length; i++) {
@@ -459,6 +485,7 @@ class RouteDraft {
     bool clearBlocked = false,
     bool clearServer = false,
     List<String>? dayBreaks,
+    Map<String, String>? stopNotes,
     RouteRevisionStatus? revisionStatus,
     String? revisionRejection,
     bool clearRevision = false,
@@ -471,6 +498,7 @@ class RouteDraft {
           ? null
           : revisionRejection ?? this.revisionRejection,
       dayBreaks: dayBreaks ?? this.dayBreaks,
+      stopNotes: stopNotes ?? this.stopNotes,
       serverUpdatedAt: clearServer
           ? null
           : serverUpdatedAt ?? this.serverUpdatedAt,
@@ -524,6 +552,7 @@ class RouteDraft {
     'difficulty_estimate': difficultyEstimate,
     'updated_at': updatedAt?.toIso8601String(),
     'day_breaks': dayBreaks,
+    'stop_notes': stopNotes,
   };
 
   factory RouteDraft.fromJson(Map<String, Object?> json) {
@@ -575,6 +604,13 @@ class RouteDraft {
       difficultyEstimate: (json['difficulty_estimate'] as num?)?.toInt(),
       updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? ''),
       dayBreaks: (json['day_breaks'] as List? ?? const []).cast<String>(),
+      stopNotes: {
+        for (final entry in (json['stop_notes'] as Map? ?? const {}).entries)
+          if (entry.value is String) '${entry.key}': entry.value as String,
+      },
     );
   }
 }
+
+bool _sameNotes(Map<String, String> a, Map<String, String> b) =>
+    a.length == b.length && a.entries.every((e) => b[e.key] == e.value);

@@ -101,6 +101,13 @@ final class ApiRoutePublicationRepository
       dayBreaks: (json['day_breaks'] as List<dynamic>? ?? const [])
           .whereType<String>()
           .toList(),
+      stopNotes: {
+        for (final item
+            in (json['places'] as List<dynamic>? ?? const [])
+                .cast<Map<String, dynamic>>())
+          if ((item['note'] as String?)?.trim().isNotEmpty ?? false)
+            item['id'] as String: (item['note'] as String).trim(),
+      },
     );
   }
 
@@ -251,6 +258,8 @@ final class ApiRoutePublicationRepository
       'difficulty_manual': draft.difficultyManual,
       // Empty asks the server to split the days by the route's norms.
       'day_breaks': draft.validDayBreaks,
+      // All of them, empty included: an empty map clears the notes.
+      'stop_notes': draft.validStopNotes,
     };
   }
 
