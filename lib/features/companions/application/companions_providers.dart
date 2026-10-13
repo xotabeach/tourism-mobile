@@ -4,6 +4,7 @@ import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/network/api_client.dart';
 import 'package:tourism_mobile/features/companions/data/api_companions_repository.dart';
 import 'package:tourism_mobile/features/companions/data/bean_hats_repository.dart';
+import 'package:tourism_mobile/features/companions/data/invite_privacy_repository.dart';
 import 'package:tourism_mobile/features/companions/data/mock_companions_repository.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -74,3 +75,22 @@ final beanHatsRepositoryProvider = Provider<BeanHatsRepository>((ref) {
   }
   return ApiBeanHatsRepository(ref.watch(dioProvider));
 });
+
+final invitePrivacyRepositoryProvider = Provider<InvitePrivacyRepository>((
+  ref,
+) {
+  if (ref.watch(appConfigProvider).useMockData) {
+    return MockInvitePrivacyRepository();
+  }
+  return ApiInvitePrivacyRepository(ref.watch(dioProvider));
+});
+
+/// «Кто может меня приглашать» as the server has it.
+final invitePolicyProvider = FutureProvider.autoDispose<InvitePolicy>(
+  (ref) => ref.watch(invitePrivacyRepositoryProvider).policy(),
+);
+
+/// People I blocked, newest first.
+final blockedPeopleProvider = FutureProvider.autoDispose<List<BlockedPerson>>(
+  (ref) => ref.watch(invitePrivacyRepositoryProvider).blocked(),
+);

@@ -329,6 +329,7 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       achievementPages: achievementPages,
       publishedRoutes: bundle.routes,
       likedByMe: bundle.user.likedByMe,
+      blockedByMe: bundle.user.blockedByMe,
       isExpert: bundle.user.isExpert,
       expertTitle: bundle.user.expertTitle,
       travelPoints: bundle.user.travelPoints,

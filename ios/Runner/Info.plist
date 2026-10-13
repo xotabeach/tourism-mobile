@@ -50,7 +50,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Нужен доступ к медиатеке, чтобы добавлять фото и видео к маршрутам и профилю.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>Камера нужна, чтобы снимать фото и видео для маршрута.</string>
+	<string>Камера нужна, чтобы снимать фото и видео для маршрута и читать QR-код группы.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Микрофон нужен для записи звука при съёмке видео маршрута.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

@@ -85,6 +85,7 @@ class ProfileSnapshot {
     this.avatarImageUrl,
     this.coverImageUrl,
     this.likedByMe = false,
+    this.blockedByMe = false,
     this.isExpert = false,
     this.expertTitle,
     this.travelPoints,
@@ -107,6 +108,7 @@ class ProfileSnapshot {
   final List<List<ProfileAchievement>> achievementPages;
   final List<RouteSummary> publishedRoutes;
   final bool likedByMe;
+  final bool blockedByMe;
   final bool isExpert;
 
   /// Admin-granted expert label (e.g. "Эксперт КрымТрип"). Independent of

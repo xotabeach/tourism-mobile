@@ -35,6 +35,8 @@ dependencies:
   # picture the backend re-encodes to WebP anyway.
   image: ^4.9.2
   maplibre_gl: ^0.27.1
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^7.4.2
 
 dev_dependencies:
   # Used by the draft-media test to point path_provider at a scratch dir.
