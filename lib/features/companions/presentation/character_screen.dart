@@ -309,35 +309,42 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
                             'открытке.',
                   style: AppTypography.settingsRowSubtitle,
                 ),
-                _heading('Персонаж'),
-                _grid(aspect: 0.62, [
-                  for (final kind in BeanKind.values)
-                    _ChoiceTile(
-                      title: kind.title,
-                      selected: current.kind == kind,
-                      onTap: () => unawaited(_tapKind(kind.slug)),
-                      child: _Portrait(look: _look(me, state, kind: kind.slug)),
-                    ),
-                ]),
-                _heading('Одежда'),
-                _grid(aspect: 0.62, [
-                  _ChoiceTile(
-                    title: 'Без одежды',
-                    selected: state.outfit == null,
-                    onTap: () => unawaited(_tapOutfit(null)),
-                    child: _Portrait(look: _look(me, state, noOutfit: true)),
-                  ),
-                  for (final outfit in state.outfits)
-                    _ChoiceTile(
-                      title: outfit.title,
-                      note: _note(outfit),
-                      selected: state.outfit == outfit.slug,
-                      onTap: () => unawaited(_tapOutfit(outfit)),
-                      child: _Portrait(
-                        look: _look(me, state, outfit: outfit.slug),
+                // A server before BACKEND-71 sends hats only.
+                if (state.kinds.isNotEmpty) ...[
+                  _heading('Персонаж'),
+                  _grid(aspect: 0.62, [
+                    for (final kind in BeanKind.values)
+                      _ChoiceTile(
+                        title: kind.title,
+                        selected: current.kind == kind,
+                        onTap: () => unawaited(_tapKind(kind.slug)),
+                        child: _Portrait(
+                          look: _look(me, state, kind: kind.slug),
+                        ),
                       ),
+                  ]),
+                ],
+                if (state.outfits.isNotEmpty) ...[
+                  _heading('Одежда'),
+                  _grid(aspect: 0.62, [
+                    _ChoiceTile(
+                      title: 'Без одежды',
+                      selected: state.outfit == null,
+                      onTap: () => unawaited(_tapOutfit(null)),
+                      child: _Portrait(look: _look(me, state, noOutfit: true)),
                     ),
-                ]),
+                    for (final outfit in state.outfits)
+                      _ChoiceTile(
+                        title: outfit.title,
+                        note: _note(outfit),
+                        selected: state.outfit == outfit.slug,
+                        onTap: () => unawaited(_tapOutfit(outfit)),
+                        child: _Portrait(
+                          look: _look(me, state, outfit: outfit.slug),
+                        ),
+                      ),
+                  ]),
+                ],
                 for (final tier in BeanHatTier.values) ...[
                   _heading(switch (tier) {
                     BeanHatTier.free => 'Бесплатные',
