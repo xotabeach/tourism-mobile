@@ -175,31 +175,25 @@ class _TwoBeans extends CustomPainter {
       canvas,
       Offset(size.width * 0.32, h),
       h * 0.86,
-      FlatPalette.beans[1],
+      BeanKind.pin.color,
       const BeanPose(
         lookX: 1,
-        look: BeanLook(
-          shape: BeanShape.pinWide,
-          pattern: BeanPattern.belly,
-          extra: BeanExtra.backpack,
-          accessory: BeanHat.cap,
-        ),
+        look: BeanLook(accessory: BeanHat.cap, outfit: BeanOutfit.varsity),
       ),
     );
     paintBean(
       canvas,
       Offset(size.width * 0.72, h),
       h * 0.74,
-      FlatPalette.beans[2],
+      BeanKind.small.color,
       const BeanPose(
         lookX: -1,
         happy: true,
         wave: 0.9,
         look: BeanLook(
-          shape: BeanShape.pinTall,
-          pattern: BeanPattern.spots,
-          extra: BeanExtra.scarf,
-          accessory: BeanHat.beanie,
+          kind: BeanKind.small,
+          accessory: BeanHat.panama,
+          outfit: BeanOutfit.vest,
         ),
       ),
     );

@@ -3,13 +3,16 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_hats.dart';
+import 'package:tourism_mobile/features/companions/presentation/flat/flat_outfits.dart';
 
 export 'package:tourism_mobile/features/companions/presentation/flat/flat_hats.dart'
     show BeanHat;
+export 'package:tourism_mobile/features/companions/presentation/flat/flat_outfits.dart'
+    show BeanOutfit;
 
 /// The companions' flat world (FRONTEND-63, 64): bold fills, no outlines,
-/// no gradients, round friendly shapes. Everyone in a group is a «bean»
-/// of their own colour, the same colour on every screen.
+/// round friendly shapes. Everyone in a group is a «bean», a map pin with
+/// arms and legs.
 abstract final class FlatPalette {
   static const night = Color(0xFF1D2B53);
   static const nightLow = Color(0xFF26386B);
@@ -53,46 +56,86 @@ abstract final class FlatPalette {
   }
 }
 
-/// The designer's character (DESIGN-20, sketch 2026-10-12): a drop like a
-/// map pin, round on top and narrowing to a point it stands on. Everyone
-/// shares it; the proportions vary a little.
-enum BeanShape { pin, pinWide, pinTall }
+/// The four characters of the owner's sketch (FRONTEND-79, 2026-10-15):
+/// one map pin in four builds, each with its own colour. A person picks
+/// one; all four are free.
+enum BeanKind {
+  pin('pin', 'Синий', Color(0xFF2474CF), 1, 0.74, 0.38, 0.32),
+  tall('tall', 'Зелёный', Color(0xFF1EC3A6), 1.16, 0.53, 0.3, 0.24),
+  small('small', 'Жёлтый', Color(0xFFF7C928), 0.68, 0.7, 0.4, 0.36),
+  round('round', 'Красный', Color(0xFFDD2D2F), 1.02, 0.72, 0.46, 0.32);
 
-enum BeanPattern { plain, belly, spots, stripes }
+  const BeanKind(
+    this.slug,
+    this.title,
+    this.color,
+    this.scale,
+    this.aspect,
+    this.widest,
+    this.eyeAt,
+  );
 
-enum BeanExtra { none, glasses, scarf, backpack }
+  /// The server's name for it.
+  final String slug;
+  final String title;
+  final Color color;
 
-/// Everything that makes one person's bean their own: shape, markings,
-/// what it wears. Derived from the person's id, so it never changes.
+  /// Height against the blue one: the green is taller, the yellow a kid.
+  final double scale;
+
+  /// Body width to body height.
+  final double aspect;
+
+  /// Where the body is widest, from the top, in body heights.
+  final double widest;
+
+  /// Where the eyes sit, from the top, in body heights.
+  final double eyeAt;
+
+  static BeanKind? fromSlug(String? slug) {
+    for (final kind in values) {
+      if (kind.slug == slug) return kind;
+    }
+    return null;
+  }
+
+  /// The character an account starts with until the person picks one.
+  static BeanKind forUser(String userId) {
+    var hash = 5;
+    for (final unit in userId.codeUnits) {
+      hash = (hash * 29 + unit) & 0x7fffffff;
+    }
+    return values[hash % values.length];
+  }
+}
+
+/// Everything that makes one person's bean their own: which character,
+/// what it wears on the head and on the body.
 class BeanLook {
   const BeanLook({
-    this.shape = BeanShape.pin,
-    this.pattern = BeanPattern.plain,
-    this.extra = BeanExtra.none,
+    this.kind = BeanKind.pin,
     this.accessory,
+    this.outfit = BeanOutfit.none,
   });
 
-  final BeanShape shape;
-  final BeanPattern pattern;
-  final BeanExtra extra;
+  final BeanKind kind;
   final BeanHat? accessory;
+  final BeanOutfit outfit;
 
-  /// [hat] is the person's chosen hat (its slug); without it, the hat the
-  /// account was given.
-  factory BeanLook.forUser(String userId, {String? hat}) {
-    var hash = 11;
-    for (final unit in userId.codeUnits) {
-      hash = (hash * 131 + unit) & 0x7fffffff;
-    }
-    int pick(int salt, int count) =>
-        ((hash ~/ salt) ^ (hash * salt)).abs() % count;
-    return BeanLook(
-      shape: BeanShape.values[pick(3, BeanShape.values.length)],
-      pattern: BeanPattern.values[pick(7, BeanPattern.values.length)],
-      extra: BeanExtra.values[pick(13, BeanExtra.values.length)],
-      accessory: BeanHat.fromSlug(hat) ?? BeanHat.forUser(userId),
-    );
-  }
+  Color get color => kind.color;
+
+  /// [kind], [hat] and [outfit] are the person's choices (slugs); without
+  /// them, what the account was given.
+  factory BeanLook.forUser(
+    String userId, {
+    String? hat,
+    String? kind,
+    String? outfit,
+  }) => BeanLook(
+    kind: BeanKind.fromSlug(kind) ?? BeanKind.forUser(userId),
+    accessory: BeanHat.fromSlug(hat) ?? BeanHat.forUser(userId),
+    outfit: BeanOutfit.fromSlug(outfit) ?? BeanOutfit.none,
+  );
 }
 
 /// How a bean looks this frame.
@@ -116,7 +159,7 @@ class BeanPose {
     this.look,
   });
 
-  /// Shape, markings and what it wears; a plain bean without it.
+  /// Character and clothes; a plain blue bean without it.
   final BeanLook? look;
 
   /// Vertical hop, in body heights.
@@ -159,11 +202,15 @@ class BeanPose {
   final double flutter;
 }
 
-/// A bean of [height] standing with its feet at [feet].
+/// How tall a bean of [kind] stands when the blue one is [height].
+double beanHeight(BeanKind kind, double height) => height * kind.scale;
+
+/// A bean whose blue build is [height] tall, standing with its feet at
+/// [feet]. Other builds are taller or shorter by their [BeanKind.scale].
 ///
-/// Built from flat shapes only: a rounded body with a darker belly band,
-/// stubby arms and feet, big eyes with a shine, pink cheeks, a smile and
-/// something on the head.
+/// The owner's sketch: a pin with a soft top-to-bottom shade and a light
+/// streak on the top left, thin arms and legs a shade darker, small feet
+/// turned out, solid black eyes with a shine and a white smile.
 void paintBean(
   Canvas canvas,
   Offset feet,
@@ -173,58 +220,122 @@ void paintBean(
 ) {
   final alpha = pose.dim ? 0.38 : 1.0;
   Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
-  final dark = Color.lerp(color, Colors.black, 0.22)!;
   final look = pose.look ?? const BeanLook();
-  final squash = 1 + pose.breath * 0.035;
-  final (shapeW, shapeH) = switch (look.shape) {
-    BeanShape.pin => (0.6, 0.93),
-    BeanShape.pinWide => (0.66, 0.9),
-    BeanShape.pinTall => (0.54, 0.97),
-  };
-  final bodyH = height * shapeH * squash;
-  final width = height * shapeW / math.sqrt(squash);
-  final lift = pose.bob * height;
-  final bodyBottom = feet.dy - lift;
+  final kind = look.kind;
+  final total = beanHeight(kind, height);
+  final limb = Color.lerp(color, Colors.black, 0.14)!;
+  final squash = 1 + pose.breath * 0.03;
+  final restBodyH = total * 0.95;
+  final bodyH = restBodyH * squash;
+  final width = restBodyH * kind.aspect / math.sqrt(squash);
+  final lift = pose.bob * total;
+  final ground = feet.dy - lift;
   final body = Rect.fromLTWH(
     feet.dx - width / 2,
-    bodyBottom - bodyH,
+    ground - total * 0.015 - bodyH,
     width,
     bodyH,
   );
-  final bodyPath = _bodyPath(look.shape, body);
+  final bodyPath = beanBodyPath(kind, body);
+  final limbW = math.max(total * 0.032, 1.6);
 
   // Shadow stays on the ground while the bean hops.
   canvas.drawOval(
     Rect.fromCenter(
-      center: feet.translate(0, 1),
-      width: width * (0.7 - pose.bob * 0.5),
-      height: height * 0.07,
+      center: feet.translate(0, total * 0.012),
+      width: width * (1.05 - pose.bob * 0.6),
+      height: total * 0.06,
     ),
-    fill(const Color(0x33000000)),
+    fill(Color.lerp(color, Colors.black, 0.55)!.withValues(alpha: 0.2)),
   );
 
-  // No feet: it stands on its point, and walks by rocking side to side.
   canvas.save();
-  canvas.translate(feet.dx, feet.dy - lift);
-  canvas.rotate(pose.step * 0.12);
-  canvas.translate(-feet.dx, -(feet.dy - lift));
+  canvas.translate(feet.dx, ground);
+  canvas.rotate(pose.step * 0.08);
+  canvas.translate(-feet.dx, -ground);
+
+  // Legs come out of the lower sides of the pin, feet turned out.
+  for (final side in const [-1.0, 1.0]) {
+    final lifted = pose.step * side > 0 ? pose.step.abs() * total * 0.05 : 0.0;
+    final hip = Offset(feet.dx + side * width * 0.16, body.top + bodyH * 0.84);
+    final ankle = Offset(
+      feet.dx + side * width * 0.18,
+      ground - total * 0.025 - lifted,
+    );
+    canvas.drawLine(
+      hip,
+      ankle,
+      fill(limb)
+        ..strokeWidth = limbW
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: ankle.translate(side * width * 0.07, total * 0.006),
+        width: width * 0.24,
+        height: total * 0.045,
+      ),
+      fill(limb),
+    );
+  }
 
   final dir = pose.stickToRight ? 1.0 : -1.0;
-  // Arms come out where the head is still wide, above the band.
-  final shoulderY = body.top + bodyH * 0.46;
+  final shoulderY = body.top + bodyH * 0.54;
+  final armLen = total * 0.2;
+  Path armPath(Offset shoulder, Offset hand, double side) {
+    // A soft bend at the elbow, outward.
+    final mid = Offset.lerp(shoulder, hand, 0.5)!;
+    return Path()
+      ..moveTo(shoulder.dx, shoulder.dy)
+      ..quadraticBezierTo(
+        mid.dx + side * armLen * 0.12,
+        mid.dy - armLen * 0.08,
+        hand.dx,
+        hand.dy,
+      );
+  }
 
-  // The arm holding the stick, or resting, on the fire side.
-  final holdHand = Offset(
-    body.center.dx + dir * width * 0.6,
-    shoulderY + bodyH * (pose.ready ? 0.0 : 0.1),
+  Paint armPaint(Color c, double w) => fill(c)
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = w
+    ..strokeCap = StrokeCap.round;
+
+  // The arm on the fire side: resting, or holding the stick.
+  final holdShoulder = Offset(feet.dx + dir * width * 0.42, shoulderY);
+  final holdHand = pose.ready
+      ? holdShoulder.translate(dir * armLen * 0.85, -armLen * 0.05)
+      : holdShoulder.translate(dir * armLen * 0.62, armLen * 0.78);
+  final holdArm = armPath(holdShoulder, holdHand, dir);
+
+  // The other arm hangs down-out at rest and swings up-out to wave.
+  final freeShoulder = Offset(feet.dx - dir * width * 0.42, shoulderY);
+  final theta = 0.9 + (-1.05 - 0.9) * pose.wave.clamp(0.0, 1.0);
+  final freeHand = freeShoulder.translate(
+    -dir * armLen * math.cos(theta),
+    armLen * math.sin(theta),
   );
+  final freeArm = armPath(freeShoulder, freeHand, -dir);
+  final waving = pose.wave > 0.15;
+
+  void drawArm(Path arm, Offset shoulder, Offset hand) {
+    canvas.drawPath(arm, armPaint(limb, limbW));
+    paintSleeve(
+      canvas,
+      look.outfit,
+      shoulder,
+      hand,
+      width: limbW,
+      alpha: alpha,
+    );
+  }
+
   if (pose.ready) {
-    final tip = holdHand.translate(dir * height * 0.6, -height * 0.2);
+    final tip = holdHand.translate(dir * total * 0.42, -total * 0.2);
     canvas.drawLine(
       holdHand,
       tip,
       fill(FlatPalette.logDark)
-        ..strokeWidth = height * 0.045
+        ..strokeWidth = total * 0.03
         ..strokeCap = StrokeCap.round,
     );
     final puff = Color.lerp(
@@ -234,201 +345,126 @@ void paintBean(
     )!;
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: tip,
-          width: height * 0.15,
-          height: height * 0.13,
-        ),
-        Radius.circular(height * 0.045),
+        Rect.fromCenter(center: tip, width: total * 0.12, height: total * 0.1),
+        Radius.circular(total * 0.035),
       ),
       fill(puff),
     );
   }
-  canvas.drawLine(
-    Offset(body.center.dx + dir * width * 0.36, shoulderY),
-    holdHand,
-    fill(color)
-      ..strokeWidth = height * 0.085
-      ..strokeCap = StrokeCap.round,
-  );
+  drawArm(holdArm, holdShoulder, holdHand);
+  if (!waving) drawArm(freeArm, freeShoulder, freeHand);
 
-  // The other arm hangs down-out at rest and swings up-out to wave.
-  final shoulder = Offset(body.center.dx - dir * width * 0.4, shoulderY);
-  final arm = width * 0.3 + height * 0.05;
-  final theta = 1.25 + (-1.0 - 1.25) * pose.wave.clamp(0.0, 1.0);
-  final hand = shoulder.translate(
-    -dir * arm * math.cos(theta),
-    arm * math.sin(theta),
-  );
-  void freeArm(Canvas c) => c.drawLine(
-    shoulder,
-    hand,
+  // The body: a soft shade from top to bottom, then a light streak.
+  canvas.drawPath(
+    bodyPath,
     fill(color)
-      ..strokeWidth = height * 0.085
-      ..strokeCap = StrokeCap.round,
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          Color.lerp(color, Colors.black, 0.05)!.withValues(alpha: alpha),
+          Color.lerp(color, Colors.white, 0.07)!.withValues(alpha: alpha),
+        ],
+      ).createShader(body),
   );
-  // A hanging arm sits behind the body, a waving one in front of it.
-  if (pose.wave <= 0.15) freeArm(canvas);
-
-  // Body with a darker belly band: shape without an outline.
-  if (look.extra == BeanExtra.backpack) {
-    // A backpack peeks out behind, on the side away from the fire.
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromLTWH(
-          body.center.dx - dir * width * 0.5 - width * 0.17,
-          body.top + bodyH * 0.4,
-          width * 0.34,
-          bodyH * 0.38,
-        ),
-        Radius.circular(width * 0.12),
-      ),
-      fill(const Color(0xFF8A5A33)),
-    );
-  }
-  canvas.drawPath(bodyPath, fill(color));
   canvas.save();
   canvas.clipPath(bodyPath);
-  // The curved line of the sketch: below it the point is another tone.
-  final bandY = body.top + bodyH * 0.58;
-  final lower = Path()
-    ..moveTo(body.left - width * 0.1, bandY - bodyH * 0.03)
-    ..quadraticBezierTo(
-      body.center.dx,
-      bandY + bodyH * 0.07,
-      body.right + width * 0.1,
-      bandY - bodyH * 0.03,
-    )
-    ..lineTo(body.right + width * 0.1, body.bottom + 2)
-    ..lineTo(body.left - width * 0.1, body.bottom + 2)
-    ..close();
-  canvas.drawPath(
-    lower,
-    fill(
-      look.pattern == BeanPattern.belly
-          ? Color.lerp(color, Colors.white, 0.5)!
-          : dark,
+  final r = width / 2;
+  canvas.drawArc(
+    Rect.fromCircle(
+      center: Offset(body.center.dx, body.top + r * 1.02),
+      radius: r * 0.8,
     ),
+    math.pi * 1.06,
+    math.pi * 0.36,
+    false,
+    fill(Colors.white.withValues(alpha: 0.08))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = r * 0.26
+      ..strokeCap = StrokeCap.round,
   );
-  // A light patch on the side catches the light.
-  canvas.drawOval(
-    Rect.fromLTWH(
-      body.left + width * 0.12,
-      body.top + bodyH * 0.12,
-      width * 0.16,
-      bodyH * 0.3,
-    ),
-    fill(Colors.white.withValues(alpha: 0.18)),
-  );
-  switch (look.pattern) {
-    case BeanPattern.plain:
-      break;
-    case BeanPattern.belly:
-      // The light point is drawn with the band above.
-      break;
-    case BeanPattern.spots:
-      for (final (dx, dy, rr) in const [
-        (-0.16, 0.7, 0.07),
-        (0.14, 0.76, 0.06),
-        (0.0, 0.88, 0.05),
-        (-0.3, 0.42, 0.05),
-      ]) {
-        canvas.drawCircle(
-          Offset(body.center.dx + dx * width, body.top + dy * bodyH),
-          rr * width * 1.4,
-          fill(dark),
-        );
-      }
-    case BeanPattern.stripes:
-      for (final y in const [0.72, 0.82]) {
-        canvas.drawRect(
-          Rect.fromLTWH(body.left, body.top + y * bodyH, width, bodyH * 0.055),
-          fill(color),
-        );
-      }
-  }
-  if (look.extra == BeanExtra.backpack) {
-    // The strap across the chest.
-    canvas.drawLine(
-      Offset(body.center.dx - dir * width * 0.5, body.top + bodyH * 0.42),
-      Offset(body.center.dx + dir * width * 0.1, body.top + bodyH * 0.8),
-      fill(const Color(0xFF6C4426))
-        ..strokeWidth = width * 0.08
-        ..strokeCap = StrokeCap.round,
-    );
-  }
   canvas.restore();
 
-  if (pose.wave > 0.15) freeArm(canvas);
+  // The face: solid black upright eyes with a white shine, a white smile.
+  // Sized by the width, so the tall green one does not get long eyes.
+  final eyeY = body.top + bodyH * kind.eyeAt;
+  final eyeGap = width * 0.106;
+  final eyeW = width * 0.095;
+  final eyeH = eyeW * 1.9;
+  final mouthTop = eyeY + width * 0.15;
 
-  // The face of the reference (owner, 2026-10-12): solid black upright
-  // eyes with a white shine, and a white smile. Sized as on the designer's
-  // sketch: small eyes set close at a third of the height, the smile about
-  // half the head wide, sitting just above the band.
-  final eyeY = body.top + bodyH * 0.34;
-  final eyeGap = width * 0.105;
-  final eyeW = width * 0.115;
-  final eyeH = bodyH * 0.115;
-  // The whole eye shifts a touch toward where the bean looks.
-  final gaze = pose.lookX.clamp(-1.0, 1.0) * width * 0.035;
+  paintOutfit(
+    canvas,
+    look.outfit,
+    bodyPath,
+    body,
+    bodyColor: color,
+    neckY: mouthTop + width * 0.17,
+    facingRight: pose.stickToRight,
+    alpha: alpha,
+  );
+
+  if (waving) drawArm(freeArm, freeShoulder, freeHand);
+
+  final gaze = pose.lookX.clamp(-1.0, 1.0) * width * 0.03;
   for (final side in const [-1.0, 1.0]) {
     final eye = Offset(body.center.dx + side * eyeGap + gaze, eyeY);
     if (pose.blink || pose.happy) {
       final path = Path()
-        ..moveTo(eye.dx - eyeW * 0.6, eyeY)
+        ..moveTo(eye.dx - eyeW * 0.7, eyeY)
         ..quadraticBezierTo(
           eye.dx,
-          eyeY + (pose.happy ? -eyeH * 0.45 : eyeH * 0.12),
-          eye.dx + eyeW * 0.6,
+          eyeY + (pose.happy ? -eyeH * 0.4 : eyeH * 0.1),
+          eye.dx + eyeW * 0.7,
           eyeY,
         );
       canvas.drawPath(
         path,
         fill(FlatPalette.ink)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = height * 0.035
+          ..strokeWidth = eyeW * 0.45
           ..strokeCap = StrokeCap.round,
       );
       continue;
     }
     canvas.drawOval(
       Rect.fromCenter(center: eye, width: eyeW, height: eyeH),
-      fill(FlatPalette.ink),
+      fill(Colors.black),
     );
-    canvas.drawCircle(
-      eye.translate(eyeW * 0.18, -eyeH * 0.2),
-      eyeW * 0.2,
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: eye.translate(eyeW * 0.12, -eyeH * 0.2),
+        width: eyeW * 0.36,
+        height: eyeW * 0.48,
+      ),
       fill(FlatPalette.white),
     );
   }
-  final mouthY = eyeY + bodyH * 0.135;
+  final cx = body.center.dx + gaze;
   if (pose.mouthOpen) {
-    // «О!»: a white open mouth.
     canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(body.center.dx + gaze, mouthY + bodyH * 0.04),
-        width: width * 0.17,
-        height: bodyH * 0.1,
+        center: Offset(cx, mouthTop + width * 0.06),
+        width: width * 0.14,
+        height: width * 0.13,
       ),
       fill(FlatPalette.white),
     );
   } else {
-    // A white crescent: a gently curved top, a deep round bottom. Drawn a
-    // little short and traced with a round stroke so its ends come out
-    // rounded instead of pointed.
-    final depth = bodyH * (pose.happy ? 0.1 : 0.085);
-    final round = depth * 0.42;
-    final half = width * (pose.happy ? 0.25 : 0.23) - round / 2;
-    final cx = body.center.dx + gaze;
-    final top = mouthY + round * 0.2;
+    // A white half moon: a gently curved top, a deep round bottom, with
+    // rounded corners.
+    final half = width * (pose.happy ? 0.12 : 0.109);
+    final depth = width * (pose.happy ? 0.13 : 0.115);
+    final round = depth * 0.3;
+    final top = mouthTop + round * 0.4;
     final smile = Path()
       ..moveTo(cx - half, top)
-      ..quadraticBezierTo(cx, top + depth * 0.6, cx + half, top)
+      ..quadraticBezierTo(cx, top + depth * 0.12, cx + half, top)
       ..cubicTo(
-        cx + half * 0.95,
-        top + depth * 1.25,
-        cx - half * 0.95,
-        top + depth * 1.25,
+        cx + half * 1.02,
+        top + depth * 1.3,
+        cx - half * 1.02,
+        top + depth * 1.3,
         cx - half,
         top,
       )
@@ -443,68 +479,11 @@ void paintBean(
     );
   }
 
-  if (look.extra == BeanExtra.glasses && !pose.blink && !pose.happy) {
-    final rim = fill(FlatPalette.ink)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = height * 0.022;
-    for (final side in const [-1.0, 1.0]) {
-      canvas.drawCircle(
-        Offset(body.center.dx + side * eyeGap, eyeY),
-        width * 0.095,
-        rim,
-      );
-    }
-    canvas.drawLine(
-      Offset(body.center.dx - eyeGap + width * 0.095, eyeY),
-      Offset(body.center.dx + eyeGap - width * 0.095, eyeY),
-      rim,
-    );
-  }
-  if (look.extra == BeanExtra.scarf) {
-    final scarfY = mouthY + bodyH * 0.11;
-    final scarf = fill(
-      FlatPalette.beans[(color.toARGB32() ~/ 7) % FlatPalette.beans.length] ==
-              color
-          ? FlatPalette.flameOuter
-          : FlatPalette.beans[(color.toARGB32() ~/ 7) %
-                FlatPalette.beans.length],
-    );
-    canvas.save();
-    canvas.clipPath(bodyPath);
-    canvas.drawRect(
-      Rect.fromLTWH(body.left, scarfY, width, bodyH * 0.1),
-      scarf,
-    );
-    canvas.restore();
-    // The loose end flutters behind.
-    final end = Offset(
-      body.center.dx - dir * width * 0.36,
-      scarfY + bodyH * 0.05,
-    );
-    final flap = math.sin(pose.flutter * math.pi * 2) * height * 0.03;
-    canvas.drawPath(
-      Path()
-        ..moveTo(end.dx, end.dy - bodyH * 0.04)
-        ..lineTo(end.dx - dir * width * 0.32, end.dy + bodyH * 0.12 + flap)
-        ..lineTo(end.dx - dir * width * 0.18, end.dy + bodyH * 0.16 + flap)
-        ..lineTo(end.dx + dir * width * 0.04, end.dy + bodyH * 0.05)
-        ..close(),
-      scarf,
-    );
-  }
   final hat = look.accessory ?? pose.accessory;
-  if (hat == null || hat == BeanHat.tuft || hat == BeanHat.headband) {
-    // The little knob on top of the sketch.
-    canvas.drawCircle(
-      Offset(body.center.dx, body.top - height * 0.012),
-      width * 0.06,
-      fill(dark),
-    );
-  }
   if (hat != null) {
     // The hat keeps its size while the body breathes: sized by the body
     // at rest and only riding up and down with its top, or it pulses.
-    final restWidth = height * shapeW;
+    final restWidth = restBodyH * kind.aspect;
     paintHat(
       canvas,
       hat,
@@ -512,72 +491,100 @@ void paintBean(
         body.center.dx - restWidth / 2,
         body.top,
         restWidth,
-        height * shapeH,
+        restBodyH,
       ),
       bodyColor: color,
       alpha: alpha,
       facingRight: pose.stickToRight,
       sway: pose.breath * 0.5,
+      eyeY: eyeY,
     );
   }
 
   if (pose.organizer) {
     // The leader carries a pennant that flutters.
     final pole = Offset(body.right - width * 0.04, body.top + bodyH * 0.18);
-    final top = pole.translate(0, -height * 0.5);
+    final top = pole.translate(0, -total * 0.45);
     canvas.drawLine(
       pole,
       top,
       fill(FlatPalette.ink)
-        ..strokeWidth = height * 0.028
+        ..strokeWidth = total * 0.024
         ..strokeCap = StrokeCap.round,
     );
-    final wobble = math.sin(pose.flutter * math.pi * 2) * height * 0.03;
+    final wobble = math.sin(pose.flutter * math.pi * 2) * total * 0.03;
     final flag = Path()
       ..moveTo(top.dx, top.dy)
       ..quadraticBezierTo(
-        top.dx + height * 0.14,
+        top.dx + total * 0.13,
         top.dy + wobble,
-        top.dx + height * 0.28,
-        top.dy + height * 0.07 - wobble * 0.5,
+        top.dx + total * 0.25,
+        top.dy + total * 0.065 - wobble * 0.5,
       )
-      ..lineTo(top.dx, top.dy + height * 0.16)
+      ..lineTo(top.dx, top.dy + total * 0.15)
       ..close();
     canvas.drawPath(flag, fill(FlatPalette.flameOuter));
   }
   canvas.restore();
 }
 
-Path _bodyPath(BeanShape shape, Rect body) {
-  // Traced from the designer's sketch: a broad egg of a head, widest at a
-  // third of the height and filling the whole width, that narrows to a
-  // softly rounded point.
+/// The outline of a [kind] filling [body]: round on top, widest at
+/// [BeanKind.widest], narrowing to a point. The red one is an egg with
+/// only a small point.
+Path beanBodyPath(BeanKind kind, Rect body) {
   final h = body.height;
   final cx = body.center.dx;
   final r = body.width / 2;
   final top = body.top;
-  final widest = top + h * 0.35;
+  final bottom = body.bottom;
+  final widest = top + h * kind.widest;
+  final (bulge, tipIn, tipRise) = switch (kind) {
+    BeanKind.round => (0.5, 0.42, 0.2),
+    BeanKind.tall => (0.18, 0.22, 0.36),
+    _ => (0.34, 0.34, 0.26),
+  };
+  final lower = bottom - widest;
+  final tipHalf = r * 0.05;
   return Path()
     ..moveTo(cx, top)
-    ..cubicTo(cx + r * 0.6, top, cx + r, top + h * 0.15, cx + r, widest)
+    ..cubicTo(
+      cx + r * 0.56,
+      top,
+      cx + r,
+      widest - (widest - top) * 0.46,
+      cx + r,
+      widest,
+    )
     ..cubicTo(
       cx + r,
-      top + h * 0.52,
-      cx + r * 0.5,
-      top + h * 0.86,
-      cx + r * 0.14,
-      top + h * 0.985,
+      widest + lower * bulge,
+      cx + r * tipIn,
+      bottom - lower * tipRise,
+      cx + tipHalf,
+      bottom - h * 0.008,
     )
-    ..quadraticBezierTo(cx, top + h * 1.01, cx - r * 0.14, top + h * 0.985)
+    ..quadraticBezierTo(
+      cx,
+      bottom + h * 0.004,
+      cx - tipHalf,
+      bottom - h * 0.008,
+    )
     ..cubicTo(
-      cx - r * 0.5,
-      top + h * 0.86,
+      cx - r * tipIn,
+      bottom - lower * tipRise,
       cx - r,
-      top + h * 0.52,
+      widest + lower * bulge,
       cx - r,
       widest,
     )
-    ..cubicTo(cx - r, top + h * 0.15, cx - r * 0.6, top, cx, top)
+    ..cubicTo(
+      cx - r,
+      widest - (widest - top) * 0.46,
+      cx - r * 0.56,
+      top,
+      cx,
+      top,
+    )
     ..close();
 }
 
