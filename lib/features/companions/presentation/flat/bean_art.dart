@@ -75,7 +75,8 @@ class BeanArt {
       shineLeft = _parse(data.shineLeft),
       shineRight = _parse(data.shineRight) {
     // The body path leaves a notch where the highlight sits.
-    final solid = Path.combine(PathOperation.union, body, highlight);
+    solidBody = Path.combine(PathOperation.union, body, highlight);
+    final solid = solidBody;
     bodyBounds = solid.getBounds();
     final rows = <double>[];
     final cx = bodyBounds.center.dx;
@@ -126,6 +127,9 @@ class BeanArt {
   final Path eyeRight;
   final Path shineLeft;
   final Path shineRight;
+
+  /// The body with its highlight notch filled.
+  late final Path solidBody;
   late final Rect bodyBounds;
   late final List<double> _halfWidths;
   late final Offset shoulderLeft;

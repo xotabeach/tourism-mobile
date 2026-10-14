@@ -331,8 +331,11 @@ void paintBean(
     );
   }
 
+  // The body whole, notch and all, then the highlight over it as a soft
+  // blurred patch: the designer's picture has it blurred, the SVG export
+  // lost that and left a hard edge.
   canvas.drawPath(
-    art.body,
+    art.solidBody,
     Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -340,7 +343,14 @@ void paintBean(
         colors: [data.bodyTop, data.bodyBottom],
       ).createShader(b),
   );
-  canvas.drawPath(art.highlight, fill(data.highlightColor));
+  canvas.save();
+  canvas.clipPath(art.solidBody);
+  canvas.drawPath(
+    art.highlight,
+    fill(data.highlightColor)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.022),
+  );
+  canvas.restore();
 
   for (final (from, to) in sleeves) {
     paintSleeve(canvas, outfit, from, to, width: w, handColor: limb, alpha: 1);
