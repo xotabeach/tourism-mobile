@@ -86,7 +86,15 @@ class GroupPostcard extends StatelessWidget {
                       child: CustomPaint(
                         painter: _SummitPainter(
                           [for (final m in shown) m.userId],
-                          {for (final m in shown) m.userId: m.beanHat},
+                          {
+                            for (final m in shown)
+                              m.userId: BeanLook.forUser(
+                                m.userId,
+                                hat: m.beanHat,
+                                kind: m.beanKind,
+                                outfit: m.beanOutfit,
+                              ),
+                          },
                           {
                             for (final m in shown)
                               if (m.status == CompanionRunStatus.finished)
@@ -220,7 +228,7 @@ class _SummitPainter extends CustomPainter {
   _SummitPainter(this.userIds, this.hats, this.finished);
 
   final List<String> userIds;
-  final Map<String, String?> hats;
+  final Map<String, BeanLook> hats;
   final Set<String> finished;
 
   @override
@@ -299,7 +307,7 @@ class _SummitPainter extends CustomPainter {
         beanHeight,
         FlatPalette.beanFor(userIds[i]),
         BeanPose(
-          look: BeanLook.forUser(userIds[i], hat: hats[userIds[i]]),
+          look: hats[userIds[i]] ?? BeanLook.forUser(userIds[i]),
           wave: finished.contains(userIds[i]) && i.isEven ? 0.9 : 0,
           happy: finished.contains(userIds[i]),
           lookX: x < w / 2 ? 1 : -1,

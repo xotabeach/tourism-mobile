@@ -128,6 +128,8 @@ class CompanionGroupTile extends StatelessWidget {
                     painter: _OrganizerBean(
                       userId: organizer?.userId ?? group.organizerUserId,
                       hat: organizer?.beanHat,
+                      kind: organizer?.beanKind,
+                      outfit: organizer?.beanOutfit,
                       dim: !live,
                     ),
                   ),
@@ -190,10 +192,18 @@ class CompanionGroupTile extends StatelessWidget {
 }
 
 class _OrganizerBean extends CustomPainter {
-  const _OrganizerBean({required this.userId, this.hat, this.dim = false});
+  const _OrganizerBean({
+    required this.userId,
+    this.hat,
+    this.kind,
+    this.outfit,
+    this.dim = false,
+  });
 
   final String userId;
   final String? hat;
+  final String? kind;
+  final String? outfit;
   final bool dim;
 
   @override
@@ -204,7 +214,7 @@ class _OrganizerBean extends CustomPainter {
       size.height * 0.62,
       FlatPalette.beanFor(userId),
       BeanPose(
-        look: BeanLook.forUser(userId, hat: hat),
+        look: BeanLook.forUser(userId, hat: hat, kind: kind, outfit: outfit),
         lookX: 0.4,
         dim: dim,
       ),
@@ -213,5 +223,9 @@ class _OrganizerBean extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _OrganizerBean old) =>
-      old.userId != userId || old.hat != hat || old.dim != dim;
+      old.userId != userId ||
+      old.hat != hat ||
+      old.kind != kind ||
+      old.outfit != outfit ||
+      old.dim != dim;
 }
