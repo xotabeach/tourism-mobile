@@ -2,10 +2,13 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart'
+    show BeanBody;
+
 /// What a companion's character wears on the body (FRONTEND-79, the
-/// owner's sketch of 2026-10-15). Flat like the hats: two or three tones,
-/// stripes and pockets drawn as shapes. Each piece sits between the chin
-/// and the legs and follows the outline of the body.
+/// owner's sketch of 2026-10-15). Clothes are bulky as on the sketch: a
+/// piece of its own, wider than the body, from the chin down to above the
+/// legs, with fat sleeves and little hands out of the cuffs.
 enum BeanOutfit {
   none('none'),
   varsity('varsity'),
@@ -27,101 +30,210 @@ enum BeanOutfit {
 }
 
 const _navy = Color(0xFF1E2F5E);
+const _navyDark = Color(0xFF17254C);
 const _cream = Color(0xFFF2E7CF);
-const _lavender = Color(0xFFA996DC);
-const _lavenderDark = Color(0xFF9683CF);
-const _lavenderLight = Color(0xFFB9A9E6);
+const _lavender = Color(0xFFAA97DD);
+const _lavenderDark = Color(0xFF9784D0);
+const _lavenderLight = Color(0xFFBCADE8);
 const _vest = Color(0xFFF1E8D4);
-const _vestDark = Color(0xFFE2D6BC);
+const _vestDark = Color(0xFFE0D3B8);
 const _bag = Color(0xFF1F7F5F);
 const _bagDark = Color(0xFF17664C);
 
-Color _shade(Color c, double amount) => Color.lerp(c, Colors.black, amount)!;
+/// The torso a piece of clothing takes: its outline and where it sits.
+class OutfitTorso {
+  const OutfitTorso({
+    required this.path,
+    required this.top,
+    required this.hem,
+    required this.topHalf,
+    required this.bottomHalf,
+  });
 
-/// The sleeve over an arm from [shoulder] to [hand], [width] thick.
+  final Path path;
+  final double top;
+  final double hem;
+  final double topHalf;
+  final double bottomHalf;
+}
+
+/// Whether [outfit] has sleeves; a vest leaves the arms bare.
+bool outfitHasSleeves(BeanOutfit outfit) =>
+    outfit == BeanOutfit.varsity ||
+    outfit == BeanOutfit.hoodie ||
+    outfit == BeanOutfit.sweater;
+
+/// The torso of [outfit] on [body], from [neckY] (just under the smile)
+/// down; none without clothes.
+OutfitTorso? outfitTorso(BeanOutfit outfit, BeanBody body, double neckY) {
+  if (outfit == BeanOutfit.none) return null;
+  final rect = body.rect;
+  final w = rect.width;
+  final h = rect.height;
+  final vest = outfit == BeanOutfit.vest;
+  final hem = math.min(
+    neckY + h * (vest ? 0.32 : 0.36),
+    rect.top + h * (vest ? 0.84 : 0.86),
+  );
+  final topHalf =
+      body.halfWidthAt(neckY + w * 0.05) * (vest ? 1.03 : 1.08) + w * 0.02;
+  final bottomHalf = math.max(
+    topHalf * (vest ? 0.78 : 0.86),
+    body.halfWidthAt(hem) + w * 0.06,
+  );
+  final dip = switch (outfit) {
+    BeanOutfit.sweater => w * 0.05,
+    BeanOutfit.varsity => w * 0.03,
+    _ => w * 0.01,
+  };
+  return OutfitTorso(
+    path: _trapezoid(
+      body.cx,
+      neckY,
+      hem,
+      topHalf,
+      bottomHalf,
+      w * (vest ? 0.08 : 0.13),
+      w * 0.05,
+      dip,
+    ),
+    top: neckY,
+    hem: hem,
+    topHalf: topHalf,
+    bottomHalf: bottomHalf,
+  );
+}
+
+Path _trapezoid(
+  double cx,
+  double top,
+  double hem,
+  double topHalf,
+  double bottomHalf,
+  double rTop,
+  double rBottom,
+  double dip,
+) {
+  final tl = Offset(cx - topHalf, top);
+  final tr = Offset(cx + topHalf, top);
+  final br = Offset(cx + bottomHalf, hem);
+  final bl = Offset(cx - bottomHalf, hem);
+  Offset toward(Offset a, Offset b, double d) {
+    final v = b - a;
+    return a + v / v.distance * d;
+  }
+
+  final tlR = toward(tl, tr, rTop);
+  final trL = toward(tr, tl, rTop);
+  final trD = toward(tr, br, rTop);
+  final brU = toward(br, tr, rBottom);
+  final brL = toward(br, bl, rBottom);
+  final blR = toward(bl, br, rBottom);
+  final blU = toward(bl, tl, rBottom);
+  final tlD = toward(tl, bl, rTop);
+  return Path()
+    ..moveTo(tlR.dx, tlR.dy)
+    ..quadraticBezierTo(cx, top + dip * 2, trL.dx, trL.dy)
+    ..quadraticBezierTo(tr.dx, tr.dy, trD.dx, trD.dy)
+    ..lineTo(brU.dx, brU.dy)
+    ..quadraticBezierTo(br.dx, br.dy, brL.dx, brL.dy)
+    ..lineTo(blR.dx, blR.dy)
+    ..quadraticBezierTo(bl.dx, bl.dy, blU.dx, blU.dy)
+    ..lineTo(tlD.dx, tlD.dy)
+    ..quadraticBezierTo(tl.dx, tl.dy, tlR.dx, tlR.dy)
+    ..close();
+}
+
+/// A fat sleeve from [shoulder] to [hand] with its cuff, and the little
+/// hand out of it. [width] is the body's width.
 void paintSleeve(
   Canvas canvas,
   BeanOutfit outfit,
   Offset shoulder,
   Offset hand, {
   required double width,
+  required Color handColor,
   required double alpha,
 }) {
-  final (Color? cloth, double length) = switch (outfit) {
-    BeanOutfit.varsity => (_cream, 0.86),
-    BeanOutfit.hoodie => (_lavender, 0.86),
-    BeanOutfit.sweater => (_navy, 0.86),
-    BeanOutfit.vest || BeanOutfit.none => (null, 0.0),
+  final (cloth, cuff) = switch (outfit) {
+    BeanOutfit.varsity => (_cream, _navy),
+    BeanOutfit.hoodie => (_lavender, _lavenderDark),
+    _ => (_navy, _navyDark),
   };
-  if (cloth == null) return;
-  Paint stroke(Color c, double w) => Paint()
-    ..color = c.withValues(alpha: c.a * alpha)
+  Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
+  Paint stroke(Color c, double w, StrokeCap cap) => fill(c)
     ..style = PaintingStyle.stroke
     ..strokeWidth = w
-    ..strokeCap = StrokeCap.round;
-  final end = Offset.lerp(shoulder, hand, length)!;
-  canvas.drawLine(shoulder, end, stroke(cloth, width * 2.7));
-  // The cuff: a band at the end of the sleeve.
-  final cuffFrom = Offset.lerp(shoulder, hand, length - 0.12)!;
-  final cuff = switch (outfit) {
-    BeanOutfit.varsity => _navy,
-    BeanOutfit.hoodie => _lavenderDark,
-    _ => _shade(cloth, 0.25),
-  };
-  canvas.drawLine(cuffFrom, end, stroke(cuff, width * 2.7));
+    ..strokeCap = cap;
+  final sleeveW = width * 0.17;
+  final v = hand - shoulder;
+  final unit = v / v.distance;
+  final across = Offset(-unit.dy, unit.dx);
+
+  // The hand first: the cuff covers its root.
+  canvas.drawCircle(hand + unit * width * 0.04, width * 0.058, fill(handColor));
+  canvas.drawCircle(shoulder, sleeveW / 2, fill(cloth));
+  canvas.drawLine(shoulder, hand, stroke(cloth, sleeveW, StrokeCap.butt));
+  final cuffFrom = shoulder + v * 0.76;
+  canvas.drawLine(cuffFrom, hand, stroke(cuff, sleeveW * 1.04, StrokeCap.butt));
   if (outfit == BeanOutfit.varsity) {
-    final stripe = Offset.lerp(shoulder, hand, length - 0.06)!;
-    canvas.drawCircle(
-      stripe,
-      width * 0.42,
-      Paint()..color = _cream.withValues(alpha: alpha),
-    );
+    // Two white stripes round the cuff.
+    for (final t in const [0.84, 0.93]) {
+      final at = shoulder + v * t;
+      canvas.drawLine(
+        at - across * sleeveW * 0.5,
+        at + across * sleeveW * 0.5,
+        stroke(_cream, width * 0.014, StrokeCap.butt),
+      );
+    }
+  } else {
+    // Ribs along the cuff.
+    final rib = Color.lerp(cuff, Colors.black, 0.12)!;
+    for (final k in const [-0.25, 0.0, 0.25]) {
+      final off = across * sleeveW * k;
+      canvas.drawLine(
+        cuffFrom + off,
+        hand + off,
+        stroke(rib, width * 0.01, StrokeCap.butt),
+      );
+    }
   }
 }
 
-/// [outfit] on a body of [bodyPath] inside [body], from [neckY] down.
+/// [outfit] on [body] over its [torso].
 void paintOutfit(
   Canvas canvas,
   BeanOutfit outfit,
-  Path bodyPath,
-  Rect body, {
+  OutfitTorso torso,
+  BeanBody body, {
   required Color bodyColor,
-  required double neckY,
   required bool facingRight,
   required double alpha,
 }) {
-  if (outfit == BeanOutfit.none) return;
   Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
   Paint stroke(Color c, double w) => fill(c)
     ..style = PaintingStyle.stroke
     ..strokeWidth = w
     ..strokeCap = StrokeCap.round;
-  final w = body.width;
-  final cx = body.center.dx;
-  final hemY = body.top + body.height * 0.86;
+  final w = body.rect.width;
+  final cx = body.cx;
+  final top = torso.top;
+  final hem = torso.hem;
+  final tall = hem - top;
   final dir = facingRight ? 1.0 : -1.0;
-
-  // Clothes stand a little proud of the body, so they read as worn.
-  final grow = Matrix4.identity()
-    ..translateByDouble(cx, body.center.dy, 0, 1)
-    ..scaleByDouble(1.05, 1.0, 1, 1)
-    ..translateByDouble(-cx, -body.center.dy, 0, 1);
-  final outline = bodyPath.transform(grow.storage);
-  Path band(double top, double bottom) => Path.combine(
+  Path band(double from, double to) => Path.combine(
     PathOperation.intersect,
-    outline,
-    Path()..addRect(Rect.fromLTRB(body.left - w, top, body.right + w, bottom)),
+    torso.path,
+    Path()..addRect(Rect.fromLTRB(cx - w * 2, from, cx + w * 2, to)),
   );
-  final torso = band(neckY, hemY);
-  final torsoBounds = torso.getBounds();
-  // The neckline follows the round of the body a little below the chin.
-  final neckline = Path()
-    ..moveTo(torsoBounds.left, neckY + w * 0.02)
+  // The top edge of the torso, for collars.
+  final collar = Path()
+    ..moveTo(cx - torso.topHalf * 0.8, top + w * 0.02)
     ..quadraticBezierTo(
       cx,
-      neckY + w * 0.1,
-      torsoBounds.right,
-      neckY + w * 0.02,
+      top + (outfit == BeanOutfit.sweater ? w * 0.12 : w * 0.07),
+      cx + torso.topHalf * 0.8,
+      top + w * 0.02,
     );
 
   switch (outfit) {
@@ -129,154 +241,169 @@ void paintOutfit(
       return;
 
     case BeanOutfit.varsity:
-      canvas.drawPath(torso, fill(_navy));
-      // Open at the front: the body shows in a narrow V.
-      final open = Path.combine(
-        PathOperation.intersect,
-        torso,
-        Path()
-          ..moveTo(cx - w * 0.05, neckY)
-          ..lineTo(cx + w * 0.05, neckY)
-          ..lineTo(cx + w * 0.09, hemY)
-          ..lineTo(cx - w * 0.09, hemY)
-          ..close(),
-      );
-      canvas.drawPath(open, fill(bodyColor));
+      // Two navy panels, open at the front where the body shows.
+      final gap = Path()
+        ..moveTo(cx - w * 0.09, top - w)
+        ..lineTo(cx + w * 0.09, top - w)
+        ..lineTo(cx + w * 0.06, hem + w)
+        ..lineTo(cx - w * 0.06, hem + w)
+        ..close();
+      final panels = Path.combine(PathOperation.difference, torso.path, gap);
+      canvas.drawPath(panels, fill(_navy));
+      canvas.save();
+      canvas.clipPath(panels);
+      // White piping down the front edges.
       for (final side in const [-1.0, 1.0]) {
         canvas.drawLine(
-          Offset(cx + side * w * 0.055, neckY + w * 0.02),
-          Offset(cx + side * w * 0.095, hemY - w * 0.02),
-          stroke(_cream, w * 0.022),
+          Offset(cx + side * w * 0.11, top),
+          Offset(cx + side * w * 0.08, hem),
+          stroke(_cream, w * 0.02),
         );
       }
-      // Ribbed collar and hem, each with two white stripes.
-      canvas.drawPath(neckline, stroke(_navy, w * 0.07));
+      // Ribbed collar and hem, each with white stripes.
+      canvas.drawPath(collar, stroke(_navyDark, w * 0.08));
       canvas.drawPath(
-        neckline.shift(Offset(0, -w * 0.012)),
-        stroke(_cream, w * 0.014),
+        collar.shift(Offset(0, w * 0.02)),
+        stroke(_cream, w * 0.012),
       );
-      final hem = band(hemY - w * 0.09, hemY);
-      canvas.drawPath(hem, fill(_shade(_navy, 0.12)));
-      for (final y in [hemY - w * 0.065, hemY - w * 0.035]) {
-        canvas.save();
-        canvas.clipPath(hem);
+      canvas.drawPath(band(hem - w * 0.08, hem), fill(_navyDark));
+      for (final y in [hem - w * 0.058, hem - w * 0.028]) {
         canvas.drawLine(
-          Offset(body.left - w, y),
-          Offset(body.right + w, y),
+          Offset(cx - w, y),
+          Offset(cx + w, y),
           stroke(_cream, w * 0.012),
         );
-        canvas.restore();
       }
+      // Pocket welts, slanting.
+      for (final side in const [-1.0, 1.0]) {
+        final at = Offset(
+          cx + side * torso.bottomHalf * 0.55,
+          top + tall * 0.62,
+        );
+        canvas.drawLine(
+          at.translate(-side * w * 0.03, -w * 0.06),
+          at.translate(side * w * 0.03, w * 0.06),
+          stroke(_cream, w * 0.02),
+        );
+      }
+      canvas.restore();
 
     case BeanOutfit.hoodie:
-      canvas.drawPath(torso, fill(_lavender));
-      // The hood lies around the neck as a thick soft roll.
-      canvas.drawPath(neckline, stroke(_lavenderLight, w * 0.11));
-      // Drawstrings with little tips.
-      for (final side in const [-1.0, 1.0]) {
-        final from = Offset(cx + side * w * 0.07, neckY + w * 0.1);
-        final to = from.translate(side * w * 0.01, w * 0.16);
-        canvas.drawLine(from, to, stroke(_cream, w * 0.022));
-        canvas.drawCircle(to, w * 0.022, fill(_cream));
-      }
-      // The kangaroo pocket.
-      final pocketTop = neckY + (hemY - neckY) * 0.55;
-      final pocketBottom = hemY - w * 0.06;
+      // A V at the neck where the hood crosses; the chin sits in it.
+      final vee = Path()
+        ..moveTo(cx - w * 0.15, top - w)
+        ..lineTo(cx + w * 0.15, top - w)
+        ..lineTo(cx + w * 0.15, top)
+        ..lineTo(cx, top + w * 0.17)
+        ..lineTo(cx - w * 0.15, top)
+        ..close();
+      final cloth = Path.combine(PathOperation.difference, torso.path, vee);
+      canvas.drawPath(cloth, fill(_lavender));
+      canvas.save();
+      canvas.clipPath(cloth);
+      // The hood lies round the neck as a soft roll.
       canvas.drawPath(
-        Path.combine(
-          PathOperation.intersect,
-          torso,
-          Path()..addRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTRB(
-                cx - w * 0.24,
-                pocketTop,
-                cx + w * 0.24,
-                pocketBottom,
-              ),
-              Radius.circular(w * 0.05),
-            ),
-          ),
+        Path()
+          ..moveTo(cx - torso.topHalf, top + w * 0.02)
+          ..lineTo(cx - w * 0.15, top + w * 0.01)
+          ..lineTo(cx, top + w * 0.17)
+          ..lineTo(cx + w * 0.15, top + w * 0.01)
+          ..lineTo(cx + torso.topHalf, top + w * 0.02),
+        stroke(_lavenderLight, w * 0.09)..strokeJoin = StrokeJoin.round,
+      );
+      // The kangaroo pocket.
+      canvas.drawPath(
+        _trapezoid(
+          cx,
+          top + tall * 0.58,
+          hem - w * 0.05,
+          torso.bottomHalf * 0.52,
+          torso.bottomHalf * 0.66,
+          w * 0.03,
+          w * 0.03,
+          0,
         ),
         fill(_lavenderDark),
       );
-      final hem = band(hemY - w * 0.05, hemY);
-      canvas.drawPath(hem, fill(_lavenderDark));
+      canvas.restore();
+      // Drawstrings with round tips.
+      for (final side in const [-1.0, 1.0]) {
+        final from = Offset(cx + side * w * 0.06, top + w * 0.13);
+        final to = from.translate(side * w * 0.005, w * 0.15);
+        canvas.drawLine(from, to, stroke(_cream, w * 0.022));
+        canvas.drawCircle(to, w * 0.026, fill(_cream));
+      }
 
     case BeanOutfit.sweater:
-      canvas.drawPath(torso, fill(_navy));
-      final mid = neckY + (hemY - neckY) * 0.42;
-      canvas.drawPath(band(mid, mid + (hemY - neckY) * 0.22), fill(_cream));
-      // Ribbed collar and hem.
-      canvas.drawPath(neckline, stroke(_shade(_navy, 0.15), w * 0.07));
-      final hem = band(hemY - w * 0.08, hemY);
-      canvas.drawPath(hem, fill(_shade(_navy, 0.15)));
+      canvas.drawPath(torso.path, fill(_navy));
+      canvas.drawPath(band(top + tall * 0.36, top + tall * 0.62), fill(_cream));
+      // Ribbed collar roll and hem.
       canvas.save();
-      canvas.clipPath(hem);
-      for (var x = body.left; x < body.right; x += w * 0.06) {
+      canvas.clipPath(torso.path);
+      canvas.drawPath(collar, stroke(_navyDark, w * 0.1));
+      canvas.restore();
+      final ribbed = band(hem - w * 0.08, hem);
+      canvas.drawPath(ribbed, fill(_navyDark));
+      canvas.save();
+      canvas.clipPath(ribbed);
+      for (var x = cx - w; x < cx + w; x += w * 0.055) {
         canvas.drawLine(
-          Offset(x, hemY - w * 0.08),
-          Offset(x, hemY),
-          stroke(_navy, w * 0.014),
+          Offset(x, hem - w * 0.08),
+          Offset(x, hem),
+          stroke(_navy, w * 0.012),
         );
       }
       canvas.restore();
 
     case BeanOutfit.vest:
-      // A light utility vest open at the front, with a pocket.
-      final gapTop = w * 0.07;
-      final gapBottom = w * 0.12;
-      for (final side in const [-1.0, 1.0]) {
-        final panel = Path.combine(
-          PathOperation.intersect,
-          torso,
-          Path()
-            ..moveTo(cx + side * gapTop, neckY)
-            ..lineTo(cx + side * w, neckY)
-            ..lineTo(cx + side * w, hemY)
-            ..lineTo(cx + side * gapBottom, hemY)
-            ..close(),
-        );
-        canvas.drawPath(panel, fill(_vest));
-      }
+      // A light vest open at the front, a pocket on one side.
+      final gap = Path()
+        ..moveTo(cx - w * 0.1, top - w)
+        ..lineTo(cx + w * 0.1, top - w)
+        ..lineTo(cx + w * 0.14, hem + w)
+        ..lineTo(cx - w * 0.14, hem + w)
+        ..close();
+      final panels = Path.combine(PathOperation.difference, torso.path, gap);
+      canvas.drawPath(panels, fill(_vest));
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-          Rect.fromLTWH(
-            cx - dir * w * 0.3 - w * 0.08,
-            neckY + (hemY - neckY) * 0.48,
-            w * 0.16,
-            w * 0.14,
+          Rect.fromCenter(
+            center: Offset(
+              cx - dir * torso.bottomHalf * 0.6,
+              top + tall * 0.42,
+            ),
+            width: w * 0.17,
+            height: w * 0.15,
           ),
           Radius.circular(w * 0.025),
         ),
         fill(_vestDark),
       );
       // The crossbody bag: a strap from the far shoulder to the near hip.
-      final strapFrom = Offset(cx - dir * w * 0.3, neckY + w * 0.02);
+      final strapFrom = Offset(cx - dir * torso.topHalf * 0.75, top + w * 0.02);
       final bagCenter = Offset(
-        cx + dir * w * 0.36,
-        neckY + (hemY - neckY) * 0.62,
+        cx + dir * torso.bottomHalf * 0.95,
+        top + tall * 0.7,
       );
       canvas.drawLine(strapFrom, bagCenter, stroke(_bagDark, w * 0.04));
       final bag = RRect.fromRectAndRadius(
-        Rect.fromCenter(center: bagCenter, width: w * 0.36, height: w * 0.27),
-        Radius.circular(w * 0.06),
+        Rect.fromCenter(center: bagCenter, width: w * 0.38, height: w * 0.28),
+        Radius.circular(w * 0.07),
       );
       canvas.drawRRect(bag, fill(_bag));
-      // The flap and its button.
       canvas.drawRRect(
         RRect.fromRectAndCorners(
-          Rect.fromLTWH(bag.left, bag.top, bag.width, bag.height * 0.45),
-          topLeft: Radius.circular(w * 0.06),
-          topRight: Radius.circular(w * 0.06),
+          Rect.fromLTWH(bag.left, bag.top, bag.width, bag.height * 0.48),
+          topLeft: Radius.circular(w * 0.07),
+          topRight: Radius.circular(w * 0.07),
           bottomLeft: Radius.circular(w * 0.03),
           bottomRight: Radius.circular(w * 0.03),
         ),
         fill(_bagDark),
       );
       canvas.drawCircle(
-        Offset(bagCenter.dx, bag.top + bag.height * 0.45),
-        math.max(w * 0.025, 1),
+        Offset(bagCenter.dx, bag.top + bag.height * 0.48),
+        math.max(w * 0.026, 1),
         fill(_cream),
       );
   }

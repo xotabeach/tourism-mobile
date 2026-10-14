@@ -103,7 +103,7 @@ void paintHat(
         canvas.drawLine(
           Offset(cx + i * w * 0.14, brimY),
           Offset(cx + i * w * 0.07, top - w * 0.06 + (i.abs() * w * 0.06)),
-          line(_shade(knit, 0.18), w * 0.025),
+          line(_shade(knit, 0.07), w * 0.022),
         );
       }
       final cuff = RRect.fromRectAndRadius(
@@ -132,7 +132,12 @@ void paintHat(
       // sketch, FRONTEND-79).
       const cap = Color(0xFFF2654F);
       final dir = facingRight ? 1.0 : -1.0;
-      final crownBottom = brimY + w * 0.05;
+      final crownBottom = brimY + w * 0.08;
+      // Worn a little askew, the peak dipping toward where it points.
+      canvas.save();
+      canvas.translate(cx, top);
+      canvas.rotate(dir * 0.12);
+      canvas.translate(-cx, -top);
       canvas.drawPath(
         Path()
           ..moveTo(left + w * 0.02, crownBottom)
@@ -180,6 +185,7 @@ void paintHat(
           ..close(),
         fill(_shade(cap, 0.14)),
       );
+      canvas.restore();
 
     case BeanHat.headband:
       const band = Color(0xFFFF6B6B);
