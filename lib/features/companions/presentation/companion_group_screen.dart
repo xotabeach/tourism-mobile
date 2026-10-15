@@ -132,6 +132,36 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
     unawaited(_refresh());
   }
 
+  /// Leaving a group on the way (FRONTEND-80): asked first, as there is no
+  /// coming back without a new invitation. The organizer too, since a group
+  /// on the way cannot be cancelled.
+  Future<void> _leaveOnTheWay(CompanionGroup group) async {
+    final me = _me;
+    if (me == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialog) => AlertDialog(
+        title: const Text('Выйти из группы?'),
+        content: const Text(
+          'Попутчики увидят, что вы вышли. Ваше прохождение маршрута не '
+          'прервётся, но идти вы будете уже без группы.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(false),
+            child: const Text('Остаться'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialog).pop(true),
+            child: const Text('Выйти'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _act(() => _repo.removeMember(group.id, me));
+  }
+
   Future<void> _start() async {
     await _act(() => _repo.start(widget.groupId));
     if (mounted && _group?.status == CompanionGroupStatus.started) {
@@ -564,6 +594,14 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
           label: settled ? 'Поделиться открыткой' : 'Поделиться: мы ещё идём',
           onPressed: () => unawaited(_shareCard()),
         ),
+        if (!settled && me?.state == CompanionMemberState.joined) ...[
+          const SizedBox(height: 10),
+          _SecondaryButton(
+            label: 'Выйти из группы',
+            danger: true,
+            onPressed: _busy ? null : () => unawaited(_leaveOnTheWay(group)),
+          ),
+        ],
       ],
     ];
   }

@@ -51,6 +51,13 @@ class _Repo extends MockCompanionsRepository {
   CompanionGroup group;
   final CompanionProgress? walk;
   final answers = <bool>[];
+  final left = <String>[];
+
+  @override
+  Future<CompanionGroup?> removeMember(String groupId, String userId) async {
+    left.add(userId);
+    return null;
+  }
 
   @override
   Future<CompanionGroup> get(String groupId) async => group;
@@ -236,6 +243,53 @@ void main() {
     expect(find.text('Кто первым дошёл'), findsOneWidget);
     expect(find.text('1. Ротонда'), findsOneWidget);
     expect(find.text('Идём вместе, ещё идут'), findsOneWidget);
+    await _close(tester);
+  });
+
+  testWidgets('on the way one can still leave, after a question', (
+    tester,
+  ) async {
+    final repo = _Repo(
+      CompanionGroup.fromJson(_groupJson(status: 'started', myState: 'joined')),
+      walk: const CompanionProgress(
+        groupId: 'g1',
+        status: CompanionGroupStatus.started,
+        stops: [CompanionStop(position: 1, placeName: 'Ротонда')],
+        members: [
+          CompanionMemberProgress(
+            userId: 'mock-user',
+            displayName: 'Никита',
+            status: CompanionRunStatus.walking,
+          ),
+        ],
+        summary: CompanionSummary(
+          settled: false,
+          startedCount: 1,
+          reachedCount: 0,
+          everyoneReached: false,
+        ),
+      ),
+    );
+    await _open(tester, repo);
+    final leave = find.text('Выйти из группы');
+    await tester.ensureVisible(leave);
+    await tester.pump();
+    await tester.tap(leave);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.text('Выйти из группы?'), findsOneWidget);
+
+    await tester.tap(find.text('Остаться'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(repo.left, isEmpty);
+
+    await tester.tap(leave);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('Выйти'));
+    await tester.pump();
+    expect(repo.left, ['mock-user']);
     await _close(tester);
   });
 }
