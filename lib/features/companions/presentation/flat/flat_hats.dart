@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:tourism_mobile/features/companions/presentation/flat/hat_art.dart';
+
 /// The hats of a companion's character (FRONTEND-72, BACKEND-65).
 ///
 /// Flat like the rest of the world: two or three tones each, no outlines,
@@ -28,7 +30,9 @@ enum BeanHat {
   sailor('sailor'),
   wizard('wizard'),
   party('party'),
-  headphones('headphones');
+  headphones('headphones'),
+  flatCap('flat_cap'),
+  winterHat('winter_hat');
 
   const BeanHat(this.slug);
 
@@ -67,6 +71,11 @@ void paintHat(
   double sway = 0,
   double? eyeY,
 }) {
+  // The designer's drawing where there is one (FRONTEND-79).
+  if (eyeY != null &&
+      paintHatArt(canvas, hat, body, eyeY: eyeY, alpha: alpha)) {
+    return;
+  }
   Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
   Paint line(Color c, double width) => fill(c)
     ..style = PaintingStyle.stroke
@@ -83,6 +92,10 @@ void paintHat(
   final brimY = eyeY == null ? shapeBrim : math.min(shapeBrim, eyeY - w * 0.27);
 
   switch (hat) {
+    // Drawn only from the designer's art, which needs the eyes.
+    case BeanHat.flatCap || BeanHat.winterHat:
+      return;
+
     case BeanHat.beanie:
       // Mustard knit with a pompom of the same yarn (FRONTEND-79).
       const knit = Color(0xFFF0B42C);

@@ -62,18 +62,18 @@ const double beanArtBlueHeight = 404;
 /// where the arms turn.
 class BeanArt {
   BeanArt._(this.data)
-    : shadow = _parse(data.shadow),
-      armLeft = _parse(data.armLeft),
-      armRight = _parse(data.armRight),
-      legLeft = _parse(data.legLeft),
-      legRight = _parse(data.legRight),
-      body = _parse(data.body),
-      highlight = _parse(data.highlight),
-      mouth = _parse(data.mouth),
-      eyeLeft = _parse(data.eyeLeft),
-      eyeRight = _parse(data.eyeRight),
-      shineLeft = _parse(data.shineLeft),
-      shineRight = _parse(data.shineRight) {
+    : shadow = parseSvgPath(data.shadow),
+      armLeft = parseSvgPath(data.armLeft),
+      armRight = parseSvgPath(data.armRight),
+      legLeft = parseSvgPath(data.legLeft),
+      legRight = parseSvgPath(data.legRight),
+      body = parseSvgPath(data.body),
+      highlight = parseSvgPath(data.highlight),
+      mouth = parseSvgPath(data.mouth),
+      eyeLeft = parseSvgPath(data.eyeLeft),
+      eyeRight = parseSvgPath(data.eyeRight),
+      shineLeft = parseSvgPath(data.shineLeft),
+      shineRight = parseSvgPath(data.shineRight) {
     // The body path leaves a notch where the highlight sits.
     solidBody = Path.combine(PathOperation.union, body, highlight);
     final solid = solidBody;
@@ -155,18 +155,20 @@ BeanArtData beanArtData(String kindSlug) => switch (kindSlug) {
   _ => _pin,
 };
 
-/// Parses the absolute M, C and Z commands the design tool exports.
-Path _parse(String d) {
+/// Parses the absolute M, L, H, V, C and Z commands the design tool exports.
+Path parseSvgPath(String d) {
   final path = Path();
   final tokens = RegExp(
-    r'[MCZmcz]|-?\d*\.?\d+(?:e-?\d+)?',
+    r'[MLHVCZmlhvcz]|-?\d*\.?\d+(?:e-?\d+)?',
   ).allMatches(d).map((m) => m.group(0)!).toList();
   var i = 0;
   var command = 'M';
+  var x = 0.0;
+  var y = 0.0;
   double next() => double.parse(tokens[i++]);
   while (i < tokens.length) {
     final token = tokens[i];
-    if (RegExp('[MCZmcz]').hasMatch(token)) {
+    if (RegExp('[MLHVCZmlhvcz]').hasMatch(token)) {
       command = token.toUpperCase();
       i++;
       if (command == 'Z') {
@@ -176,13 +178,29 @@ Path _parse(String d) {
     }
     switch (command) {
       case 'M':
-        path.moveTo(next(), next());
-        // Numbers after a move are lines; the export never writes them.
+        x = next();
+        y = next();
+        path.moveTo(x, y);
+        // Numbers after a move are lines.
         command = 'L';
       case 'L':
-        path.lineTo(next(), next());
+        x = next();
+        y = next();
+        path.lineTo(x, y);
+      case 'H':
+        x = next();
+        path.lineTo(x, y);
+      case 'V':
+        y = next();
+        path.lineTo(x, y);
       case 'C':
-        path.cubicTo(next(), next(), next(), next(), next(), next());
+        final x1 = next();
+        final y1 = next();
+        final x2 = next();
+        final y2 = next();
+        x = next();
+        y = next();
+        path.cubicTo(x1, y1, x2, y2, x, y);
       default:
         i++;
     }

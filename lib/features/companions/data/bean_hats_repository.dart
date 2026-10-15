@@ -198,6 +198,8 @@ class MockBeanHatsRepository implements BeanHatsRepository {
     ('wizard', 'Колпак волшебника', BeanHatTier.premium, 0),
     ('party', 'Праздничный колпак', BeanHatTier.premium, 0),
     ('headphones', 'Наушники', BeanHatTier.points, 500),
+    ('winter_hat', 'Зимняя шапка', BeanHatTier.points, 1000),
+    ('flat_cap', 'Кепка-восьмиклинка', BeanHatTier.points, 2000),
   ];
 
   bool _open(BeanHatTier tier, int points) =>

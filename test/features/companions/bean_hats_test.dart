@@ -9,6 +9,7 @@ import 'package:tourism_mobile/features/companions/data/bean_hats_repository.dar
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/companions/presentation/character_screen.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
+import 'package:tourism_mobile/features/companions/presentation/flat/hat_art.dart';
 
 import '../../support/test_overrides.dart';
 
@@ -70,13 +71,31 @@ void main() {
     final slugs = [
       for (final (slug, _, _, _) in MockBeanHatsRepository.catalog) slug,
     ];
-    expect(slugs, hasLength(21));
+    expect(slugs, hasLength(23));
     for (final slug in slugs) {
       expect(BeanHat.fromSlug(slug), isNotNull, reason: slug);
     }
     // The hat an account starts with is one of the four free ones.
     expect(BeanHat.forUser('anyone').index, lessThan(4));
     expect(BeanLook.forUser('anyone', hat: 'crown').accessory, BeanHat.crown);
+  });
+
+  test('the hats the designer drew are drawn from the art', () {
+    for (final hat in [
+      BeanHat.bandana,
+      BeanHat.cap,
+      BeanHat.flatCap,
+      BeanHat.headphones,
+      BeanHat.panama,
+      BeanHat.sailor,
+      BeanHat.beanie,
+      BeanHat.strawHat,
+      BeanHat.ushanka,
+      BeanHat.winterHat,
+    ]) {
+      expect(hasHatArt(hat), isTrue, reason: hat.slug);
+    }
+    expect(hasHatArt(BeanHat.crown), isFalse);
   });
 
   test('every build and outfit the server offers is drawn by the app', () {
