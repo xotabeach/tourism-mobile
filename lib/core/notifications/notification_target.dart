@@ -20,17 +20,10 @@ bool openNotificationTarget(
   final id = targetId == null || targetId.isEmpty ? null : targetId;
   final anchor = anchorId == null || anchorId.isEmpty ? null : anchorId;
   switch (targetType) {
+    // Notifications open over everything, outside the tabs: the
+    // root-level route page (FRONTEND-85).
     case 'route' when id != null:
-      unawaited(
-        router.pushNamed(
-          AppRouteNames.routeDetails,
-          pathParameters: {'id': id},
-          queryParameters: {
-            if (anchor != null) 'tab': 'reviews',
-            'review': ?anchor,
-          },
-        ),
-      );
+      openRouteDetailsFromRouter(router, id, reviewId: anchor);
     case 'article' when id != null:
       unawaited(
         router.pushNamed(

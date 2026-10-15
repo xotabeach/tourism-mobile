@@ -316,11 +316,7 @@ class RouteHeroCard extends ConsumerWidget {
 
     return AppPressableScale(
       borderRadius: AppRadii.card,
-      onTap: () => context.pushNamed(
-        AppRouteNames.routeDetails,
-        pathParameters: {'id': route.id},
-        extra: route,
-      ),
+      onTap: () => openRouteDetails(context, route.id, summary: route),
       child: card,
     );
   }
