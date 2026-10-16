@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
@@ -62,82 +63,100 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
     final here = mine
         .where((g) => g.routeId == widget.routeId && g.status.isLive)
         .firstOrNull;
-    return Container(
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: FlatPalette.paper,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
+    // The designer's card (FRONTEND-87): text and buttons on the left, the
+    // four characters on the right, cut by the card's edge.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final textWidth = constraints.maxWidth * 0.63;
+        return Container(
+          width: constraints.maxWidth,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: _cardFill,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _blue, width: 2),
+          ),
+          child: Stack(
             children: [
-              const SizedBox(
-                width: 74,
-                height: 64,
-                child: ExcludeSemantics(
-                  child: CustomPaint(painter: _TwoBeans()),
+              Positioned(
+                left: textWidth,
+                right: 0,
+                top: 6,
+                bottom: 0,
+                child: const ExcludeSemantics(
+                  child: CustomPaint(painter: _FourBeans()),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Пройти вместе',
-                      style: TextStyle(
-                        fontFamily: AppFonts.rubik,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: FlatPalette.ink,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 9, 0, 8),
+                child: SizedBox(
+                  width: textWidth - 8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Пройдите маршрут вместе:',
+                        style: TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          height: 1.2,
+                          color: AppColors.primaryInk,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      here == null
-                          ? 'Соберите друзей у костра: каждый отмечает точки '
-                                'сам, а в группе видно, кто где'
-                          : here.isInvitation
-                          ? '${here.organizerName} зовёт вас на этот маршрут'
-                          : 'Ваша группа уже собирается',
-                      style: AppTypography.settingsRowSubtitle,
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      Text(
+                        here == null
+                            ? 'Каждый отмечает точки сам, а в группе видно, '
+                                  'кто сколько прошел'
+                            : here.isInvitation
+                            ? '${here.organizerName} зовёт вас на этот маршрут'
+                            : 'Ваша группа уже собирается',
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 11.5,
+                          height: 1.25,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                      const SizedBox(height: 17),
+                      if (here != null)
+                        _CardButton(
+                          label: here.isInvitation
+                              ? 'Посмотреть приглашение'
+                              : 'К группе',
+                          onPressed: () => _open(here),
+                        )
+                      else ...[
+                        _CardButton(
+                          label: 'Создать лобби',
+                          onPressed: _busy ? null : _create,
+                        ),
+                        const SizedBox(height: 5),
+                        _CardButton(
+                          label: 'У меня есть код',
+                          secondary: true,
+                          onPressed: _code,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (here != null)
-            _FlatButton(
-              label: here.isInvitation ? 'Посмотреть приглашение' : 'К группе',
-              onPressed: () => _open(here),
-            )
-          else ...[
-            // One under the other: side by side the labels were cut on a
-            // phone-wide screen.
-            _FlatButton(
-              label: 'Собрать группу',
-              onPressed: _busy ? null : _create,
-            ),
-            const SizedBox(height: 8),
-            _FlatButton(
-              label: 'У меня есть код',
-              secondary: true,
-              onPressed: _code,
-            ),
-          ],
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _FlatButton extends StatelessWidget {
-  const _FlatButton({
+const _blue = Color(0xFF1D71CB);
+const _cardFill = Color(0xFFE8F0FA);
+
+class _CardButton extends StatelessWidget {
+  const _CardButton({
     required this.label,
     this.onPressed,
     this.secondary = false,
@@ -151,54 +170,69 @@ class _FlatButton extends StatelessWidget {
   Widget build(BuildContext context) => FilledButton(
     onPressed: onPressed,
     style: FilledButton.styleFrom(
-      backgroundColor: secondary ? FlatPalette.white : FlatPalette.flameOuter,
-      foregroundColor: secondary ? FlatPalette.ink : FlatPalette.white,
-      minimumSize: const Size.fromHeight(46),
-      shape: const StadiumBorder(),
+      backgroundColor: secondary ? Colors.white : _blue,
+      foregroundColor: secondary ? _blue : Colors.white,
+      disabledBackgroundColor: secondary
+          ? Colors.white
+          : _blue.withValues(alpha: 0.6),
+      minimumSize: const Size.fromHeight(36),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: secondary
+            ? const BorderSide(color: _blue, width: 1.5)
+            : BorderSide.none,
+      ),
       textStyle: const TextStyle(
         fontFamily: AppFonts.rubik,
-        fontSize: 15,
-        fontWeight: FontWeight.w700,
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
       ),
     ),
     child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
   );
 }
 
-class _TwoBeans extends CustomPainter {
-  const _TwoBeans();
+/// The four characters of the card: the green and the red behind, the
+/// blue one in a flat cap between them, the yellow in a straw hat in front,
+/// arms wide, cut by the card's bottom edge.
+class _FourBeans extends CustomPainter {
+  const _FourBeans();
 
   @override
   void paint(Canvas canvas, Size size) {
+    final w = size.width;
     final h = size.height;
-    paintBean(
+    // Placed as on the designer's card: the feet below its edge.
+    void bean(
+      double x,
+      double feetY,
+      double height,
+      BeanKind kind, {
+      BeanHat? hat,
+      double lookX = 0,
+      double cheer = 0,
+      bool stickToRight = true,
+    }) => paintBean(
       canvas,
-      Offset(size.width * 0.32, h),
-      h * 0.86,
-      BeanKind.pin.color,
-      const BeanPose(
-        lookX: 1,
-        look: BeanLook(accessory: BeanHat.cap, outfit: BeanOutfit.varsity),
+      Offset(w * x, h * feetY),
+      h * height,
+      kind.color,
+      BeanPose(
+        lookX: lookX,
+        cheer: cheer,
+        stickToRight: stickToRight,
+        look: BeanLook(kind: kind, accessory: hat),
       ),
     );
-    paintBean(
-      canvas,
-      Offset(size.width * 0.72, h),
-      h * 0.74,
-      BeanKind.small.color,
-      const BeanPose(
-        lookX: -1,
-        happy: true,
-        wave: 0.9,
-        look: BeanLook(
-          kind: BeanKind.small,
-          accessory: BeanHat.panama,
-          outfit: BeanOutfit.vest,
-        ),
-      ),
-    );
+
+    bean(0.53, 0.52, 0.42, BeanKind.pin, hat: BeanHat.flatCap, lookX: 0.3);
+    bean(0.24, 0.6, 0.46, BeanKind.tall, lookX: 0.4);
+    bean(0.76, 0.72, 0.55, BeanKind.round, lookX: -0.5, stickToRight: false);
+    bean(0.47, 1.2, 1.3, BeanKind.small, hat: BeanHat.strawHat, cheer: 0.85);
   }
 
   @override
-  bool shouldRepaint(covariant _TwoBeans oldDelegate) => false;
+  bool shouldRepaint(covariant _FourBeans oldDelegate) => false;
 }

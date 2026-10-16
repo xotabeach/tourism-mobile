@@ -140,8 +140,12 @@ class BeanPose {
     this.mouthOpen = false,
     this.toast = 0,
     this.flutter = 0,
+    this.cheer = 0,
     this.look,
   });
+
+  /// Both arms out wide, 0 at rest to 1: «ура» (FRONTEND-87's card).
+  final double cheer;
 
   /// Character and clothes; a plain blue bean without it.
   final BeanLook? look;
@@ -291,7 +295,10 @@ void paintBean(
   final sleeves = <(Offset, Offset)>[];
   for (final (side, path, shoulder, hand) in arms) {
     final holds = side == dir;
-    final turn = holds ? (pose.ready ? 1.05 : 0.0) : waveTurn;
+    final turn = math.max(
+      holds ? (pose.ready ? 1.05 : 0.0) : waveTurn,
+      pose.cheer.clamp(0.0, 1.0) * 1.15,
+    );
     // Raising the left arm out turns it clockwise, the right one back.
     final angle = -side * turn;
     if (sleeved) {
