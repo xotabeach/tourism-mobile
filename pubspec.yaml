@@ -67,6 +67,9 @@ flutter:
     # 500, 600 and 700 all as the same synthetic bold (FRONTEND-33).
     - family: Rubik
       fonts:
+        # Light, cut from the variable font at 300 (FRONTEND-87's card).
+        - asset: assets/fonts/Rubik-Light.ttf
+          weight: 300
         - asset: assets/fonts/Rubik-Regular.ttf
           weight: 400
         - asset: assets/fonts/Rubik-Medium.ttf

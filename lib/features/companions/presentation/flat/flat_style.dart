@@ -122,6 +122,10 @@ class BeanLook {
   );
 }
 
+/// What the mouth says (FRONTEND-87's card): the designer's smile, a wide
+/// beam with its top edge dipping in the middle, or a cross upturned arch.
+enum BeanMood { smile, beam, cross }
+
 /// How a bean looks this frame.
 class BeanPose {
   const BeanPose({
@@ -141,8 +145,12 @@ class BeanPose {
     this.toast = 0,
     this.flutter = 0,
     this.cheer = 0,
+    this.mood = BeanMood.smile,
     this.look,
   });
+
+  /// The mouth: the designer's smile, a wide beaming one, or cross.
+  final BeanMood mood;
 
   /// Both arms out wide, 0 at rest to 1: «ура» (FRONTEND-87's card).
   final double cheer;
@@ -297,7 +305,7 @@ void paintBean(
     final holds = side == dir;
     final turn = math.max(
       holds ? (pose.ready ? 1.05 : 0.0) : waveTurn,
-      pose.cheer.clamp(0.0, 1.0) * 1.15,
+      pose.cheer.clamp(0.0, 1.0) * 1.2,
     );
     // Raising the left arm out turns it clockwise, the right one back.
     final angle = -side * turn;
@@ -311,13 +319,16 @@ void paintBean(
       hands[side] = to;
       continue;
     }
+    // Cheering, the arms also reach out to their full length.
+    final reach = 1 + 0.35 * pose.cheer.clamp(0.0, 1.0);
     canvas.save();
     canvas.translate(shoulder.dx, shoulder.dy);
     canvas.rotate(angle);
+    canvas.scale(reach);
     canvas.translate(-shoulder.dx, -shoulder.dy);
     canvas.drawPath(path, fill(limb));
     canvas.restore();
-    hands[side] = turned(hand, shoulder, angle);
+    hands[side] = turned(shoulder + (hand - shoulder) * reach, shoulder, angle);
   }
 
   if (pose.ready) {
@@ -409,6 +420,39 @@ void paintBean(
       ),
       fill(Colors.white),
     );
+  } else if (pose.mood != BeanMood.smile) {
+    final m = mouth.shift(gaze);
+    final cx = m.center.dx;
+    final path = Path();
+    final w2 = m.width;
+    if (pose.mood == BeanMood.beam) {
+      // A wide crescent: the top edge dips in the middle, the bottom is
+      // deep and round (the designer's card).
+      final half = w2 * 0.62;
+      final top = m.top;
+      path
+        ..moveTo(cx - half, top)
+        ..quadraticBezierTo(cx, top + w2 * 0.3, cx + half, top)
+        ..quadraticBezierTo(cx, top + w2 * 1.05, cx - half, top)
+        ..close();
+    } else {
+      // Cross: a pout, round side up, the corners down.
+      final half = w2 * 0.42;
+      final bottom = m.bottom;
+      path
+        ..moveTo(cx - half, bottom)
+        ..cubicTo(
+          cx - half * 0.9,
+          m.top - m.height * 0.15,
+          cx + half * 0.9,
+          m.top - m.height * 0.15,
+          cx + half,
+          bottom,
+        )
+        ..quadraticBezierTo(cx, bottom - m.height * 0.35, cx - half, bottom)
+        ..close();
+    }
+    canvas.drawPath(path, fill(Colors.white));
   } else {
     canvas.save();
     final top = Offset(mouth.center.dx, mouth.top) + gaze;

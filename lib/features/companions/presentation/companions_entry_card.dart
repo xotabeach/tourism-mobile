@@ -100,7 +100,7 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
                         style: TextStyle(
                           fontFamily: AppFonts.rubik,
                           fontSize: 14,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                           height: 1.2,
                           color: AppColors.primaryInk,
                         ),
@@ -180,14 +180,12 @@ class _CardButton extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(10),
-        side: secondary
-            ? const BorderSide(color: _blue, width: 1.5)
-            : BorderSide.none,
+        side: secondary ? const BorderSide(color: _blue) : BorderSide.none,
       ),
       textStyle: const TextStyle(
         fontFamily: AppFonts.rubik,
         fontSize: 14,
-        fontWeight: FontWeight.w400,
+        fontWeight: FontWeight.w300,
       ),
     ),
     child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -213,6 +211,7 @@ class _FourBeans extends CustomPainter {
       BeanHat? hat,
       double lookX = 0,
       double cheer = 0,
+      BeanMood mood = BeanMood.smile,
       bool stickToRight = true,
     }) => paintBean(
       canvas,
@@ -222,6 +221,7 @@ class _FourBeans extends CustomPainter {
       BeanPose(
         lookX: lookX,
         cheer: cheer,
+        mood: mood,
         stickToRight: stickToRight,
         look: BeanLook(kind: kind, accessory: hat),
       ),
@@ -229,8 +229,24 @@ class _FourBeans extends CustomPainter {
 
     bean(0.53, 0.52, 0.42, BeanKind.pin, hat: BeanHat.flatCap, lookX: 0.3);
     bean(0.24, 0.6, 0.46, BeanKind.tall, lookX: 0.4);
-    bean(0.76, 0.72, 0.55, BeanKind.round, lookX: -0.5, stickToRight: false);
-    bean(0.47, 1.2, 1.3, BeanKind.small, hat: BeanHat.strawHat, cheer: 0.85);
+    bean(
+      0.76,
+      0.72,
+      0.55,
+      BeanKind.round,
+      lookX: -0.5,
+      mood: BeanMood.cross,
+      stickToRight: false,
+    );
+    bean(
+      0.47,
+      1.2,
+      1.3,
+      BeanKind.small,
+      hat: BeanHat.strawHat,
+      cheer: 1,
+      mood: BeanMood.beam,
+    );
   }
 
   @override

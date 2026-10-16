@@ -28,17 +28,19 @@ class _Fit {
   final double anchor;
 }
 
+// Fitted against the designer's dressed characters (owner, 2026-10-16:
+// the first fit made every hat far too big).
 const _fits = <BeanHat, _Fit>{
-  BeanHat.bandana: _Fit(1.12, -0.12, anchor: 0.42),
-  BeanHat.cap: _Fit(1.08, -0.12, anchor: 0.58),
-  BeanHat.flatCap: _Fit(1.08, -0.12),
-  BeanHat.headphones: _Fit(1.3, 0.14),
-  BeanHat.panama: _Fit(1.16, -0.08),
-  BeanHat.sailor: _Fit(1.06, -0.12),
-  BeanHat.beanie: _Fit(1.06, -0.12),
-  BeanHat.strawHat: _Fit(1.5, -0.1),
-  BeanHat.ushanka: _Fit(1.16, 0.16),
-  BeanHat.winterHat: _Fit(1.08, -0.12),
+  BeanHat.bandana: _Fit(0.85, -0.15, anchor: 0.42),
+  BeanHat.cap: _Fit(0.78, -0.19, anchor: 0.58),
+  BeanHat.flatCap: _Fit(0.8, -0.17),
+  BeanHat.headphones: _Fit(1.1, 0.12),
+  BeanHat.panama: _Fit(0.95, -0.1),
+  BeanHat.sailor: _Fit(0.8, -0.17),
+  BeanHat.beanie: _Fit(0.72, -0.16),
+  BeanHat.strawHat: _Fit(1.1, -0.2),
+  BeanHat.ushanka: _Fit(0.9, 0.1),
+  BeanHat.winterHat: _Fit(0.78, -0.16),
 };
 
 final _cache = <BeanHat, List<(Color, Path)>>{};
