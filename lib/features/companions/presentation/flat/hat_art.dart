@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:tourism_mobile/features/companions/presentation/flat/bean_art.dart'
@@ -16,31 +17,70 @@ class HatArtData {
   final List<(Color, String)> parts;
 }
 
-/// How a drawn hat sits on a head: its width against the body's width,
-/// which point of the drawing goes over the middle of the head, and where
-/// its lower edge falls against the eyes, in body widths (positive is
-/// below the middle of the eyes).
+/// How a drawn hat sits on a head (owner, 2026-10-16: fitted to each
+/// character's own head, not to the body's widest point).
+///
+/// [seat] is where the hat meets the head, as a share of the drawing's
+/// height: the edge of a cuff, a band, the bottom of a crown. [from]..[to]
+/// is the part of the drawing's width at that line that wraps the head; it
+/// is made as wide as the head is there, a little more ([snug]). [above]
+/// says where that line falls: how far above the top of the eyes, in eye
+/// heights (negative is below).
 class _Fit {
-  const _Fit(this.width, this.bottom, {this.anchor = 0.5});
+  const _Fit({
+    required this.seat,
+    required this.from,
+    required this.to,
+    required this.above,
+    this.snug = 1.04,
+  });
 
-  final double width;
-  final double bottom;
-  final double anchor;
+  final double seat;
+  final double from;
+  final double to;
+  final double above;
+  final double snug;
 }
 
-// Fitted against the designer's dressed characters (owner, 2026-10-16:
-// the first fit made every hat far too big).
+// Measured on the designer's SVGs: where each hat meets the head and how
+// much of its width wraps it.
 const _fits = <BeanHat, _Fit>{
-  BeanHat.bandana: _Fit(0.85, -0.15, anchor: 0.42),
-  BeanHat.cap: _Fit(0.78, -0.19, anchor: 0.58),
-  BeanHat.flatCap: _Fit(0.8, -0.17),
-  BeanHat.headphones: _Fit(1.1, 0.12),
-  BeanHat.panama: _Fit(0.95, -0.1),
-  BeanHat.sailor: _Fit(0.8, -0.17),
-  BeanHat.beanie: _Fit(0.72, -0.16),
-  BeanHat.strawHat: _Fit(1.1, -0.2),
-  BeanHat.ushanka: _Fit(0.9, 0.1),
-  BeanHat.winterHat: _Fit(0.78, -0.16),
+  BeanHat.bandana: _Fit(seat: 0.85, from: 0.02, to: 0.86, above: 0.5, snug: 1),
+  BeanHat.cap: _Fit(seat: 0.84, from: 0.24, to: 0.99, above: 0.6, snug: 1),
+  BeanHat.flatCap: _Fit(seat: 0.88, from: 0.04, to: 0.95, above: 0.55, snug: 1),
+  BeanHat.headphones: _Fit(
+    seat: 0.7,
+    from: 0.15,
+    to: 0.85,
+    above: -0.5,
+    snug: 1.02,
+  ),
+  BeanHat.panama: _Fit(seat: 0.72, from: 0.09, to: 0.91, above: 0.6, snug: 1),
+  BeanHat.sailor: _Fit(seat: 0.97, from: 0.1, to: 0.89, above: 0.5, snug: 1),
+  BeanHat.beanie: _Fit(seat: 0.93, from: 0.03, to: 0.97, above: 0.5, snug: 1),
+  // A pith helmet, its brim a little wider than the head where it rests
+  // (the designer's card).
+  BeanHat.strawHat: _Fit(seat: 0.85, from: 0, to: 1, above: 0.6, snug: 1.22),
+  BeanHat.ushanka: _Fit(seat: 0.6, from: 0.12, to: 0.88, above: 0.55, snug: 1),
+  BeanHat.winterHat: _Fit(
+    seat: 0.92,
+    from: 0.02,
+    to: 0.97,
+    above: 0.5,
+    snug: 1,
+  ),
+};
+
+/// Where one build needs its own fit: its head is narrower or rounder
+/// than the others' (owner, 2026-10-16), keyed by the build's slug.
+const _fitsFor = <(BeanHat, String), _Fit>{
+  (BeanHat.strawHat, 'tall'): _Fit(
+    seat: 0.85,
+    from: 0,
+    to: 1,
+    above: 0.75,
+    snug: 1.03,
+  ),
 };
 
 final _cache = <BeanHat, List<(Color, Path)>>{};
@@ -54,22 +94,26 @@ bool paintHatArt(
   Canvas canvas,
   BeanHat hat,
   Rect body, {
-  required double eyeY,
+  required Rect eyes,
+  required double Function(double y) headHalfWidth,
+  String? shape,
   double alpha = 1,
 }) {
   final data = _hats[hat];
-  final fit = _fits[hat];
+  final fit = _fitsFor[(hat, shape ?? '')] ?? _fits[hat];
   if (data == null || fit == null) return false;
   final parts = _cache.putIfAbsent(
     hat,
     () => [for (final (color, d) in data.parts) (color, parseSvgPath(d))],
   );
-  final w = body.width;
-  final width = w * fit.width;
+  final lineY = eyes.top - fit.above * eyes.height;
+  // Never narrower than half the body: the very top of a head is a point.
+  final head = math.max(headHalfWidth(lineY) * 2, body.width * 0.5);
+  final width = head * fit.snug / (fit.to - fit.from);
   final scale = width / data.size.width;
   final height = data.size.height * scale;
-  final left = body.center.dx - width * fit.anchor;
-  final top = eyeY + w * fit.bottom - height;
+  final left = body.center.dx - width * (fit.from + fit.to) / 2;
+  final top = lineY - height * fit.seat;
   canvas.save();
   canvas.translate(left, top);
   canvas.scale(scale);

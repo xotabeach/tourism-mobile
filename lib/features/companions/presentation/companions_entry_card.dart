@@ -209,9 +209,12 @@ class _FourBeans extends CustomPainter {
       double height,
       BeanKind kind, {
       BeanHat? hat,
+      BeanKind? shape,
+      double face = 1,
       double lookX = 0,
       double cheer = 0,
       BeanMood mood = BeanMood.smile,
+      bool eyesAhead = false,
       bool stickToRight = true,
     }) => paintBean(
       canvas,
@@ -222,30 +225,35 @@ class _FourBeans extends CustomPainter {
         lookX: lookX,
         cheer: cheer,
         mood: mood,
+        eyesAhead: eyesAhead,
+        face: face,
         stickToRight: stickToRight,
-        look: BeanLook(kind: kind, accessory: hat),
+        look: BeanLook(kind: kind, accessory: hat, shape: shape),
       ),
     );
 
-    bean(0.53, 0.52, 0.42, BeanKind.pin, hat: BeanHat.flatCap, lookX: 0.3);
-    bean(0.24, 0.6, 0.46, BeanKind.tall, lookX: 0.4);
+    bean(0.51, 0.34, 0.34, BeanKind.pin, hat: BeanHat.flatCap, lookX: 0.3);
+    bean(0.25, 0.61, 0.49, BeanKind.tall, lookX: 0.4);
     bean(
-      0.76,
-      0.72,
+      0.73,
       0.55,
+      0.475,
       BeanKind.round,
-      lookX: -0.5,
       mood: BeanMood.cross,
+      eyesAhead: true,
       stickToRight: false,
     );
     bean(
       0.47,
-      1.2,
-      1.3,
+      1.31,
+      0.81,
       BeanKind.small,
+      shape: BeanKind.tall,
+      face: 1.3,
       hat: BeanHat.strawHat,
       cheer: 1,
       mood: BeanMood.beam,
+      eyesAhead: true,
     );
   }
 
