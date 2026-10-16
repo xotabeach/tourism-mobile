@@ -326,10 +326,11 @@ void paintBean(
     final angle = -side * turn;
     if (sleeved) {
       final from = Offset(
-        body.cx + side * torso.topHalf * 0.86,
+        body.cx + side * torso.topHalf * 0.8,
         torso.top + w * 0.08,
       );
-      final to = turned(from + Offset(side * w * 0.12, w * 0.24), from, angle);
+      // Down and out at about 45°, as long as an arm (the reference).
+      final to = turned(from + Offset(side * w * 0.3, w * 0.31), from, angle);
       sleeves.add((from, to));
       hands[side] = to;
       continue;
@@ -442,7 +443,7 @@ void paintBean(
     // Cross: each eye leans its top outward, a frown without
     // brows (the designer's card).
     final tilt = pose.mood == BeanMood.cross
-        ? (box.center.dx < b.center.dx ? -0.16 : 0.16)
+        ? (box.center.dx < b.center.dx ? -0.1 : 0.1)
         : 0.0;
     canvas.save();
     canvas.translate(box.center.dx, box.center.dy);
@@ -519,7 +520,7 @@ void paintBean(
         path,
         fill(Colors.white)
           ..style = PaintingStyle.stroke
-          ..strokeWidth = m.height * 0.16
+          ..strokeWidth = m.height * 0.06
           ..strokeJoin = StrokeJoin.round,
       );
     }

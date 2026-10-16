@@ -74,12 +74,20 @@ const _fits = <BeanHat, _Fit>{
 /// Where one build needs its own fit: its head is narrower or rounder
 /// than the others' (owner, 2026-10-16), keyed by the build's slug.
 const _fitsFor = <(BeanHat, String), _Fit>{
-  (BeanHat.strawHat, 'tall'): _Fit(
-    seat: 0.85,
-    from: 0,
-    to: 1,
-    above: 0.75,
-    snug: 1.03,
+  // The green one's head is narrow and long: caps a size down.
+  (BeanHat.cap, 'tall'): _Fit(
+    seat: 0.84,
+    from: 0.24,
+    to: 0.99,
+    above: 0.5,
+    snug: 0.92,
+  ),
+  (BeanHat.flatCap, 'tall'): _Fit(
+    seat: 0.88,
+    from: 0.04,
+    to: 0.95,
+    above: 0.45,
+    snug: 0.94,
   ),
 };
 
@@ -125,4 +133,22 @@ bool paintHatArt(
   }
   canvas.restore();
   return true;
+}
+
+/// Draws the designer's [hat] stretched into [rect], with nothing fitted:
+/// for an illustration laid out by hand (the companions card).
+void paintHatArtIn(Canvas canvas, BeanHat hat, Rect rect) {
+  final data = _hats[hat];
+  if (data == null) return;
+  final parts = _cache.putIfAbsent(
+    hat,
+    () => [for (final (color, d) in data.parts) (color, parseSvgPath(d))],
+  );
+  canvas.save();
+  canvas.translate(rect.left, rect.top);
+  canvas.scale(rect.width / data.size.width, rect.height / data.size.height);
+  for (final (color, path) in parts) {
+    canvas.drawPath(path, Paint()..color = color);
+  }
+  canvas.restore();
 }

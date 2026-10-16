@@ -193,7 +193,16 @@ class _CampPainter extends CustomPainter {
       for (final m in members)
         if (m.waiting) m,
     ];
-    final beanHeight = closeUp ? 74.0 : 34.0;
+    // Fewer people stand larger: four fill the clearing, eight still fit
+    // (owner, 2026-10-16: four looked lost at the size of eight).
+    final beanHeight = closeUp
+        ? 74.0
+        : seated.length <= 4
+        ? 52.0
+        : seated.length <= 6
+        ? 44.0
+        : 36.0;
+    final spread = beanHeight / 34;
 
     // Half the group on each side of the fire, the further ones a little
     // higher up the slope, as if sitting round it.
@@ -205,8 +214,10 @@ class _CampPainter extends CustomPainter {
       final feet = closeUp
           ? Offset(fire.dx - 58, fire.dy + 30)
           : Offset(
-              fire.dx + side * (30 + rank * 30),
-              fire.dy + 12 + (rank.isOdd ? 9 : 0),
+              fire.dx + side * (26 + rank * 25) * spread,
+              // Every other pair a step back, so the group closes round
+              // the fire instead of standing in a line.
+              fire.dy + (rank.isOdd ? 2 : 10) * spread,
             );
       placed.add((feet, seated[i], i));
     }
@@ -296,8 +307,8 @@ class _CampPainter extends CustomPainter {
 
     // Those still on their way are small and faded on the far hill.
     for (var i = 0; i < waiting.length; i++) {
-      // Coming across the clearing behind the fire.
-      final feet = Offset(fire.dx - 52 + i * 12, fire.dy - 24 - i * 1.5);
+      // Coming round the yellow tent.
+      final feet = Offset(fire.dx - 112 + i * 12, fire.dy - 6 - i * 1.5);
       paintBean(
         canvas,
         feet,
