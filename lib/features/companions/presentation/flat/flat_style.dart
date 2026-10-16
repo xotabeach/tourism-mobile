@@ -153,8 +153,13 @@ class BeanPose {
     this.mood = BeanMood.smile,
     this.eyesAhead = false,
     this.face = 1,
+    this.faceless = false,
     this.look,
   });
+
+  /// No eyes or mouth: the caller draws its own face (the card's red one,
+  /// traced from the mockup).
+  final bool faceless;
 
   /// The eyes and mouth larger than drawn, 1 as is: the card's yellow one
   /// has a big face on a slim body (FRONTEND-87).
@@ -413,7 +418,9 @@ void paintBean(
   // The face: the designer's eyes and smile, swapped for a blink, joy or
   // an open «о!».
   canvas.save();
-  if (pose.face != 1) {
+  if (pose.faceless) {
+    canvas.scale(0);
+  } else if (pose.face != 1) {
     final c = eyes.center;
     canvas.translate(c.dx, c.dy);
     canvas.scale(pose.face);

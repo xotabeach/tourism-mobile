@@ -89,7 +89,7 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(8, 9, 0, 8),
+                padding: const EdgeInsets.fromLTRB(8, 9, 0, 6.5),
                 child: SizedBox(
                   width: textWidth - 8,
                   child: Column(
@@ -216,6 +216,7 @@ class _FourBeans extends CustomPainter {
       double cheer = 0,
       BeanMood mood = BeanMood.smile,
       bool eyesAhead = false,
+      bool faceless = false,
       bool stickToRight = true,
     }) => paintBean(
       canvas,
@@ -227,23 +228,24 @@ class _FourBeans extends CustomPainter {
         cheer: cheer,
         mood: mood,
         eyesAhead: eyesAhead,
+        faceless: faceless,
         face: face,
         stickToRight: stickToRight,
         look: BeanLook(kind: kind, accessory: hat, shape: shape),
       ),
     );
 
-    bean(0.495, 0.42, 0.384, BeanKind.pin, hat: BeanHat.flatCap, lookX: 0.3);
-    bean(0.25, 0.651, 0.49, BeanKind.tall, lookX: 0.4);
+    bean(0.4985, 0.42, 0.365, BeanKind.pin, hat: BeanHat.flatCap, lookX: 0.3);
+    bean(0.25, 0.66, 0.49, BeanKind.tall, lookX: 0.4);
     bean(
       0.721,
       0.619,
       0.499,
       BeanKind.round,
-      mood: BeanMood.cross,
-      eyesAhead: true,
+      faceless: true,
       stickToRight: false,
     );
+    _paintCardRedFace(canvas, size);
     _paintCardYellow(canvas, size);
   }
 
@@ -253,37 +255,55 @@ class _FourBeans extends CustomPainter {
 
 // The yellow one of the card, laid out by the designer's mockup
 // (FRONTEND-87, owner 2026-10-16: «пиксель в пиксель»). Everything is in
-// the mockup's pixels, where the card is 825 wide with its top-left corner
-// at (37, 983); the painter starts at 63% of the card's width, 6 below its
-// top. The outline, the smile and the arms were traced from the mockup;
-// the eyes, the shine and the hat are its measured sizes.
-void _paintCardYellow(Canvas canvas, Size size) {
-  // The painter sits inside the card's 2-wide border, from 63% of the
-  // card's width and 6 below the border's inner edge.
-  final cardWidth = (size.width + 4) / 0.37;
-  final u = cardWidth / 825;
-  canvas.save();
-  canvas.translate(-(556.75 * u + 2), -(983 * u + 8));
+// the mockup's pixels, where the card's outer edge runs from (37, 981),
+// 826 wide. The outline, the smile, the arms and the light streak were
+// traced from the mockup; the eyes, their shine and the hat are its
+// measured sizes and places.
+/// Moves [canvas] into the mockup's pixels: the painter starts at 63% of
+/// the card's outer width, inside its 2-wide border and 6 below it, and is
+/// 4 narrower than the rest of the card.
+void _toMockup(Canvas canvas, Size size) {
+  final outer = (size.width + 4) / 0.37;
+  final u = outer / 826;
+  canvas.translate(-(37 * u + 2 + outer * 0.63), -(981 * u + 8));
   canvas.scale(u);
+}
 
+/// The red one's cross face, traced from the mockup.
+void _paintCardRedFace(Canvas canvas, Size size) {
+  canvas.save();
+  _toMockup(canvas, size);
+  final black = Paint()..color = Colors.black;
+  final white = Paint()..color = Colors.white;
+  canvas.drawPath(Path()..addPolygon(_redEyeLeft, true), black);
+  canvas.drawPath(Path()..addPolygon(_redEyeRight, true), black);
+  for (final c in const [Offset(762.9, 1087.3), Offset(787.9, 1086.7)]) {
+    canvas.drawOval(Rect.fromCenter(center: c, width: 3.2, height: 6.4), white);
+  }
+  canvas.drawPath(Path()..addPolygon(_redMouth, true), white);
+  canvas.restore();
+}
+
+void _paintCardYellow(Canvas canvas, Size size) {
+  canvas.save();
+  _toMockup(canvas, size);
+
+  // Arms: one smooth stroke each, bending up toward the hand.
   final arm = Paint()
     ..color = const Color(0xFFDCBC1A)
     ..style = PaintingStyle.stroke
-    ..strokeWidth = 11.5
+    ..strokeWidth = 13.4
     ..strokeCap = StrokeCap.round
     ..strokeJoin = StrokeJoin.round;
-  canvas.drawPath(
-    Path()
-      ..moveTo(640, 1262)
-      ..quadraticBezierTo(600, 1243, 574, 1223),
-    arm,
-  );
-  canvas.drawPath(
-    Path()
-      ..moveTo(756, 1262)
-      ..quadraticBezierTo(797, 1243, 823, 1224),
-    arm,
-  );
+  canvas.drawPath(_smooth(_yellowArmLeft), arm);
+  canvas.drawPath(_smooth(_yellowArmRight), arm);
+  // The legs, just showing at the card's bottom edge.
+  final leg = Paint()
+    ..color = const Color(0xFFDCBC1A)
+    ..strokeWidth = 6
+    ..strokeCap = StrokeCap.round;
+  canvas.drawLine(const Offset(667, 1300), const Offset(662.5, 1350), leg);
+  canvas.drawLine(const Offset(727, 1300), const Offset(731.5, 1350), leg);
 
   final body = Path()..addPolygon(_yellowBody, true);
   canvas.drawPath(
@@ -293,31 +313,28 @@ void _paintCardYellow(Canvas canvas, Size size) {
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
         colors: [Color(0xFFFDCB2C), Color(0xFFF3C226)],
-      ).createShader(const Rect.fromLTRB(600, 1110, 800, 1340)),
+      ).createShader(const Rect.fromLTRB(600, 1120, 800, 1340)),
   );
-  // The light streak down the top left.
   canvas.save();
   canvas.clipPath(body);
   canvas.drawPath(
-    Path()
-      ..moveTo(632, 1132)
-      ..quadraticBezierTo(612, 1150, 611, 1186)
-      ..lineTo(622, 1186)
-      ..quadraticBezierTo(621, 1158, 640, 1138)
-      ..close(),
+    Path()..addPolygon(_yellowShine, true),
     Paint()
-      ..color = const Color(0xFFF4D94C)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.2),
+      ..color = const Color(0xFFF4D94B)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.8),
   );
   canvas.restore();
 
-  for (final x in const [671.0, 724.0]) {
+  for (final (eye, shine) in const [
+    (Offset(670.5, 1182), Offset(672, 1171.9)),
+    (Offset(723.5, 1182), Offset(725, 1171.9)),
+  ]) {
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(x, 1179.5), width: 24, height: 45),
+      Rect.fromCenter(center: eye, width: 23, height: 44),
       Paint()..color = Colors.black,
     );
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(x + 1, 1172), width: 7, height: 13),
+      Rect.fromCenter(center: shine, width: 7.6, height: 14),
       Paint()..color = Colors.white,
     );
   }
@@ -326,226 +343,295 @@ void _paintCardYellow(Canvas canvas, Size size) {
     Paint()..color = Colors.white,
   );
 
+  // Level, centred over the face: cream from 620 to 783, the crown's top
+  // at 1072, the brim's ends at 1139.
   paintHatArtIn(
     canvas,
     BeanHat.strawHat,
-    const Rect.fromLTWH(612.5, 1066, 173, 73),
+    const Rect.fromLTWH(620.5, 1072, 162, 67),
   );
   canvas.restore();
 }
 
+/// A smooth line through [points] (Catmull-Rom as cubic Béziers).
+Path _smooth(List<Offset> points) {
+  final path = Path()..moveTo(points.first.dx, points.first.dy);
+  for (var i = 0; i < points.length - 1; i++) {
+    final p0 = points[i == 0 ? 0 : i - 1];
+    final p1 = points[i];
+    final p2 = points[i + 1];
+    final p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+    final c1 = p1 + (p2 - p0) / 6;
+    final c2 = p2 - (p3 - p1) / 6;
+    path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
+  }
+  return path;
+}
+
+// Traced along the middle of the mockup's arms, from the hand into the body.
+const _yellowArmLeft = <Offset>[
+  Offset(575, 1222.5),
+  Offset(581, 1227),
+  Offset(589, 1233.5),
+  Offset(597, 1239.5),
+  Offset(605, 1243.5),
+  Offset(613, 1247),
+  Offset(621, 1251),
+  Offset(636, 1258),
+];
+
+const _yellowArmRight = <Offset>[
+  Offset(822, 1223.5),
+  Offset(816, 1228.5),
+  Offset(808, 1234.5),
+  Offset(800, 1240),
+  Offset(792, 1243.5),
+  Offset(784, 1246),
+  Offset(776, 1247.5),
+  Offset(760, 1252),
+];
+
+// The light streak down the top left, traced: its outer edge on the
+// body's edge, its inner edge 9–13 in.
+const _yellowShine = <Offset>[
+  Offset(662, 1124),
+  Offset(645, 1127),
+  Offset(634, 1132),
+  Offset(627, 1137),
+  Offset(623, 1142),
+  Offset(620, 1148),
+  Offset(617, 1154),
+  Offset(614, 1160),
+  Offset(611, 1168),
+  Offset(609, 1178),
+  Offset(609, 1186),
+  Offset(613, 1190),
+  Offset(619, 1186),
+  Offset(621, 1176),
+  Offset(624, 1164),
+  Offset(627, 1156),
+  Offset(629, 1150),
+  Offset(633, 1144),
+  Offset(638, 1139),
+  Offset(645, 1134),
+  Offset(654, 1131),
+  Offset(661, 1129),
+];
+
 const _yellowBody = <Offset>[
-  Offset(700.0, 1112.0),
-  Offset(677.5, 1123.5),
-  Offset(660.5, 1125.5),
-  Offset(650.5, 1127.5),
-  Offset(643.5, 1129.5),
-  Offset(638.5, 1131.5),
-  Offset(634.5, 1133.5),
-  Offset(631.5, 1135.5),
-  Offset(629.5, 1137.5),
-  Offset(627.5, 1139.5),
-  Offset(626.5, 1141.5),
-  Offset(625.5, 1143.5),
-  Offset(624.5, 1145.5),
-  Offset(622.5, 1147.5),
-  Offset(621.5, 1149.5),
-  Offset(620.5, 1151.5),
-  Offset(619.5, 1153.5),
-  Offset(618.5, 1155.5),
-  Offset(617.5, 1157.5),
-  Offset(616.5, 1159.5),
-  Offset(616.5, 1161.5),
-  Offset(614.5, 1163.5),
-  Offset(614.5, 1165.5),
-  Offset(613.5, 1167.5),
-  Offset(612.5, 1169.5),
-  Offset(611.5, 1171.5),
-  Offset(611.5, 1173.5),
-  Offset(611.5, 1175.5),
-  Offset(611.5, 1177.5),
-  Offset(610.5, 1179.5),
-  Offset(610.5, 1181.5),
-  Offset(609.5, 1183.5),
-  Offset(609.5, 1185.5),
-  Offset(609.5, 1187.5),
-  Offset(609.5, 1189.5),
-  Offset(609.5, 1191.5),
-  Offset(609.5, 1193.5),
-  Offset(609.5, 1195.5),
-  Offset(609.5, 1197.5),
-  Offset(609.5, 1199.5),
-  Offset(610.5, 1201.5),
-  Offset(610.5, 1203.5),
-  Offset(610.5, 1205.5),
-  Offset(610.5, 1207.5),
-  Offset(611.5, 1209.5),
-  Offset(611.5, 1211.5),
-  Offset(612.5, 1213.5),
-  Offset(612.5, 1215.5),
-  Offset(613.5, 1217.5),
-  Offset(613.5, 1219.5),
-  Offset(614.5, 1221.5),
-  Offset(614.5, 1223.5),
-  Offset(614.5, 1225.5),
-  Offset(615.5, 1227.5),
-  Offset(616.5, 1229.5),
-  Offset(616.5, 1231.5),
-  Offset(617.5, 1233.5),
-  Offset(618.5, 1235.5),
-  Offset(618.5, 1237.5),
-  Offset(619.5, 1239.5),
-  Offset(619.5, 1241.5),
-  Offset(620.5, 1243.5),
-  Offset(620.5, 1245.5),
-  Offset(621.5, 1247.5),
-  Offset(622.5, 1249.5),
-  Offset(623.5, 1251.5),
-  Offset(624.5, 1253.5),
-  Offset(625.5, 1255.5),
-  Offset(625.5, 1257.5),
-  Offset(627.5, 1259.5),
-  Offset(627.5, 1261.5),
-  Offset(629.5, 1263.5),
-  Offset(630.5, 1265.5),
-  Offset(631.5, 1267.5),
-  Offset(632.5, 1269.5),
-  Offset(634.5, 1271.5),
-  Offset(634.5, 1273.5),
-  Offset(636.5, 1275.5),
-  Offset(637.5, 1277.5),
-  Offset(637.5, 1279.5),
-  Offset(639.5, 1281.5),
-  Offset(640.5, 1283.5),
-  Offset(641.5, 1285.5),
-  Offset(642.5, 1287.5),
-  Offset(644.5, 1289.5),
-  Offset(645.5, 1291.5),
-  Offset(646.5, 1293.5),
-  Offset(647.5, 1295.5),
-  Offset(648.5, 1297.5),
-  Offset(650.5, 1299.5),
-  Offset(651.5, 1301.5),
-  Offset(652.5, 1303.5),
-  Offset(653.5, 1305.5),
-  Offset(655.5, 1307.5),
-  Offset(656.5, 1309.5),
-  Offset(658.5, 1311.5),
-  Offset(659.5, 1313.5),
-  Offset(660.5, 1315.5),
-  Offset(662.5, 1317.5),
-  Offset(663.5, 1319.5),
-  Offset(663.5, 1321.5),
-  Offset(665.5, 1323.5),
-  Offset(666.5, 1325.5),
-  Offset(671.8, 1334.0),
-  Offset(676.6, 1342.0),
-  Offset(681.4, 1350.0),
-  Offset(712.6, 1350.0),
-  Offset(717.4, 1342.0),
-  Offset(722.2, 1334.0),
-  Offset(728.5, 1325.5),
-  Offset(729.5, 1323.5),
-  Offset(731.5, 1321.5),
-  Offset(732.5, 1319.5),
-  Offset(732.5, 1317.5),
-  Offset(734.5, 1315.5),
-  Offset(735.5, 1313.5),
-  Offset(737.5, 1311.5),
-  Offset(738.5, 1309.5),
-  Offset(739.5, 1307.5),
-  Offset(741.5, 1305.5),
-  Offset(742.5, 1303.5),
-  Offset(743.5, 1301.5),
-  Offset(745.5, 1299.5),
-  Offset(746.5, 1297.5),
-  Offset(747.5, 1295.5),
-  Offset(748.5, 1293.5),
-  Offset(750.5, 1291.5),
-  Offset(751.5, 1289.5),
-  Offset(752.5, 1287.5),
-  Offset(753.5, 1285.5),
-  Offset(754.5, 1283.5),
-  Offset(755.5, 1281.5),
-  Offset(757.5, 1279.5),
-  Offset(758.5, 1277.5),
-  Offset(759.5, 1275.5),
-  Offset(760.5, 1273.5),
-  Offset(761.5, 1271.5),
-  Offset(762.5, 1269.5),
-  Offset(763.5, 1267.5),
-  Offset(764.5, 1265.5),
-  Offset(765.5, 1263.5),
-  Offset(766.5, 1261.5),
-  Offset(767.5, 1259.5),
-  Offset(768.5, 1257.5),
-  Offset(770.5, 1255.5),
-  Offset(771.5, 1253.5),
-  Offset(772.5, 1251.5),
-  Offset(773.5, 1249.5),
-  Offset(773.5, 1247.5),
-  Offset(774.5, 1245.5),
-  Offset(775.5, 1243.5),
-  Offset(776.5, 1241.5),
-  Offset(777.5, 1239.5),
-  Offset(776.5, 1237.5),
-  Offset(777.5, 1235.5),
-  Offset(778.5, 1233.5),
-  Offset(778.5, 1231.5),
-  Offset(779.5, 1229.5),
-  Offset(780.5, 1227.5),
-  Offset(780.5, 1225.5),
-  Offset(781.5, 1223.5),
-  Offset(781.5, 1221.5),
-  Offset(782.5, 1219.5),
-  Offset(782.5, 1217.5),
-  Offset(783.5, 1215.5),
-  Offset(783.5, 1213.5),
-  Offset(784.5, 1211.5),
-  Offset(785.5, 1209.5),
-  Offset(785.5, 1207.5),
-  Offset(785.5, 1205.5),
-  Offset(786.5, 1203.5),
-  Offset(786.5, 1201.5),
-  Offset(786.5, 1199.5),
-  Offset(786.5, 1197.5),
-  Offset(785.5, 1195.5),
-  Offset(785.5, 1193.5),
-  Offset(786.5, 1191.5),
-  Offset(786.5, 1189.5),
-  Offset(786.5, 1187.5),
-  Offset(786.5, 1185.5),
-  Offset(786.5, 1183.5),
-  Offset(785.5, 1181.5),
-  Offset(785.5, 1179.5),
-  Offset(785.5, 1177.5),
-  Offset(785.5, 1175.5),
-  Offset(784.5, 1173.5),
-  Offset(784.5, 1171.5),
-  Offset(784.5, 1169.5),
-  Offset(783.5, 1167.5),
-  Offset(782.5, 1165.5),
-  Offset(782.5, 1163.5),
-  Offset(781.5, 1161.5),
-  Offset(780.5, 1159.5),
-  Offset(780.5, 1157.5),
-  Offset(779.5, 1155.5),
-  Offset(778.5, 1153.5),
-  Offset(777.5, 1151.5),
-  Offset(776.5, 1149.5),
-  Offset(775.5, 1147.5),
-  Offset(774.5, 1145.5),
-  Offset(773.5, 1143.5),
-  Offset(772.5, 1141.5),
-  Offset(771.5, 1139.5),
-  Offset(769.5, 1137.5),
-  Offset(766.5, 1135.5),
-  Offset(763.5, 1133.5),
-  Offset(759.5, 1131.5),
-  Offset(754.5, 1129.5),
-  Offset(748.5, 1127.5),
-  Offset(740.5, 1125.5),
-  Offset(723.5, 1123.5),
+  Offset(700.0, 1118.8),
+  Offset(685.2, 1119.7),
+  Offset(672.0, 1121.6),
+  Offset(660.6, 1124.3),
+  Offset(651.4, 1127.0),
+  Offset(645.0, 1129.5),
+  Offset(639.2, 1131.5),
+  Offset(635.0, 1133.5),
+  Offset(631.8, 1135.5),
+  Offset(629.4, 1137.5),
+  Offset(627.6, 1139.5),
+  Offset(626.2, 1141.5),
+  Offset(624.8, 1143.5),
+  Offset(623.6, 1145.5),
+  Offset(622.4, 1147.5),
+  Offset(621.2, 1149.5),
+  Offset(620.0, 1151.5),
+  Offset(619.0, 1153.5),
+  Offset(618.0, 1155.5),
+  Offset(617.2, 1157.5),
+  Offset(616.2, 1159.5),
+  Offset(615.4, 1161.5),
+  Offset(614.6, 1163.5),
+  Offset(613.8, 1165.5),
+  Offset(612.8, 1167.5),
+  Offset(612.2, 1169.5),
+  Offset(611.6, 1171.5),
+  Offset(611.2, 1173.5),
+  Offset(610.8, 1175.5),
+  Offset(610.6, 1177.5),
+  Offset(610.2, 1179.5),
+  Offset(609.8, 1181.5),
+  Offset(609.4, 1183.5),
+  Offset(609.2, 1185.5),
+  Offset(609.0, 1187.5),
+  Offset(609.0, 1189.5),
+  Offset(609.0, 1191.5),
+  Offset(609.0, 1193.5),
+  Offset(609.0, 1195.5),
+  Offset(609.2, 1197.5),
+  Offset(609.4, 1199.5),
+  Offset(609.6, 1201.5),
+  Offset(609.8, 1203.5),
+  Offset(610.2, 1205.5),
+  Offset(610.4, 1207.5),
+  Offset(610.8, 1209.5),
+  Offset(611.2, 1211.5),
+  Offset(611.8, 1213.5),
+  Offset(612.2, 1215.5),
+  Offset(612.8, 1217.5),
+  Offset(613.2, 1219.5),
+  Offset(613.6, 1221.5),
+  Offset(614.0, 1223.5),
+  Offset(614.6, 1225.5),
+  Offset(615.0, 1227.5),
+  Offset(615.6, 1229.5),
+  Offset(616.4, 1231.5),
+  Offset(617.0, 1233.5),
+  Offset(617.6, 1235.5),
+  Offset(618.2, 1237.5),
+  Offset(618.8, 1239.5),
+  Offset(619.2, 1241.5),
+  Offset(619.8, 1243.5),
+  Offset(620.4, 1245.5),
+  Offset(621.2, 1247.5),
+  Offset(622.0, 1249.5),
+  Offset(623.0, 1251.5),
+  Offset(623.8, 1253.5),
+  Offset(624.8, 1255.5),
+  Offset(625.6, 1257.5),
+  Offset(626.6, 1259.5),
+  Offset(627.6, 1261.5),
+  Offset(628.8, 1263.5),
+  Offset(629.8, 1265.5),
+  Offset(631.2, 1267.5),
+  Offset(632.2, 1269.5),
+  Offset(633.4, 1271.5),
+  Offset(634.6, 1273.5),
+  Offset(635.6, 1275.5),
+  Offset(636.6, 1277.5),
+  Offset(637.8, 1279.5),
+  Offset(638.8, 1281.5),
+  Offset(639.8, 1283.5),
+  Offset(641.2, 1285.5),
+  Offset(642.4, 1287.5),
+  Offset(643.6, 1289.5),
+  Offset(644.8, 1291.5),
+  Offset(646.0, 1293.5),
+  Offset(647.2, 1295.5),
+  Offset(648.4, 1297.5),
+  Offset(649.6, 1299.5),
+  Offset(650.8, 1301.5),
+  Offset(652.2, 1303.5),
+  Offset(653.4, 1305.5),
+  Offset(654.8, 1307.5),
+  Offset(656.2, 1309.5),
+  Offset(657.6, 1311.5),
+  Offset(659.0, 1313.5),
+  Offset(660.4, 1315.5),
+  Offset(661.4, 1317.5),
+  Offset(662.6, 1319.5),
+  Offset(663.8, 1321.5),
+  Offset(666.6, 1327.3),
+  Offset(671.0, 1336.7),
+  Offset(677.2, 1349.7),
+  Offset(684.4, 1362.3),
+  Offset(693.2, 1370.5),
+  Offset(701.8, 1370.5),
+  Offset(710.6, 1362.3),
+  Offset(717.8, 1349.7),
+  Offset(724.0, 1336.7),
+  Offset(728.6, 1327.3),
+  Offset(731.4, 1321.5),
+  Offset(732.6, 1319.5),
+  Offset(733.8, 1317.5),
+  Offset(735.0, 1315.5),
+  Offset(736.2, 1313.5),
+  Offset(737.6, 1311.5),
+  Offset(739.0, 1309.5),
+  Offset(740.4, 1307.5),
+  Offset(741.6, 1305.5),
+  Offset(743.0, 1303.5),
+  Offset(744.4, 1301.5),
+  Offset(745.6, 1299.5),
+  Offset(746.8, 1297.5),
+  Offset(748.2, 1295.5),
+  Offset(749.4, 1293.5),
+  Offset(750.6, 1291.5),
+  Offset(751.8, 1289.5),
+  Offset(753.0, 1287.5),
+  Offset(754.0, 1285.5),
+  Offset(755.2, 1283.5),
+  Offset(756.4, 1281.5),
+  Offset(757.6, 1279.5),
+  Offset(758.8, 1277.5),
+  Offset(760.0, 1275.5),
+  Offset(761.0, 1273.5),
+  Offset(762.0, 1271.5),
+  Offset(763.0, 1269.5),
+  Offset(764.0, 1267.5),
+  Offset(765.0, 1265.5),
+  Offset(766.0, 1263.5),
+  Offset(767.0, 1261.5),
+  Offset(768.2, 1259.5),
+  Offset(769.4, 1257.5),
+  Offset(770.6, 1255.5),
+  Offset(771.8, 1253.5),
+  Offset(772.8, 1251.5),
+  Offset(773.6, 1249.5),
+  Offset(774.4, 1247.5),
+  Offset(775.2, 1245.5),
+  Offset(776.0, 1243.5),
+  Offset(776.6, 1241.5),
+  Offset(777.2, 1239.5),
+  Offset(777.8, 1237.5),
+  Offset(778.2, 1235.5),
+  Offset(778.6, 1233.5),
+  Offset(779.4, 1231.5),
+  Offset(780.0, 1229.5),
+  Offset(780.6, 1227.5),
+  Offset(781.2, 1225.5),
+  Offset(781.8, 1223.5),
+  Offset(782.2, 1221.5),
+  Offset(782.8, 1219.5),
+  Offset(783.2, 1217.5),
+  Offset(783.8, 1215.5),
+  Offset(784.4, 1213.5),
+  Offset(785.0, 1211.5),
+  Offset(785.4, 1209.5),
+  Offset(786.0, 1207.5),
+  Offset(786.4, 1205.5),
+  Offset(786.6, 1203.5),
+  Offset(786.8, 1201.5),
+  Offset(786.8, 1199.5),
+  Offset(786.6, 1197.5),
+  Offset(786.6, 1195.5),
+  Offset(786.6, 1193.5),
+  Offset(786.6, 1191.5),
+  Offset(786.8, 1189.5),
+  Offset(787.0, 1187.5),
+  Offset(786.8, 1185.5),
+  Offset(786.6, 1183.5),
+  Offset(786.4, 1181.5),
+  Offset(786.2, 1179.5),
+  Offset(785.8, 1177.5),
+  Offset(785.6, 1175.5),
+  Offset(785.4, 1173.5),
+  Offset(785.0, 1171.5),
+  Offset(784.4, 1169.5),
+  Offset(784.0, 1167.5),
+  Offset(783.4, 1165.5),
+  Offset(782.6, 1163.5),
+  Offset(782.0, 1161.5),
+  Offset(781.4, 1159.5),
+  Offset(780.6, 1157.5),
+  Offset(779.8, 1155.5),
+  Offset(779.0, 1153.5),
+  Offset(778.0, 1151.5),
+  Offset(777.0, 1149.5),
+  Offset(776.0, 1147.5),
+  Offset(775.0, 1145.5),
+  Offset(774.0, 1143.5),
+  Offset(772.8, 1141.5),
+  Offset(771.2, 1139.5),
+  Offset(769.2, 1137.5),
+  Offset(766.6, 1135.5),
+  Offset(763.2, 1133.5),
+  Offset(759.0, 1131.5),
+  Offset(753.8, 1129.5),
+  Offset(747.8, 1127.0),
+  Offset(739.0, 1124.3),
+  Offset(728.0, 1121.6),
+  Offset(715.0, 1119.7),
 ];
 
 const _yellowMouth = <Offset>[
@@ -659,4 +745,118 @@ const _yellowMouth = <Offset>[
   Offset(672.5, 1225.2),
   Offset(671.5, 1222.9),
   Offset(670.5, 1219.7),
+];
+
+const _redEyeLeft = <Offset>[
+  Offset(762.3, 1081.5),
+  Offset(761.6, 1082.5),
+  Offset(761.0, 1083.5),
+  Offset(760.7, 1084.5),
+  Offset(760.3, 1085.5),
+  Offset(760.1, 1086.5),
+  Offset(760.0, 1087.5),
+  Offset(759.8, 1088.5),
+  Offset(759.7, 1089.5),
+  Offset(759.5, 1090.5),
+  Offset(759.4, 1091.5),
+  Offset(759.4, 1092.5),
+  Offset(759.5, 1093.5),
+  Offset(759.7, 1094.5),
+  Offset(759.9, 1095.5),
+  Offset(760.1, 1096.5),
+  Offset(760.7, 1097.5),
+  Offset(761.7, 1098.5),
+  Offset(764.1, 1099.5),
+  Offset(766.5, 1099.5),
+  Offset(768.4, 1098.5),
+  Offset(769.2, 1097.5),
+  Offset(769.7, 1096.5),
+  Offset(769.9, 1095.5),
+  Offset(770.1, 1094.5),
+  Offset(770.1, 1093.5),
+  Offset(770.1, 1092.5),
+  Offset(770.1, 1091.5),
+  Offset(770.1, 1090.5),
+  Offset(770.1, 1089.5),
+  Offset(770.1, 1088.5),
+  Offset(769.9, 1087.5),
+  Offset(769.6, 1086.5),
+  Offset(769.0, 1085.5),
+  Offset(768.1, 1084.5),
+  Offset(767.2, 1083.5),
+  Offset(766.2, 1082.5),
+  Offset(765.1, 1081.5),
+];
+
+const _redEyeRight = <Offset>[
+  Offset(789.1, 1081.5),
+  Offset(788.0, 1082.5),
+  Offset(786.9, 1083.5),
+  Offset(786.1, 1084.5),
+  Offset(785.0, 1085.5),
+  Offset(784.4, 1086.5),
+  Offset(784.0, 1087.5),
+  Offset(783.8, 1088.5),
+  Offset(783.6, 1089.5),
+  Offset(783.5, 1090.5),
+  Offset(783.5, 1091.5),
+  Offset(783.5, 1092.5),
+  Offset(783.6, 1093.5),
+  Offset(783.8, 1094.5),
+  Offset(784.0, 1095.5),
+  Offset(784.3, 1096.5),
+  Offset(784.9, 1097.5),
+  Offset(785.9, 1098.5),
+  Offset(788.2, 1099.5),
+  Offset(790.6, 1099.5),
+  Offset(792.6, 1098.5),
+  Offset(793.3, 1097.5),
+  Offset(793.9, 1096.5),
+  Offset(794.1, 1095.5),
+  Offset(794.2, 1094.5),
+  Offset(794.3, 1093.5),
+  Offset(794.3, 1092.5),
+  Offset(794.3, 1091.5),
+  Offset(794.3, 1090.5),
+  Offset(794.3, 1089.5),
+  Offset(794.1, 1088.5),
+  Offset(794.0, 1087.5),
+  Offset(793.9, 1086.5),
+  Offset(793.6, 1085.5),
+  Offset(793.3, 1084.5),
+  Offset(793.0, 1083.5),
+  Offset(792.5, 1082.5),
+  Offset(791.8, 1081.5),
+];
+
+const _redMouth = <Offset>[
+  Offset(777.1, 1106.6),
+  Offset(773.9, 1107.5),
+  Offset(771.9, 1108.5),
+  Offset(770.3, 1109.5),
+  Offset(769.1, 1110.5),
+  Offset(768.0, 1111.5),
+  Offset(767.2, 1112.5),
+  Offset(766.4, 1113.5),
+  Offset(765.9, 1114.5),
+  Offset(765.4, 1115.5),
+  Offset(765.2, 1116.5),
+  Offset(765.0, 1117.5),
+  Offset(764.9, 1118.5),
+  Offset(765.0, 1119.5),
+  Offset(765.3, 1120.8),
+  Offset(789.0, 1120.8),
+  Offset(789.3, 1119.5),
+  Offset(789.3, 1118.5),
+  Offset(789.2, 1117.5),
+  Offset(789.0, 1116.5),
+  Offset(788.8, 1115.5),
+  Offset(788.3, 1114.5),
+  Offset(787.7, 1113.5),
+  Offset(787.0, 1112.5),
+  Offset(786.1, 1111.5),
+  Offset(785.1, 1110.5),
+  Offset(784.0, 1109.5),
+  Offset(782.5, 1108.5),
+  Offset(780.3, 1107.5),
 ];
