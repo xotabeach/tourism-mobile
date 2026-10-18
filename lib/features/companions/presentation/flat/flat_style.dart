@@ -154,8 +154,13 @@ class BeanPose {
     this.eyesAhead = false,
     this.face = 1,
     this.faceless = false,
+    this.armless = false,
     this.look,
   });
+
+  /// No arms drawn: the caller draws the hands (the QR holder's, gripping
+  /// the board from behind).
+  final bool armless;
 
   /// No eyes or mouth: the caller draws its own face (the card's red one,
   /// traced from the mockup).
@@ -316,8 +321,10 @@ void paintBean(
 
   // Each arm: which side, its path, where it turns, its hand, how far up.
   final arms = [
-    (-1.0, art.armLeft, art.shoulderLeft, art.handLeft),
-    (1.0, art.armRight, art.shoulderRight, art.handRight),
+    if (!pose.armless) ...[
+      (-1.0, art.armLeft, art.shoulderLeft, art.handLeft),
+      (1.0, art.armRight, art.shoulderRight, art.handRight),
+    ],
   ];
   final hands = <double, Offset>{};
   final sleeves = <(Offset, Offset)>[];
@@ -361,7 +368,7 @@ void paintBean(
     hands[side] = turned(shoulder + (hand - shoulder) * reach, shoulder, angle);
   }
 
-  if (pose.ready) {
+  if (pose.ready && hands.containsKey(dir)) {
     final hand = hands[dir]!;
     final tip = hand.translate(dir * w * 0.5, -w * 0.3);
     canvas.drawLine(hand, tip, stroke(FlatPalette.logDark, w * 0.04));
@@ -593,6 +600,7 @@ void paintLabel(
   required double size,
   Color color = FlatPalette.white,
   double maxWidth = 90,
+  FontWeight weight = FontWeight.w600,
 }) {
   final painter = TextPainter(
     text: TextSpan(
@@ -600,7 +608,7 @@ void paintLabel(
       style: TextStyle(
         fontFamily: 'Rubik',
         fontSize: size,
-        fontWeight: FontWeight.w600,
+        fontWeight: weight,
         color: color,
       ),
     ),

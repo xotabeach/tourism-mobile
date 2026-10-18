@@ -3,7 +3,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
@@ -17,8 +16,8 @@ import 'package:tourism_mobile/features/companions/presentation/companion_sheets
 import 'package:tourism_mobile/features/companions/presentation/flat/campfire_scene.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/group_postcard.dart';
-import 'package:tourism_mobile/features/companions/presentation/flat/rope_view.dart';
-import 'package:tourism_mobile/features/companions/presentation/group_qr.dart';
+import 'package:tourism_mobile/features/companions/presentation/flat/mountain_route.dart';
+import 'package:tourism_mobile/features/companions/presentation/group_design.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// One group of companions from invitation to the finish (spec 11b).
@@ -225,18 +224,11 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
   Widget build(BuildContext context) {
     final group = _group;
     return Scaffold(
-      backgroundColor: AppColors.pageSurface,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: AppColors.pageSurface,
+        backgroundColor: Colors.white,
+        toolbarHeight: 44,
         surfaceTintColor: Colors.transparent,
-        title: const Text(
-          'Пройти вместе',
-          style: TextStyle(
-            fontFamily: AppFonts.rubik,
-            fontWeight: FontWeight.w600,
-            fontSize: 17,
-          ),
-        ),
       ),
       body: group == null
           ? Center(
@@ -277,7 +269,14 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
   String? get _me => ref.read(myUserIdProvider);
 
   List<Widget> _body(CompanionGroup group) {
-    final header = _RouteHeader(group: group);
+    final header = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const GroupTitle('Совместный маршрут:'),
+        const SizedBox(height: 12),
+        _routeCard(group),
+      ],
+    );
     if (group.status == CompanionGroupStatus.cancelled) {
       return [
         header,
@@ -294,11 +293,11 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
       return [
         header,
         const SizedBox(height: 16),
-        CampfireScene(members: _camp(group)),
+        CampfireScene(members: _camp(group), radius: 10),
         const SizedBox(height: 16),
         const _Note(text: 'Ждём, когда организатор впустит вас в группу.'),
         const SizedBox(height: 12),
-        _SecondaryButton(
+        GroupOutlineButton(
           label: 'Передумал',
           onPressed: _busy || _me == null
               ? null
@@ -332,7 +331,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
   List<Widget> _invitation(CompanionGroup group, Widget header) => [
     header,
     const SizedBox(height: 16),
-    CampfireScene(members: _camp(group)),
+    CampfireScene(members: _camp(group), radius: 10),
     const SizedBox(height: 16),
     _Note(
       text:
@@ -340,14 +339,14 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
           'Каждый отмечает точки сам, а в группе видно, кто где.',
     ),
     const SizedBox(height: 16),
-    _PrimaryButton(
+    GroupDarkButton(
       label: 'Пойду',
       onPressed: _busy
           ? null
           : () => _act(() => _repo.respond(group.id, accept: true)),
     ),
     const SizedBox(height: 8),
-    _SecondaryButton(
+    GroupOutlineButton(
       label: 'Не пойду',
       onPressed: _busy
           ? null
@@ -365,37 +364,113 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
     ),
   ];
 
+  BeanKind _kindOf(String userId, String? kind) =>
+      BeanKind.fromSlug(kind) ?? BeanKind.forUser(userId);
+
+  void _openProfile(String userId) => unawaited(
+    context.pushNamed(
+      AppRouteNames.userProfileStandalone,
+      pathParameters: {'userId': userId},
+    ),
+  );
+
+  void _openRoute(CompanionGroup group) => unawaited(
+    context.pushNamed(
+      AppRouteNames.routeDetailsStandalone,
+      pathParameters: {'id': group.routeId},
+    ),
+  );
+
+  Widget _routeCard(CompanionGroup group) => GroupRouteCard(
+    routeId: group.routeId,
+    name: group.routeName,
+    coverUrl: group.routeCoverUrl,
+    onTap: () => _openRoute(group),
+  );
+
+  /// The organizer's choice on someone in the camp: their profile, or out.
+  Future<void> _memberMenu(CompanionGroup group, CompanionMember member) async {
+    if (!group.isOrganizer || member.isOrganizer) {
+      _openProfile(member.userId);
+      return;
+    }
+    final invited = member.state == CompanionMemberState.invited;
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheet) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text('Открыть профиль'),
+              onTap: () => Navigator.of(sheet).pop('profile'),
+            ),
+            ListTile(
+              title: Text(
+                invited ? 'Отозвать приглашение' : 'Убрать из группы',
+                style: const TextStyle(color: GroupDesign.danger),
+              ),
+              onTap: () => Navigator.of(sheet).pop('remove'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!mounted) return;
+    if (choice == 'profile') _openProfile(member.userId);
+    if (choice == 'remove') {
+      await _act(() => _repo.removeMember(group.id, member.userId));
+    }
+  }
+
+  /// Gathering, as on the designer's lobby (FRONTEND-88).
   List<Widget> _gathering(CompanionGroup group, Widget header) {
     final me = group.memberOf(_me ?? '');
     final ready = me?.ready ?? false;
     final joined = group.joined;
     final readyCount = joined.where((m) => m.ready || m.isOrganizer).length;
     return [
-      header,
+      const GroupTitle('Совместный маршрут:'),
+      const SizedBox(height: 12),
+      _routeCard(group),
       const SizedBox(height: 16),
-      CampfireScene(
-        members: _camp(group),
-        departing: _departing,
-        // Only a ready phone starts its run on its own (spec 11b D12); the
-        // rest stay in the group as «не стартовал» and may start later.
-        onDeparted: () {
-          if (group.isOrganizer || (me?.ready ?? false)) {
-            _openRun();
-          } else {
-            unawaited(_refresh());
-          }
-        },
+      LayoutBuilder(
+        builder: (context, constraints) => CampfireScene(
+          radius: 10,
+          height: constraints.maxWidth * 228 / 343,
+          labelsAbove: true,
+          members: _camp(group),
+          departing: _departing,
+          // Only a ready phone starts its run on its own (spec 11b D12);
+          // the rest stay in the group as «не стартовал».
+          onDeparted: () {
+            if (group.isOrganizer || (me?.ready ?? false)) {
+              _openRun();
+            } else {
+              unawaited(_refresh());
+            }
+          },
+        ),
       ),
-      const SizedBox(height: 10),
+      const SizedBox(height: 9),
       Text(
-        'У костра ${joined.length} из ${group.maxMembers} · готовы $readyCount',
+        'У костра: ${joined.length}/${group.maxMembers} • Готовы: $readyCount',
         textAlign: TextAlign.center,
-        style: AppTypography.settingsRowSubtitle,
+        style: const TextStyle(
+          fontFamily: AppFonts.rubik,
+          fontSize: 13,
+          color: AppColors.secondaryInk,
+        ),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: 17),
       if (group.isOrganizer) ...[
-        _PrimaryButton(
-          label: 'Старт! Выходим на тропу',
+        GroupDarkButton(
+          label: 'Выйти на тропу',
           onPressed: _busy || joined.length < 2 || _departing ? null : _start,
         ),
         if (joined.length < 2)
@@ -408,18 +483,18 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
             ),
           ),
       ] else
-        _PrimaryButton(
-          label: ready ? 'Я готов ✓' : 'Я готов',
-          tone: ready ? FlatPalette.trail : null,
+        GroupDarkButton(
+          label: ready ? 'Не готов' : 'Готов',
           onPressed: _busy
               ? null
               : () => _act(() => _repo.setReady(group.id, ready: !ready)),
         ),
-      const SizedBox(height: 20),
-      if (group.joinCode != null) _CodeCard(code: group.joinCode!),
+      const SizedBox(height: 16),
+      if (group.joinCode != null)
+        GroupCodeBlock(code: group.joinCode!, routeName: group.routeName),
       if (group.isOrganizer) ...[
         const SizedBox(height: 12),
-        _SecondaryButton(
+        GroupOutlineButton(
           label: 'Позвать друзей',
           onPressed: () => showInviteSheet(
             context,
@@ -429,11 +504,15 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
         ),
       ],
       if (group.isOrganizer && group.requests.isNotEmpty) ...[
-        const SizedBox(height: 20),
-        const _SectionTitle('Просятся в группу'),
+        const SizedBox(height: 24),
+        const GroupTitle('Просятся в группу:'),
+        const SizedBox(height: 8),
         for (final member in group.requests)
-          _MemberRow(
-            member: member,
+          GroupMemberRow(
+            kind: _kindOf(member.userId, member.beanKind),
+            name: member.displayName,
+            subtitle: member.rankTitle ?? 'Хочет пойти с вами',
+            onTap: () => _openProfile(member.userId),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -460,50 +539,35 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
                       approve: false,
                     ),
                   ),
-                  icon: const Icon(Icons.cancel, color: Color(0xFFE5484D)),
+                  icon: const Icon(Icons.cancel, color: GroupDesign.danger),
                 ),
               ],
             ),
           ),
       ],
-      const SizedBox(height: 20),
-      const _SectionTitle('Кто идёт'),
+      const SizedBox(height: 24),
+      const GroupTitle('Попутчики:'),
+      const SizedBox(height: 8),
       for (final member in [...joined, ...group.invited])
-        _MemberRow(
-          member: member,
+        GroupMemberRow(
+          kind: _kindOf(member.userId, member.beanKind),
+          name: member.displayName,
+          organizer: member.isOrganizer,
+          faded: member.state == CompanionMemberState.invited,
           subtitle: member.state == CompanionMemberState.invited
               ? 'Ждём ответа'
-              : member.isOrganizer
-              ? 'Организатор'
-              : member.ready
-              ? 'Готов'
-              : 'Собирается',
-          trailing: group.isOrganizer && !member.isOrganizer
-              ? IconButton(
-                  tooltip: member.state == CompanionMemberState.invited
-                      ? 'Отозвать приглашение'
-                      : 'Убрать из группы',
-                  onPressed: () =>
-                      _act(() => _repo.removeMember(group.id, member.userId)),
-                  icon: const Icon(Icons.close_rounded),
-                )
-              : null,
+              : member.rankTitle ?? 'Путник',
+          onTap: () => unawaited(_memberMenu(group, member)),
         ),
       const SizedBox(height: 20),
       if (group.isOrganizer)
-        _SecondaryButton(
+        GroupDangerButton(
           label: 'Отменить группу',
-          danger: true,
-          onPressed: _busy
-              ? null
-              : () async {
-                  await _act(() => _repo.cancel(group.id));
-                },
+          onPressed: _busy ? null : () => _act(() => _repo.cancel(group.id)),
         )
       else
-        _SecondaryButton(
-          label: 'Выйти из группы',
-          danger: true,
+        GroupDangerButton(
+          label: 'Покинуть группу',
           onPressed: _busy || _me == null
               ? null
               : () => _act(() => _repo.removeMember(group.id, _me!)),
@@ -511,331 +575,158 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
     ];
   }
 
+  /// Where a member stands on the mountain, as a stop index from 0.
+  double _mountainAt(CompanionMemberProgress member, int stops) {
+    if (member.reached || member.status == CompanionRunStatus.finished) {
+      return (stops - 1).toDouble();
+    }
+    if (member.lastPosition <= 0) return 0;
+    final at = member.lastPosition - 1;
+    // Walking on: a little way up toward the next stop.
+    return member.status == CompanionRunStatus.walking && at < stops - 1
+        ? at + 0.4
+        : at.toDouble();
+  }
+
+  String _whereIs(CompanionMemberProgress member, CompanionProgress progress) {
+    if (member.status == CompanionRunStatus.notStarted &&
+        member.lastPosition == 0) {
+      return 'Ещё не вышел';
+    }
+    final stop = progress.stops
+        .where((s) => s.position == member.lastPosition)
+        .firstOrNull;
+    if (stop == null) return 'На старте';
+    final meters = stop.distanceFromStartMeters;
+    return [
+      if (meters == 0)
+        'Старт'
+      else if (meters != null)
+        '${formatDistance(meters)} от старта',
+      stop.placeName,
+    ].join(' • ');
+  }
+
+  /// On the way, as on the designer's mountain (FRONTEND-89).
   List<Widget> _onTheWay(CompanionGroup group, Widget header) {
     final progress = _progress;
     final me = group.memberOf(_me ?? '');
     final settled = group.status == CompanionGroupStatus.settled;
+    final mine = progress?.members.where((m) => m.userId == _me).firstOrNull;
+    final started = me?.started ?? false;
+    String? walked;
+    String? toNext;
+    if (progress != null && mine != null && mine.startedAt != null) {
+      final end = mine.finishedAt ?? DateTime.now();
+      walked = '${end.difference(mine.startedAt!).inMinutes} мин.';
+      final here = progress.stops
+          .where((s) => s.position == mine.lastPosition)
+          .firstOrNull;
+      final next = progress.stops
+          .where((s) => s.position > mine.lastPosition)
+          .firstOrNull;
+      final from = here?.distanceFromStartMeters ?? 0;
+      final to = next?.distanceFromStartMeters;
+      if (to != null && to >= from) toNext = formatDistance(to - from);
+    }
     return [
-      header,
+      GroupTitle(settled ? 'Маршрут пройден:' : 'Группа в пути:'),
+      const SizedBox(height: 12),
+      _routeCard(group),
       const SizedBox(height: 16),
       if (progress == null)
         const AppShimmer(
-          child: AppSkeleton(
-            width: double.infinity,
-            height: 170,
-            borderRadius: 22,
+          child: AspectRatio(
+            aspectRatio: MountainRoute.aspect,
+            child: AppSkeleton(
+              width: double.infinity,
+              height: double.infinity,
+              borderRadius: 16,
+            ),
           ),
         )
       else ...[
-        RopeView(progress: progress),
-        const SizedBox(height: 16),
-        if (!settled && me != null && !me.started) ...[
-          _PrimaryButton(label: 'Начать своё прохождение', onPressed: _openRun),
-          const SizedBox(height: 16),
-        ],
-        const _SectionTitle('Кто где'),
-        for (final member in progress.members)
-          _ProgressRow(member: member, stops: progress.stops.length),
-        if (!progress.leaderboardHidden &&
-            progress.stops.any((stop) => stop.firstUserId != null)) ...[
-          const SizedBox(height: 20),
-          const _SectionTitle('Кто первым дошёл'),
-          for (final stop in progress.stops)
-            if (stop.firstUserId != null)
-              _FirstRow(
-                place: '${stop.position}. ${stop.placeName}',
-                userId: stop.firstUserId!,
-                name: progress.members
-                    .firstWhere(
-                      (m) => m.userId == stop.firstUserId,
-                      orElse: () => CompanionMemberProgress(
-                        userId: stop.firstUserId!,
-                        displayName: '',
-                        status: CompanionRunStatus.notStarted,
-                      ),
-                    )
-                    .displayName,
+        MountainRoute(
+          stops: progress.stops.length,
+          walkers: [
+            for (final member in progress.members)
+              MountainWalker(
+                kind: _kindOf(member.userId, member.beanKind),
+                at: _mountainAt(member, progress.stops.length),
               ),
-          const Padding(
-            padding: EdgeInsets.only(top: 6),
-            child: Text(
-              'Отметки без сети в зачёт первенства не идут. Очков за место '
-              'нет, только слава.',
-              style: AppTypography.settingsRowSubtitle,
-            ),
+          ],
+        ),
+        if (started && walked != null) ...[
+          const SizedBox(height: 14),
+          GroupStatRow(
+            icon: Icons.alarm_outlined,
+            label: 'Всего в пути:',
+            value: walked,
           ),
-        ] else if (progress.leaderboardHidden) ...[
+          if (toNext != null && !settled) ...[
+            const SizedBox(height: 6),
+            GroupStatRow(
+              icon: Icons.near_me_outlined,
+              label: 'До след. точки',
+              value: toNext,
+            ),
+          ],
+        ],
+        if (!settled && me != null) ...[
           const SizedBox(height: 16),
-          const _Note(
-            text:
-                'На горном маршруте не соревнуемся: идите в своём темпе и '
-                'держитесь вместе.',
+          GroupDarkButton(
+            label: started ? 'Перейти к маршруту' : 'Начать прохождение',
+            onPressed: _openRun,
           ),
         ],
         const SizedBox(height: 24),
-        const _SectionTitle('Открытка группы'),
-        RepaintBoundary(
-          key: _cardKey,
-          child: GroupPostcard(
-            routeName: group.routeName,
-            progress: progress,
-            hiddenUserIds: _hiddenOnCard,
+        const GroupTitle('Участники маршрута:'),
+        const SizedBox(height: 8),
+        for (final member in progress.members)
+          GroupMemberRow(
+            kind: _kindOf(member.userId, member.beanKind),
+            name: member.displayName,
+            subtitle: _whereIs(member, progress),
+            onTap: () => _openProfile(member.userId),
           ),
-        ),
-        const SizedBox(height: 10),
-        if (_me != null)
-          SwitchListTile.adaptive(
-            contentPadding: EdgeInsets.zero,
-            value: !_hiddenOnCard.contains(_me),
-            title: const Text('Я на открытке'),
-            onChanged: (value) => setState(
-              () => value ? _hiddenOnCard.remove(_me) : _hiddenOnCard.add(_me!),
+        if (settled) ...[
+          const SizedBox(height: 24),
+          const GroupTitle('Открытка группы:'),
+          const SizedBox(height: 8),
+          RepaintBoundary(
+            key: _cardKey,
+            child: GroupPostcard(
+              routeName: group.routeName,
+              progress: progress,
+              hiddenUserIds: _hiddenOnCard,
             ),
           ),
-        _SecondaryButton(
-          label: settled ? 'Поделиться открыткой' : 'Поделиться: мы ещё идём',
-          onPressed: () => unawaited(_shareCard()),
-        ),
-        if (!settled && me?.state == CompanionMemberState.joined) ...[
           const SizedBox(height: 10),
-          _SecondaryButton(
-            label: 'Выйти из группы',
-            danger: true,
+          if (_me != null)
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: !_hiddenOnCard.contains(_me),
+              title: const Text('Я на открытке'),
+              onChanged: (value) => setState(
+                () =>
+                    value ? _hiddenOnCard.remove(_me) : _hiddenOnCard.add(_me!),
+              ),
+            ),
+          GroupOutlineButton(
+            label: 'Поделиться открыткой',
+            onPressed: () => unawaited(_shareCard()),
+          ),
+        ],
+        if (!settled && me?.state == CompanionMemberState.joined) ...[
+          const SizedBox(height: 20),
+          GroupDangerButton(
+            label: 'Сойти с дистанции',
             onPressed: _busy ? null : () => unawaited(_leaveOnTheWay(group)),
           ),
         ],
       ],
     ];
   }
-}
-
-class _RouteHeader extends StatelessWidget {
-  const _RouteHeader({required this.group});
-
-  final CompanionGroup group;
-
-  @override
-  Widget build(BuildContext context) {
-    final status = switch (group.status) {
-      CompanionGroupStatus.gathering => 'Собираемся у костра',
-      CompanionGroupStatus.started => 'Группа в пути',
-      CompanionGroupStatus.settled => 'Итог зафиксирован',
-      CompanionGroupStatus.cancelled => 'Группа отменена',
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          status,
-          style: const TextStyle(
-            fontFamily: AppFonts.rubik,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: FlatPalette.flameOuter,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          group.routeName,
-          style: const TextStyle(
-            fontFamily: AppFonts.rubik,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primaryInk,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _CodeCard extends StatelessWidget {
-  const _CodeCard({required this.code});
-
-  final String code;
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: FlatPalette.paper,
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Код группы',
-                style: TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 13,
-                  color: Color(0xFF6B6B7B),
-                ),
-              ),
-              Text(
-                code,
-                style: const TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 4,
-                  color: FlatPalette.ink,
-                ),
-              ),
-              const Text(
-                'Покажите код или QR тому, кто рядом',
-                style: TextStyle(
-                  fontFamily: AppFonts.rubik,
-                  fontSize: 12,
-                  color: Color(0xFF6B6B7B),
-                ),
-              ),
-            ],
-          ),
-        ),
-        GestureDetector(
-          key: const ValueKey('group-qr'),
-          onTap: () => unawaited(showGroupQrSheet(context, code)),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: GroupQrImage(code: code, size: 64),
-          ),
-        ),
-        IconButton(
-          tooltip: 'Скопировать код',
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: code));
-            if (context.mounted) showAppNotice(context, 'Код скопирован');
-          },
-          icon: const Icon(Icons.copy_rounded),
-        ),
-      ],
-    ),
-  );
-}
-
-class _MemberRow extends StatelessWidget {
-  const _MemberRow({required this.member, this.subtitle, this.trailing});
-
-  final CompanionMember member;
-  final String? subtitle;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6),
-    child: Row(
-      children: [
-        BeanFace(userId: member.userId),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(member.displayName, style: AppTypography.settingsRowTitle),
-              if (subtitle != null)
-                Text(subtitle!, style: AppTypography.settingsRowSubtitle),
-            ],
-          ),
-        ),
-        ?trailing,
-      ],
-    ),
-  );
-}
-
-class _ProgressRow extends StatelessWidget {
-  const _ProgressRow({required this.member, required this.stops});
-
-  final CompanionMemberProgress member;
-  final int stops;
-
-  @override
-  Widget build(BuildContext context) {
-    final offline = member.marks.any((mark) => mark.offline);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          BeanFace(userId: member.userId),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(member.displayName, style: AppTypography.settingsRowTitle),
-                Text(
-                  [
-                    member.status.label,
-                    if (member.status != CompanionRunStatus.notStarted)
-                      'точка ${member.lastPosition} из $stops',
-                    if (member.joinedLate) 'присоединился позже',
-                    if (offline) 'есть отметки без сети',
-                  ].join(' · '),
-                  style: AppTypography.settingsRowSubtitle,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FirstRow extends StatelessWidget {
-  const _FirstRow({
-    required this.place,
-    required this.userId,
-    required this.name,
-  });
-
-  final String place;
-  final String userId;
-  final String name;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(
-      children: [
-        Icon(Icons.emoji_events, size: 20, color: FlatPalette.beanFor(userId)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            place,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AppTypography.settingsRowSubtitle,
-          ),
-        ),
-        Text(name, style: AppTypography.settingsRowTitle),
-      ],
-    ),
-  );
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 6),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontFamily: AppFonts.rubik,
-        fontSize: 18,
-        fontWeight: FontWeight.w600,
-        color: AppColors.primaryInk,
-      ),
-    ),
-  );
 }
 
 class _Note extends StatelessWidget {
@@ -859,62 +750,6 @@ class _Note extends StatelessWidget {
         color: FlatPalette.ink,
       ),
     ),
-  );
-}
-
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({required this.label, this.onPressed, this.tone});
-
-  final String label;
-  final VoidCallback? onPressed;
-  final Color? tone;
-
-  @override
-  Widget build(BuildContext context) => FilledButton(
-    onPressed: onPressed,
-    style: FilledButton.styleFrom(
-      backgroundColor: tone ?? FlatPalette.flameOuter,
-      foregroundColor: FlatPalette.white,
-      minimumSize: const Size.fromHeight(54),
-      shape: const StadiumBorder(),
-      textStyle: const TextStyle(
-        fontFamily: AppFonts.rubik,
-        fontSize: 17,
-        fontWeight: FontWeight.w700,
-      ),
-    ),
-    child: Text(label),
-  );
-}
-
-class _SecondaryButton extends StatelessWidget {
-  const _SecondaryButton({
-    required this.label,
-    this.onPressed,
-    this.danger = false,
-  });
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool danger;
-
-  @override
-  Widget build(BuildContext context) => OutlinedButton(
-    onPressed: onPressed,
-    style: OutlinedButton.styleFrom(
-      foregroundColor: danger ? const Color(0xFFE5484D) : AppColors.primaryInk,
-      minimumSize: const Size.fromHeight(50),
-      shape: const StadiumBorder(),
-      side: BorderSide(
-        color: danger ? const Color(0x55E5484D) : const Color(0xFFD7D7D7),
-      ),
-      textStyle: const TextStyle(
-        fontFamily: AppFonts.rubik,
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-      ),
-    ),
-    child: Text(label),
   );
 }
 

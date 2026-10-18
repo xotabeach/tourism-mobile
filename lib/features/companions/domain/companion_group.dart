@@ -52,7 +52,11 @@ class CompanionMember {
     this.beanHat,
     this.beanKind,
     this.beanOutfit,
+    this.rankTitle,
   });
+
+  /// The person's rank, as on the profile (BACKEND-74).
+  final String? rankTitle;
 
   /// The hat on this person's character; null is the default one.
   final String? beanHat;
@@ -89,6 +93,7 @@ class CompanionMember {
         beanHat: json['bean_hat'] as String?,
         beanKind: json['bean_kind'] as String?,
         beanOutfit: json['bean_outfit'] as String?,
+        rankTitle: json['rank_title'] as String?,
         inviteExpiresAt: DateTime.tryParse(
           json['invite_expires_at'] as String? ?? '',
         ),
@@ -244,11 +249,17 @@ class CompanionMemberProgress {
     this.beanHat,
     this.beanKind,
     this.beanOutfit,
+    this.rankTitle,
+    this.startedAt,
   });
 
   final String? beanHat;
   final String? beanKind;
   final String? beanOutfit;
+  final String? rankTitle;
+
+  /// When this member's own run began; null before.
+  final DateTime? startedAt;
 
   final String userId;
   final String displayName;
@@ -278,6 +289,8 @@ class CompanionMemberProgress {
         beanHat: json['bean_hat'] as String?,
         beanKind: json['bean_kind'] as String?,
         beanOutfit: json['bean_outfit'] as String?,
+        rankTitle: json['rank_title'] as String?,
+        startedAt: DateTime.tryParse(json['started_at'] as String? ?? ''),
         finishedAt: DateTime.tryParse(json['finished_at'] as String? ?? ''),
       );
 }
@@ -288,11 +301,15 @@ class CompanionStop {
     required this.placeName,
     this.isOptional = false,
     this.firstUserId,
+    this.distanceFromStartMeters,
   });
 
   final int position;
   final String placeName;
   final bool isOptional;
+
+  /// Along the route from the first stop (BACKEND-74); null if unknown.
+  final int? distanceFromStartMeters;
 
   /// Who got here first among marks made online.
   final String? firstUserId;
@@ -302,6 +319,8 @@ class CompanionStop {
     placeName: json['place_name'] as String? ?? '',
     isOptional: json['is_optional'] as bool? ?? false,
     firstUserId: json['first_user_id'] as String?,
+    distanceFromStartMeters: (json['distance_from_start_meters'] as num?)
+        ?.toInt(),
   );
 }
 

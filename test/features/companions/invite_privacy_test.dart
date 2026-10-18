@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:qr_flutter/qr_flutter.dart';
 
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/data/invite_privacy_repository.dart';
@@ -122,7 +121,13 @@ void main() {
         home: Scaffold(body: GroupQrImage(code: 'KRM12Q')),
       ),
     );
-    final qr = tester.widget<QrImageView>(find.byType(QrImageView));
-    expect(qr.size, 220);
+    final qr = tester.widget<CustomPaint>(
+      find.descendant(
+        of: find.byType(GroupQrImage),
+        matching: find.byType(CustomPaint),
+      ),
+    );
+    expect((qr.painter! as GroupQrPainter).data, 'krymtrip:group:KRM12Q');
+    expect(tester.getSize(find.byType(GroupQrImage)), const Size(220, 220));
   });
 }
