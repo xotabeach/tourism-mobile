@@ -100,9 +100,14 @@ class BeanLook {
     this.kind = BeanKind.pin,
     this.accessory,
     this.outfit = BeanOutfit.none,
+    this.shape,
   });
 
   final BeanKind kind;
+
+  /// Another build's outline in this one's colours: the designer's card
+  /// has the yellow one drawn long like the blue (FRONTEND-87).
+  final BeanKind? shape;
   final BeanHat? accessory;
   final BeanOutfit outfit;
 
@@ -122,6 +127,10 @@ class BeanLook {
   );
 }
 
+/// What the mouth says (FRONTEND-87's card): the designer's smile, a wide
+/// beam with its top edge dipping in the middle, or a cross upturned arch.
+enum BeanMood { smile, beam, cross }
+
 /// How a bean looks this frame.
 class BeanPose {
   const BeanPose({
@@ -140,8 +149,30 @@ class BeanPose {
     this.mouthOpen = false,
     this.toast = 0,
     this.flutter = 0,
+    this.cheer = 0,
+    this.mood = BeanMood.smile,
+    this.eyesAhead = false,
+    this.face = 1,
+    this.faceless = false,
     this.look,
   });
+
+  /// No eyes or mouth: the caller draws its own face (the card's red one,
+  /// traced from the mockup).
+  final bool faceless;
+
+  /// The eyes and mouth larger than drawn, 1 as is: the card's yellow one
+  /// has a big face on a slim body (FRONTEND-87).
+  final double face;
+
+  /// Looking straight at you: the eyes' shine in the middle.
+  final bool eyesAhead;
+
+  /// The mouth: the designer's smile, a wide beaming one, or cross.
+  final BeanMood mood;
+
+  /// Both arms out wide, 0 at rest to 1: «ура» (FRONTEND-87's card).
+  final double cheer;
 
   /// Character and clothes; a plain blue bean without it.
   final BeanLook? look;
@@ -217,12 +248,13 @@ void paintBean(
   BeanPose pose,
 ) {
   final look = pose.look ?? const BeanLook();
-  final art = look.kind.art;
+  final art = (look.shape ?? look.kind).art;
   final data = art.data;
+  final colors = look.kind.art.data;
   final g = data.ground;
   final b = art.bodyBounds;
   final w = b.width;
-  final limb = data.limbColor;
+  final limb = colors.limbColor;
   Paint fill(Color c) => Paint()..color = c;
   Paint stroke(Color c, double width) => Paint()
     ..color = c
@@ -244,7 +276,7 @@ void paintBean(
   canvas.translate(g.dx, g.dy);
   canvas.scale(1 - pose.bob * 0.5, 1);
   canvas.translate(-g.dx, -g.dy);
-  canvas.drawPath(art.shadow, fill(data.shadowColor.withValues(alpha: 0.15)));
+  canvas.drawPath(art.shadow, fill(colors.shadowColor.withValues(alpha: 0.15)));
   canvas.restore();
 
   canvas.translate(0, -pose.bob * data.size.height);
@@ -291,26 +323,42 @@ void paintBean(
   final sleeves = <(Offset, Offset)>[];
   for (final (side, path, shoulder, hand) in arms) {
     final holds = side == dir;
-    final turn = holds ? (pose.ready ? 1.05 : 0.0) : waveTurn;
+    final turn = math.max(
+      holds ? (pose.ready ? 1.05 : 0.0) : waveTurn,
+      pose.cheer.clamp(0.0, 1.0) * 1.35,
+    );
     // Raising the left arm out turns it clockwise, the right one back.
     final angle = -side * turn;
     if (sleeved) {
       final from = Offset(
-        body.cx + side * torso.topHalf * 0.86,
+        body.cx + side * torso.topHalf * 0.8,
         torso.top + w * 0.08,
       );
-      final to = turned(from + Offset(side * w * 0.12, w * 0.24), from, angle);
+      // Down and out at about 45°, as long as an arm (the reference).
+      final to = turned(from + Offset(side * w * 0.3, w * 0.31), from, angle);
       sleeves.add((from, to));
       hands[side] = to;
       continue;
     }
+    // A raised arm turns away from the body at its root: a short stub
+    // inside the body keeps it joined.
+    if (angle.abs() > 0.3) {
+      canvas.drawLine(
+        shoulder,
+        Offset.lerp(shoulder, Offset(b.center.dx, shoulder.dy), 0.18)!,
+        stroke(limb, w * 0.07),
+      );
+    }
+    // Cheering, the arms also reach out to their full length.
+    final reach = 1 + 0.35 * pose.cheer.clamp(0.0, 1.0);
     canvas.save();
     canvas.translate(shoulder.dx, shoulder.dy);
     canvas.rotate(angle);
+    canvas.scale(reach);
     canvas.translate(-shoulder.dx, -shoulder.dy);
     canvas.drawPath(path, fill(limb));
     canvas.restore();
-    hands[side] = turned(hand, shoulder, angle);
+    hands[side] = turned(shoulder + (hand - shoulder) * reach, shoulder, angle);
   }
 
   if (pose.ready) {
@@ -340,14 +388,14 @@ void paintBean(
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [data.bodyTop, data.bodyBottom],
+        colors: [colors.bodyTop, colors.bodyBottom],
       ).createShader(b),
   );
   canvas.save();
   canvas.clipPath(art.solidBody);
   canvas.drawPath(
     art.highlight,
-    fill(data.highlightColor)
+    fill(colors.highlightColor)
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 0.022),
   );
   canvas.restore();
@@ -361,7 +409,7 @@ void paintBean(
       outfit,
       torso,
       body,
-      bodyColor: data.bodyTop,
+      bodyColor: colors.bodyTop,
       facingRight: pose.stickToRight,
       alpha: 1,
     );
@@ -369,6 +417,15 @@ void paintBean(
 
   // The face: the designer's eyes and smile, swapped for a blink, joy or
   // an open «о!».
+  canvas.save();
+  if (pose.faceless) {
+    canvas.scale(0);
+  } else if (pose.face != 1) {
+    final c = eyes.center;
+    canvas.translate(c.dx, c.dy);
+    canvas.scale(pose.face);
+    canvas.translate(-c.dx, -c.dy);
+  }
   final gaze = Offset(pose.lookX.clamp(-1.0, 1.0) * w * 0.03, 0);
   for (final (eye, shine) in [
     (art.eyeLeft, art.shineLeft),
@@ -390,8 +447,28 @@ void paintBean(
       );
       continue;
     }
-    canvas.drawPath(eye.shift(gaze), fill(Colors.black));
-    canvas.drawPath(shine.shift(gaze), fill(Colors.white));
+    // Cross: each eye leans its top outward, a frown without
+    // brows (the designer's card).
+    final tilt = pose.mood == BeanMood.cross
+        ? (box.center.dx < b.center.dx ? -0.1 : 0.1)
+        : 0.0;
+    canvas.save();
+    canvas.translate(box.center.dx, box.center.dy);
+    canvas.rotate(tilt);
+    canvas.translate(-box.center.dx, -box.center.dy);
+    // The SVG eye has a hole where its shine is: filled whole, so the
+    // shine can move.
+    canvas.drawPath(
+      Path.combine(PathOperation.union, eye, shine).shift(gaze),
+      fill(Colors.black),
+    );
+    final shineBox = shine.getBounds().shift(gaze);
+    // Looking straight ahead: the shine sits in the middle of the eye.
+    final ahead = pose.eyesAhead
+        ? Offset(box.center.dx - shineBox.center.dx, 0)
+        : Offset.zero;
+    canvas.drawPath(shine.shift(gaze + ahead), fill(Colors.white));
+    canvas.restore();
   }
   if (pose.mouthOpen) {
     canvas.drawOval(
@@ -402,6 +479,59 @@ void paintBean(
       ),
       fill(Colors.white),
     );
+  } else if (pose.mood != BeanMood.smile) {
+    final m = mouth.shift(gaze);
+    final cx = m.center.dx;
+    final path = Path();
+    final w2 = m.width;
+    if (pose.mood == BeanMood.beam) {
+      // The designer's smile, wider and a little deeper: the same round
+      // corners and gently dipping top edge.
+      final at = Offset(cx, m.top);
+      canvas.save();
+      canvas.translate(at.dx, at.dy);
+      canvas.scale(1.05, 1.1);
+      canvas.translate(-at.dx, -at.dy);
+      // The top edge dips softly in the middle.
+      final dip = Rect.fromCenter(
+        center: Offset(cx, m.top),
+        width: m.width * 1.5,
+        height: m.height * 0.5,
+      );
+      canvas.drawPath(
+        Path.combine(
+          PathOperation.difference,
+          art.mouth.shift(gaze),
+          Path()..addOval(dip),
+        ),
+        fill(Colors.white),
+      );
+      canvas.restore();
+    } else {
+      // Cross: a pout, round side up, the corners down and rounded.
+      final half = w2 * 0.48;
+      final bottom = m.bottom - m.height * 0.05;
+      path
+        ..moveTo(cx - half, bottom)
+        ..cubicTo(
+          cx - half * 0.9,
+          m.top - m.height * 0.15,
+          cx + half * 0.9,
+          m.top - m.height * 0.15,
+          cx + half,
+          bottom,
+        )
+        ..quadraticBezierTo(cx, bottom - m.height * 0.3, cx - half, bottom)
+        ..close();
+      canvas.drawPath(
+        path,
+        fill(Colors.white)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = m.height * 0.06
+          ..strokeJoin = StrokeJoin.round,
+      );
+    }
+    canvas.drawPath(path, fill(Colors.white));
   } else {
     canvas.save();
     final top = Offset(mouth.center.dx, mouth.top) + gaze;
@@ -412,17 +542,22 @@ void paintBean(
     canvas.restore();
   }
 
+  canvas.restore();
+
   final hat = look.accessory ?? pose.accessory;
   if (hat != null) {
     paintHat(
       canvas,
       hat,
       b,
-      bodyColor: data.bodyTop,
+      bodyColor: colors.bodyTop,
       alpha: 1,
       facingRight: pose.stickToRight,
       sway: pose.breath * 0.5,
       eyeY: eyes.center.dy,
+      eyes: eyes,
+      headHalfWidth: art.halfWidthAt,
+      shape: (look.shape ?? look.kind).slug,
     );
   }
 

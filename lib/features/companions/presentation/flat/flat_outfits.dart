@@ -165,16 +165,16 @@ void paintSleeve(
     ..style = PaintingStyle.stroke
     ..strokeWidth = w
     ..strokeCap = cap;
-  final sleeveW = width * 0.17;
+  final sleeveW = width * 0.18;
   final v = hand - shoulder;
   final unit = v / v.distance;
   final across = Offset(-unit.dy, unit.dx);
 
   // The hand first: the cuff covers its root.
-  canvas.drawCircle(hand + unit * width * 0.04, width * 0.058, fill(handColor));
+  canvas.drawCircle(hand + unit * width * 0.05, width * 0.065, fill(handColor));
   canvas.drawCircle(shoulder, sleeveW / 2, fill(cloth));
   canvas.drawLine(shoulder, hand, stroke(cloth, sleeveW, StrokeCap.butt));
-  final cuffFrom = shoulder + v * 0.76;
+  final cuffFrom = shoulder + v * 0.8;
   canvas.drawLine(cuffFrom, hand, stroke(cuff, sleeveW * 1.04, StrokeCap.butt));
   if (outfit == BeanOutfit.varsity) {
     // Two white stripes round the cuff.

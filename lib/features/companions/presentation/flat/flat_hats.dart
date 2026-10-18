@@ -70,10 +70,22 @@ void paintHat(
   bool facingRight = true,
   double sway = 0,
   double? eyeY,
+  Rect? eyes,
+  double Function(double y)? headHalfWidth,
+  String? shape,
 }) {
   // The designer's drawing where there is one (FRONTEND-79).
-  if (eyeY != null &&
-      paintHatArt(canvas, hat, body, eyeY: eyeY, alpha: alpha)) {
+  if (eyes != null &&
+      headHalfWidth != null &&
+      paintHatArt(
+        canvas,
+        hat,
+        body,
+        eyes: eyes,
+        headHalfWidth: headHalfWidth,
+        shape: shape,
+        alpha: alpha,
+      )) {
     return;
   }
   Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
