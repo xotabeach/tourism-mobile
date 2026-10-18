@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// «Остановить прохождение?» before a run is cancelled.
+/// «Отменить прохождение?» before a run is cancelled.
 Future<bool> showCancelRunDialog(BuildContext context) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Остановить прохождение?'),
+      title: const Text('Отменить прохождение?'),
       content: const Text('Прогресс сохранится в истории как отменённый.'),
       actions: [
         TextButton(
@@ -14,7 +14,7 @@ Future<bool> showCancelRunDialog(BuildContext context) async {
         ),
         FilledButton.tonal(
           onPressed: () => Navigator.pop(context, true),
-          child: const Text('Остановить'),
+          child: const Text('Отменить'),
         ),
       ],
     ),

@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
+import 'package:tourism_mobile/core/format/elapsed_format.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
 import 'package:tourism_mobile/features/companions/presentation/companion_sheets.dart';
@@ -618,7 +619,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
     String? toNext;
     if (progress != null && mine != null && mine.startedAt != null) {
       final end = mine.finishedAt ?? DateTime.now();
-      walked = '${end.difference(mine.startedAt!).inMinutes} мин.';
+      walked = formatElapsed(end.difference(mine.startedAt!));
       final here = progress.stops
           .where((s) => s.position == mine.lastPosition)
           .firstOrNull;

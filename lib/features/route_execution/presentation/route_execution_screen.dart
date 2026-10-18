@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/format/elapsed_format.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/companions/presentation/run_group_strip.dart';
 import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
@@ -1092,7 +1093,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ExecutionInfoRow(
           iconAsset: AppIconography.execAlarm,
           label: 'Всего в пути:',
-          value: '${_elapsedMinutes(execution)} мин.',
+          value: formatElapsed(execution.elapsed(DateTime.now())),
         ),
         if (nextStopDistance != null) ...[
           const SizedBox(height: 4),
@@ -1163,10 +1164,6 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       ],
     );
   }
-
-  /// Minutes on the way so far, pauses left out.
-  static int _elapsedMinutes(RouteExecution execution) =>
-      execution.elapsed(DateTime.now()).inMinutes;
 
   void _showError(String message) {
     showAppNotice(context, message);

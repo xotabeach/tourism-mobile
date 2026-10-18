@@ -182,7 +182,7 @@ void main() {
       expect(find.text('Маршрут пройден!'), findsOneWidget);
       expect(find.text('Статистика:'), findsOneWidget);
       expect(find.bySemanticsLabel('Посещено: 3 места'), findsOneWidget);
-      expect(find.bySemanticsLabel('Время в пути: 180 мин.'), findsOneWidget);
+      expect(find.bySemanticsLabel('Время в пути: 3 ч'), findsOneWidget);
       expect(find.bySemanticsLabel('На страницу маршрута'), findsOneWidget);
       expect(find.textContaining('проверк'), findsNothing);
       expect(find.textContaining('лимит'), findsNothing);

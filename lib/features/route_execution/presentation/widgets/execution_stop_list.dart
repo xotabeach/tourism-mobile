@@ -168,6 +168,7 @@ class ExecutionStopRow extends StatelessWidget {
             const SizedBox(width: 4),
           ],
           ExecutionStopMark(
+            next: isNext,
             done: done,
             skipped: skipped,
             undelivered: undelivered,
@@ -201,8 +202,12 @@ class ExecutionStopMark extends StatelessWidget {
     required this.onTap,
     this.undelivered = false,
     this.skipped = false,
+    this.next = false,
   });
 
+  /// On the highlighted «Следующая» row: the light grey ring vanished on
+  /// its blue tint, so the stop could not be found to mark (FRONTEND-90).
+  final bool next;
   final bool done;
   final bool undelivered;
   final bool skipped;
@@ -253,6 +258,8 @@ class ExecutionStopMark extends StatelessWidget {
                           : Colors.transparent,
                       border: done || skipped
                           ? null
+                          : next
+                          ? Border.all(color: AppColors.accentBlue, width: 2)
                           : Border.all(color: ExecutionColors.ring, width: 1.2),
                     ),
                     alignment: Alignment.center,

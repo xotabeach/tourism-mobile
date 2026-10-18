@@ -284,7 +284,7 @@ void main() {
     expect(find.text('Прохождение'), findsOneWidget);
     expect(find.text('Прогресс:'), findsOneWidget);
     expect(find.text('1/4'), findsOneWidget);
-    expect(find.bySemanticsLabel('Всего в пути: 174 мин.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Всего в пути: 2 ч 54 мин.'), findsOneWidget);
     expect(find.text('Остановки:'), findsNWidgets(2));
     expect(find.bySemanticsLabel('Пауза'), findsOneWidget);
     expect(
@@ -297,6 +297,8 @@ void main() {
     // from the phone.
     expect(find.text('весь участок 3,5 км'), findsOneWidget);
     expect(find.bySemanticsLabel('Завершить маршрут'), findsOneWidget);
+    // FRONTEND-92: a run can be called off without pausing it first.
+    expect(find.text('Отменить прохождение'), findsOneWidget);
     // FRONTEND-22: the leg being walked is named above the map and its
     // target row is marked as the next one.
     expect(find.text('Сейчас в пути · участок 1–2'), findsOneWidget);
