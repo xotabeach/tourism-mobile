@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -16,9 +17,9 @@ import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
-/// «Мой персонаж» (FRONTEND-72): pick the hat your character wears at the
-/// fire, on the rope and on the group's card. Only the hat is chosen; the
-/// shape, markings and colour come with the account.
+/// «Мой персонаж» (FRONTEND-72, FRONTEND-79): pick which of the four
+/// characters you are, what it wears and the hat. Your character stands at
+/// the fire, on the rope and on the group's card.
 class CharacterScreen extends ConsumerStatefulWidget {
   const CharacterScreen({super.key});
 
@@ -48,29 +49,16 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
     }
   }
 
-  Future<void> _tap(BeanHatOption hat) async {
-    final state = _state;
-    if (state == null || _busy) return;
-    if (!hat.available) {
-      if (hat.tier == BeanHatTier.points) {
-        showAppNotice(
-          context,
-          'Откроется на ${hat.pointsRequired} ТП. Сейчас у вас '
-          '${state.travelPoints} ТП',
-        );
-      } else {
-        await _showPremium(hat);
-      }
-      return;
-    }
+  Future<void> _save(
+    Future<BeanHatsState> Function(BeanHatsRepository repo) change,
+  ) async {
+    if (_busy) return;
     setState(() => _busy = true);
     try {
-      final next = await ref
-          .read(beanHatsRepositoryProvider)
-          .select(state.selected == hat.slug ? null : hat.slug);
+      final next = await change(ref.read(beanHatsRepositoryProvider));
       if (!mounted) return;
       setState(() => _state = next);
-      // Groups redraw the character with its new hat.
+      // Groups redraw the character as it is now.
       ref.invalidate(myCompanionGroupsProvider);
     } on Object catch (error) {
       if (mounted) {
@@ -85,72 +73,164 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
     }
   }
 
-  Future<void> _showPremium(BeanHatOption hat) => showModalBottomSheet<void>(
-    context: context,
-    useRootNavigator: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (sheet) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SizedBox(
-              height: 120,
-              child: _HatPortrait(
-                userId: ref.read(myUserIdProvider) ?? 'me',
-                hat: hat.slug,
-                size: 110,
+  /// A closed hat or outfit says how to get it; an open one is put on, or
+  /// taken off when it is already on.
+  Future<bool> _closed(BeanHatOption option) async {
+    final state = _state;
+    if (state == null || option.available) return false;
+    if (option.tier == BeanHatTier.points) {
+      showAppNotice(
+        context,
+        'Откроется на ${option.pointsRequired} ТП. Сейчас у вас '
+        '${state.travelPoints} ТП',
+      );
+    } else {
+      await _showPremium(option);
+    }
+    return true;
+  }
+
+  Future<void> _tapHat(BeanHatOption hat) async {
+    final state = _state;
+    if (state == null || await _closed(hat)) return;
+    await _save(
+      (repo) => repo.select(state.selected == hat.slug ? null : hat.slug),
+    );
+  }
+
+  Future<void> _tapOutfit(BeanHatOption? outfit) async {
+    final state = _state;
+    if (state == null) return;
+    if (outfit != null && await _closed(outfit)) return;
+    await _save((repo) => repo.selectOutfit(outfit?.slug));
+  }
+
+  Future<void> _tapKind(String slug) async {
+    if (_state == null) return;
+    await _save((repo) => repo.selectKind(slug));
+  }
+
+  Future<void> _showPremium(BeanHatOption option) {
+    final state = _state!;
+    final me = ref.read(myUserIdProvider) ?? 'me';
+    final isOutfit = state.outfits.any((o) => o.slug == option.slug);
+    return showModalBottomSheet<void>(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SizedBox(
+                height: 140,
+                child: _Portrait(
+                  look: _look(
+                    me,
+                    state,
+                    hat: isOutfit ? null : option.slug,
+                    outfit: isOutfit ? option.slug : null,
+                  ),
+                  closeUp: !isOutfit,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              hat.title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontFamily: AppFonts.rubik,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
+              const SizedBox(height: 8),
+              Text(
+                option.title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontFamily: AppFonts.rubik,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Входит в Тревел+ вместе со всеми шапками. Скоро её можно будет '
-              'и просто купить.',
-              textAlign: TextAlign.center,
-              style: AppTypography.settingsRowSubtitle,
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(sheet).pop();
-                unawaited(context.pushNamed(AppRouteNames.settingsTravelPlus));
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: FlatPalette.flameOuter,
-                minimumSize: const Size.fromHeight(52),
-                shape: const StadiumBorder(),
+              const SizedBox(height: 4),
+              const Text(
+                'Входит в Тревел+ вместе со всеми шапками и одеждой. Скоро '
+                'можно будет и просто купить.',
+                textAlign: TextAlign.center,
+                style: AppTypography.settingsRowSubtitle,
               ),
-              child: const Text('Тревел+'),
-            ),
-            const SizedBox(height: 8),
-            const OutlinedButton(
-              onPressed: null,
-              style: ButtonStyle(
-                minimumSize: WidgetStatePropertyAll(Size.fromHeight(50)),
-                shape: WidgetStatePropertyAll(StadiumBorder()),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(sheet).pop();
+                  unawaited(
+                    context.pushNamed(AppRouteNames.settingsTravelPlus),
+                  );
+                },
+                style: FilledButton.styleFrom(
+                  backgroundColor: FlatPalette.flameOuter,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('Тревел+'),
               ),
-              child: Text('Купить · скоро'),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const OutlinedButton(
+                onPressed: null,
+                style: ButtonStyle(
+                  minimumSize: WidgetStatePropertyAll(Size.fromHeight(50)),
+                  shape: WidgetStatePropertyAll(StadiumBorder()),
+                ),
+                child: Text('Купить · скоро'),
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// The person's character as chosen, with [hat] or [outfit] tried on.
+  BeanLook _look(
+    String me,
+    BeanHatsState state, {
+    String? kind,
+    String? hat,
+    String? outfit,
+    bool noOutfit = false,
+  }) => BeanLook.forUser(
+    me,
+    kind: kind ?? state.kind,
+    hat: hat ?? state.selected,
+    outfit: noOutfit ? null : outfit ?? state.outfit,
+  );
+
+  Widget _heading(String text) => Padding(
+    padding: const EdgeInsets.only(top: 20, bottom: 10),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontFamily: AppFonts.rubik,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: AppColors.primaryInk,
       ),
     ),
   );
+
+  Widget _grid(List<Widget> tiles, {double aspect = 0.72}) => GridView.count(
+    crossAxisCount: 4,
+    shrinkWrap: true,
+    physics: const NeverScrollableScrollPhysics(),
+    mainAxisSpacing: 10,
+    crossAxisSpacing: 10,
+    childAspectRatio: aspect,
+    children: tiles,
+  );
+
+  String? _note(BeanHatOption option) => option.available
+      ? null
+      : option.tier == BeanHatTier.points
+      ? '${option.pointsRequired} ТП'
+      : 'Тревел+';
 
   @override
   Widget build(BuildContext context) {
@@ -158,6 +238,7 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
     final name =
         ref.watch(sessionProvider.select((s) => s.displayName)) ?? 'Вы';
     final state = _state;
+    final current = state == null ? null : _look(me, state);
     return Scaffold(
       backgroundColor: AppColors.pageSurface,
       appBar: AppBar(
@@ -165,7 +246,7 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
         surfaceTintColor: Colors.transparent,
         title: const Text('Мой персонаж', style: AppTypography.sectionTitle),
       ),
-      body: state == null
+      body: state == null || current == null
           ? (_error == null
                 ? const AppShimmer(
                     child: Padding(
@@ -213,50 +294,78 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
                       name: name,
                       ready: true,
                       hat: state.selected,
+                      kind: current.kind.slug,
+                      outfit: state.outfit,
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Так вас видят попутчики у костра, на связке и на открытке. '
-                  'Форма и цвет персонажа свои у каждого, шапку выбираете вы.',
+                Text(
+                  state.isExpert
+                      ? 'Так вас видят попутчики у костра, на связке и на '
+                            'открытке. Вы эксперт: вам открыты все шапки и вся '
+                            'одежда.'
+                      : 'Так вас видят попутчики у костра, на связке и на '
+                            'открытке.',
                   style: AppTypography.settingsRowSubtitle,
                 ),
-                for (final tier in BeanHatTier.values) ...[
-                  const SizedBox(height: 20),
-                  Text(
-                    switch (tier) {
-                      BeanHatTier.free => 'Бесплатные',
-                      BeanHatTier.points =>
-                        'За очки ТП · у вас ${state.travelPoints} ТП',
-                      BeanHatTier.premium => 'Тревел+ и покупка',
-                    },
-                    style: const TextStyle(
-                      fontFamily: AppFonts.rubik,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryInk,
+                // A server before BACKEND-71 sends hats only.
+                if (state.kinds.isNotEmpty) ...[
+                  _heading('Персонаж'),
+                  _grid(aspect: 0.62, [
+                    for (final kind in BeanKind.values)
+                      _ChoiceTile(
+                        title: kind.title,
+                        selected: current.kind == kind,
+                        onTap: () => unawaited(_tapKind(kind.slug)),
+                        child: _Portrait(
+                          look: _look(me, state, kind: kind.slug),
+                        ),
+                      ),
+                  ]),
+                ],
+                if (state.outfits.isNotEmpty) ...[
+                  _heading('Одежда'),
+                  _grid(aspect: 0.62, [
+                    _ChoiceTile(
+                      title: 'Без одежды',
+                      selected: state.outfit == null,
+                      onTap: () => unawaited(_tapOutfit(null)),
+                      child: _Portrait(look: _look(me, state, noOutfit: true)),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  GridView.count(
-                    crossAxisCount: 4,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.72,
-                    children: [
-                      for (final hat in state.items)
-                        if (hat.tier == tier)
-                          _HatTile(
-                            userId: me,
-                            hat: hat,
-                            selected: state.selected == hat.slug,
-                            onTap: () => unawaited(_tap(hat)),
+                    for (final outfit in state.outfits)
+                      _ChoiceTile(
+                        title: outfit.title,
+                        note: _note(outfit),
+                        selected: state.outfit == outfit.slug,
+                        onTap: () => unawaited(_tapOutfit(outfit)),
+                        child: _Portrait(
+                          look: _look(me, state, outfit: outfit.slug),
+                        ),
+                      ),
+                  ]),
+                ],
+                for (final tier in BeanHatTier.values) ...[
+                  _heading(switch (tier) {
+                    BeanHatTier.free => 'Бесплатные',
+                    BeanHatTier.points =>
+                      'За очки ТП · у вас ${state.travelPoints} ТП',
+                    BeanHatTier.premium => 'Тревел+ и покупка',
+                  }),
+                  _grid([
+                    for (final hat in state.items)
+                      if (hat.tier == tier)
+                        _ChoiceTile(
+                          title: hat.title,
+                          note: _note(hat),
+                          selected: state.selected == hat.slug,
+                          onTap: () => unawaited(_tapHat(hat)),
+                          child: _Portrait(
+                            look: _look(me, state, hat: hat.slug),
+                            closeUp: true,
                           ),
-                    ],
-                  ),
+                        ),
+                  ]),
                 ],
               ],
             ),
@@ -264,31 +373,31 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
   }
 }
 
-class _HatTile extends StatelessWidget {
-  const _HatTile({
-    required this.userId,
-    required this.hat,
+/// One choice: a character drawn in it, its name and how to open it.
+class _ChoiceTile extends StatelessWidget {
+  const _ChoiceTile({
+    required this.title,
     required this.selected,
     required this.onTap,
+    required this.child,
+    this.note,
   });
 
-  final String userId;
-  final BeanHatOption hat;
+  final String title;
   final bool selected;
   final VoidCallback onTap;
+  final Widget child;
+
+  /// What opens a closed one: «1500 ТП», «Тревел+».
+  final String? note;
 
   @override
   Widget build(BuildContext context) {
-    final locked = !hat.available;
-    final note = !locked
-        ? null
-        : hat.tier == BeanHatTier.points
-        ? '${hat.pointsRequired} ТП'
-        : 'Тревел+';
+    final locked = note != null;
     return Semantics(
       button: true,
       selected: selected,
-      label: [hat.title, if (note != null) 'закрыта, $note'].join(', '),
+      label: [title, if (locked) 'закрыто, $note'].join(', '),
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
@@ -310,13 +419,8 @@ class _HatTile extends StatelessWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    Opacity(
-                      opacity: locked ? 0.55 : 1,
-                      child: _HatPortrait(
-                        userId: userId,
-                        hat: hat.slug,
-                        size: 64,
-                      ),
+                    Positioned.fill(
+                      child: Opacity(opacity: locked ? 0.55 : 1, child: child),
                     ),
                     if (locked)
                       Positioned(
@@ -339,7 +443,7 @@ class _HatTile extends StatelessWidget {
                 ),
               ),
               Text(
-                hat.title,
+                title,
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
@@ -353,7 +457,7 @@ class _HatTile extends StatelessWidget {
               ),
               if (note != null)
                 Text(
-                  note,
+                  note!,
                   style: const TextStyle(
                     fontFamily: AppFonts.rubik,
                     fontSize: 10,
@@ -369,49 +473,58 @@ class _HatTile extends StatelessWidget {
   }
 }
 
-/// The person's own character, from the waist up, wearing [hat].
-class _HatPortrait extends StatelessWidget {
-  const _HatPortrait({
-    required this.userId,
-    required this.hat,
-    required this.size,
-  });
+/// A character in a tile: whole, or from the shoulders up for hats.
+class _Portrait extends StatelessWidget {
+  const _Portrait({required this.look, this.closeUp = false});
 
-  final String userId;
-  final String hat;
-  final double size;
+  final BeanLook look;
+  final bool closeUp;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: CustomPaint(painter: _PortraitPainter(userId, hat)),
-  );
+  Widget build(BuildContext context) =>
+      CustomPaint(painter: _PortraitPainter(look, closeUp: closeUp));
 }
 
 class _PortraitPainter extends CustomPainter {
-  _PortraitPainter(this.userId, this.hat);
+  _PortraitPainter(this.look, {required this.closeUp});
 
-  final String userId;
-  final String hat;
+  final BeanLook look;
+  final bool closeUp;
 
   @override
   void paint(Canvas canvas, Size size) {
-    // A close-up from the shoulders: the hat and the face fill the tile,
-    // with room above for the tall ones.
     canvas.save();
     canvas.clipRect(Offset.zero & size);
-    paintBean(
-      canvas,
-      Offset(size.width / 2, size.height * 1.32),
-      size.height * 0.88,
-      FlatPalette.beanFor(userId),
-      BeanPose(look: BeanLook.forUser(userId, hat: hat), lookX: 0.4),
-    );
+    // The drawing's own height for this build, against the blue one.
+    final ratio = beanHeight(look.kind, 1);
+    if (closeUp) {
+      // The head and the hat fill the tile, room above for tall hats.
+      final tall = size.height * 1.3;
+      paintBean(
+        canvas,
+        Offset(size.width / 2, size.height * 0.36 + tall * 0.92),
+        tall / ratio,
+        look.color,
+        BeanPose(look: look, lookX: 0.4),
+      );
+    } else {
+      // Whole, with room for a hat on top.
+      final tall = math.min(size.height * 0.74, size.width * 1.25);
+      paintBean(
+        canvas,
+        Offset(size.width / 2, size.height - 4),
+        tall / ratio,
+        look.color,
+        BeanPose(look: look, lookX: 0.4),
+      );
+    }
     canvas.restore();
   }
 
   @override
   bool shouldRepaint(covariant _PortraitPainter old) =>
-      old.userId != userId || old.hat != hat;
+      old.look.kind != look.kind ||
+      old.look.accessory != look.accessory ||
+      old.look.outfit != look.outfit ||
+      old.closeUp != closeUp;
 }

@@ -205,7 +205,12 @@ class _RopePainter extends CustomPainter {
           beanHeight,
           FlatPalette.beanFor(member.userId),
           BeanPose(
-            look: BeanLook.forUser(member.userId, hat: member.beanHat),
+            look: BeanLook.forUser(
+              member.userId,
+              hat: member.beanHat,
+              kind: member.beanKind,
+              outfit: member.beanOutfit,
+            ),
             breath: math.sin((t * 2 + order * 0.31) * math.pi * 2),
             step: walking ? math.sin((t * 4 + order * 0.2) * math.pi * 2) : 0,
             flutter: t * 4,

@@ -14,12 +14,21 @@ class CampMember {
     this.organizer = false,
     this.waiting = false,
     this.hat,
+    this.kind,
+    this.outfit,
   });
 
   final String userId;
 
   /// The chosen hat's slug; null draws the account's own.
   final String? hat;
+
+  /// The chosen character and clothes (FRONTEND-79).
+  final String? kind;
+  final String? outfit;
+
+  BeanLook get look =>
+      BeanLook.forUser(userId, hat: hat, kind: kind, outfit: outfit);
   final String name;
 
   /// «Готов»: holds a marshmallow over the fire.
@@ -330,7 +339,7 @@ class _CampPainter extends CustomPainter {
           organizer: member.organizer,
           flutter: t * 6,
           stickToRight: feet.dx < fire.dx,
-          look: BeanLook.forUser(member.userId, hat: member.hat),
+          look: member.look,
         ),
       );
       if (!leaving) {
@@ -362,7 +371,7 @@ class _CampPainter extends CustomPainter {
           // On their way: waving to those at the fire.
           wave: 0.6 + 0.4 * math.sin((t * 6 + i * 0.3) * math.pi * 2),
           step: math.sin((t * 6 + i) * math.pi * 2),
-          look: BeanLook.forUser(waiting[i].userId, hat: waiting[i].hat),
+          look: waiting[i].look,
         ),
       );
     }
