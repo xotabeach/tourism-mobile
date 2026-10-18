@@ -357,6 +357,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ],
                     ),
                   ),
+                  // The same 12 under the title as «Статистика:» (FRONTEND-78).
+                  // On one's own profile the «Все» button already makes the
+                  // row 8 taller than the title, 4 of it below the text.
+                  SizedBox(height: isOwn ? 8 : 12),
                   _AchievementsCarousel(
                     pages: pageUnlockedAchievements([
                       for (final page in profile.achievementPages) ...page,
