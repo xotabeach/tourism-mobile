@@ -572,14 +572,29 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   Future<void> _completeRoute() async {
     final execution = _execution;
     if (execution == null || !execution.isActive || _finishing) return;
+    // The route may be finished at any point (FRONTEND-91, BACKEND-75): say
+    // what happens to the stops still open, and with nothing marked offer
+    // to call the run off instead.
+    final marked = execution.stops.where((stop) => stop.isCompleted).length;
+    if (marked == 0 && execution.stops.isNotEmpty) {
+      if (await showNothingMarkedDialog(context) && mounted) {
+        await _cancelRoute(confirmed: true);
+      }
+      return;
+    }
+    if (execution.stops.any((stop) => !stop.isSettled)) {
+      final confirmed = await showFinishWithOpenStopsDialog(
+        context,
+        marked: marked,
+        total: execution.stops.length,
+      );
+      if (!confirmed || !mounted) return;
+    }
     setState(() => _finishing = true);
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
     if (_isLocalPendingStart) {
-      final updated = execution.copyWith(
-        status: RouteExecutionStatus.completed,
-        completedAt: occurredAt,
-      );
+      final updated = completedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.complete,
@@ -612,10 +627,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (mounted) _showError(executionErrorText(error));
         return;
       }
-      final updated = execution.copyWith(
-        status: RouteExecutionStatus.completed,
-        completedAt: occurredAt,
-      );
+      final updated = completedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.complete,
@@ -643,11 +655,11 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       _execution?.status == RouteExecutionStatus.active ||
       _execution?.status == RouteExecutionStatus.paused;
 
-  Future<void> _cancelRoute() async {
+  Future<void> _cancelRoute({bool confirmed = false}) async {
     final execution = _execution;
     if (execution == null || !_isInProgress) return;
-    final confirmed = await showCancelRunDialog(context);
-    if (!confirmed || !mounted) return;
+    if (!confirmed && !await showCancelRunDialog(context)) return;
+    if (!mounted) return;
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
     if (_isLocalPendingStart) {
