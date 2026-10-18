@@ -65,134 +65,101 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
         .where((g) => g.routeId == widget.routeId && g.status.isLive)
         .firstOrNull;
     // The designer's card (FRONTEND-87): text and buttons on the left, the
-    // four characters on the right, cut by the card's edge. Laid out at the
-    // mockup's width and scaled to the screen as a whole, so the picture is
-    // the same on every phone, only its size changes (owner, 2026-10-18:
-    // on a wider phone the characters stood differently).
+    // four characters on the right, cut by the card's edge.
     return LayoutBuilder(
-      builder: (context, constraints) => SizedBox(
-        width: constraints.maxWidth,
-        child: FittedBox(
-          fit: BoxFit.fitWidth,
-          alignment: Alignment.topLeft,
-          child: SizedBox(width: _mockupWidth, child: _card(here)),
-        ),
-      ),
+      builder: (context, constraints) {
+        final textWidth = constraints.maxWidth * 0.63;
+        return Container(
+          width: constraints.maxWidth,
+          clipBehavior: Clip.antiAlias,
+          decoration: BoxDecoration(
+            color: _cardFill,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          // The outline's width, as when it was part of the decoration, so
+          // nothing inside moves.
+          padding: const EdgeInsets.all(2),
+          // Drawn over the characters, so the yellow one standing in the
+          // corner no longer covers it (FRONTEND-98).
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _blue, width: 2),
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                left: textWidth,
+                right: 0,
+                top: 6,
+                bottom: 0,
+                child: const ExcludeSemantics(
+                  child: CustomPaint(painter: _FourBeans()),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 9, 0, 6.5),
+                child: SizedBox(
+                  width: textWidth - 8,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Text(
+                        'Пройдите маршрут вместе:',
+                        style: TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          height: 1.2,
+                          color: AppColors.primaryInk,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        here == null
+                            ? 'Каждый отмечает точки сам, а в группе видно, '
+                                  'кто сколько прошел'
+                            : here.isInvitation
+                            ? '${here.organizerName} зовёт вас на этот маршрут'
+                            : 'Ваша группа уже собирается',
+                        style: const TextStyle(
+                          fontFamily: AppFonts.rubik,
+                          fontSize: 11.5,
+                          height: 1.25,
+                          color: AppColors.secondaryInk,
+                        ),
+                      ),
+                      const SizedBox(height: 17),
+                      if (here != null)
+                        _CardButton(
+                          label: here.isInvitation
+                              ? 'Посмотреть приглашение'
+                              : 'К группе',
+                          onPressed: () => _open(here),
+                        )
+                      else ...[
+                        _CardButton(
+                          label: 'Создать лобби',
+                          onPressed: _busy ? null : _create,
+                        ),
+                        const SizedBox(height: 5),
+                        _CardButton(
+                          label: 'У меня есть код',
+                          secondary: true,
+                          onPressed: _code,
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
-
-  Widget _card(CompanionGroup? here) {
-    const textWidth = _mockupWidth * 0.63;
-    return Container(
-      width: _mockupWidth,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: _cardFill,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      // The outline's width, as when it was part of the decoration: the
-      // card and its characters stay exactly where they were.
-      padding: const EdgeInsets.all(2),
-      // Over the characters, so the yellow one standing in the corner
-      // does not cover the outline (FRONTEND-98).
-      foregroundDecoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _blue, width: 2),
-      ),
-      child: Stack(
-        children: [
-          const Positioned(
-            left: textWidth,
-            right: 0,
-            top: 6,
-            bottom: 0,
-            child: ExcludeSemantics(child: CustomPaint(painter: _FourBeans())),
-          ),
-          // The full card, with both buttons, sets the height in every
-          // state: with one button the card stays as tall and the
-          // characters keep their size (FRONTEND-100).
-          Visibility(
-            visible: here == null,
-            maintainSize: true,
-            maintainAnimation: true,
-            maintainState: true,
-            child: _content(textWidth, null),
-          ),
-          if (here != null)
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: textWidth,
-              child: _content(textWidth, here),
-            ),
-        ],
-      ),
-    );
-  }
-
-  /// The words and buttons on the left; [here] is the group already
-  /// gathering for this route, or null.
-  Widget _content(double textWidth, CompanionGroup? here) => Padding(
-    padding: const EdgeInsets.fromLTRB(8, 9, 0, 6.5),
-    child: SizedBox(
-      width: textWidth - 8,
-      child: Column(
-        mainAxisSize: here == null ? MainAxisSize.min : MainAxisSize.max,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Пройдите маршрут вместе:',
-            style: TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              height: 1.2,
-              color: AppColors.primaryInk,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            here == null
-                ? 'Каждый отмечает точки сам, а в группе видно, '
-                      'кто сколько прошел'
-                : here.isInvitation
-                ? '${here.organizerName} зовёт вас на этот маршрут. '
-                      'Загляните, кто уже у костра'
-                : 'Ваша группа уже собирается. Загляните, кто уже у костра',
-            style: const TextStyle(
-              fontFamily: AppFonts.rubik,
-              fontSize: 11.5,
-              height: 1.25,
-              color: AppColors.secondaryInk,
-            ),
-          ),
-          if (here == null) const SizedBox(height: 17) else const Spacer(),
-          if (here != null)
-            _CardButton(
-              label: here.isInvitation ? 'Посмотреть приглашение' : 'К группе',
-              onPressed: () => _open(here),
-            )
-          else ...[
-            _CardButton(
-              label: 'Создать лобби',
-              onPressed: _busy ? null : _create,
-            ),
-            const SizedBox(height: 5),
-            _CardButton(
-              label: 'У меня есть код',
-              secondary: true,
-              onPressed: _code,
-            ),
-          ],
-        ],
-      ),
-    ),
-  );
 }
-
-/// The card's width on the 375-point mockup.
-const _mockupWidth = 343.0;
 
 const _blue = Color(0xFF1D71CB);
 const _cardFill = Color(0xFFE8F0FA);
