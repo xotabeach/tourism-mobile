@@ -7,7 +7,8 @@ import 'package:tourism_mobile/features/route_match/presentation/route_match_ai_
 import 'package:tourism_mobile/features/route_match/presentation/route_match_widgets.dart';
 
 const kRouteMatchStarterGreeting =
-    'Здравствуй Путник! Выбери из предложенного или опиши свой идеальный маршрут.';
+    'Здравствуйте, путник! Выберите из предложенного или опишите свой '
+    'идеальный маршрут.';
 
 const kRouteMatchStarterActions = <Map<String, String>>[
   {'id': 'pace_calm', 'label': 'Спокойный маршрут'},

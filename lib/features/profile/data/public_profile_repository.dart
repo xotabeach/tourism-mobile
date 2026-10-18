@@ -9,6 +9,8 @@ class PublicUserProfile {
     required this.id,
     required this.displayName,
     this.avatarUrl,
+    this.beanKind,
+    this.beanHat,
     this.coverUrl,
     this.travelPoints = 0,
     this.rankSlug = 'novice',
@@ -32,6 +34,11 @@ class PublicUserProfile {
   final String id;
   final String displayName;
   final String? avatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? beanKind;
+  final String? beanHat;
   final String? coverUrl;
   final int travelPoints;
   final String rankSlug;
@@ -63,6 +70,8 @@ class PublicUserProfile {
       id: json['id'] as String,
       displayName: json['display_name'] as String,
       avatarUrl: json['avatar_url'] as String?,
+      beanKind: json['bean_kind'] as String?,
+      beanHat: json['bean_hat'] as String?,
       coverUrl: json['cover_url'] as String?,
       travelPoints: (json['travel_points'] as num?)?.toInt() ?? 0,
       rankSlug: json['rank_slug'] as String? ?? 'novice',

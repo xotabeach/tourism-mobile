@@ -10,7 +10,8 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/startup/splash_frames.dart';
-import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
@@ -170,10 +171,6 @@ class _WelcomeProfileButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (authenticated) {
-      final avatar = AppImages.avatarProvider(
-        config: config,
-        avatarUrl: avatarUrl,
-      );
       return Semantics(
         button: true,
         label: 'Открыть приложение',
@@ -194,13 +191,14 @@ class _WelcomeProfileButton extends StatelessWidget {
               ),
               child: Padding(
                 padding: const EdgeInsets.all(WelcomeScreen._avatarBorderWidth),
-                child: ClipOval(
-                  child: Image(
-                    image: avatar,
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    height: double.infinity,
-                    gaplessPlayback: true,
+                child: Consumer(
+                  builder: (context, ref, _) => UserAvatar(
+                    userId: ref.watch(myUserIdProvider),
+                    avatarUrl: avatarUrl,
+                    size:
+                        WelcomeScreen._profileButtonSize -
+                        WelcomeScreen._avatarBorderWidth * 4,
+                    own: true,
                   ),
                 ),
               ),

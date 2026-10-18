@@ -268,7 +268,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         setState(() {
           _blockingExecution = blocking;
           _loading = false;
-          _error = 'Сначала заверши текущий маршрут';
+          _error = 'Сначала завершите текущий маршрут';
         });
         return;
       }
@@ -306,7 +306,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
             setState(() {
               _blockingExecution = cached;
               _loading = false;
-              _error = 'Сначала заверши текущий маршрут';
+              _error = 'Сначала завершите текущий маршрут';
             });
             return;
           }

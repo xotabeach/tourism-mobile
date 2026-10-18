@@ -604,7 +604,7 @@ class MockRouteMatchRepository implements RouteMatchRepository {
       {'id': 'pace_calm', 'label': 'Хочу спокойно'},
       {'id': 'pace_active', 'label': 'Хочу активно'},
     ];
-    var reply = 'Что тебе ближе — спокойная прогулка или активный отдых?';
+    var reply = 'Что вам ближе — спокойная прогулка или активный отдых?';
     var askField = 'pace';
     // Стартовый город спрашиваем селектом, а не чипами: городов десять,
     // в ряд чипов они не помещаются.

@@ -21,6 +21,7 @@ import 'package:tourism_mobile/features/articles/presentation/widgets/article_bl
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_images.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/tag_chip_picker.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/places_providers.dart';
 import 'package:tourism_mobile/features/routes/application/routes_providers.dart';
@@ -175,6 +176,9 @@ class _ArticleBody extends ConsumerWidget {
           _AuthorRow(
             name: article.authorDisplayName,
             avatarUrl: article.authorAvatarUrl,
+            userId: article.authorUserId,
+            beanKind: article.authorBeanKind,
+            beanHat: article.authorBeanHat,
             date: article.publishedAt ?? article.createdAt,
             readingTimeMinutes: article.readingTimeMinutes,
             rankTitle: article.authorRankTitle,
@@ -260,10 +264,18 @@ class _AuthorRow extends StatelessWidget {
     required this.config,
     required this.onTap,
     this.rankTitle,
+    this.userId,
+    this.beanKind,
+    this.beanHat,
   });
 
   final String name;
   final String? avatarUrl;
+
+  /// The author and their character, drawn without a picture (FRONTEND-97).
+  final String? userId;
+  final String? beanKind;
+  final String? beanHat;
   final DateTime date;
   final int readingTimeMinutes;
 
@@ -279,13 +291,21 @@ class _AuthorRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 18,
-            backgroundImage: AppImages.imageProvider(
-              resolvedUrl: AppImages.resolveMediaUrl(config, avatarUrl),
-              assetFallback: AppImages.travelerPortrait,
+          if ((avatarUrl ?? '').isEmpty)
+            UserAvatar(
+              userId: userId,
+              avatarUrl: null,
+              beanKind: beanKind,
+              beanHat: beanHat,
+              size: 36,
+            )
+          else
+            CircleAvatar(
+              radius: 18,
+              backgroundImage: AppImages.imageProvider(
+                resolvedUrl: AppImages.resolveMediaUrl(config, avatarUrl),
+              ),
             ),
-          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(

@@ -66,7 +66,6 @@ final universalSearchProvider = FutureProvider.autoDispose
           PublicUserProfile(
             id: 'mock-user',
             displayName: 'Никита Можаров',
-            avatarUrl: AppImages.travelerPortrait,
             coverUrl: AppImages.welcomeSunset,
             travelPoints: 12500,
             rankSlug: 'advanced_hiker',
@@ -77,7 +76,6 @@ final universalSearchProvider = FutureProvider.autoDispose
           PublicUserProfile(
             id: 'mock-maria',
             displayName: 'Мария Крымская',
-            avatarUrl: AppImages.travelerPortrait,
             travelPoints: 8480,
             rankSlug: 'explorer',
             rankTitle: 'Исследователь',

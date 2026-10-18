@@ -76,6 +76,23 @@ final beanHatsRepositoryProvider = Provider<BeanHatsRepository>((ref) {
   return ApiBeanHatsRepository(ref.watch(dioProvider));
 });
 
+/// The signed-in person's own character and hat, for their portrait avatar
+/// (FRONTEND-97). The character screen refreshes it after every change, so
+/// the avatar follows at once. Null signed out or while it cannot be read:
+/// the portrait then shows the character the account was given.
+final myBeanLookProvider = FutureProvider<({String? kind, String? hat})?>((
+  ref,
+) async {
+  final userId = ref.watch(myUserIdProvider);
+  if (userId == null) return null;
+  try {
+    final state = await ref.read(beanHatsRepositoryProvider).load();
+    return (kind: state.kind, hat: state.selected);
+  } on Object {
+    return null;
+  }
+});
+
 final invitePrivacyRepositoryProvider = Provider<InvitePrivacyRepository>((
   ref,
 ) {

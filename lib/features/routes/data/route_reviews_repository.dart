@@ -68,6 +68,8 @@ class RouteReview {
     required this.status,
     required this.createdAt,
     this.authorAvatarUrl,
+    this.authorBeanKind,
+    this.authorBeanHat,
     this.media = const [],
     this.replyTo,
     this.authorCompletedRoute = false,
@@ -81,6 +83,11 @@ class RouteReview {
   final String authorDisplayName;
   final String authorRankTitle;
   final String? authorAvatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? authorBeanKind;
+  final String? authorBeanHat;
   final String body;
   final int rating;
   final String status;
@@ -111,6 +118,8 @@ class RouteReview {
           json['author_display_name'] as String? ?? 'Путешественник',
       authorRankTitle: json['author_rank_title'] as String? ?? 'Новичок',
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorBeanKind: json['author_bean_kind'] as String?,
+      authorBeanHat: json['author_bean_hat'] as String?,
       body: json['body'] as String? ?? '',
       rating: (json['rating'] as num?)?.toInt() ?? 1,
       status: json['status'] as String? ?? 'published',
@@ -241,6 +250,8 @@ final class ApiRouteReviewsRepository implements RouteReviewsRepository {
           authorDisplayName: review.authorDisplayName,
           authorRankTitle: review.authorRankTitle,
           authorAvatarUrl: review.authorAvatarUrl,
+          authorBeanKind: review.authorBeanKind,
+          authorBeanHat: review.authorBeanHat,
           body: review.body,
           rating: review.rating,
           status: review.status,

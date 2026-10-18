@@ -79,7 +79,6 @@ class ProfileSnapshot {
     required this.displayName,
     required this.rank,
     required this.coverImageAsset,
-    required this.avatarImageAsset,
     required this.achievementPages,
     required this.publishedRoutes,
     this.avatarImageUrl,
@@ -97,12 +96,18 @@ class ProfileSnapshot {
     this.totalDistanceMeters = 0,
     this.publishedArticlesCount = 0,
     this.articleLikesCount = 0,
+    this.beanKind,
+    this.beanHat,
   });
 
   final String displayName;
+
+  /// Someone else's character and hat for the portrait avatar when they
+  /// have no picture (FRONTEND-97); one's own comes from the settings.
+  final String? beanKind;
+  final String? beanHat;
   final ProfileRank rank;
   final String coverImageAsset;
-  final String avatarImageAsset;
   final String? avatarImageUrl;
   final String? coverImageUrl;
   final List<List<ProfileAchievement>> achievementPages;

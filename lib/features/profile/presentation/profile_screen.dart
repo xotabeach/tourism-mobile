@@ -25,7 +25,9 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
+import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/presentation/block_person_button.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/domain/profile.dart';
@@ -243,6 +245,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           slivers: [
             _ProfileCollapsingHeader(
               profile: profile,
+              userId: widget.userId,
               topInset: topInset,
               isOwn: isOwn,
               onMore: onMore,
@@ -742,6 +745,7 @@ class _ProfileCollapsingHeader extends StatelessWidget {
     required this.profile,
     required this.topInset,
     required this.isOwn,
+    this.userId,
     this.onMore,
     this.onLike,
     this.likedByMe = false,
@@ -770,6 +774,9 @@ class _ProfileCollapsingHeader extends StatelessWidget {
   static const double collapsedBar = 56;
 
   final ProfileSnapshot profile;
+
+  /// Whose profile; null on one's own.
+  final String? userId;
   final double topInset;
   final bool isOwn;
   final VoidCallback? onMore;
@@ -778,17 +785,26 @@ class _ProfileCollapsingHeader extends StatelessWidget {
   final bool isExpert;
   final double pullDownOffset;
 
+  /// Without a picture, the person's character (FRONTEND-97).
+  Widget _portrait(double size) => Consumer(
+    builder: (context, ref, _) => UserAvatar(
+      userId: isOwn ? ref.watch(myUserIdProvider) : userId,
+      avatarUrl: null,
+      beanKind: profile.beanKind,
+      beanHat: profile.beanHat,
+      size: size,
+      own: isOwn,
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
-    final avatarAsset = AssetImage(profile.avatarImageAsset);
+    final avatarAsset = AppImages.blankImage;
     final avatarNetwork =
         profile.avatarImageUrl != null &&
             profile.avatarImageUrl!.isNotEmpty &&
             !AppImages.isAssetPath(profile.avatarImageUrl)
-        ? AppImages.imageProvider(
-            resolvedUrl: profile.avatarImageUrl,
-            assetFallback: profile.avatarImageAsset,
-          )
+        ? AppImages.imageProvider(resolvedUrl: profile.avatarImageUrl)
         : null;
     final coverHeight = topInset + coverBody;
     final cardHeight = isExpert ? rankCardHeightExpert : rankCardHeight;
@@ -895,11 +911,13 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                                   ),
                             shape: BoxShape.circle,
                           ),
-                          child: CircleAvatar(
-                            radius: 30,
-                            backgroundImage: avatarAsset,
-                            foregroundImage: avatarNetwork,
-                          ),
+                          child: avatarNetwork == null
+                              ? _portrait(60)
+                              : CircleAvatar(
+                                  radius: 30,
+                                  backgroundImage: avatarAsset,
+                                  foregroundImage: avatarNetwork,
+                                ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -977,11 +995,14 @@ class _ProfileCollapsingHeader extends StatelessWidget {
                         // 22, а не 16: рядом с именем в 16pt и круглой
                         // кнопкой справа аватар в 32px читался мелко
                         // (замечание 2026-09-04).
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundImage: avatarAsset,
-                          foregroundImage: avatarNetwork,
-                        ),
+                        if (avatarNetwork == null)
+                          _portrait(44)
+                        else
+                          CircleAvatar(
+                            radius: 22,
+                            backgroundImage: avatarAsset,
+                            foregroundImage: avatarNetwork,
+                          ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(

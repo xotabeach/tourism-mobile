@@ -40,7 +40,7 @@ List<Widget> executionActions({
         ),
       ),
       const Text(
-        'Отдых до следующего дня. Отметки недоступны, пока не продолжишь.',
+        'Отдых до следующего дня. Отметки недоступны, пока вы не продолжите.',
         textAlign: TextAlign.center,
         style: _footnoteStyle,
       ),
@@ -55,7 +55,7 @@ List<Widget> executionActions({
         ),
       ),
       const Text(
-        'Маршрут на паузе. Остановки недоступны, пока не возобновишь.',
+        'Маршрут на паузе. Остановки недоступны, пока вы не возобновите.',
         textAlign: TextAlign.center,
         style: _footnoteStyle,
       ),
@@ -87,7 +87,8 @@ List<Widget> executionActions({
       ),
       const SizedBox(height: 8),
       const Text(
-        'Завершай остановки по мере прохождения для верного отображения истории и наград',
+        'Отмечайте остановки по мере прохождения, чтобы история и награды '
+        'были верными',
         textAlign: TextAlign.center,
         style: _footnoteStyle,
       ),

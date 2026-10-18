@@ -6,14 +6,25 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// One author shown in [CoauthorAvatars].
 class AvatarPerson {
-  const AvatarPerson({required this.userId, this.avatarUrl});
+  const AvatarPerson({
+    required this.userId,
+    this.avatarUrl,
+    this.beanKind,
+    this.beanHat,
+  });
 
   final String? userId;
   final String? avatarUrl;
+
+  /// The character and hat drawn without a picture (FRONTEND-97).
+  final String? beanKind;
+  final String? beanHat;
 }
 
 /// The authors of a co-written route as DESIGN-19 draws them: avatars
@@ -71,6 +82,7 @@ class _CoauthorAvatarsState extends ConsumerState<CoauthorAvatars> {
   @override
   Widget build(BuildContext context) {
     final config = ref.watch(appConfigProvider);
+    final myId = ref.watch(myUserIdProvider);
     final people = widget.people;
     final size = widget.radius * 2 + 3;
     final step = _spread ? size + 6 : size * 0.55;
@@ -108,13 +120,22 @@ class _CoauthorAvatarsState extends ConsumerState<CoauthorAvatars> {
                         color: Colors.white.withValues(alpha: 0.9),
                         shape: BoxShape.circle,
                       ),
-                      child: CircleAvatar(
-                        radius: widget.radius,
-                        backgroundImage: AppImages.avatarProvider(
-                          config: config,
-                          avatarUrl: people[index].avatarUrl,
-                        ),
-                      ),
+                      child: (people[index].avatarUrl ?? '').isEmpty
+                          ? UserAvatar(
+                              userId: people[index].userId,
+                              avatarUrl: null,
+                              beanKind: people[index].beanKind,
+                              beanHat: people[index].beanHat,
+                              size: widget.radius * 2,
+                              own: people[index].userId == myId,
+                            )
+                          : CircleAvatar(
+                              radius: widget.radius,
+                              backgroundImage: AppImages.avatarProvider(
+                                config: config,
+                                avatarUrl: people[index].avatarUrl,
+                              ),
+                            ),
                     ),
                   ),
                 ),

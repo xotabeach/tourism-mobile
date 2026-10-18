@@ -66,7 +66,7 @@ class _SkipStopSheet extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Выбери причину. Очки начислятся за пройденные участки, '
+            'Выберите причину. Очки начислятся за пройденные участки, '
             'пропуск можно отменить до завершения маршрута.',
             textAlign: TextAlign.center,
             style: TextStyle(

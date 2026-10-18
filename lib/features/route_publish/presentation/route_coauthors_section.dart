@@ -7,6 +7,7 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
 import 'package:tourism_mobile/features/companions/domain/companion_group.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
 import 'package:tourism_mobile/features/route_publish/data/route_coauthors_repository.dart';
@@ -145,7 +146,6 @@ class _RouteCoauthorsSectionState extends ConsumerState<RouteCoauthorsSection> {
 
   Widget _ownerRow(Set<String> chosen, RouteCoauthorsInfo? info) {
     final session = ref.watch(sessionProvider);
-    final config = ref.watch(appConfigProvider);
     final names = {
       for (final coauthor in info?.coauthors ?? const <RouteCoauthor>[])
         coauthor.userId: coauthor,
@@ -164,12 +164,11 @@ class _RouteCoauthorsSectionState extends ConsumerState<RouteCoauthorsSection> {
         onTap: () => setState(() => _expanded = !_expanded),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: u(22),
-              backgroundImage: AppImages.avatarProvider(
-                config: config,
-                avatarUrl: session.avatarUrl,
-              ),
+            UserAvatar(
+              userId: session.userId,
+              avatarUrl: session.avatarUrl,
+              size: u(44),
+              own: true,
             ),
             SizedBox(width: u(12)),
             Expanded(
@@ -461,12 +460,12 @@ class _PersonCard extends ConsumerWidget {
                           color: Colors.white,
                           shape: BoxShape.circle,
                         ),
-                        child: CircleAvatar(
-                          radius: u(22),
-                          backgroundImage: AppImages.avatarProvider(
-                            config: config,
-                            avatarUrl: person.avatarUrl,
-                          ),
+                        child: UserAvatar(
+                          userId: person.userId,
+                          avatarUrl: person.avatarUrl,
+                          beanKind: person.beanKind,
+                          beanHat: person.beanHat,
+                          size: u(44),
                         ),
                       ),
                       SizedBox(width: u(12)),

@@ -88,6 +88,8 @@ class RouteCoauthor {
     required this.userId,
     required this.displayName,
     this.avatarUrl,
+    this.beanKind,
+    this.beanHat,
     this.state = 'joined',
     this.consented = false,
   });
@@ -95,6 +97,11 @@ class RouteCoauthor {
   final String userId;
   final String displayName;
   final String? avatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? beanKind;
+  final String? beanHat;
 
   /// `invited`, `joined`; the server lists only these two.
   final String state;
@@ -108,6 +115,8 @@ class RouteCoauthor {
     userId: json['user_id'] as String,
     displayName: json['display_name'] as String? ?? '',
     avatarUrl: json['avatar_url'] as String?,
+    beanKind: json['bean_kind'] as String?,
+    beanHat: json['bean_hat'] as String?,
     state: json['state'] as String? ?? 'joined',
     consented: json['consented'] as bool? ?? false,
   );
@@ -116,6 +125,8 @@ class RouteCoauthor {
     'user_id': userId,
     'display_name': displayName,
     'avatar_url': avatarUrl,
+    'bean_kind': beanKind,
+    'bean_hat': beanHat,
     'state': state,
     'consented': consented,
   };
@@ -153,6 +164,8 @@ class RouteSummary {
     this.coverImageUrl,
     this.ownerUserId,
     this.authorAvatarUrl,
+    this.authorBeanKind,
+    this.authorBeanHat,
     this.authorIsExpert = false,
     this.authorRankTitle,
     this.coauthors = const [],
@@ -214,6 +227,11 @@ class RouteSummary {
   final String? coverImageUrl;
   final String? ownerUserId;
   final String? authorAvatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? authorBeanKind;
+  final String? authorBeanHat;
   final bool authorIsExpert;
   final String? source;
   final String? visibility;
@@ -261,6 +279,8 @@ class RouteSummary {
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorBeanKind: json['author_bean_kind'] as String?,
+      authorBeanHat: json['author_bean_hat'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
       authorRankTitle: json['author_rank_title'] as String?,
       coauthors: RouteCoauthor.listFrom(json['coauthors']),
@@ -299,6 +319,8 @@ class RouteSummary {
     'cover_image_url': coverImageUrl,
     'owner_user_id': ownerUserId,
     'author_avatar_url': authorAvatarUrl,
+    'author_bean_kind': authorBeanKind,
+    'author_bean_hat': authorBeanHat,
     'author_is_expert': authorIsExpert,
     'author_rank_title': authorRankTitle,
     'coauthors': [for (final coauthor in coauthors) coauthor.toJson()],
@@ -589,6 +611,8 @@ class RouteDetail extends RouteSummary {
     super.coverImageUrl,
     super.ownerUserId,
     super.authorAvatarUrl,
+    super.authorBeanKind,
+    super.authorBeanHat,
     super.authorIsExpert,
     super.authorRankTitle,
     super.coauthors,
@@ -666,6 +690,8 @@ class RouteDetail extends RouteSummary {
       coverImageUrl: json['cover_image_url'] as String?,
       ownerUserId: json['owner_user_id'] as String?,
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorBeanKind: json['author_bean_kind'] as String?,
+      authorBeanHat: json['author_bean_hat'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
       authorRankTitle: json['author_rank_title'] as String?,
       coauthors: RouteCoauthor.listFrom(json['coauthors']),

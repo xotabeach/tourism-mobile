@@ -11,6 +11,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/settings/presentation/settings_widgets.dart';
@@ -117,7 +118,6 @@ class _LeaderboardCard extends StatelessWidget {
     final borderColor = podiumColor ?? AppColors.hairline;
     final avatar = AppImages.imageProvider(
       resolvedUrl: AppImages.resolveMediaUrl(config, traveler.avatarUrl),
-      assetFallback: AppImages.travelerPortrait,
     );
     final safePlace = place > 0 ? place : 1;
 
@@ -196,10 +196,19 @@ class _LeaderboardCard extends StatelessWidget {
                         child: AppExpertFrame(
                           isExpert: traveler.isExpert,
                           borderRadius: BorderRadius.circular(999),
-                          child: CircleAvatar(
-                            backgroundColor: AppColors.mistDark,
-                            backgroundImage: avatar,
-                          ),
+                          child: (traveler.avatarUrl ?? '').isEmpty
+                              ? UserAvatar(
+                                  userId: traveler.id,
+                                  avatarUrl: null,
+                                  beanKind: traveler.beanKind,
+                                  beanHat: traveler.beanHat,
+                                  size: 42,
+                                  own: isCurrentUser,
+                                )
+                              : CircleAvatar(
+                                  backgroundColor: AppColors.mistDark,
+                                  backgroundImage: avatar,
+                                ),
                         ),
                       ),
                       const SizedBox(width: 10),

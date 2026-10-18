@@ -402,6 +402,8 @@ class InvitablePerson {
     required this.userId,
     required this.displayName,
     this.avatarUrl,
+    this.beanKind,
+    this.beanHat,
     this.rankTitle,
     this.coverUrl,
   });
@@ -409,6 +411,10 @@ class InvitablePerson {
   final String userId;
   final String displayName;
   final String? avatarUrl;
+
+  /// The character and hat drawn without a picture (FRONTEND-97).
+  final String? beanKind;
+  final String? beanHat;
   final String? rankTitle;
 
   /// The profile cover: the background of a person's card (DESIGN-19).
@@ -419,6 +425,8 @@ class InvitablePerson {
         userId: json['id'] as String,
         displayName: json['display_name'] as String? ?? '',
         avatarUrl: json['avatar_url'] as String?,
+        beanKind: json['bean_kind'] as String?,
+        beanHat: json['bean_hat'] as String?,
         rankTitle: json['rank_title'] as String?,
         coverUrl: json['cover_url'] as String?,
       );

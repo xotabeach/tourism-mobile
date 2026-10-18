@@ -14,6 +14,8 @@ import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/core/validation/display_name.dart';
+import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/profile/application/profile_providers.dart';
 import 'package:tourism_mobile/features/route_publish/application/route_draft_providers.dart';
@@ -334,10 +336,10 @@ class _SettingsChangePhotoScreenState
       networkUrl: profile.coverImageUrl,
       asset: profile.coverImageAsset,
     );
-    final avatarProvider = _imageProvider(
-      networkUrl: profile.avatarImageUrl,
-      asset: profile.avatarImageAsset,
-    );
+    final avatarProvider = _imageProvider(networkUrl: profile.avatarImageUrl);
+    final hasAvatar =
+        (profile.avatarImageUrl ?? '').isNotEmpty &&
+        !AppImages.isAssetPath(profile.avatarImageUrl);
 
     return SettingsScaffold(
       title: 'Сменить фото:',
@@ -379,6 +381,16 @@ class _SettingsChangePhotoScreenState
                     width: 156,
                     borderRadius: BorderRadius.circular(999),
                     image: avatarProvider,
+                    // No picture yet: the character's portrait under the
+                    // camera (FRONTEND-97).
+                    background: hasAvatar
+                        ? null
+                        : UserAvatar(
+                            userId: ref.watch(myUserIdProvider),
+                            avatarUrl: null,
+                            size: 156,
+                            own: true,
+                          ),
                     overlayAlpha: 0.55,
                     onTap: _busy ? () {} : () => _pickAndUpload(cover: false),
                   ),
@@ -407,10 +419,7 @@ class _SettingsChangePhotoScreenState
     );
   }
 
-  ImageProvider _imageProvider({
-    required String? networkUrl,
-    required String asset,
-  }) {
+  ImageProvider _imageProvider({required String? networkUrl, String? asset}) {
     if (networkUrl != null && networkUrl.isNotEmpty) {
       if (networkUrl.startsWith('file://')) {
         return FileImage(File(Uri.parse(networkUrl).toFilePath()));
@@ -420,7 +429,7 @@ class _SettingsChangePhotoScreenState
         assetFallback: asset,
       );
     }
-    return AssetImage(asset);
+    return asset == null ? AppImages.blankImage : AssetImage(asset);
   }
 }
 
@@ -612,8 +621,11 @@ class _PhotoPreview extends StatelessWidget {
     required this.onTap,
     required this.overlayAlpha,
     this.width,
+    this.background,
   });
 
+  /// Drawn under the photo and the camera, when there is no photo yet.
+  final Widget? background;
   final double height;
   final double? width;
   final BorderRadius borderRadius;
@@ -623,7 +635,7 @@ class _PhotoPreview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final preview = SizedBox(
       width: width ?? double.infinity,
       height: height,
       child: Material(
@@ -652,6 +664,16 @@ class _PhotoPreview extends StatelessWidget {
           ),
         ),
       ),
+    );
+    final under = background;
+    if (under == null) return preview;
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: ClipRRect(borderRadius: borderRadius, child: under),
+        ),
+        preview,
+      ],
     );
   }
 }

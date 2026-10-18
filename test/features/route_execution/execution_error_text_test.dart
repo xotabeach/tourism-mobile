@@ -17,15 +17,15 @@ void main() {
       executionErrorText(
         const UnexpectedFailure('x', 'required_stops_incomplete'),
       ),
-      'Отметь или пропусти обязательные точки, чтобы завершить',
+      'Отметьте или пропустите обязательные точки, чтобы завершить',
     );
     expect(
       executionErrorText(const RejectedFailure('x', 'no_stops_marked')),
-      'Отметь хотя бы одну точку, чтобы завершить',
+      'Отметьте хотя бы одну точку, чтобы завершить',
     );
     expect(
       executionErrorText(const RejectedFailure('x', activeRunConflictCode)),
-      'Сначала заверши текущий маршрут',
+      'Сначала завершите текущий маршрут',
     );
     expect(
       executionErrorText(
@@ -37,7 +37,7 @@ void main() {
       executionErrorText(
         const NotFoundFailure('x', 'route_execution_not_found'),
       ),
-      'Прохождение не найдено. Открой маршрут заново',
+      'Прохождение не найдено. Откройте маршрут заново',
     );
   });
 
@@ -47,7 +47,7 @@ void main() {
       'HTTP 409',
       'Network is fine, the request is wrong',
       'route_execution_stop_not_last',
-      'Сначала заверши текущий маршрут',
+      'Сначала завершите текущий маршрут',
     ]) {
       expect(
         executionErrorText(UnexpectedFailure(message)),
@@ -63,20 +63,20 @@ void main() {
   test('no connection and a slow server are told apart by kind', () {
     expect(
       executionErrorText(const NetworkFailure()),
-      'Нет соединения. Попробуй ещё раз',
+      'Нет соединения. Попробуйте ещё раз',
     );
     expect(
       executionErrorText(
         const NetworkFailure('Request timed out', NetworkFailure.timeoutCode),
       ),
-      'Сервер долго не отвечает. Попробуй ещё раз',
+      'Сервер долго не отвечает. Попробуйте ещё раз',
     );
   });
 
   test('another run in the way has its own hint', () {
     expect(
       executionErrorText(const AnotherRunInProgress()),
-      'Сначала заверши текущий маршрут',
+      'Сначала завершите текущий маршрут',
     );
   });
 }
