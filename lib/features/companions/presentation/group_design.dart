@@ -516,23 +516,9 @@ class _QrHolder extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           const Positioned.fill(child: CustomPaint(painter: _HolderPainter())),
-          // Hands peeking out from behind the QR's sides, as drawn.
-          for (final left in [-qr * 0.04, qr * 0.92])
-            Positioned(
-              left: left,
-              top: 69 + qr * 0.19,
-              width: qr * 0.12,
-              height: qr * 0.14,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: BeanKind.tall.art.data.bodyTop,
-                  borderRadius: BorderRadius.circular(qr * 0.04),
-                ),
-              ),
-            ),
           Positioned(
             left: 0,
-            top: 69,
+            top: _qrTop,
             width: qr,
             height: qr,
             child: Container(
@@ -545,10 +531,62 @@ class _QrHolder extends StatelessWidget {
               child: GroupQrImage(code: code, size: qr - 13, quiet: 0),
             ),
           ),
+          // Thumbs over the board's sides, as drawn: flat to the edge,
+          // round toward the code.
+          Positioned(
+            left: 0,
+            top: _qrTop,
+            width: qr,
+            height: qr,
+            child: const IgnorePointer(
+              child: CustomPaint(painter: _ThumbsPainter()),
+            ),
+          ),
         ],
       );
     },
   );
+}
+
+/// Where the QR board's top sits: a small gap under the smile.
+const _qrTop = 71.0;
+
+class _ThumbsPainter extends CustomPainter {
+  const _ThumbsPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final q = size.width;
+    final w = q * 0.08;
+    final h = q * 0.086;
+    final top = q * 0.222;
+    final paint = Paint()..color = BeanKind.tall.art.data.bodyBottom;
+    const flat = Radius.circular(1);
+    final round = Radius.elliptical(w, h / 2);
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(-q * 0.005, top, w, h),
+        topLeft: flat,
+        bottomLeft: flat,
+        topRight: round,
+        bottomRight: round,
+      ),
+      paint,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(q * 1.005 - w, top, w, h),
+        topLeft: round,
+        bottomLeft: round,
+        topRight: flat,
+        bottomRight: flat,
+      ),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ThumbsPainter oldDelegate) => false;
 }
 
 class _HolderPainter extends CustomPainter {

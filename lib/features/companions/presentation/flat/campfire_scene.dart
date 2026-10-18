@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'package:tourism_mobile/features/companions/presentation/flat/bean_art.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/camp_art.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
 
@@ -207,39 +208,34 @@ class _CampPainter extends CustomPainter {
       for (final m in members)
         if (m.waiting) m,
     ];
-    // Fewer people stand larger: four fill the clearing, eight still fit
-    // (owner, 2026-10-16: four looked lost at the size of eight).
+    // Fewer people stand larger: two or four as on the designer's lobby,
+    // eight still fit (owner, 2026-10-16: four looked lost at the size of
+    // eight).
     final beanHeight = closeUp
         ? 74.0
         : seated.length <= 4
-        ? 52.0
+        ? 50.0
         : seated.length <= 6
-        ? 44.0
-        : 36.0;
-    final spread = beanHeight / 34;
+        ? 43.0
+        : 37.0;
 
-    // Half the group on each side of the fire, the further ones a little
-    // higher up the slope, as if sitting round it.
+    // Each person on their own patch of grass round the fire, the first two
+    // where the designer put them: before the yellow tent and right of the
+    // fire. The rest fill in round the front, clear of the tents, the log
+    // and the bushes (owner, 2026-10-18: they stood in a tight line).
     final placed = <(Offset, CampMember, int)>[];
     for (var i = 0; i < seated.length; i++) {
-      final side = i.isEven ? -1.0 : 1.0;
-      final rank = i ~/ 2;
-      // In front of the tents, on the grass round the fire.
       final feet = closeUp
           ? Offset(fire.dx - 58, fire.dy + 30)
-          : Offset(
-              fire.dx + side * (26 + rank * 25) * spread,
-              // Every other pair a step back, so the group closes round
-              // the fire instead of standing in a line.
-              fire.dy + (rank.isOdd ? 2 : 10) * spread,
-            );
+          : _campSpots[i % _campSpots.length] +
+                Offset(0, (i ~/ _campSpots.length) * 6.0);
       placed.add((feet, seated[i], i));
     }
+    // The ones further back are drawn first, so the front ones overlap them.
     placed.sort((a, b) => a.$1.dy.compareTo(b.$1.dy));
 
     for (final (feet, member, index) in placed) {
       final phase = seeded(index + 40);
-      final breath = math.sin((t * 3 + phase) * math.pi * 2);
       final leaving = depart > 0;
       // Walking off: each bean leaves a little after the one before.
       final leave = leaving
@@ -257,47 +253,84 @@ class _CampPainter extends CustomPainter {
             2 * (1 - k) * k * control.dy +
             k * k * end.dy,
       );
-      final towardFire = (fire.dx - feet.dx).sign * 0.8;
-      // Now and then a bean looks at you, or round at the night.
-      final glance = (t * 2 + phase) % 1;
-      // Eyes glide between targets instead of jumping.
-      final atYou = _window(glance, 0.05, 0.17);
-      final away = _window(glance, 0.55, 0.63);
+      // A touch smaller further up the slope, for depth.
+      final height = closeUp
+          ? beanHeight
+          : beanHeight * (0.92 + ((feet.dy - 175) / 45).clamp(0.0, 1.0) * 0.1);
+      final towardFire = (fire.dx - feet.dx).sign;
+
+      // The idle loop, every bean on its own beat: slow breathing, a gentle
+      // sway, the eyes on the fire with a look at you or a neighbour now and
+      // then. Who is ready gives a little hop; who is not waves once in a
+      // while, the hand rising, two slow waves and down again.
+      final beat = (t + phase) % 1;
+      final breath = math.sin((t * 3 + phase) * math.pi * 2);
+      final sway = leaving
+          ? 0.0
+          : math.sin((t * 2 + phase) * math.pi * 2) * 0.03;
+      final hopBeat = (t * 2 + phase * 0.6) % 1;
+      final hop = leaving
+          ? math.sin(depart * math.pi * 14 + index).abs() * 0.08
+          : member.ready && hopBeat > 0.42 && hopBeat < 0.54
+          ? math.sin((hopBeat - 0.42) / 0.12 * math.pi) * 0.07
+          : 0.0;
+      final atYou = _window(beat, 0.12, 0.26);
+      final aside = _window(beat, 0.58, 0.68);
       final look = leaving
           ? 1.0
-          : towardFire * (1 - atYou - away) - towardFire * away;
-      // Those not ready yet wave at the others from time to time.
-      final waveBeat = (t * 2 + phase * 0.7) % 1;
+          : towardFire * 0.8 * (1 - atYou) - towardFire * 1.6 * aside;
+      final waveEnvelope = member.ready || leaving
+          ? 0.0
+          : _window((t + phase * 0.7) % 1, 0.3, 0.55);
       final wave = leaving
           ? 0.7
-          : !member.ready && waveBeat < 0.2
-          ? 0.65 + 0.35 * math.sin(waveBeat / 0.2 * math.pi * 6)
-          : 0.0;
+          : waveEnvelope *
+                (0.7 + 0.3 * math.sin(((t + phase * 0.7) % 1) * math.pi * 16));
+
+      // A soft shadow on the grass, smaller while in the air.
+      final shadowWidth =
+          height *
+          member.look.kind.art.data.size.width /
+          beanArtBlueHeight *
+          (0.72 - hop * 2);
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: position.translate(0, -height * 0.015),
+          width: shadowWidth,
+          height: height * 0.11,
+        ),
+        Paint()
+          ..color = const Color(0x52000000)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, height * 0.025),
+      );
       if (shade) {
         canvas.drawOval(
           Rect.fromCenter(
-            center: position.translate(0, -beanHeight * 0.5),
-            width: beanHeight * 1.5,
-            height: beanHeight * 1.6,
+            center: position.translate(0, -height * 0.5),
+            width: height * 1.5,
+            height: height * 1.6,
           ),
           Paint()
             ..color = const Color(0x8C000000)
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, beanHeight * 0.22),
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, height * 0.22),
         );
       }
+      canvas.save();
+      // The sway leans the whole bean about its feet.
+      canvas.translate(position.dx, position.dy);
+      canvas.rotate(sway);
+      canvas.translate(-position.dx, -position.dy);
       paintBean(
         canvas,
         position,
-        beanHeight,
+        height,
         FlatPalette.beanFor(member.userId),
         BeanPose(
-          bob: leaving
-              ? (math.sin(depart * math.pi * 14 + index).abs() * 0.08)
-              : 0,
+          bob: hop,
           breath: leaving ? 0 : breath,
           step: leaving ? math.sin(depart * math.pi * 14 + index) : 0,
           blink: ((t * 6 + index * 0.37) % 1) < 0.04,
-          lookX: look,
+          lookX: look.clamp(-1.0, 1.0),
           ready: member.ready && !leaving,
           toast: (t * 2 + phase) % 1,
           wave: wave,
@@ -308,17 +341,18 @@ class _CampPainter extends CustomPainter {
           look: member.look,
         ),
       );
+      canvas.restore();
       if (!leaving) {
         final kindHeight =
-            beanHeight * member.look.kind.art.data.size.height / 404;
+            height * member.look.kind.art.data.size.height / beanArtBlueHeight;
         paintLabel(
           canvas,
           labelsAbove
-              ? position.translate(0, -kindHeight - 9 / s - 6)
+              ? position.translate(0, -kindHeight - 9 / s - 6 - hop * height)
               : position.translate(0, 4),
           member.name,
           size: labelsAbove ? 7.5 / s : math.max(10 / s, 7),
-          maxWidth: beanHeight * 1.6,
+          maxWidth: height * 1.6,
           weight: labelsAbove ? FontWeight.w400 : FontWeight.w600,
         );
       }
@@ -352,6 +386,19 @@ class _CampPainter extends CustomPainter {
   bool shouldRepaint(covariant _CampPainter old) =>
       old.t != t || old.depart != depart || old.members != members;
 }
+
+/// Where people stand round the fire, in the camp frame's units, in the
+/// order they take them.
+const _campSpots = [
+  Offset(86, 178), // before the yellow tent (the designer's)
+  Offset(238, 194), // right of the fire (the designer's)
+  Offset(136, 204),
+  Offset(274, 183),
+  Offset(163, 227),
+  Offset(96, 222),
+  Offset(219, 236),
+  Offset(303, 200),
+];
 
 /// 1 inside [from]..[to] on the 0..1 loop, 0 outside, with soft edges.
 double _window(double x, double from, double to) {
