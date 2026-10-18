@@ -54,6 +54,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/images/companions/
     - assets/splash/
     - assets/splash/scene/
     - assets/icons/raster/

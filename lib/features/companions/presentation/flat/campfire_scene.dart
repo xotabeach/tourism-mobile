@@ -51,8 +51,12 @@ class CampfireScene extends StatefulWidget {
     this.height = 300,
     this.closeUp = false,
     this.shade = false,
+    this.labelsAbove = false,
     super.key,
   });
+
+  /// Names over the heads, as on the designer's lobby (FRONTEND-88).
+  final bool labelsAbove;
 
   /// A soft dark patch behind each person, so they stand out from the
   /// busy camp (owner's idea, FRONTEND-86; to be decided).
@@ -133,6 +137,7 @@ class _CampfireSceneState extends State<CampfireScene>
               painter: _CampPainter(
                 closeUp: widget.closeUp,
                 shade: widget.shade,
+                labelsAbove: widget.labelsAbove,
                 members: widget.members,
                 t: _idle.value,
                 depart: _depart.value,
@@ -152,10 +157,12 @@ class _CampPainter extends CustomPainter {
     required this.depart,
     this.closeUp = false,
     this.shade = false,
+    this.labelsAbove = false,
   });
 
   final bool closeUp;
   final bool shade;
+  final bool labelsAbove;
 
   final List<CampMember> members;
   final double t;
@@ -295,9 +302,13 @@ class _CampPainter extends CustomPainter {
         ),
       );
       if (!leaving) {
+        final kindHeight =
+            beanHeight * member.look.kind.art.data.size.height / 404;
         paintLabel(
           canvas,
-          position.translate(0, 4),
+          labelsAbove
+              ? position.translate(0, -kindHeight - 6 / s - 4)
+              : position.translate(0, 4),
           member.name,
           size: math.max(10 / s, 7),
           maxWidth: beanHeight * 1.6,

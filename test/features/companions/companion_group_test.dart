@@ -9,7 +9,7 @@ import 'package:tourism_mobile/features/companions/presentation/companion_group_
 import 'package:tourism_mobile/features/companions/presentation/flat/campfire_scene.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/flat_style.dart';
 import 'package:tourism_mobile/features/companions/presentation/flat/group_postcard.dart';
-import 'package:tourism_mobile/features/companions/presentation/flat/rope_view.dart';
+import 'package:tourism_mobile/features/companions/presentation/flat/mountain_route.dart';
 import 'package:tourism_mobile/features/route_execution/data/route_execution_offline_store.dart';
 
 import '../../support/test_overrides.dart';
@@ -167,13 +167,14 @@ void main() {
     expect(find.byType(CampfireScene), findsOneWidget);
     expect(find.textContaining('Анна зовёт вас'), findsOneWidget);
     // The invitee does not see the code yet.
-    expect(find.text('Код группы'), findsNothing);
+    expect(find.text('Код группы:'), findsNothing);
     await tester.tap(find.text('Пойду'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
     expect(repo.answers, [true]);
-    expect(find.text('Я готов'), findsOneWidget);
+    expect(find.text('Готов'), findsOneWidget);
     expect(find.text('ABC234'), findsOneWidget);
+    expect(find.text('Попутчики:'), findsOneWidget);
     await _close(tester);
   });
 
@@ -183,8 +184,8 @@ void main() {
     final repo = MockCompanionsRepository();
     final group = await repo.create('route-1');
     await _open(tester, _Pass(repo, group.id));
-    expect(find.text('Собираемся у костра'), findsOneWidget);
-    final start = find.widgetWithText(FilledButton, 'Старт! Выходим на тропу');
+    expect(find.text('Совместный маршрут:'), findsOneWidget);
+    final start = find.widgetWithText(FilledButton, 'Выйти на тропу');
     expect(tester.widget<FilledButton>(start).onPressed, isNull);
     expect(find.text('Позовите хотя бы одного попутчика'), findsOneWidget);
 
@@ -202,24 +203,31 @@ void main() {
     await _close(tester);
   });
 
-  testWidgets('on the way: the rope, who is where, who was first', (
-    tester,
-  ) async {
+  testWidgets('on the way: the mountain, who is where', (tester) async {
     final repo = _Repo(
       CompanionGroup.fromJson(_groupJson(status: 'started', myState: 'joined')),
       walk: const CompanionProgress(
         groupId: 'g1',
         status: CompanionGroupStatus.started,
         stops: [
-          CompanionStop(position: 1, placeName: 'Ротонда', firstUserId: 'anna'),
-          CompanionStop(position: 2, placeName: 'Маяк'),
+          CompanionStop(
+            position: 1,
+            placeName: 'Ротонда',
+            firstUserId: 'anna',
+            distanceFromStartMeters: 0,
+          ),
+          CompanionStop(
+            position: 2,
+            placeName: 'Маяк',
+            distanceFromStartMeters: 3500,
+          ),
         ],
         members: [
           CompanionMemberProgress(
             userId: 'anna',
             displayName: 'Анна',
             status: CompanionRunStatus.walking,
-            lastPosition: 1,
+            lastPosition: 2,
           ),
           CompanionMemberProgress(
             userId: 'mock-user',
@@ -236,13 +244,14 @@ void main() {
       ),
     );
     await _open(tester, repo);
-    expect(find.byType(RopeView), findsOneWidget);
-    expect(find.byType(GroupPostcard), findsOneWidget);
-    expect(find.text('Начать своё прохождение'), findsOneWidget);
-    expect(find.text('В пути · точка 1 из 2'), findsOneWidget);
-    expect(find.text('Кто первым дошёл'), findsOneWidget);
-    expect(find.text('1. Ротонда'), findsOneWidget);
-    expect(find.text('Идём вместе, ещё идут'), findsOneWidget);
+    expect(find.text('Группа в пути:'), findsOneWidget);
+    expect(find.byType(MountainRoute), findsOneWidget);
+    expect(find.text('Начать прохождение'), findsOneWidget);
+    expect(find.text('Участники маршрута:'), findsOneWidget);
+    expect(find.text('3,5 км от старта • Маяк'), findsOneWidget);
+    expect(find.text('Ещё не вышел'), findsOneWidget);
+    // The postcard waits for the end.
+    expect(find.byType(GroupPostcard), findsNothing);
     await _close(tester);
   });
 
@@ -271,7 +280,7 @@ void main() {
       ),
     );
     await _open(tester, repo);
-    final leave = find.text('Выйти из группы');
+    final leave = find.text('Сойти с дистанции');
     await tester.ensureVisible(leave);
     await tester.pump();
     await tester.tap(leave);
