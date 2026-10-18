@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart' show CupertinoPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tourism_mobile/core/design/app_motion.dart';
+import 'package:tourism_mobile/core/diagnostics/route_open_watch.dart';
 import 'package:tourism_mobile/features/articles/presentation/article_details_screen.dart';
 import 'package:tourism_mobile/features/articles/presentation/article_editor_screen.dart';
 import 'package:tourism_mobile/features/auth/presentation/auth_identity_screen.dart';
@@ -45,6 +48,75 @@ import 'package:tourism_mobile/features/settings/presentation/settings_travel_pl
 import 'package:tourism_mobile/routing/shell/app_shell_screen.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'root');
+
+/// Opens a route's page from anywhere (FRONTEND-85, spec 47 D11).
+///
+/// `/routes/:id` lives in the «Маршруты» tab. From a screen inside the tabs
+/// that is the page to open; from a screen on the root navigator (search,
+/// a place opened from an article, a notification) a push into it leaves an
+/// empty page, so those open the root-level `/route/:id` instead. Either way
+/// [RouteOpenWatch] waits for the page to appear.
+void openRouteDetails(
+  BuildContext context,
+  String routeId, {
+  RouteSummary? summary,
+  bool reviews = false,
+  String? reviewId,
+}) {
+  final router = GoRouter.of(context);
+  final outside = Navigator.of(context) == _rootNavigatorKey.currentState;
+  _openRoute(
+    router,
+    routeId,
+    standalone: outside,
+    summary: summary,
+    reviews: reviews,
+    reviewId: reviewId,
+    from: GoRouterState.of(context).matchedLocation,
+  );
+}
+
+/// [openRouteDetails] without a screen to start from: a push notification
+/// or the notification inbox. Always the root-level page.
+void openRouteDetailsFromRouter(
+  GoRouter router,
+  String routeId, {
+  bool reviews = false,
+  String? reviewId,
+  String from = 'notification',
+}) => _openRoute(
+  router,
+  routeId,
+  standalone: true,
+  reviews: reviews,
+  reviewId: reviewId,
+  from: from,
+);
+
+void _openRoute(
+  GoRouter router,
+  String routeId, {
+  required bool standalone,
+  required String from,
+  RouteSummary? summary,
+  bool reviews = false,
+  String? reviewId,
+}) {
+  RouteOpenWatch.expect(routeId, from: from);
+  unawaited(
+    router.pushNamed(
+      standalone
+          ? AppRouteNames.routeDetailsStandalone
+          : AppRouteNames.routeDetails,
+      pathParameters: {'id': routeId},
+      queryParameters: {
+        if (reviews || reviewId != null) 'tab': 'reviews',
+        'review': ?reviewId,
+      },
+      extra: summary,
+    ),
+  );
+}
 
 abstract final class AppRouteNames {
   static const welcome = 'welcome';
@@ -208,7 +280,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final id = state.pathParameters['id']!;
           return CupertinoPage<void>(
             key: state.pageKey,
-            child: StandaloneRouteDetailsScreen(routeId: id),
+            child: StandaloneRouteDetailsScreen(
+              routeId: id,
+              initialRoute: state.extra is RouteSummary
+                  ? state.extra! as RouteSummary
+                  : null,
+              openReviews: state.uri.queryParameters['tab'] == 'reviews',
+              focusReviewId: state.uri.queryParameters['review'],
+            ),
           );
         },
       ),

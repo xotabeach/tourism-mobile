@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
@@ -428,13 +427,7 @@ class _RouteSwipeDeckState extends State<RouteSwipeDeck>
         widget.debugProgress != null) {
       return;
     }
-    unawaited(
-      context.pushNamed(
-        AppRouteNames.routeDetails,
-        pathParameters: {'id': route.id},
-        extra: route,
-      ),
-    );
+    openRouteDetails(context, route.id, summary: route);
   }
 
   @override

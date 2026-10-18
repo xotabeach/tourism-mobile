@@ -74,14 +74,14 @@ void main() {
   });
 
   test('a run on another route has no group pill', () {
-    final card = homeTopCard(run: _run(), lobby: _lobby(status: 'started'));
+    final card = homeTopCard(
+      run: _run(),
+      lobby: _lobby(status: 'started'),
+    );
     expect((card as ActiveRouteCard).groupId, isNull);
   });
 
   test('a group on its way without a run here: the lobby card', () {
-    expect(
-      homeTopCard(lobby: _lobby(status: 'started')),
-      isA<HomeLobbyCard>(),
-    );
+    expect(homeTopCard(lobby: _lobby(status: 'started')), isA<HomeLobbyCard>());
   });
 }

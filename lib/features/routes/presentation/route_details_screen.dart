@@ -16,6 +16,7 @@ import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
+import 'package:tourism_mobile/core/diagnostics/route_open_watch.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/format/rating_format.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -87,6 +88,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   @override
   void initState() {
     super.initState();
+    RouteOpenWatch.shown(widget.routeId);
     _galleryController = AnimationController(
       vsync: this,
       duration: AppMotion.emphasized,
@@ -369,7 +371,19 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             dashedLine: isWalkingMode(route.transportMode),
                             segments: route.segments,
                           ),
-                          const SizedBox(height: 24),
+                          // Spec 11b: walk a catalogue route with friends,
+                          // right under its map (FRONTEND-87).
+                          if (publiclyAvailable &&
+                              ref.watch(
+                                sessionProvider.select(
+                                  (session) => session.isAuthenticated,
+                                ),
+                              )) ...[
+                            const _SectionDivider(),
+                            CompanionsEntryCard(routeId: route.id),
+                            const _SectionDivider(),
+                          ] else
+                            const SizedBox(height: 24),
                           const _SectionTitle('Остановки:'),
                           const SizedBox(height: 6),
                           for (
@@ -401,14 +415,6 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                                     day.overnightNote != null)
                                   _OvernightNote(text: day.overnightNote!),
                           ],
-                          // Spec 11b: walk a catalogue route with friends.
-                          if (publiclyAvailable &&
-                              ref.watch(
-                                sessionProvider.select(
-                                  (session) => session.isAuthenticated,
-                                ),
-                              ))
-                            CompanionsEntryCard(routeId: route.id),
                           _ArticlesForRouteSection(routeId: route.id),
                           _SimilarRoutesSection(currentRouteId: route.id),
                         ] else ...[

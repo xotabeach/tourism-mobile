@@ -144,21 +144,19 @@ class _RouteMatchResultsScreenState
       );
       if (routeId != null && routeId.isNotEmpty) {
         final userId = ref.read(sessionProvider).userId;
-        unawaited(
-          context.pushNamed(
-            AppRouteNames.routeDetails,
-            pathParameters: {'id': routeId},
-            extra: RouteSummary(
-              id: routeId,
-              name: 'Сгенерированный маршрут',
-              slug: 'generated',
-              shortDescription: null,
-              stopsCount: 0,
-              ownerUserId: userId,
-              publicationStatus: 'draft',
-              visibility: 'private',
-              source: 'generated',
-            ),
+        openRouteDetails(
+          context,
+          routeId,
+          summary: RouteSummary(
+            id: routeId,
+            name: 'Сгенерированный маршрут',
+            slug: 'generated',
+            shortDescription: null,
+            stopsCount: 0,
+            ownerUserId: userId,
+            publicationStatus: 'draft',
+            visibility: 'private',
+            source: 'generated',
           ),
         );
       } else {

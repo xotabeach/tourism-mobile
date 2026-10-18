@@ -587,11 +587,7 @@ class _RelatedRouteRow extends ConsumerWidget {
     final config = ref.watch(appConfigProvider);
     return InkWell(
       borderRadius: BorderRadius.circular(AppRadii.tile),
-      onTap: () => context.pushNamed(
-        AppRouteNames.routeDetails,
-        pathParameters: {'id': route.id},
-        extra: route,
-      ),
+      onTap: () => openRouteDetails(context, route.id, summary: route),
       child: SizedBox(
         height: 54,
         child: Row(

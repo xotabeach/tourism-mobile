@@ -27,32 +27,83 @@ String? parseGroupQr(String raw) {
   return RegExp(r'^[A-Z0-9]{4,8}$').hasMatch(code) ? code : null;
 }
 
-/// The QR itself, dark on white so any camera reads it.
+/// The QR itself, dark on white so any camera reads it: round dots with
+/// rounded square eyes, as on the mockup.
 class GroupQrImage extends StatelessWidget {
-  const GroupQrImage({required this.code, this.size = 220, super.key});
+  const GroupQrImage({
+    required this.code,
+    this.size = 220,
+    this.quiet = 0.06,
+    super.key,
+  });
 
   final String code;
   final double size;
+
+  /// The white margin, a share of [size]; 0 inside a framed white board.
+  final double quiet;
 
   @override
   Widget build(BuildContext context) => Semantics(
     label: 'QR-код группы $code',
     image: true,
-    child: QrImageView(
-      data: groupQrPayload(code),
-      size: size,
-      backgroundColor: Colors.white,
-      padding: EdgeInsets.all(size * 0.06),
-      eyeStyle: const QrEyeStyle(
-        eyeShape: QrEyeShape.circle,
-        color: FlatPalette.ink,
-      ),
-      dataModuleStyle: const QrDataModuleStyle(
-        dataModuleShape: QrDataModuleShape.circle,
-        color: FlatPalette.ink,
+    child: SizedBox.square(
+      dimension: size,
+      child: CustomPaint(
+        painter: GroupQrPainter(groupQrPayload(code), quiet: quiet),
       ),
     ),
   );
+}
+
+class GroupQrPainter extends CustomPainter {
+  GroupQrPainter(this.data, {this.quiet = 0.06})
+    : _image = QrImage(
+        QrCode.fromData(data: data, errorCorrectLevel: QrErrorCorrectLevel.H),
+      );
+
+  final String data;
+  final double quiet;
+  final QrImage _image;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final n = _image.moduleCount;
+    final margin = size.width * quiet;
+    final m = (size.width - margin * 2) / n;
+    final ink = Paint()..color = FlatPalette.ink;
+    canvas.drawRect(Offset.zero & size, Paint()..color = Colors.white);
+    bool inEye(int r, int c) =>
+        (r < 7 && c < 7) || (r < 7 && c >= n - 7) || (r >= n - 7 && c < 7);
+    for (var r = 0; r < n; r++) {
+      for (var c = 0; c < n; c++) {
+        if (inEye(r, c) || !_image.isDark(r, c)) continue;
+        canvas.drawCircle(
+          Offset(margin + (c + 0.5) * m, margin + (r + 0.5) * m),
+          m * 0.32,
+          ink,
+        );
+      }
+    }
+    for (final (r, c) in [(0, 0), (0, n - 7), (n - 7, 0)]) {
+      final outer = Rect.fromLTWH(margin + c * m, margin + r * m, 7 * m, 7 * m);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(outer.deflate(m / 2), Radius.circular(m * 1.6)),
+        Paint()
+          ..color = FlatPalette.ink
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = m * 0.9,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(outer.deflate(2 * m), Radius.circular(m * 0.8)),
+        ink,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant GroupQrPainter oldDelegate) =>
+      oldDelegate.data != data || oldDelegate.quiet != quiet;
 }
 
 /// The group's QR large, for someone standing next to you.

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_spacing.dart';
+import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/route_details_screen.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_header.dart';
 
@@ -22,9 +23,18 @@ import 'package:tourism_mobile/features/routes/presentation/widgets/route_media_
 /// a real action and is rebuilt here from the same [RouteStartButton] the shell
 /// uses, over the same bottom scrim, so nothing is lost but the tab chrome.
 class StandaloneRouteDetailsScreen extends StatelessWidget {
-  const StandaloneRouteDetailsScreen({required this.routeId, super.key});
+  const StandaloneRouteDetailsScreen({
+    required this.routeId,
+    this.initialRoute,
+    this.openReviews = false,
+    this.focusReviewId,
+    super.key,
+  });
 
   final String routeId;
+  final RouteSummary? initialRoute;
+  final bool openReviews;
+  final String? focusReviewId;
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +44,12 @@ class StandaloneRouteDetailsScreen extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          RouteDetailsScreen(routeId: routeId),
+          RouteDetailsScreen(
+            routeId: routeId,
+            initialRoute: initialRoute,
+            openReviews: openReviews,
+            focusReviewId: focusReviewId,
+          ),
           Positioned(
             left: 0,
             right: 0,

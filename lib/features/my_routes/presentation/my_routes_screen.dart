@@ -1194,7 +1194,7 @@ class _ExecutionHistoryTile extends ConsumerWidget {
       borderRadius: BorderRadius.circular(AppRadii.card),
       child: InkWell(
         onTap: routeId != null
-            ? () => context.push('/routes/$routeId')
+            ? () => openRouteDetails(context, routeId)
             : orphanedActive
             ? () => _endOrphaned(context, ref)
             : null,

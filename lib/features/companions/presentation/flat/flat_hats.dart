@@ -2,7 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// The twenty hats of a companion's character (FRONTEND-72, BACKEND-65).
+import 'package:tourism_mobile/features/companions/presentation/flat/hat_art.dart';
+
+/// The hats of a companion's character (FRONTEND-72, BACKEND-65).
 ///
 /// Flat like the rest of the world: two or three tones each, no outlines,
 /// small details (stitches, ribs, a shine) drawn as shapes. Every hat sits
@@ -27,7 +29,10 @@ enum BeanHat {
   wreath('wreath'),
   sailor('sailor'),
   wizard('wizard'),
-  party('party');
+  party('party'),
+  headphones('headphones'),
+  flatCap('flat_cap'),
+  winterHat('winter_hat');
 
   const BeanHat(this.slug);
 
@@ -64,7 +69,25 @@ void paintHat(
   required double alpha,
   bool facingRight = true,
   double sway = 0,
+  double? eyeY,
+  Rect? eyes,
+  double Function(double y)? headHalfWidth,
+  String? shape,
 }) {
+  // The designer's drawing where there is one (FRONTEND-79).
+  if (eyes != null &&
+      headHalfWidth != null &&
+      paintHatArt(
+        canvas,
+        hat,
+        body,
+        eyes: eyes,
+        headHalfWidth: headHalfWidth,
+        shape: shape,
+        alpha: alpha,
+      )) {
+    return;
+  }
   Paint fill(Color c) => Paint()..color = c.withValues(alpha: c.a * alpha);
   Paint line(Color c, double width) => fill(c)
     ..style = PaintingStyle.stroke
@@ -77,14 +100,17 @@ void paintHat(
   final right = body.right;
   // Where the head's curve meets a brim: always above the eyes, which sit
   // at about a third of the body's height on every shape.
-  final brimY = top + math.min(w * 0.3, body.height * 0.19);
+  final shapeBrim = top + math.min(w * 0.3, body.height * 0.19);
+  final brimY = eyeY == null ? shapeBrim : math.min(shapeBrim, eyeY - w * 0.27);
 
   switch (hat) {
+    // Drawn only from the designer's art, which needs the eyes.
+    case BeanHat.flatCap || BeanHat.winterHat:
+      return;
+
     case BeanHat.beanie:
-      final knit = _shade(
-        Color.lerp(bodyColor, const Color(0xFF1D2B53), 0.55)!,
-        0,
-      );
+      // Mustard knit with a pompom of the same yarn (FRONTEND-79).
+      const knit = Color(0xFFF0B42C);
       canvas.drawPath(
         Path()
           ..moveTo(left + w * 0.04, brimY + w * 0.06)
@@ -102,7 +128,7 @@ void paintHat(
         canvas.drawLine(
           Offset(cx + i * w * 0.14, brimY),
           Offset(cx + i * w * 0.07, top - w * 0.06 + (i.abs() * w * 0.06)),
-          line(_shade(knit, 0.18), w * 0.025),
+          line(_shade(knit, 0.07), w * 0.022),
         );
       }
       final cuff = RRect.fromRectAndRadius(
@@ -119,47 +145,72 @@ void paintHat(
         );
       }
       final pom = Offset(cx + sway * w * 0.03, top - w * 0.1);
-      canvas.drawCircle(pom, w * 0.14, fill(const Color(0xFFFFF6E5)));
+      canvas.drawCircle(pom, w * 0.13, fill(_shade(knit, 0.08)));
       canvas.drawCircle(
-        pom.translate(w * 0.03, w * 0.03),
-        w * 0.08,
-        fill(const Color(0xFFF1E2C4)),
+        pom.translate(-w * 0.03, -w * 0.03),
+        w * 0.07,
+        fill(_tint(knit, 0.18)),
       );
 
     case BeanHat.cap:
-      final cap = _tint(bodyColor, 0.4);
+      // A coral baseball cap snug on the head, the peak forward (owner's
+      // sketch, FRONTEND-79).
+      const cap = Color(0xFFF2654F);
+      final dir = facingRight ? 1.0 : -1.0;
+      final crownBottom = brimY + w * 0.08;
+      // Worn a little askew, the peak dipping toward where it points.
+      canvas.save();
+      canvas.translate(cx, top);
+      canvas.rotate(dir * 0.12);
+      canvas.translate(-cx, -top);
       canvas.drawPath(
         Path()
-          ..moveTo(left + w * 0.06, brimY)
-          ..quadraticBezierTo(cx, top - w * 0.28, right - w * 0.06, brimY)
+          ..moveTo(left + w * 0.02, crownBottom)
+          ..cubicTo(
+            left + w * 0.02,
+            top - w * 0.2,
+            right - w * 0.02,
+            top - w * 0.2,
+            right - w * 0.02,
+            crownBottom,
+          )
           ..close(),
         fill(cap),
       );
+      // A seam and the button on top.
       canvas.drawLine(
-        Offset(cx, top - w * 0.06),
-        Offset(cx, brimY),
-        line(_shade(cap, 0.12), w * 0.02),
+        Offset(cx, top - w * 0.1),
+        Offset(cx - dir * w * 0.06, crownBottom),
+        line(_shade(cap, 0.12), w * 0.018),
       );
-      canvas.drawCircle(
-        Offset(cx, top - w * 0.06),
-        w * 0.05,
-        fill(_shade(cap, 0.2)),
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(cx, top - w * 0.1),
+          width: w * 0.1,
+          height: w * 0.06,
+        ),
+        fill(_shade(cap, 0.15)),
       );
-      // The peak points where the bean faces, never flipping with a glance.
-      final dir = facingRight ? 1.0 : -1.0;
+      // The peak: a flat curved visor out to the side it faces.
       canvas.drawPath(
         Path()
-          ..moveTo(cx, brimY - w * 0.04)
+          ..moveTo(cx + dir * w * 0.1, crownBottom - w * 0.06)
           ..quadraticBezierTo(
             cx + dir * w * 0.62,
-            brimY - w * 0.06,
-            cx + dir * w * 0.7,
-            brimY + w * 0.06,
+            crownBottom - w * 0.1,
+            cx + dir * w * 0.74,
+            crownBottom + w * 0.02,
           )
-          ..lineTo(cx, brimY + w * 0.06)
+          ..quadraticBezierTo(
+            cx + dir * w * 0.45,
+            crownBottom + w * 0.07,
+            cx + dir * w * 0.1,
+            crownBottom + w * 0.03,
+          )
           ..close(),
-        fill(_shade(cap, 0.18)),
+        fill(_shade(cap, 0.14)),
       );
+      canvas.restore();
 
     case BeanHat.headband:
       const band = Color(0xFFFF6B6B);
@@ -214,49 +265,59 @@ void paintHat(
       }
 
     case BeanHat.panama:
-      const cloth = Color(0xFFE9D8A6);
+      // A mint bucket hat: a round crown and a brim sloping down.
+      const cloth = Color(0xFF8ED8C0);
+      final band = brimY + w * 0.02;
       canvas.drawPath(
         Path()
-          ..moveTo(left + w * 0.12, brimY)
-          ..lineTo(left + w * 0.2, top - w * 0.12)
+          ..moveTo(left - w * 0.16, band + w * 0.14)
           ..quadraticBezierTo(
             cx,
-            top - w * 0.2,
-            right - w * 0.2,
-            top - w * 0.12,
+            band - w * 0.12,
+            right + w * 0.16,
+            band + w * 0.14,
           )
-          ..lineTo(right - w * 0.12, brimY)
+          ..quadraticBezierTo(
+            cx,
+            band + w * 0.04,
+            left - w * 0.16,
+            band + w * 0.14,
+          )
+          ..close(),
+        fill(_shade(cloth, 0.1)),
+      );
+      canvas.drawPath(
+        Path()
+          ..moveTo(left + w * 0.06, band + w * 0.02)
+          ..cubicTo(
+            left + w * 0.04,
+            top - w * 0.26,
+            right - w * 0.04,
+            top - w * 0.26,
+            right - w * 0.06,
+            band + w * 0.02,
+          )
+          ..quadraticBezierTo(
+            cx,
+            band + w * 0.07,
+            left + w * 0.06,
+            band + w * 0.02,
+          )
           ..close(),
         fill(cloth),
       );
-      canvas.drawRect(
-        Rect.fromLTWH(left + w * 0.14, brimY - w * 0.1, w * 0.72, w * 0.07),
-        fill(const Color(0xFF2F6B5E)),
-      );
+      // Stitching rings on the brim.
       canvas.drawPath(
         Path()
-          ..moveTo(left - w * 0.14, brimY + w * 0.1)
+          ..moveTo(left - w * 0.08, band + w * 0.11)
           ..quadraticBezierTo(
             cx,
-            brimY - w * 0.08,
-            right + w * 0.14,
-            brimY + w * 0.1,
-          )
-          ..quadraticBezierTo(
-            cx,
-            brimY + w * 0.03,
-            left - w * 0.14,
-            brimY + w * 0.1,
+            band - w * 0.04,
+            right + w * 0.08,
+            band + w * 0.11,
           ),
-        fill(_shade(cloth, 0.12)),
+        line(_tint(cloth, 0.3), w * 0.012),
       );
-      for (var i = 0; i < 5; i++) {
-        canvas.drawCircle(
-          Offset(left + w * (0.28 + i * 0.11), top + w * 0.02),
-          w * 0.012,
-          fill(_shade(cloth, 0.3)),
-        );
-      }
 
     case BeanHat.strawHat:
       const straw = Color(0xFFF2C94C);
@@ -869,6 +930,45 @@ void paintHat(
           apex,
           apex.translate(math.cos(a) * w * 0.14, math.sin(a) * w * 0.14),
           line(const Color(0xFFFFC145), w * 0.02),
+        );
+      }
+
+    case BeanHat.headphones:
+      // Over the head from ear to ear, the cups at eye level, a little
+      // outside the body (the owner's sketch, FRONTEND-79).
+      const cup = Color(0xFF1E3A78);
+      final cupY = (eyeY ?? brimY + w * 0.2) - w * 0.04;
+      final reach = w * 0.5 + w * 0.04;
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(cx, cupY),
+          width: reach * 2,
+          height: (cupY - top) * 2 + w * 0.2,
+        ),
+        math.pi * 1.04,
+        math.pi * 0.92,
+        false,
+        line(_shade(cup, 0.1), w * 0.06),
+      );
+      for (final side in const [-1.0, 1.0]) {
+        final at = Offset(cx + side * reach, cupY);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(center: at, width: w * 0.2, height: w * 0.32),
+            Radius.circular(w * 0.1),
+          ),
+          fill(cup),
+        );
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: at.translate(-side * w * 0.06, 0),
+              width: w * 0.08,
+              height: w * 0.26,
+            ),
+            Radius.circular(w * 0.04),
+          ),
+          fill(_tint(cup, 0.18)),
         );
       }
   }
