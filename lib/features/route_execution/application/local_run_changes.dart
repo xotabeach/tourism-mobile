@@ -17,6 +17,16 @@ String? lastMarkedStopId(RouteExecution execution) {
   return latest?.id;
 }
 
+/// «Вы на N точке»: the number of the stop marked last, where the walker
+/// really is. The count of marks said «на 2 точке» after marking 2 and 3
+/// (FRONTEND-93). Null before the first mark.
+int? lastMarkedPosition(RouteExecution execution) {
+  final id = lastMarkedStopId(execution);
+  return id == null
+      ? null
+      : execution.stops.firstWhere((stop) => stop.id == id).position;
+}
+
 RouteExecution completeStopLocally(
   RouteExecution execution,
   String stopId,

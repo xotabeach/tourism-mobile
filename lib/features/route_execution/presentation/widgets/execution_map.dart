@@ -1,6 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:tourism_mobile/core/config/app_config.dart';
 import 'package:tourism_mobile/features/route_execution/application/antifraud_hints.dart';
+import 'package:tourism_mobile/features/route_execution/application/local_run_changes.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
 import 'package:tourism_mobile/features/routes/presentation/widgets/map_projection.dart';
@@ -155,8 +156,8 @@ RouteStaticMap executionMap({
     geometry: route.geometry,
     config: config,
     height: 342,
-    footerLabel: execution.completedStops > 0
-        ? 'Вы на ${execution.completedStops} точке'
+    footerLabel: lastMarkedPosition(execution) != null
+        ? 'Вы на ${lastMarkedPosition(execution)} точке'
         : routePointsLabel(route.stops.length),
     pillFooter: true,
     livePosition: livePosition,
