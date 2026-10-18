@@ -51,7 +51,7 @@ List<Widget> executionActions({
       Center(
         child: TextButton(
           onPressed: onCancel,
-          child: const Text('Отменить маршрут'),
+          child: const Text('Отменить прохождение'),
         ),
       ),
       const Text(
@@ -76,6 +76,15 @@ List<Widget> executionActions({
           ),
         ),
       ],
+      // Started the wrong route or putting it off: no need to pause first
+      // to find the way out (FRONTEND-92). The dialog still asks.
+      Center(
+        child: TextButton(
+          onPressed: onCancel,
+          style: TextButton.styleFrom(foregroundColor: ExecutionColors.muted),
+          child: const Text('Отменить прохождение'),
+        ),
+      ),
       const SizedBox(height: 8),
       const Text(
         'Завершай остановки по мере прохождения для верного отображения истории и наград',

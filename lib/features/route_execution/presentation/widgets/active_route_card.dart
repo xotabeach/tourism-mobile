@@ -12,6 +12,7 @@ import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_controls.dart';
 import 'package:tourism_mobile/core/design/components/app_glass.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
+import 'package:tourism_mobile/core/format/elapsed_format.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/route_execution/application/home_active_run.dart';
 import 'package:tourism_mobile/features/route_execution/domain/route_execution.dart';
@@ -492,7 +493,7 @@ class _ReviewAskCardState extends ConsumerState<_ReviewAskCard> {
       '${run.completedStops} из ${run.totalStops} '
           '${_pointsWord(run.totalStops)}',
       if (routeMeters != null && routeMeters > 0) '${_km(routeMeters)} км',
-      '${run.elapsed(DateTime.now()).inMinutes} мин',
+      formatElapsed(run.elapsed(DateTime.now()), dot: false),
       if (points > 0) '+$points ТП',
     ].join(' • ');
     return ClipRRect(
