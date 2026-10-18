@@ -893,7 +893,6 @@ class _TopTravelersRow extends ConsumerWidget {
                       config,
                       items[i].avatarUrl,
                     ),
-                    assetFallback: AppImages.travelerPortrait,
                   ),
                 ),
               ),

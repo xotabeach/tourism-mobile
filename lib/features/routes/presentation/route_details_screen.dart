@@ -278,10 +278,11 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                           ),
                           // Without a picture, the author's character
                           // (FRONTEND-97); editorial routes keep theirs.
-                          portrait:
-                              (route.authorAvatarUrl ?? '').isEmpty &&
-                                  (route.ownerUserId ?? '').isNotEmpty
-                              ? UserAvatar(
+                          portrait: (route.authorAvatarUrl ?? '').isNotEmpty
+                              ? null
+                              : (route.ownerUserId ?? '').isEmpty
+                              ? const EditorialAvatar(size: 48)
+                              : UserAvatar(
                                   userId: route.ownerUserId,
                                   avatarUrl: null,
                                   beanKind: route.authorBeanKind,
@@ -290,8 +291,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                                   own:
                                       route.ownerUserId ==
                                       ref.watch(sessionProvider).userId,
-                                )
-                              : null,
+                                ),
                           isExpert: route.authorIsExpert,
                           onAuthorTap: onAuthorTap,
                           menuAnchorKey: _menuAnchorKey,

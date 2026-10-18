@@ -82,7 +82,6 @@ final profileProvider = Provider<ProfileSnapshot>((ref) {
         : '',
     rank: _unknownRank,
     coverImageAsset: AppImages.welcomeSunset,
-    avatarImageAsset: AppImages.travelerPortrait,
     avatarImageUrl: resolvedOrLocal(session.avatarUrl),
     coverImageUrl: resolvedOrLocal(session.coverUrl),
     achievementPages: const [],
@@ -99,7 +98,6 @@ final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
       PublicUserProfile(
         id: 'mock-user',
         displayName: 'Никита Можаров',
-        avatarUrl: AppImages.travelerPortrait,
         coverUrl: AppImages.welcomeSunset,
         travelPoints: 12500,
         rankSlug: 'advanced_hiker',
@@ -110,7 +108,6 @@ final profileSubscriptionsProvider = FutureProvider<List<PublicUserProfile>>((
       PublicUserProfile(
         id: 'mock-maria',
         displayName: 'Мария Крымская',
-        avatarUrl: AppImages.travelerPortrait,
         travelPoints: 8480,
         rankSlug: 'explorer',
         rankTitle: 'Исследователь',
@@ -140,7 +137,6 @@ const _mockLeaderboard = [
   PublicUserProfile(
     id: 'mock-user',
     displayName: 'Никита Можаров',
-    avatarUrl: AppImages.travelerPortrait,
     coverUrl: AppImages.welcomeSunset,
     travelPoints: 12500,
     rankSlug: 'advanced_hiker',
@@ -151,7 +147,6 @@ const _mockLeaderboard = [
   PublicUserProfile(
     id: 'mock-maria',
     displayName: 'Мария Крымская',
-    avatarUrl: AppImages.travelerPortrait,
     travelPoints: 8480,
     rankSlug: 'explorer',
     rankTitle: 'Исследователь',
@@ -241,7 +236,6 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       displayName: userId == 'mock-maria' ? 'Мария Крымская' : 'Путешественник',
       rank: MockProfile.rank,
       coverImageAsset: AppImages.welcomeSunset,
-      avatarImageAsset: AppImages.travelerPortrait,
       achievementPages: MockProfile.achievementPages,
       publishedRoutes: routes.items
           .where((route) => route.ownerUserId == userId)
@@ -293,7 +287,6 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
         displayName: ownSnapshot.displayName,
         rank: rank,
         coverImageAsset: ownSnapshot.coverImageAsset,
-        avatarImageAsset: ownSnapshot.avatarImageAsset,
         avatarImageUrl: ownImage(
           ownSnapshot.avatarImageUrl,
           bundle.user.avatarUrl,
@@ -323,7 +316,6 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       displayName: bundle.user.displayName,
       rank: rank,
       coverImageAsset: AppImages.welcomeSunset,
-      avatarImageAsset: AppImages.travelerPortrait,
       avatarImageUrl: resolve(bundle.user.avatarUrl),
       coverImageUrl: resolve(bundle.user.coverUrl),
       beanKind: bundle.user.beanKind,
@@ -363,7 +355,6 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
         leaderboardPlace: 0,
       ),
       coverImageAsset: own.coverImageAsset,
-      avatarImageAsset: own.avatarImageAsset,
       avatarImageUrl: own.avatarImageUrl,
       coverImageUrl: own.coverImageUrl,
       achievementPages: const [],

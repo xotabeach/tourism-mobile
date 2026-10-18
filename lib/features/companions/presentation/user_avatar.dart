@@ -61,3 +61,32 @@ class UserAvatar extends ConsumerWidget {
     );
   }
 }
+
+/// The КРЫМТРИП editors in place of an author: an editorial route has no
+/// person behind it, so no character either (FRONTEND-97).
+class EditorialAvatar extends StatelessWidget {
+  const EditorialAvatar({required this.size, super.key});
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    alignment: Alignment.center,
+    decoration: const BoxDecoration(
+      shape: BoxShape.circle,
+      color: Color(0xFF1D71CB),
+    ),
+    child: Text(
+      'КТ',
+      style: TextStyle(
+        fontFamily: 'Rubik',
+        fontSize: size * 0.36,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+        height: 1,
+      ),
+    ),
+  );
+}

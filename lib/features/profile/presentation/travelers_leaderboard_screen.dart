@@ -118,7 +118,6 @@ class _LeaderboardCard extends StatelessWidget {
     final borderColor = podiumColor ?? AppColors.hairline;
     final avatar = AppImages.imageProvider(
       resolvedUrl: AppImages.resolveMediaUrl(config, traveler.avatarUrl),
-      assetFallback: AppImages.travelerPortrait,
     );
     final safePlace = place > 0 ? place : 1;
 

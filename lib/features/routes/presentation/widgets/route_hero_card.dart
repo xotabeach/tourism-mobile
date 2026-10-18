@@ -291,10 +291,9 @@ class RouteHeroCard extends ConsumerWidget {
     // A person without a picture shows their character (FRONTEND-97); an
     // editorial route has no person and keeps its picture.
     final ownerId = route.ownerUserId;
-    final portrait =
-        (authorPicture == null || authorPicture.isEmpty) &&
-            ownerId != null &&
-            ownerId.isNotEmpty
+    final Widget? portrait = authorPicture != null && authorPicture.isNotEmpty
+        ? null
+        : ownerId != null && ownerId.isNotEmpty
         ? UserAvatar(
             userId: ownerId,
             avatarUrl: null,
@@ -303,7 +302,7 @@ class RouteHeroCard extends ConsumerWidget {
             size: 37,
             own: ownerId == session.userId,
           )
-        : null;
+        : const EditorialAvatar(size: 37);
     final canOpenAuthor =
         route.ownerUserId != null && route.ownerUserId!.isNotEmpty;
     final resolvedAuthorIsExpert = authorIsExpert ?? route.authorIsExpert;

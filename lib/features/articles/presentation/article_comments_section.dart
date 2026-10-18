@@ -280,7 +280,6 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
                         config,
                         comment.authorAvatarUrl,
                       ),
-                      assetFallback: AppImages.travelerPortrait,
                     ),
                   ),
                 const SizedBox(width: 10),

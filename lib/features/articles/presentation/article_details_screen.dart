@@ -304,7 +304,6 @@ class _AuthorRow extends StatelessWidget {
               radius: 18,
               backgroundImage: AppImages.imageProvider(
                 resolvedUrl: AppImages.resolveMediaUrl(config, avatarUrl),
-                assetFallback: AppImages.travelerPortrait,
               ),
             ),
           const SizedBox(width: 10),

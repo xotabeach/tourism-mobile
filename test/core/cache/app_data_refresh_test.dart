@@ -81,7 +81,6 @@ void main() {
               displayName: base.displayName,
               rank: base.rank,
               coverImageAsset: base.coverImageAsset,
-              avatarImageAsset: base.avatarImageAsset,
               avatarImageUrl: base.avatarImageUrl,
               coverImageUrl: base.coverImageUrl,
               achievementPages: base.achievementPages,

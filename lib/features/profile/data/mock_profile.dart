@@ -188,7 +188,6 @@ abstract final class MockProfile {
       displayName: name,
       rank: rank,
       coverImageAsset: AppImages.welcomeSunset,
-      avatarImageAsset: AppImages.travelerPortrait,
       avatarImageUrl: avatarImageUrl,
       coverImageUrl: coverImageUrl,
       achievementPages: achievementPages,

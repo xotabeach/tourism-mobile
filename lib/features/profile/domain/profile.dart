@@ -79,7 +79,6 @@ class ProfileSnapshot {
     required this.displayName,
     required this.rank,
     required this.coverImageAsset,
-    required this.avatarImageAsset,
     required this.achievementPages,
     required this.publishedRoutes,
     this.avatarImageUrl,
@@ -109,7 +108,6 @@ class ProfileSnapshot {
   final String? beanHat;
   final ProfileRank rank;
   final String coverImageAsset;
-  final String avatarImageAsset;
   final String? avatarImageUrl;
   final String? coverImageUrl;
   final List<List<ProfileAchievement>> achievementPages;

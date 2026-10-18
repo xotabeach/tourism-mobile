@@ -1376,7 +1376,6 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
                     radius: 17,
                     backgroundImage: AppImages.imageProvider(
                       resolvedUrl: avatar,
-                      assetFallback: AppImages.travelerPortrait,
                     ),
                   ),
                 const SizedBox(width: 10),

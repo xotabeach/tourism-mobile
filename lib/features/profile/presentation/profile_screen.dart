@@ -799,15 +799,12 @@ class _ProfileCollapsingHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatarAsset = AssetImage(profile.avatarImageAsset);
+    final avatarAsset = AppImages.blankImage;
     final avatarNetwork =
         profile.avatarImageUrl != null &&
             profile.avatarImageUrl!.isNotEmpty &&
             !AppImages.isAssetPath(profile.avatarImageUrl)
-        ? AppImages.imageProvider(
-            resolvedUrl: profile.avatarImageUrl,
-            assetFallback: profile.avatarImageAsset,
-          )
+        ? AppImages.imageProvider(resolvedUrl: profile.avatarImageUrl)
         : null;
     final coverHeight = topInset + coverBody;
     final cardHeight = isExpert ? rankCardHeightExpert : rankCardHeight;

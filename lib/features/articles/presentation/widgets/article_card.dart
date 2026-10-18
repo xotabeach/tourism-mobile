@@ -251,7 +251,6 @@ class _CardFooter extends StatelessWidget {
             config,
             article.authorAvatarUrl,
           ),
-          assetFallback: AppImages.travelerPortrait,
         );
         return Row(
           children: [

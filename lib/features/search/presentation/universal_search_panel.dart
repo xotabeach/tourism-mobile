@@ -152,11 +152,7 @@ class DiscoveryProfileCard extends ConsumerWidget {
           : CircleAvatar(
               radius: 32,
               backgroundColor: AppColors.controlSurface,
-              backgroundImage: _mediaProvider(
-                config,
-                profile.avatarUrl,
-                fallback: AppImages.travelerPortrait,
-              ),
+              backgroundImage: _mediaProvider(config, profile.avatarUrl),
             ),
       title: profile.displayName,
       subtitle: profile.rankTitle,
@@ -390,7 +386,7 @@ Widget _mediaBackground(AppConfig config, String? value) {
 ImageProvider _mediaProvider(
   AppConfig config,
   String? value, {
-  required String fallback,
+  String? fallback,
 }) {
   if (AppImages.isAssetPath(value)) return AssetImage(value!);
   return AppImages.imageProvider(

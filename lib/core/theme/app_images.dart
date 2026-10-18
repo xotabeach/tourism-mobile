@@ -39,7 +39,6 @@ abstract final class AppImages {
   static const coastPineTwilight = 'assets/images/coast-pine-twilight.jpg';
   static const capeFiolentFog = 'assets/images/cape-fiolent-fog.jpg';
   static const coastalBayHills = 'assets/images/coastal-bay-hills.jpg';
-  static const travelerPortrait = 'assets/images/traveler-portrait-bw.jpg';
 
   static const routeFallbacks = [
     coastPineTwilight,
@@ -79,18 +78,18 @@ abstract final class AppImages {
       0x00,
       0x01,
       0x08,
-      0x02,
+      0x06,
       0x00,
       0x00,
       0x00,
-      0x90,
-      0x77,
-      0x53,
-      0xDE,
+      0x1F,
+      0x15,
+      0xC4,
+      0x89,
       0x00,
       0x00,
       0x00,
-      0x0C,
+      0x0B,
       0x49,
       0x44,
       0x41,
@@ -98,19 +97,18 @@ abstract final class AppImages {
       0x78,
       0x9C,
       0x63,
-      0x78,
-      0xFE,
-      0xFC,
-      0x39,
+      0x60,
+      0x00,
+      0x02,
+      0x00,
       0x00,
       0x05,
-      0x6E,
-      0x02,
-      0xB6,
-      0xC5,
-      0xB5,
-      0xCE,
-      0xBB,
+      0x00,
+      0x01,
+      0x7A,
+      0x5E,
+      0xAB,
+      0x3F,
       0x00,
       0x00,
       0x00,
@@ -178,7 +176,7 @@ abstract final class AppImages {
   /// or the bundled asset fallback. Network URLs use memory+disk cache.
   static ImageProvider imageProvider({
     required String? resolvedUrl,
-    String assetFallback = travelerPortrait,
+    String? assetFallback,
   }) {
     if (resolvedUrl != null && resolvedUrl.isNotEmpty) {
       if (resolvedUrl.startsWith('file://')) {
@@ -189,8 +187,83 @@ abstract final class AppImages {
         cacheManager: cacheManager,
       );
     }
-    return AssetImage(assetFallback);
+    return assetFallback == null ? blankImage : AssetImage(assetFallback);
   }
+
+  /// Nothing to show: a clear pixel. Avatars no longer fall back to a stock
+  /// photo; who has no picture is drawn as their character (FRONTEND-97),
+  /// and a picture that fails to load leaves the circle's own colour.
+  static final ImageProvider blankImage = MemoryImage(
+    Uint8List.fromList(const [
+      0x89,
+      0x50,
+      0x4E,
+      0x47,
+      0x0D,
+      0x0A,
+      0x1A,
+      0x0A,
+      0x00,
+      0x00,
+      0x00,
+      0x0D,
+      0x49,
+      0x48,
+      0x44,
+      0x52,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x00,
+      0x01,
+      0x08,
+      0x06,
+      0x00,
+      0x00,
+      0x00,
+      0x1F,
+      0x15,
+      0xC4,
+      0x89,
+      0x00,
+      0x00,
+      0x00,
+      0x0D,
+      0x49,
+      0x44,
+      0x41,
+      0x54,
+      0x78,
+      0x9C,
+      0x63,
+      0x00,
+      0x01,
+      0x00,
+      0x00,
+      0x05,
+      0x00,
+      0x01,
+      0x0D,
+      0x0A,
+      0x2D,
+      0xB4,
+      0x00,
+      0x00,
+      0x00,
+      0x00,
+      0x49,
+      0x45,
+      0x4E,
+      0x44,
+      0xAE,
+      0x42,
+      0x60,
+      0x82,
+    ]),
+  );
 
   /// A size-bounded route cover provider suitable for preloading. Decoding a
   /// phone-sized card from a multi-megapixel upload wastes memory and causes
@@ -223,7 +296,7 @@ abstract final class AppImages {
   static ImageProvider avatarProvider({
     required AppConfig config,
     required String? avatarUrl,
-    String assetFallback = travelerPortrait,
+    String? assetFallback,
   }) {
     if (avatarUrl != null && avatarUrl.startsWith('file://')) {
       return FileImage(File(Uri.parse(avatarUrl).toFilePath()));
