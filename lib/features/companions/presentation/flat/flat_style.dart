@@ -326,16 +326,32 @@ void paintBean(
       (1.0, art.armRight, art.shoulderRight, art.handRight),
     ],
   ];
+  // The leader holds the pennant in the hand on the right of the screen
+  // (owner, FRONTEND-101) and waves with it; the marshmallow then goes to
+  // the other hand.
+  const flagSide = 1.0;
+  final stickSide = pose.organizer && dir == flagSide ? -flagSide : dir;
+  final waveSide = pose.organizer ? flagSide : -dir;
+  var flagAngle = 0.0;
   final hands = <double, Offset>{};
   final sleeves = <(Offset, Offset)>[];
   for (final (side, path, shoulder, hand) in arms) {
-    final holds = side == dir;
+    final flagArm = pose.organizer && side == flagSide;
     final turn = math.max(
-      holds ? (pose.ready ? 1.05 : 0.0) : waveTurn,
+      math.max(
+        side == stickSide && pose.ready
+            ? 1.05
+            : side == waveSide
+            ? waveTurn
+            : 0.0,
+        // Held a little out, so the pole stands clear of the body.
+        flagArm ? 0.35 : 0.0,
+      ),
       pose.cheer.clamp(0.0, 1.0) * 1.35,
     );
     // Raising the left arm out turns it clockwise, the right one back.
     final angle = -side * turn;
+    if (flagArm) flagAngle = angle;
     if (sleeved) {
       final from = Offset(
         body.cx + side * torso.topHalf * 0.8,
@@ -368,9 +384,9 @@ void paintBean(
     hands[side] = turned(shoulder + (hand - shoulder) * reach, shoulder, angle);
   }
 
-  if (pose.ready && hands.containsKey(dir)) {
-    final hand = hands[dir]!;
-    final tip = hand.translate(dir * w * 0.5, -w * 0.3);
+  if (pose.ready && hands.containsKey(stickSide)) {
+    final hand = hands[stickSide]!;
+    final tip = hand.translate(stickSide * w * 0.5, -w * 0.3);
     canvas.drawLine(hand, tip, stroke(FlatPalette.logDark, w * 0.04));
     final puff = Color.lerp(
       FlatPalette.paper,
@@ -568,11 +584,20 @@ void paintBean(
     );
   }
 
-  if (pose.organizer) {
-    // The leader carries a pennant that flutters.
-    final pole = Offset(b.right - w * 0.04, b.top + b.height * 0.18);
-    final top = pole.translate(0, -w * 0.6);
-    canvas.drawLine(pole, top, stroke(FlatPalette.ink, w * 0.035));
+  final flagHand = hands[flagSide];
+  if (pose.organizer && flagHand != null) {
+    // The pennant on a pole in the hand: it leans with the arm, so it rises
+    // and sways with every wave, breath and hop, and it flutters.
+    canvas.save();
+    canvas.translate(flagHand.dx, flagHand.dy);
+    // Raising the arm out tips the pole outward, never over the head.
+    canvas.rotate((-flagAngle * 0.3).clamp(-0.15, 0.4));
+    final top = Offset(0, -w * 0.62);
+    canvas.drawLine(
+      Offset(0, w * 0.14),
+      top,
+      stroke(FlatPalette.ink, w * 0.035),
+    );
     final wobble = math.sin(pose.flutter * math.pi * 2) * w * 0.04;
     canvas.drawPath(
       Path()
@@ -587,6 +612,9 @@ void paintBean(
         ..close(),
       fill(FlatPalette.flameOuter),
     );
+    // The fist round the pole.
+    canvas.drawCircle(Offset.zero, w * 0.05, fill(limb));
+    canvas.restore();
   }
   if (pose.dim) canvas.restore();
   canvas.restore();

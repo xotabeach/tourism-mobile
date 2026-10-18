@@ -507,8 +507,18 @@ class _QrHolder extends StatelessWidget {
 
   final String code;
 
+  /// The mockup's box for the character and its board, at 375 points.
+  static const _box = Size(94, 184);
+
+  // Drawn in the mockup's box and scaled as one: the character is sized by
+  // the height and the board by the width, so on a phone wider than the
+  // mockup a free-sized box grew the board over the legs (FRONTEND-96).
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
+  Widget build(BuildContext context) => FittedBox(
+    child: SizedBox.fromSize(size: _box, child: _drawn()),
+  );
+
+  Widget _drawn() => LayoutBuilder(
     builder: (context, constraints) {
       final w = constraints.maxWidth;
       final qr = w;
