@@ -331,7 +331,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final userId = state.pathParameters['userId']!;
           return CupertinoPage<void>(
             key: state.pageKey,
-            child: ProfileScreen(userId: userId),
+            // Outside the tabs there is no shell Scaffold above the profile;
+            // without a Material its texts fell back to the yellow-underlined
+            // debug style (FRONTEND-99). The profile paints its own ground.
+            child: Material(
+              type: MaterialType.transparency,
+              child: ProfileScreen(userId: userId),
+            ),
           );
         },
       ),
