@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -75,6 +76,14 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
           decoration: BoxDecoration(
             color: _cardFill,
             borderRadius: BorderRadius.circular(14),
+          ),
+          // The outline's width, as when it was part of the decoration, so
+          // nothing inside moves.
+          padding: const EdgeInsets.all(2),
+          // Drawn over the characters, so the yellow one standing in the
+          // corner no longer covers it (FRONTEND-98).
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
             border: Border.all(color: _blue, width: 2),
           ),
           child: Stack(
@@ -88,69 +97,71 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
                   child: CustomPaint(painter: _FourBeans()),
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 9, 0, 6.5),
-                child: SizedBox(
-                  width: textWidth - 8,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      const Text(
-                        'Пройдите маршрут вместе:',
-                        style: TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          height: 1.2,
-                          color: AppColors.primaryInk,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        here == null
-                            ? 'Каждый отмечает точки сам, а в группе видно, '
-                                  'кто сколько прошел'
-                            : here.isInvitation
-                            ? '${here.organizerName} зовёт вас на этот маршрут'
-                            : 'Ваша группа уже собирается',
-                        style: const TextStyle(
-                          fontFamily: AppFonts.rubik,
-                          fontSize: 11.5,
-                          height: 1.25,
-                          color: AppColors.secondaryInk,
-                        ),
-                      ),
-                      const SizedBox(height: 17),
-                      if (here != null)
-                        _CardButton(
-                          label: here.isInvitation
-                              ? 'Посмотреть приглашение'
-                              : 'К группе',
-                          onPressed: () => _open(here),
-                        )
-                      else ...[
-                        _CardButton(
-                          label: 'Создать лобби',
-                          onPressed: _busy ? null : _create,
-                        ),
-                        const SizedBox(height: 5),
-                        _CardButton(
-                          label: 'У меня есть код',
-                          secondary: true,
-                          onPressed: _code,
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
+              _content(textWidth, here),
             ],
           ),
         );
       },
     );
   }
+
+  /// The words and buttons on the left; [here] is the group already
+  /// gathering for this route, or null.
+  Widget _content(double textWidth, CompanionGroup? here) => Padding(
+    padding: const EdgeInsets.fromLTRB(8, 9, 0, 6.5),
+    child: SizedBox(
+      width: textWidth - 8,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'Пройдите маршрут вместе:',
+            style: TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              height: 1.2,
+              color: AppColors.primaryInk,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            here == null
+                ? 'Каждый отмечает точки сам, а в группе видно, '
+                      'кто сколько прошел'
+                : here.isInvitation
+                ? '${here.organizerName} зовёт вас на этот маршрут'
+                : 'Ваша группа уже собирается',
+            style: const TextStyle(
+              fontFamily: AppFonts.rubik,
+              fontSize: 11.5,
+              height: 1.25,
+              color: AppColors.secondaryInk,
+            ),
+          ),
+          const SizedBox(height: 17),
+          if (here != null)
+            _CardButton(
+              label: here.isInvitation ? 'Посмотреть приглашение' : 'К группе',
+              onPressed: () => _open(here),
+            )
+          else ...[
+            _CardButton(
+              label: 'Создать лобби',
+              onPressed: _busy ? null : _create,
+            ),
+            const SizedBox(height: 5),
+            _CardButton(
+              label: 'У меня есть код',
+              secondary: true,
+              onPressed: _code,
+            ),
+          ],
+        ],
+      ),
+    ),
+  );
 }
 
 const _blue = Color(0xFF1D71CB);
@@ -199,8 +210,33 @@ class _CardButton extends StatelessWidget {
 class _FourBeans extends CustomPainter {
   const _FourBeans();
 
+  /// The characters' box on a 430-point phone, where the owner approved
+  /// the picture (2026-10-18). Every phone gets this very scene, scaled as
+  /// a whole by the width and standing on the card's bottom edge: the three
+  /// at the back used to follow the card's height and the yellow one its
+  /// width, so they stood differently from phone to phone and the back
+  /// three shrank on the one-button card.
+  static const _scene = Size(143.26, 151.5);
+
   @override
   void paint(Canvas canvas, Size size) {
+    // By the width on the full card; on the lower one-button card the scene
+    // shrinks to its height and keeps to the bottom right corner.
+    final scale = math.min(
+      size.width / _scene.width,
+      size.height / _scene.height,
+    );
+    canvas.save();
+    canvas.translate(
+      size.width - _scene.width * scale,
+      size.height - _scene.height * scale,
+    );
+    canvas.scale(scale);
+    _paintScene(canvas, _scene);
+    canvas.restore();
+  }
+
+  void _paintScene(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     // Placed as on the designer's card: the feet below its edge.
