@@ -8,6 +8,8 @@ import 'package:tourism_mobile/core/design/app_colors.dart';
 import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_shadows.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
+import 'package:tourism_mobile/core/format/elapsed_format.dart';
+import 'package:tourism_mobile/features/route_execution/application/local_run_changes.dart';
 import 'package:tourism_mobile/features/route_execution/application/points_status_text.dart';
 import 'package:tourism_mobile/features/route_execution/application/run_outcome.dart';
 import 'package:tourism_mobile/features/route_execution/data/difficulty_feedback_api.dart';
@@ -108,9 +110,7 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
                       Expanded(
                         child: _StatBox(
                           iconAsset: AppIconography.execAlarm,
-                          value: elapsed == null
-                              ? '—'
-                              : '${elapsed.inMinutes} мин.',
+                          value: elapsed == null ? '—' : formatElapsed(elapsed),
                           label: 'Время в пути',
                         ),
                       ),
@@ -124,8 +124,8 @@ class RouteExecutionSummaryScreen extends ConsumerWidget {
                       geometry: route.geometry,
                       config: ref.watch(appConfigProvider),
                       height: 342,
-                      footerLabel: execution.completedStops > 0
-                          ? 'Вы на ${execution.completedStops} точке'
+                      footerLabel: lastMarkedPosition(execution) != null
+                          ? 'Вы на ${lastMarkedPosition(execution)} точке'
                           : routePointsLabel(route.stops.length),
                       pillFooter: true,
                       dashedLine: isWalkingMode(route.transportMode),

@@ -43,6 +43,35 @@ class _Repo extends MockRouteExecutionRepository {
     );
   }
 
+  var completes = 0;
+  var cancels = 0;
+
+  @override
+  Future<RouteExecution> complete(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    completes += 1;
+    return _run = _run!.copyWith(
+      status: RouteExecutionStatus.completed,
+      completedAt: DateTime.now(),
+    );
+  }
+
+  @override
+  Future<RouteExecution> cancel(
+    String executionId, {
+    String? clientEventId,
+    DateTime? occurredAt,
+  }) async {
+    cancels += 1;
+    return _run = _run!.copyWith(
+      status: RouteExecutionStatus.cancelled,
+      cancelledAt: DateTime.now(),
+    );
+  }
+
   /// A stop whose offline mark never reached the server (DESIGN-4, №3).
   final String? undeliveredStopId;
   final unmarked = <String>[];
@@ -188,13 +217,74 @@ Future<void> _openRunScreen(
 }
 
 void main() {
+  testWidgets(
+    'the route can be finished with stops left open, after a question',
+    (tester) async {
+      // FRONTEND-91: one of four marked, «Завершить маршрут» asks and finishes.
+      final repo = _Repo();
+      await _openRunScreen(tester, repo);
+      await tester.ensureVisible(find.bySemanticsLabel('Завершить маршрут'));
+      await tester.tap(find.bySemanticsLabel('Завершить маршрут'));
+      await tester.pumpAndSettle();
+      expect(find.text('Завершить маршрут?'), findsOneWidget);
+      expect(find.textContaining('Отмечено 1 из 4'), findsOneWidget);
+      await tester.tap(find.text('Продолжить путь'));
+      await tester.pumpAndSettle();
+      expect(repo.completes, 0);
+
+      await tester.tap(find.bySemanticsLabel('Завершить маршрут'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Завершить'));
+      for (var i = 0; i < 3; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(repo.completes, 1);
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
+
+  testWidgets('with nothing marked «Завершить маршрут» offers to call it off', (
+    tester,
+  ) async {
+    final repo = _Repo();
+    await _openRunScreen(tester, repo);
+    await tester.tap(
+      find.bySemanticsLabel('«Точка 1» отмечена, снять отметку'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Снять отметку'));
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.ensureVisible(find.bySemanticsLabel('Завершить маршрут'));
+    await tester.tap(find.bySemanticsLabel('Завершить маршрут'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ни одна точка не отмечена'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Отменить прохождение'));
+    for (var i = 0; i < 3; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect((repo.completes, repo.cancels), (0, 1));
+    GoRouter.of(tester.element(find.byType(RouteExecutionScreen))).pop();
+    await tester.pump(const Duration(seconds: 1));
+  });
+
   testWidgets('the run screen follows the design layout', (tester) async {
     await _openRunScreen(tester, _Repo());
     expect(find.byType(RouteExecutionScreen), findsOneWidget);
     expect(find.text('Прохождение'), findsOneWidget);
     expect(find.text('Прогресс:'), findsOneWidget);
     expect(find.text('1/4'), findsOneWidget);
-    expect(find.bySemanticsLabel('Всего в пути: 174 мин.'), findsOneWidget);
+    expect(find.bySemanticsLabel('Всего в пути: 2 ч 54 мин.'), findsOneWidget);
     expect(find.text('Остановки:'), findsNWidgets(2));
     expect(find.bySemanticsLabel('Пауза'), findsOneWidget);
     expect(
@@ -207,6 +297,8 @@ void main() {
     // from the phone.
     expect(find.text('весь участок 3,5 км'), findsOneWidget);
     expect(find.bySemanticsLabel('Завершить маршрут'), findsOneWidget);
+    // FRONTEND-92: a run can be called off without pausing it first.
+    expect(find.text('Отменить прохождение'), findsOneWidget);
     // FRONTEND-22: the leg being walked is named above the map and its
     // target row is marked as the next one.
     expect(find.text('Сейчас в пути · участок 1–2'), findsOneWidget);
@@ -265,9 +357,11 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Пропустить «Точка 2»'));
     await tester.pumpAndSettle();
     expect(find.text('Пропустить «Точка 2»?'), findsOneWidget);
-    for (final reason in StopSkipReason.values) {
+    for (final reason in StopSkipReason.pickable) {
       expect(find.text(reason.label), findsOneWidget);
     }
+    // «Не дошёл» is the server's, for a run finished early (FRONTEND-91).
+    expect(find.text(StopSkipReason.notReached.label), findsNothing);
     await tester.tap(find.text('Закрыто'));
     await tester.pumpAndSettle();
     await settle();

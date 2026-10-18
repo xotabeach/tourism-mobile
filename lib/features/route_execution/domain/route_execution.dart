@@ -15,7 +15,14 @@ enum StopSkipReason {
   closed('closed', 'Закрыто'),
   noTime('no_time', 'Не успеваю'),
   hard('hard', 'Трудно или опасно'),
-  other('other', 'Другое');
+  other('other', 'Другое'),
+
+  /// Set by the server for the stops still open when a run is finished
+  /// early (BACKEND-75, FRONTEND-91); never offered to pick.
+  notReached('not_reached', 'Не дошёл');
+
+  /// The reasons a walker picks from when skipping a stop.
+  static const pickable = [closed, noTime, hard, other];
 
   const StopSkipReason(this.apiName, this.label);
 

@@ -78,7 +78,7 @@ class _SkipStopSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 16),
-          for (final reason in StopSkipReason.values) ...[
+          for (final reason in StopSkipReason.pickable) ...[
             OutlinedButton(
               onPressed: () => Navigator.of(context).pop(reason),
               style: OutlinedButton.styleFrom(

@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_iconography.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
+import 'package:tourism_mobile/core/format/elapsed_format.dart';
 import 'package:tourism_mobile/core/network/client_event_id.dart';
 import 'package:tourism_mobile/features/companions/presentation/run_group_strip.dart';
 import 'package:tourism_mobile/features/route_execution/application/active_leg.dart';
@@ -571,14 +572,29 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
   Future<void> _completeRoute() async {
     final execution = _execution;
     if (execution == null || !execution.isActive || _finishing) return;
+    // The route may be finished at any point (FRONTEND-91, BACKEND-75): say
+    // what happens to the stops still open, and with nothing marked offer
+    // to call the run off instead.
+    final marked = execution.stops.where((stop) => stop.isCompleted).length;
+    if (marked == 0 && execution.stops.isNotEmpty) {
+      if (await showNothingMarkedDialog(context) && mounted) {
+        await _cancelRoute(confirmed: true);
+      }
+      return;
+    }
+    if (execution.stops.any((stop) => !stop.isSettled)) {
+      final confirmed = await showFinishWithOpenStopsDialog(
+        context,
+        marked: marked,
+        total: execution.stops.length,
+      );
+      if (!confirmed || !mounted) return;
+    }
     setState(() => _finishing = true);
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
     if (_isLocalPendingStart) {
-      final updated = execution.copyWith(
-        status: RouteExecutionStatus.completed,
-        completedAt: occurredAt,
-      );
+      final updated = completedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.complete,
@@ -611,10 +627,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         if (mounted) _showError(executionErrorText(error));
         return;
       }
-      final updated = execution.copyWith(
-        status: RouteExecutionStatus.completed,
-        completedAt: occurredAt,
-      );
+      final updated = completedLocally(execution, occurredAt);
       await _queueOfflineAction(
         executionId: execution.id,
         action: RouteExecutionAction.complete,
@@ -642,11 +655,11 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       _execution?.status == RouteExecutionStatus.active ||
       _execution?.status == RouteExecutionStatus.paused;
 
-  Future<void> _cancelRoute() async {
+  Future<void> _cancelRoute({bool confirmed = false}) async {
     final execution = _execution;
     if (execution == null || !_isInProgress) return;
-    final confirmed = await showCancelRunDialog(context);
-    if (!confirmed || !mounted) return;
+    if (!confirmed && !await showCancelRunDialog(context)) return;
+    if (!mounted) return;
     final clientEventId = newClientEventId();
     final occurredAt = DateTime.now();
     if (_isLocalPendingStart) {
@@ -1080,7 +1093,7 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
         ExecutionInfoRow(
           iconAsset: AppIconography.execAlarm,
           label: 'Всего в пути:',
-          value: '${_elapsedMinutes(execution)} мин.',
+          value: formatElapsed(execution.elapsed(DateTime.now())),
         ),
         if (nextStopDistance != null) ...[
           const SizedBox(height: 4),
@@ -1151,10 +1164,6 @@ class _RouteExecutionScreenState extends ConsumerState<RouteExecutionScreen> {
       ],
     );
   }
-
-  /// Minutes on the way so far, pauses left out.
-  static int _elapsedMinutes(RouteExecution execution) =>
-      execution.elapsed(DateTime.now()).inMinutes;
 
   void _showError(String message) {
     showAppNotice(context, message);
