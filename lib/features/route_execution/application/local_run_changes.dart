@@ -17,6 +17,24 @@ String? lastMarkedStopId(RouteExecution execution) {
   return latest?.id;
 }
 
+/// A run finished on the phone while offline, the way the server will
+/// finish it (BACKEND-75): every stop still open is «Не дошёл», except an
+/// optional one before the last stop reached, which was walked past.
+RouteExecution completedLocally(RouteExecution execution, DateTime at) {
+  final reached = execution.stops
+      .where(
+        (stop) => stop.isCompleted || stop.skipReason == StopSkipReason.closed,
+      )
+      .map((stop) => stop.position)
+      .fold(0, (a, b) => a > b ? a : b);
+  return _withStops(execution, [
+    for (final stop in execution.stops)
+      stop.isSettled || (stop.isOptional && stop.position < reached)
+          ? stop
+          : stop.skipped(StopSkipReason.notReached, at),
+  ]).copyWith(status: RouteExecutionStatus.completed, completedAt: at);
+}
+
 RouteExecution completeStopLocally(
   RouteExecution execution,
   String stopId,
