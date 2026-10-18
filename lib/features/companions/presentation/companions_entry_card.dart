@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -96,24 +97,7 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
                   child: CustomPaint(painter: _FourBeans()),
                 ),
               ),
-              // The full card, with both buttons, sets the height in every
-              // state: with one button the card stays as tall and the
-              // characters as they are (owner, 2026-10-18).
-              Visibility(
-                visible: here == null,
-                maintainSize: true,
-                maintainAnimation: true,
-                maintainState: true,
-                child: _content(textWidth, null),
-              ),
-              if (here != null)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: textWidth,
-                  child: _content(textWidth, here),
-                ),
+              _content(textWidth, here),
             ],
           ),
         );
@@ -128,7 +112,7 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
     child: SizedBox(
       width: textWidth - 8,
       child: Column(
-        mainAxisSize: here == null ? MainAxisSize.min : MainAxisSize.max,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
@@ -156,7 +140,7 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
               color: AppColors.secondaryInk,
             ),
           ),
-          if (here == null) const SizedBox(height: 17) else const Spacer(),
+          const SizedBox(height: 17),
           if (here != null)
             _CardButton(
               label: here.isInvitation ? 'Посмотреть приглашение' : 'К группе',
@@ -236,9 +220,17 @@ class _FourBeans extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final scale = size.width / _scene.width;
+    // By the width on the full card; on the lower one-button card the scene
+    // shrinks to its height and keeps to the bottom right corner.
+    final scale = math.min(
+      size.width / _scene.width,
+      size.height / _scene.height,
+    );
     canvas.save();
-    canvas.translate(0, size.height - _scene.height * scale);
+    canvas.translate(
+      size.width - _scene.width * scale,
+      size.height - _scene.height * scale,
+    );
     canvas.scale(scale);
     _paintScene(canvas, _scene);
     canvas.restore();
