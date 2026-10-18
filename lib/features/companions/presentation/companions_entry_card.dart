@@ -76,6 +76,9 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
             color: _cardFill,
             borderRadius: BorderRadius.circular(14),
           ),
+          // The outline's width, as when it was part of the decoration: the
+          // card and its characters stay exactly where they were.
+          padding: const EdgeInsets.all(2),
           // Over the characters, so the yellow one standing in the corner
           // does not cover the outline (FRONTEND-98).
           foregroundDecoration: BoxDecoration(
