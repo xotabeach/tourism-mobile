@@ -58,8 +58,9 @@ class _CharacterScreenState extends ConsumerState<CharacterScreen> {
       final next = await change(ref.read(beanHatsRepositoryProvider));
       if (!mounted) return;
       setState(() => _state = next);
-      // Groups redraw the character as it is now.
+      // Groups and the avatar redraw the character as it is now.
       ref.invalidate(myCompanionGroupsProvider);
+      ref.invalidate(myBeanLookProvider);
     } on Object catch (error) {
       if (mounted) {
         showAppNotice(

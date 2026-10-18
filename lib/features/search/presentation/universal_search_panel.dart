@@ -10,6 +10,7 @@ import 'package:tourism_mobile/core/design/app_radii.dart';
 import 'package:tourism_mobile/core/design/app_typography.dart';
 import 'package:tourism_mobile/core/design/components/app_list_skeleton.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/places/domain/place.dart';
 import 'package:tourism_mobile/features/profile/data/public_profile_repository.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -140,15 +141,19 @@ class DiscoveryProfileCard extends ConsumerWidget {
       hasImage: true,
       isExpert: profile.isExpert,
       onTap: onTap,
-      leading: CircleAvatar(
-        radius: 32,
-        backgroundColor: AppColors.controlSurface,
-        backgroundImage: _mediaProvider(
-          config,
-          profile.avatarUrl,
-          fallback: AppImages.travelerPortrait,
-        ),
-      ),
+      leading: (profile.avatarUrl ?? '').isEmpty
+          ? UserAvatar(
+              userId: profile.id,
+              avatarUrl: null,
+              beanKind: profile.beanKind,
+              beanHat: profile.beanHat,
+              size: 64,
+            )
+          : CircleAvatar(
+              radius: 32,
+              backgroundColor: AppColors.controlSurface,
+              backgroundImage: _mediaProvider(config, profile.avatarUrl),
+            ),
       title: profile.displayName,
       subtitle: profile.rankTitle,
     );
@@ -381,7 +386,7 @@ Widget _mediaBackground(AppConfig config, String? value) {
 ImageProvider _mediaProvider(
   AppConfig config,
   String? value, {
-  required String fallback,
+  String? fallback,
 }) {
   if (AppImages.isAssetPath(value)) return AssetImage(value!);
   return AppImages.imageProvider(

@@ -332,7 +332,6 @@ Future<void> _pumpGolden(
       for (final asset in [
         AppImages.coastPineTwilight,
         AppImages.capeFiolentFog,
-        AppImages.travelerPortrait,
         AppImages.welcomeSunset,
         AppImages.coastalBayHills,
       ])

@@ -23,6 +23,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/companions/presentation/companions_entry_card.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/presentation/place_details_screen.dart';
@@ -275,6 +276,22 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
                             config: config,
                             avatarUrl: route.authorAvatarUrl,
                           ),
+                          // Without a picture, the author's character
+                          // (FRONTEND-97); editorial routes keep theirs.
+                          portrait: (route.authorAvatarUrl ?? '').isNotEmpty
+                              ? null
+                              : (route.ownerUserId ?? '').isEmpty
+                              ? const EditorialAvatar(size: 48)
+                              : UserAvatar(
+                                  userId: route.ownerUserId,
+                                  avatarUrl: null,
+                                  beanKind: route.authorBeanKind,
+                                  beanHat: route.authorBeanHat,
+                                  size: 48,
+                                  own:
+                                      route.ownerUserId ==
+                                      ref.watch(sessionProvider).userId,
+                                ),
                           isExpert: route.authorIsExpert,
                           onAuthorTap: onAuthorTap,
                           menuAnchorKey: _menuAnchorKey,
@@ -1144,11 +1161,13 @@ class _AuthorRow extends StatelessWidget {
     required this.onMore,
     required this.menuAnchorKey,
     this.onAuthorTap,
+    this.portrait,
   });
 
   final String name;
   final String subtitle;
   final ImageProvider avatar;
+  final Widget? portrait;
   final bool isExpert;
   final VoidCallback onMore;
   final GlobalKey menuAnchorKey;
@@ -1169,7 +1188,7 @@ class _AuthorRow extends StatelessWidget {
                   child: AppExpertFrame(
                     isExpert: isExpert,
                     borderRadius: BorderRadius.circular(999),
-                    child: CircleAvatar(backgroundImage: avatar),
+                    child: portrait ?? CircleAvatar(backgroundImage: avatar),
                   ),
                 ),
                 const SizedBox(width: 12),

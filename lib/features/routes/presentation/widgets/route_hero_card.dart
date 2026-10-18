@@ -18,6 +18,7 @@ import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/format/rating_format.dart';
 import 'package:tourism_mobile/core/haptics/app_haptics.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/favorites/application/favorites_provider.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/routes/domain/route.dart';
@@ -281,11 +282,27 @@ class RouteHeroCard extends ConsumerWidget {
         (sessionName.isNotEmpty &&
             (authorName == sessionName ||
                 authorName.startsWith(sessionName.split(' ').first)));
+    final authorPicture =
+        resolvedAuthorAvatar ?? (isOwnRoute ? session.avatarUrl : null);
     final avatar = AppImages.avatarProvider(
       config: config,
-      avatarUrl:
-          resolvedAuthorAvatar ?? (isOwnRoute ? session.avatarUrl : null),
+      avatarUrl: authorPicture,
     );
+    // A person without a picture shows their character (FRONTEND-97); an
+    // editorial route has no person and keeps its picture.
+    final ownerId = route.ownerUserId;
+    final Widget? portrait = authorPicture != null && authorPicture.isNotEmpty
+        ? null
+        : ownerId != null && ownerId.isNotEmpty
+        ? UserAvatar(
+            userId: ownerId,
+            avatarUrl: null,
+            beanKind: route.authorBeanKind,
+            beanHat: route.authorBeanHat,
+            size: 37,
+            own: ownerId == session.userId,
+          )
+        : const EditorialAvatar(size: 37);
     final canOpenAuthor =
         route.ownerUserId != null && route.ownerUserId!.isNotEmpty;
     final resolvedAuthorIsExpert = authorIsExpert ?? route.authorIsExpert;
@@ -299,6 +316,7 @@ class RouteHeroCard extends ConsumerWidget {
         variant: variant,
         visualProgress: visualProgress.clamp(0, 1),
         authorAvatar: avatar,
+        authorPortrait: portrait,
         authorIsExpert: resolvedAuthorIsExpert,
         recommendationReason: recommendationReason,
         matchPercent: matchPercent,
@@ -333,6 +351,7 @@ class _RouteCardContent extends StatefulWidget {
     required this.visualProgress,
     required this.authorAvatar,
     required this.authorIsExpert,
+    this.authorPortrait,
     this.recommendationReason,
     this.matchPercent,
     this.matchPartial = false,
@@ -349,6 +368,10 @@ class _RouteCardContent extends StatefulWidget {
   final RouteCardVariant variant;
   final double visualProgress;
   final ImageProvider authorAvatar;
+
+  /// The author's character, in place of [authorAvatar] when they have no
+  /// picture (FRONTEND-97).
+  final Widget? authorPortrait;
   final bool authorIsExpert;
   final String? recommendationReason;
   final int? matchPercent;
@@ -486,11 +509,15 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                                       AvatarPerson(
                                         userId: route.ownerUserId,
                                         avatarUrl: route.authorAvatarUrl,
+                                        beanKind: route.authorBeanKind,
+                                        beanHat: route.authorBeanHat,
                                       ),
                                       for (final coauthor in route.coauthors)
                                         AvatarPerson(
                                           userId: coauthor.userId,
                                           avatarUrl: coauthor.avatarUrl,
+                                          beanKind: coauthor.beanKind,
+                                          beanHat: coauthor.beanHat,
                                         ),
                                     ],
                                   )
@@ -508,10 +535,12 @@ class _RouteCardContentState extends State<_RouteCardContent> {
                                           : null,
                                       shape: BoxShape.circle,
                                     ),
-                                    child: CircleAvatar(
-                                      radius: 18.5,
-                                      backgroundImage: authorAvatar,
-                                    ),
+                                    child:
+                                        widget.authorPortrait ??
+                                        CircleAvatar(
+                                          radius: 18.5,
+                                          backgroundImage: authorAvatar,
+                                        ),
                                   ),
                                 const SizedBox(width: 10),
                                 Expanded(

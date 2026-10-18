@@ -38,7 +38,6 @@ void main() {
               displayName: 'КРЫМТРИП',
               rank: base.rank,
               coverImageAsset: base.coverImageAsset,
-              avatarImageAsset: base.avatarImageAsset,
               achievementPages: const [],
               publishedRoutes: const [],
             );
@@ -90,7 +89,6 @@ void main() {
                 displayName: 'КРЫМТРИП',
                 rank: base.rank,
                 coverImageAsset: base.coverImageAsset,
-                avatarImageAsset: base.avatarImageAsset,
                 achievementPages: [achievements],
                 publishedRoutes: const [],
               );

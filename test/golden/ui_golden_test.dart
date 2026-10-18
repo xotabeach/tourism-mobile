@@ -519,7 +519,6 @@ Future<void> _pumpGolden(
         AppImages.coastPineTwilight,
         AppImages.capeFiolentFog,
         AppImages.coastalBayHills,
-        AppImages.travelerPortrait,
       ])
         precacheImage(AssetImage(asset), context),
     ]);

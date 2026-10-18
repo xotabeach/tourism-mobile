@@ -500,7 +500,6 @@ Future<void> _pumpGolden(
         'assets/images/route_header.jpg',
         AppImages.coastPineTwilight,
         AppImages.capeFiolentFog,
-        AppImages.travelerPortrait,
         AppImages.welcomeSunset,
         AppImages.coastalBayHills,
       ])
