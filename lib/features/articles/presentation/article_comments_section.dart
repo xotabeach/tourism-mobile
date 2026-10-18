@@ -15,6 +15,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/domain/articles_repository.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/moderation/domain/content_report.dart';
 import 'package:tourism_mobile/features/moderation/presentation/report_sheet.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -263,16 +264,25 @@ class _ArticleCommentTileState extends ConsumerState<_ArticleCommentTile> {
               ),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 17,
-                  backgroundImage: AppImages.imageProvider(
-                    resolvedUrl: AppImages.resolveMediaUrl(
-                      config,
-                      comment.authorAvatarUrl,
+                if ((comment.authorAvatarUrl ?? '').isEmpty)
+                  UserAvatar(
+                    userId: comment.authorUserId,
+                    avatarUrl: null,
+                    beanKind: comment.authorBeanKind,
+                    beanHat: comment.authorBeanHat,
+                    size: 34,
+                  )
+                else
+                  CircleAvatar(
+                    radius: 17,
+                    backgroundImage: AppImages.imageProvider(
+                      resolvedUrl: AppImages.resolveMediaUrl(
+                        config,
+                        comment.authorAvatarUrl,
+                      ),
+                      assetFallback: AppImages.travelerPortrait,
                     ),
-                    assetFallback: AppImages.travelerPortrait,
                   ),
-                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(

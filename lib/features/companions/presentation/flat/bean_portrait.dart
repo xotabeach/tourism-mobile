@@ -17,9 +17,7 @@ class BeanPortrait extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox.square(
     dimension: size,
-    child: ClipOval(
-      child: CustomPaint(painter: BeanPortraitPainter(look)),
-    ),
+    child: ClipOval(child: CustomPaint(painter: BeanPortraitPainter(look))),
   );
 }
 

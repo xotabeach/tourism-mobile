@@ -326,6 +326,8 @@ final publicProfileProvider = FutureProvider.family<ProfileSnapshot, String>((
       avatarImageAsset: AppImages.travelerPortrait,
       avatarImageUrl: resolve(bundle.user.avatarUrl),
       coverImageUrl: resolve(bundle.user.coverUrl),
+      beanKind: bundle.user.beanKind,
+      beanHat: bundle.user.beanHat,
       achievementPages: achievementPages,
       publishedRoutes: bundle.routes,
       likedByMe: bundle.user.likedByMe,

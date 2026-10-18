@@ -160,6 +160,8 @@ class ArticleSummary {
     required this.authorDisplayName,
     required this.createdAt,
     this.authorAvatarUrl,
+    this.authorBeanKind,
+    this.authorBeanHat,
     this.authorRankTitle,
     this.authorIsExpert = false,
     this.relatedRouteId,
@@ -182,6 +184,11 @@ class ArticleSummary {
   final String authorUserId;
   final String authorDisplayName;
   final String? authorAvatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? authorBeanKind;
+  final String? authorBeanHat;
   final String? authorRankTitle;
 
   /// Проверенный эксперт: карточка и аватар получают градиентную рамку,
@@ -210,6 +217,8 @@ class ArticleSummary {
       authorDisplayName:
           json['author_display_name'] as String? ?? 'Путешественник',
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorBeanKind: json['author_bean_kind'] as String?,
+      authorBeanHat: json['author_bean_hat'] as String?,
       authorRankTitle: json['author_rank_title'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
       relatedRouteId: json['related_route_id'] as String?,
@@ -239,6 +248,8 @@ class Article {
     required this.authorDisplayName,
     required this.createdAt,
     this.authorAvatarUrl,
+    this.authorBeanKind,
+    this.authorBeanHat,
     this.authorRankTitle,
     this.authorIsExpert = false,
     this.relatedRouteId,
@@ -263,6 +274,11 @@ class Article {
   final String authorUserId;
   final String authorDisplayName;
   final String? authorAvatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? authorBeanKind;
+  final String? authorBeanHat;
   final String? authorRankTitle;
 
   /// Проверенный эксперт: карточка и аватар получают градиентную рамку,
@@ -303,6 +319,8 @@ class Article {
       authorUserId: authorUserId,
       authorDisplayName: authorDisplayName,
       authorAvatarUrl: authorAvatarUrl,
+      authorBeanKind: authorBeanKind,
+      authorBeanHat: authorBeanHat,
       authorRankTitle: authorRankTitle,
       authorIsExpert: authorIsExpert,
       relatedRouteId: relatedRouteId,
@@ -333,6 +351,8 @@ class Article {
       authorDisplayName:
           json['author_display_name'] as String? ?? 'Путешественник',
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorBeanKind: json['author_bean_kind'] as String?,
+      authorBeanHat: json['author_bean_hat'] as String?,
       authorRankTitle: json['author_rank_title'] as String?,
       authorIsExpert: json['author_is_expert'] as bool? ?? false,
       relatedRouteId: json['related_route_id'] as String?,
@@ -430,6 +450,8 @@ class ArticleComment {
     required this.status,
     required this.createdAt,
     this.authorAvatarUrl,
+    this.authorBeanKind,
+    this.authorBeanHat,
     this.authorRankTitle,
     this.replyToCommentId,
   });
@@ -439,6 +461,11 @@ class ArticleComment {
   final String authorUserId;
   final String authorDisplayName;
   final String? authorAvatarUrl;
+
+  /// The character and hat for the avatar without a picture
+  /// (FRONTEND-97); null is the one the account was given.
+  final String? authorBeanKind;
+  final String? authorBeanHat;
 
   /// Ранг автора под именем — как на макете страницы блога.
   final String? authorRankTitle;
@@ -455,6 +482,8 @@ class ArticleComment {
       authorDisplayName:
           json['author_display_name'] as String? ?? 'Путешественник',
       authorAvatarUrl: json['author_avatar_url'] as String?,
+      authorBeanKind: json['author_bean_kind'] as String?,
+      authorBeanHat: json['author_bean_hat'] as String?,
       authorRankTitle: json['author_rank_title'] as String?,
       body: json['body'] as String? ?? '',
       status: ArticleCommentStatus.fromApi(json['status'] as String?),

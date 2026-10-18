@@ -97,9 +97,16 @@ class ProfileSnapshot {
     this.totalDistanceMeters = 0,
     this.publishedArticlesCount = 0,
     this.articleLikesCount = 0,
+    this.beanKind,
+    this.beanHat,
   });
 
   final String displayName;
+
+  /// Someone else's character and hat for the portrait avatar when they
+  /// have no picture (FRONTEND-97); one's own comes from the settings.
+  final String? beanKind;
+  final String? beanHat;
   final ProfileRank rank;
   final String coverImageAsset;
   final String avatarImageAsset;

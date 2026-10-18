@@ -24,6 +24,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_card.dart';
 import 'package:tourism_mobile/features/companions/application/companions_providers.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/home/presentation/all_list_screen.dart';
 import 'package:tourism_mobile/features/home/presentation/home_top_card.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
@@ -691,12 +692,7 @@ class _HomeHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final config = ref.watch(appConfigProvider);
     final unread = ref.watch(notificationsUnreadCountProvider);
-    final avatar = AppImages.avatarProvider(
-      config: config,
-      avatarUrl: avatarUrl,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -713,10 +709,11 @@ class _HomeHeader extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundColor: AppColors.mistDark,
-                          backgroundImage: avatar,
+                        UserAvatar(
+                          userId: ref.watch(myUserIdProvider),
+                          avatarUrl: avatarUrl,
+                          size: 48,
+                          own: true,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -1012,10 +1009,18 @@ class _TopTravelerCard extends StatelessWidget {
                                   ? null
                                   : Border.all(color: ringColor, width: 2),
                             ),
-                            child: CircleAvatar(
-                              backgroundColor: AppColors.mistDark,
-                              backgroundImage: avatar,
-                            ),
+                            child: (traveler.avatarUrl ?? '').isEmpty
+                                ? UserAvatar(
+                                    userId: traveler.id,
+                                    avatarUrl: null,
+                                    beanKind: traveler.beanKind,
+                                    beanHat: traveler.beanHat,
+                                    size: 50,
+                                  )
+                                : CircleAvatar(
+                                    backgroundColor: AppColors.mistDark,
+                                    backgroundImage: avatar,
+                                  ),
                           ),
                         ),
                       ),

@@ -16,6 +16,7 @@ import 'package:tourism_mobile/core/design/components/focus_highlight.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/media/photo_editor_screen.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/features/onboarding/application/session_provider.dart';
 import 'package:tourism_mobile/features/places/application/place_reviews_providers.dart';
 import 'package:tourism_mobile/features/places/data/place_reviews_repository.dart';
@@ -1362,13 +1363,22 @@ class _ReviewCardState extends ConsumerState<_ReviewCard> {
               ),
             Row(
               children: [
-                CircleAvatar(
-                  radius: 17,
-                  backgroundImage: AppImages.imageProvider(
-                    resolvedUrl: avatar,
-                    assetFallback: AppImages.travelerPortrait,
+                if ((review.authorAvatarUrl ?? '').isEmpty)
+                  UserAvatar(
+                    userId: review.authorUserId,
+                    avatarUrl: null,
+                    beanKind: review.authorBeanKind,
+                    beanHat: review.authorBeanHat,
+                    size: 34,
+                  )
+                else
+                  CircleAvatar(
+                    radius: 17,
+                    backgroundImage: AppImages.imageProvider(
+                      resolvedUrl: avatar,
+                      assetFallback: AppImages.travelerPortrait,
+                    ),
                   ),
-                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(

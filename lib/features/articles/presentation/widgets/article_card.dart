@@ -16,6 +16,7 @@ import 'package:tourism_mobile/core/theme/app_images.dart';
 import 'package:tourism_mobile/features/articles/application/articles_providers.dart';
 import 'package:tourism_mobile/features/articles/domain/article.dart';
 import 'package:tourism_mobile/features/articles/presentation/widgets/article_images.dart';
+import 'package:tourism_mobile/features/companions/presentation/user_avatar.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 /// Article card for a feed/section — the "Мои статьи" profile section, the
@@ -257,7 +258,15 @@ class _CardFooter extends StatelessWidget {
             AppExpertFrame(
               isExpert: article.authorIsExpert,
               borderRadius: BorderRadius.circular(17),
-              child: CircleAvatar(radius: 17, backgroundImage: avatar),
+              child: (article.authorAvatarUrl ?? '').isEmpty
+                  ? UserAvatar(
+                      userId: article.authorUserId,
+                      avatarUrl: null,
+                      beanKind: article.authorBeanKind,
+                      beanHat: article.authorBeanHat,
+                      size: 34,
+                    )
+                  : CircleAvatar(radius: 17, backgroundImage: avatar),
             ),
             const SizedBox(width: 9),
             Expanded(
