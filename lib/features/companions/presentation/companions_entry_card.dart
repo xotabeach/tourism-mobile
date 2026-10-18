@@ -65,59 +65,69 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
         .where((g) => g.routeId == widget.routeId && g.status.isLive)
         .firstOrNull;
     // The designer's card (FRONTEND-87): text and buttons on the left, the
-    // four characters on the right, cut by the card's edge.
+    // four characters on the right, cut by the card's edge. Laid out at the
+    // mockup's width and scaled to the screen as a whole, so the picture is
+    // the same on every phone, only its size changes (owner, 2026-10-18:
+    // on a wider phone the characters stood differently).
     return LayoutBuilder(
-      builder: (context, constraints) {
-        final textWidth = constraints.maxWidth * 0.63;
-        return Container(
-          width: constraints.maxWidth,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: _cardFill,
-            borderRadius: BorderRadius.circular(14),
+      builder: (context, constraints) => SizedBox(
+        width: constraints.maxWidth,
+        child: FittedBox(
+          fit: BoxFit.fitWidth,
+          alignment: Alignment.topLeft,
+          child: SizedBox(width: _mockupWidth, child: _card(here)),
+        ),
+      ),
+    );
+  }
+
+  Widget _card(CompanionGroup? here) {
+    const textWidth = _mockupWidth * 0.63;
+    return Container(
+      width: _mockupWidth,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: _cardFill,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      // The outline's width, as when it was part of the decoration: the
+      // card and its characters stay exactly where they were.
+      padding: const EdgeInsets.all(2),
+      // Over the characters, so the yellow one standing in the corner
+      // does not cover the outline (FRONTEND-98).
+      foregroundDecoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _blue, width: 2),
+      ),
+      child: Stack(
+        children: [
+          const Positioned(
+            left: textWidth,
+            right: 0,
+            top: 6,
+            bottom: 0,
+            child: ExcludeSemantics(child: CustomPaint(painter: _FourBeans())),
           ),
-          // The outline's width, as when it was part of the decoration: the
-          // card and its characters stay exactly where they were.
-          padding: const EdgeInsets.all(2),
-          // Over the characters, so the yellow one standing in the corner
-          // does not cover the outline (FRONTEND-98).
-          foregroundDecoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: _blue, width: 2),
+          // The full card, with both buttons, sets the height in every
+          // state: with one button the card stays as tall and the
+          // characters keep their size (FRONTEND-100).
+          Visibility(
+            visible: here == null,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: _content(textWidth, null),
           ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: textWidth,
-                right: 0,
-                top: 6,
-                bottom: 0,
-                child: const ExcludeSemantics(
-                  child: CustomPaint(painter: _FourBeans()),
-                ),
-              ),
-              // The full card, with both buttons, sets the height in every
-              // state: with one button the card stays as tall and the
-              // characters keep their size (FRONTEND-100).
-              Visibility(
-                visible: here == null,
-                maintainSize: true,
-                maintainAnimation: true,
-                maintainState: true,
-                child: _content(textWidth, null),
-              ),
-              if (here != null)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: textWidth,
-                  child: _content(textWidth, here),
-                ),
-            ],
-          ),
-        );
-      },
+          if (here != null)
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: textWidth,
+              child: _content(textWidth, here),
+            ),
+        ],
+      ),
     );
   }
 
@@ -180,6 +190,9 @@ class _CompanionsEntryCardState extends ConsumerState<CompanionsEntryCard> {
     ),
   );
 }
+
+/// The card's width on the 375-point mockup.
+const _mockupWidth = 343.0;
 
 const _blue = Color(0xFF1D71CB);
 const _cardFill = Color(0xFFE8F0FA);
