@@ -16,6 +16,7 @@ import 'package:tourism_mobile/core/design/components/app_async_error.dart';
 import 'package:tourism_mobile/core/design/components/app_notice.dart';
 import 'package:tourism_mobile/core/design/components/app_skeleton.dart';
 import 'package:tourism_mobile/core/design/components/details_hero_loading_view.dart';
+import 'package:tourism_mobile/core/diagnostics/route_open_watch.dart';
 import 'package:tourism_mobile/core/errors/app_failure.dart';
 import 'package:tourism_mobile/core/format/rating_format.dart';
 import 'package:tourism_mobile/core/theme/app_images.dart';
@@ -87,6 +88,7 @@ class _RouteDetailsScreenState extends ConsumerState<RouteDetailsScreen>
   @override
   void initState() {
     super.initState();
+    RouteOpenWatch.shown(widget.routeId);
     _galleryController = AnimationController(
       vsync: this,
       duration: AppMotion.emphasized,

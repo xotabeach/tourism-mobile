@@ -488,12 +488,7 @@ class _InPlaceSearchBodyState extends ConsumerState<InPlaceSearchBody> {
           title: route.name,
           subtitle: 'Маршрут',
           icon: Icons.route_outlined,
-          onTap: () => unawaited(
-            context.pushNamed(
-              AppRouteNames.routeDetails,
-              pathParameters: {'id': route.id},
-            ),
-          ),
+          onTap: () => openRouteDetails(context, route.id),
         ),
       for (final profile in people)
         _Suggestion(

@@ -535,13 +535,7 @@ class _DownloadedRoutesSheetState extends State<_DownloadedRoutesSheet> {
                     ? null
                     : () {
                         Navigator.of(context).pop();
-                        unawaited(
-                          context.pushNamed(
-                            AppRouteNames.routeDetails,
-                            pathParameters: {'id': item.id},
-                            extra: item.route,
-                          ),
-                        );
+                        openRouteDetails(context, item.id, summary: item.route);
                       },
                 onRemove: () => unawaited(_remove(item)),
               );

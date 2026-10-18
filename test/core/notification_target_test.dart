@@ -3,11 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:tourism_mobile/core/design/components/focus_highlight.dart';
+import 'package:tourism_mobile/core/diagnostics/route_open_watch.dart';
 import 'package:tourism_mobile/core/notifications/notification_target.dart';
 import 'package:tourism_mobile/features/settings/data/notifications_repository.dart';
 import 'package:tourism_mobile/routing/app_router.dart';
 
 // FRONTEND-74: a notification opens what it is about, right at the comment.
+// FRONTEND-85: a route opens on the root-level page, not inside the tab.
 
 GoRouter _router() {
   Widget page(GoRouterState state) =>
@@ -18,6 +20,11 @@ GoRouter _router() {
       GoRoute(
         name: AppRouteNames.routeDetails,
         path: '/routes/:id',
+        builder: (_, state) => page(state),
+      ),
+      GoRoute(
+        name: AppRouteNames.routeDetailsStandalone,
+        path: '/route/:id',
         builder: (_, state) => page(state),
       ),
       GoRoute(
@@ -49,6 +56,8 @@ Future<String> _open(
     anchorId: anchor,
   );
   await tester.pumpAndSettle();
+  // The test pages are not route pages: let the blank-page watch finish.
+  await tester.pump(RouteOpenWatch.timeout);
   if (!opened) return 'none';
   // Each test page prints the location it was opened with.
   return tester.widgetList<Text>(find.byType(Text)).last.data!;
@@ -69,12 +78,12 @@ void main() {
   ) async {
     expect(
       await _open(tester, type: 'route', id: 'r1', anchor: 'v2'),
-      '/routes/r1?tab=reviews&review=v2',
+      '/route/r1?tab=reviews&review=v2',
     );
   });
 
   testWidgets('without an anchor the object opens at the top', (tester) async {
-    expect(await _open(tester, type: 'route', id: 'r1'), '/routes/r1');
+    expect(await _open(tester, type: 'route', id: 'r1'), '/route/r1');
     expect(await _open(tester, type: 'article', id: 'a1'), '/articles/a1');
   });
 
