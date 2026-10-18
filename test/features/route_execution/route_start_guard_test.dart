@@ -132,7 +132,7 @@ void main() {
       ..snapshot = _run(routeId: 'route-other', name: 'Ялта: набережная');
     await _open(tester, _Offline(), runs: runs);
 
-    expect(find.text('Сначала заверши текущий маршрут'), findsOneWidget);
+    expect(find.text('Сначала завершите текущий маршрут'), findsOneWidget);
     expect(find.text('Сейчас проходится «Ялта: набережная»'), findsOneWidget);
     expect(
       runs.snapshot?.id,
@@ -170,7 +170,7 @@ void main() {
     final runs = MemoryRouteExecutionOfflineStore();
     await _open(tester, _Offline(), runs: runs);
 
-    expect(find.text('Сначала заверши текущий маршрут'), findsNothing);
+    expect(find.text('Сначала завершите текущий маршрут'), findsNothing);
     expect(runs.snapshot?.routeId, _routeId);
     expect(
       runs.entries.values.where((e) => e.action == RouteExecutionAction.start),
@@ -184,7 +184,7 @@ void main() {
     final repo = _Raced();
     await _open(tester, repo, runs: MemoryRouteExecutionOfflineStore());
 
-    expect(find.text('Сначала заверши текущий маршрут'), findsOneWidget);
+    expect(find.text('Сначала завершите текущий маршрут'), findsOneWidget);
     expect(find.text('Сейчас проходится «Ялта: набережная»'), findsOneWidget);
     expect(find.text('Маршрут нельзя начать сейчас'), findsNothing);
   });

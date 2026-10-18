@@ -222,7 +222,7 @@ class ExecutionWarningCard extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Проверь актуальность дороги и погоды перед выходом. ${warnings.take(2).join(', ')}',
+                'Проверьте актуальность дороги и погоды перед выходом. ${warnings.take(2).join(', ')}',
                 style: AppTypography.routeMetadata.copyWith(
                   color: const Color(0xFF6E4B00),
                 ),
