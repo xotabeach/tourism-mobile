@@ -343,12 +343,12 @@ void _paintCardYellow(Canvas canvas, Size size) {
     Paint()..color = Colors.white,
   );
 
-  // Level, centred over the face: cream from 620 to 783, the crown's top
-  // at 1072, the brim's ends at 1139.
+  // Level, centred over the face, set 3 lower than the mockup's 1072 so
+  // the brim rests on the head (owner, 2026-10-16).
   paintHatArtIn(
     canvas,
     BeanHat.strawHat,
-    const Rect.fromLTWH(620.5, 1072, 162, 67),
+    const Rect.fromLTWH(620.5, 1075, 162, 67),
   );
   canvas.restore();
 }
