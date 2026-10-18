@@ -293,7 +293,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
       return [
         header,
         const SizedBox(height: 16),
-        CampfireScene(members: _camp(group)),
+        CampfireScene(members: _camp(group), radius: 10),
         const SizedBox(height: 16),
         const _Note(text: 'Ждём, когда организатор впустит вас в группу.'),
         const SizedBox(height: 12),
@@ -331,7 +331,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
   List<Widget> _invitation(CompanionGroup group, Widget header) => [
     header,
     const SizedBox(height: 16),
-    CampfireScene(members: _camp(group)),
+    CampfireScene(members: _camp(group), radius: 10),
     const SizedBox(height: 16),
     _Note(
       text:
@@ -441,6 +441,7 @@ class _CompanionGroupScreenState extends ConsumerState<CompanionGroupScreen> {
       const SizedBox(height: 16),
       LayoutBuilder(
         builder: (context, constraints) => CampfireScene(
+          radius: 10,
           height: constraints.maxWidth * 228 / 343,
           labelsAbove: true,
           members: _camp(group),

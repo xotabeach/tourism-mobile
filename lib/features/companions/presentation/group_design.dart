@@ -21,9 +21,9 @@ abstract final class GroupDesign {
   static const blue = Color(0xFF1D71CB);
   static const codeFill = Color(0xFFEDF4FC);
   static const dark = Color(0xFF212121);
-  static const dangerFill = Color(0xFFFFEAEC);
-  static const dangerBorder = Color(0xFFFFB2B3);
-  static const danger = Color(0xFFE5484D);
+  static const dangerFill = Color(0xFFFAE6E7);
+  static const dangerBorder = Color(0xFFDB4C4D);
+  static const danger = Color(0xFFDB4C4D);
   static const outline = Color(0xFFE3E3E5);
   static const organizer = Color(0xFF7FB0E8);
 }
@@ -39,8 +39,8 @@ class GroupTitle extends StatelessWidget {
     text,
     style: const TextStyle(
       fontFamily: AppFonts.rubik,
-      fontSize: 22,
-      fontWeight: FontWeight.w600,
+      fontSize: 19.5,
+      fontWeight: FontWeight.w500,
       height: 1.2,
       color: AppColors.primaryInk,
     ),
@@ -106,7 +106,7 @@ class GroupRouteCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: AppFonts.rubik,
-                          fontSize: 15,
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primaryInk,
                         ),
@@ -118,7 +118,7 @@ class GroupRouteCard extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontFamily: AppFonts.rubik,
-                          fontSize: 13,
+                          fontSize: 12,
                           color: AppColors.secondaryInk,
                         ),
                       ),
@@ -158,8 +158,8 @@ class GroupDarkButton extends StatelessWidget {
       shape: const StadiumBorder(),
       textStyle: const TextStyle(
         fontFamily: AppFonts.rubik,
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
+        fontSize: 15,
+        fontWeight: FontWeight.w300,
       ),
     ),
     child: Text(label),
@@ -181,11 +181,11 @@ class GroupDangerButton extends StatelessWidget {
       foregroundColor: GroupDesign.danger,
       minimumSize: const Size.fromHeight(43),
       shape: const StadiumBorder(),
-      side: const BorderSide(color: GroupDesign.dangerBorder),
+      side: const BorderSide(color: GroupDesign.dangerBorder, width: 0.8),
       textStyle: const TextStyle(
         fontFamily: AppFonts.rubik,
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
+        fontSize: 14.5,
+        fontWeight: FontWeight.w300,
       ),
     ),
     child: Text(label),
@@ -275,7 +275,7 @@ class GroupMemberRow extends StatelessWidget {
                     style: const TextStyle(
                       fontFamily: AppFonts.rubik,
                       fontSize: 17,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.primaryInk,
                     ),
                   ),
@@ -336,7 +336,8 @@ class GroupStatRow extends StatelessWidget {
             label,
             style: const TextStyle(
               fontFamily: AppFonts.rubik,
-              fontSize: 15,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w300,
               color: AppColors.secondaryInk,
             ),
           ),
@@ -345,8 +346,8 @@ class GroupStatRow extends StatelessWidget {
           value,
           style: const TextStyle(
             fontFamily: AppFonts.rubik,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+            fontSize: 12.5,
+            fontWeight: FontWeight.w500,
             color: AppColors.primaryInk,
           ),
         ),
@@ -406,8 +407,8 @@ class GroupCodeBlock extends StatelessWidget {
                     'Код группы:',
                     style: TextStyle(
                       fontFamily: AppFonts.rubik,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16.5,
+                      fontWeight: FontWeight.w500,
                       color: AppColors.primaryInk,
                     ),
                   ),
@@ -474,7 +475,7 @@ class GroupCodeBlock extends StatelessWidget {
                         textStyle: const TextStyle(
                           fontFamily: AppFonts.rubik,
                           fontSize: 16,
-                          fontWeight: FontWeight.w400,
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
                       child: const Text('Поделиться кодом'),
@@ -515,35 +516,35 @@ class _QrHolder extends StatelessWidget {
         clipBehavior: Clip.none,
         children: [
           const Positioned.fill(child: CustomPaint(painter: _HolderPainter())),
+          // Hands peeking out from behind the QR's sides, as drawn.
+          for (final left in [-qr * 0.04, qr * 0.92])
+            Positioned(
+              left: left,
+              top: 69 + qr * 0.19,
+              width: qr * 0.12,
+              height: qr * 0.14,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: BeanKind.tall.art.data.bodyTop,
+                  borderRadius: BorderRadius.circular(qr * 0.04),
+                ),
+              ),
+            ),
           Positioned(
             left: 0,
             top: 69,
             width: qr,
             height: qr,
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: GroupDesign.dark, width: 1.4),
               ),
-              child: GroupQrImage(code: code, size: qr - 15),
+              child: GroupQrImage(code: code, size: qr - 13, quiet: 0),
             ),
           ),
-          // Hands on the QR's sides.
-          for (final x in [-4.0, qr - 6])
-            Positioned(
-              left: x,
-              top: 69 + qr * 0.3,
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(
-                  color: BeanKind.tall.art.data.limbColor,
-                  shape: BoxShape.circle,
-                ),
-              ),
-            ),
         ],
       );
     },
@@ -564,7 +565,7 @@ class _HolderPainter extends CustomPainter {
       Offset(size.width / 2, size.height - 4),
       height,
       look.color,
-      const BeanPose(look: look),
+      const BeanPose(look: look, armless: true),
     );
   }
 

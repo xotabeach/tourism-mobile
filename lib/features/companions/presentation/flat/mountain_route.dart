@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' show Tangent;
 
 import 'package:flutter/material.dart';
 
@@ -35,7 +36,7 @@ class MountainRoute extends StatelessWidget {
     aspectRatio: aspect,
     child: DecoratedBox(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: const [
           BoxShadow(
             color: Color(0x14000000),
@@ -45,7 +46,7 @@ class MountainRoute extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(10),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -93,19 +94,9 @@ class _TrailPainter extends CustomPainter {
       return designer[i] + (designer[i + 1] - designer[i]) * f;
     }
 
-    Offset pointAt(double fraction) {
-      final target = fraction.clamp(0.0, 1.0) * total;
-      for (var i = 1; i < pts.length; i++) {
-        if (lengths[i] >= target) {
-          final f = (target - lengths[i - 1]) / (lengths[i] - lengths[i - 1]);
-          return Offset.lerp(pts[i - 1], pts[i], f.isFinite ? f : 0)!;
-        }
-      }
-      return pts.last;
-    }
-
     // The dashed trail, a smooth line through the traced points.
     final trail = Path()..moveTo(pts.first.dx, pts.first.dy);
+    final curve = <double>[0];
     for (var i = 0; i < pts.length - 1; i++) {
       final p0 = pts[i == 0 ? 0 : i - 1];
       final p1 = pts[i];
@@ -114,7 +105,35 @@ class _TrailPainter extends CustomPainter {
       final c1 = p1 + (p2 - p0) / 6;
       final c2 = p2 - (p3 - p1) / 6;
       trail.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
+      curve.add(
+        curve.last +
+            (Path()
+                  ..moveTo(p1.dx, p1.dy)
+                  ..cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy))
+                .computeMetrics()
+                .first
+                .length,
+      );
     }
+    final line = trail.computeMetrics().first;
+
+    /// How far along the drawn curve a [fraction] of the trace lies.
+    double curveAt(double fraction) {
+      final target = fraction.clamp(0.0, 1.0) * total;
+      for (var i = 1; i < pts.length; i++) {
+        if (lengths[i] >= target) {
+          final f = (target - lengths[i - 1]) / (lengths[i] - lengths[i - 1]);
+          return curve[i - 1] +
+              (curve[i] - curve[i - 1]) * (f.isFinite ? f : 0);
+        }
+      }
+      return line.length;
+    }
+
+    /// The point on the drawn line itself, so heads sit right on it.
+    Tangent tangentAt(double fraction) =>
+        line.getTangentForOffset(curveAt(fraction).clamp(0, line.length))!;
+    Offset pointAt(double fraction) => tangentAt(fraction).position;
     final dashPaint = Paint()
       ..color = _dash
       ..style = PaintingStyle.stroke
@@ -154,26 +173,65 @@ class _TrailPainter extends CustomPainter {
       label.paint(canvas, c - Offset(label.width / 2, label.height / 2));
     }
 
-    // Heads: grouped round the same spot, as on the mockup at the start.
-    const slots = [
-      Offset(-0.048, -0.026),
-      Offset(0, -0.052),
-      Offset(0.052, -0.026),
-      Offset(0.052, 0.024),
-      Offset(-0.048, 0.024),
-      Offset(0, 0.05),
-      Offset(-0.096, 0),
-      Offset(0.1, 0),
-    ];
-    final taken = <String, int>{};
+    // Heads. On the way between stops a head sits right on the line, the
+    // ones at the same spot one after another along it. At a stop the heads
+    // gather round its ring, off the line: first on the side above it, then
+    // below, then before and after it along the trail.
     final head = w * 0.04;
+    final groups = <double, int>{};
     for (final walker in walkers) {
+      groups[walker.at] = (groups[walker.at] ?? 0) + 1;
+    }
+    final placed = <double, int>{};
+    for (final walker in walkers) {
+      final index = placed[walker.at] = (placed[walker.at] ?? -1) + 1;
       final spot = stopFraction(walker.at, count);
-      final key = spot.toStringAsFixed(3);
-      final slot = taken.update(key, (n) => n + 1, ifAbsent: () => 0);
-      final at = pointAt(spot) + slots[slot % slots.length] * w;
+      final Offset at;
+      if (walker.at == walker.at.roundToDouble()) {
+        at = _besideStop(tangentAt(spot), index, outer, head, size);
+      } else {
+        final many = groups[walker.at]!;
+        final along = (index - (many - 1) / 2) * head * 1.05;
+        at = line
+            .getTangentForOffset((curveAt(spot) + along).clamp(0, line.length))!
+            .position;
+      }
       paintBeanHead(canvas, at, head, walker.kind, ring: head * 0.06);
     }
+  }
+
+  /// Where the [index]th head at a stop goes: off the line, on whichever
+  /// side keeps it inside the picture.
+  static Offset _besideStop(
+    Tangent stop,
+    int index,
+    double ring,
+    double head,
+    Size size,
+  ) {
+    final direction = stop.vector / stop.vector.distance;
+    var normal = Offset(direction.dy, -direction.dx);
+    if (normal.dy > 0) normal = -normal;
+    final reach = ring + head * 0.62;
+    final sides = [
+      normal,
+      -normal,
+      -direction,
+      direction,
+      (normal - direction) / math.sqrt2,
+      (normal + direction) / math.sqrt2,
+      (-normal - direction) / math.sqrt2,
+      (-normal + direction) / math.sqrt2,
+    ];
+    final inside = (Offset.zero & size).deflate(head / 2);
+    final fits = [
+      for (final side in sides)
+        if (inside.contains(stop.position + side * reach)) side,
+    ];
+    final pool = fits.isEmpty ? sides : fits;
+    final side = pool[index % pool.length];
+    final ringOut = index ~/ pool.length;
+    return stop.position + side * (reach + ringOut * head);
   }
 
   @override

@@ -52,8 +52,12 @@ class CampfireScene extends StatefulWidget {
     this.closeUp = false,
     this.shade = false,
     this.labelsAbove = false,
+    this.radius = 24,
     super.key,
   });
+
+  /// The corners: 10 on the designer's lobby (FRONTEND-88).
+  final double radius;
 
   /// Names over the heads, as on the designer's lobby (FRONTEND-88).
   final bool labelsAbove;
@@ -138,6 +142,7 @@ class _CampfireSceneState extends State<CampfireScene>
                 closeUp: widget.closeUp,
                 shade: widget.shade,
                 labelsAbove: widget.labelsAbove,
+                radius: widget.radius,
                 members: widget.members,
                 t: _idle.value,
                 depart: _depart.value,
@@ -158,11 +163,13 @@ class _CampPainter extends CustomPainter {
     this.closeUp = false,
     this.shade = false,
     this.labelsAbove = false,
+    this.radius = 24,
   });
 
   final bool closeUp;
   final bool shade;
   final bool labelsAbove;
+  final double radius;
 
   final List<CampMember> members;
   final double t;
@@ -172,7 +179,7 @@ class _CampPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     canvas.save();
-    canvas.clipRRect(RRect.fromRectAndRadius(rect, const Radius.circular(24)));
+    canvas.clipRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
 
     // The designer's camp (FRONTEND-86) covers the box, cropped round the
     // fire; everything below is drawn in its 362×241 frame.
@@ -307,11 +314,12 @@ class _CampPainter extends CustomPainter {
         paintLabel(
           canvas,
           labelsAbove
-              ? position.translate(0, -kindHeight - 6 / s - 4)
+              ? position.translate(0, -kindHeight - 9 / s - 6)
               : position.translate(0, 4),
           member.name,
-          size: math.max(10 / s, 7),
+          size: labelsAbove ? 7.5 / s : math.max(10 / s, 7),
           maxWidth: beanHeight * 1.6,
+          weight: labelsAbove ? FontWeight.w400 : FontWeight.w600,
         );
       }
     }
